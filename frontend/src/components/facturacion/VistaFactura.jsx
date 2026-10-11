@@ -10,6 +10,9 @@ import { colones, colonesExacto } from '../../utils/colones'
 import { useAuth } from '../../contexts/AuthContext'
 import { puedeAccion } from '../../utils/modulos'
 import DocumentoFiscal from '../../integrations/hacienda/DocumentoFiscal'
+import useEmisionFactura from '../../integrations/hacienda/useEmisionFactura'
+import BotonEmitirFactura from '../../integrations/hacienda/BotonEmitirFactura'
+import PanelEmisionFactura from '../../integrations/hacienda/PanelEmisionFactura'
 
 /**
  * Una factura, en su propia pantalla — y en el mismo lugar se corrige.
@@ -83,6 +86,13 @@ export default function VistaFactura({
   const { usuario } = useAuth()
   const puedeAnular = puedeAccion(usuario, 'anular-factura')
   const puedeAnularCobro = Boolean(onAnularCobro) && puedeAccion(usuario, 'anular-cobro')
+  // La emisión electrónica de ESTA factura: el botón de la barra y el panel
+  // de avance comparten este estado. Una histórica de Alegra ya fue emitida
+  // allá; una anulada o un borrador no se emiten.
+  const emision = useEmisionFactura(f.id, {
+    activo: !f.historica && f.estado === 'emitida',
+    onCambio: onFiscalCambio
+  })
   const direccionEmisor = [emisor.provincia, emisor.canton, emisor.distrito, emisor.barrio, emisor.otras_senas]
     .filter(Boolean).join(' ')
 
@@ -144,11 +154,19 @@ export default function VistaFactura({
     setError('')
   }, [editando, f.id])
 
+  // El comprobante de producción que tiene reservada esta factura, según el
+  // panel de emisión. Se mira además de `f` porque el panel se entera antes:
+  // entre que Hacienda la recibe y que esta pantalla relee la factura, el
+  // botón Editar quedaba ofreciendo un cambio que la base va a rechazar.
+  const comprobanteFiscal = emision.estado?.comprobante
+  const reservaFiscal = comprobanteFiscal?.ambiente === 'produccion' && comprobanteFiscal.estado !== 'rechazada'
+    ? comprobanteFiscal : null
   const razonNoEditable =
     f.estado === 'anulada' ? 'Está anulada.'
     : f.estado !== 'emitida' ? 'Todavía es un borrador.'
-    : f.electronica ? 'Ya se emitió electrónicamente: se corrige con una nota de crédito.'
-    : ['pendiente','enviada'].includes(f.haciendaEstado) ? 'Está reservada ante Hacienda. Consultá el resultado antes de editar.'
+    : (f.electronica || reservaFiscal?.estado === 'aceptada') ? 'Ya se emitió electrónicamente: se corrige con una nota de crédito.'
+    : emision.fase ? 'Se está emitiendo electrónicamente.'
+    : (['pendiente','enviada'].includes(f.haciendaEstado) || reservaFiscal) ? 'Está reservada ante Hacienda. Consultá el resultado antes de editar.'
     : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que anularlo, abajo en «Cobros».'
     : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada.'
     : null
@@ -310,11 +328,10 @@ export default function VistaFactura({
                 <PencilLine size={16} /> Editar factura
               </button>
 
-              {/* Preparar conserva el XML antes de cualquier envío. El estado
-                  aceptado viene de la consulta autenticada ante Hacienda. */}
-              {!f.historica && f.estado === 'emitida' && (
-                <DocumentoFiscal documento={f} onCambio={onFiscalCambio}/>
-              )}
+              {/* Un clic firma, envía y consulta; el avance se ve en el
+                  panel de abajo. El estado aceptado viene siempre de la
+                  consulta autenticada ante Hacienda. */}
+              <BotonEmitirFactura emision={emision} />
 
               {f.estado === 'emitida' && (
                 <>
@@ -344,6 +361,8 @@ export default function VistaFactura({
         </p>
       )}
 
+      {!editando && <PanelEmisionFactura emision={emision} />}
+
       {/* ---------- El documento ---------- */}
       <div className={`card overflow-hidden rounded-2xl ${editando ? 'ring-2 ring-primario-200' : ''}`}>
         {/* Emisor y documento — no se editan desde acá: viven en Configuración */}
@@ -371,11 +390,17 @@ export default function VistaFactura({
 
           <div className="shrink-0 sm:text-right">
             <div className="flex sm:justify-end">
-              {f.fiscal&&<p className="mb-2 break-all text-xs text-neutro-600">Consecutivo fiscal: {f.fiscal.consecutivo}<br/>Clave: {f.fiscal.clave}</p>}
               <EtiquetaTipoFactura electronica={f.electronica} tipoDocumento={f.fiscal?.tipo==='04'?'tiquete':f.tipoDocumento} />
             </div>
             <p className="mt-1 text-xl font-extrabold text-primario-600">{f.numero}</p>
             <div className="mt-1 flex sm:justify-end"><Estado f={f} /></div>
+            {/* Debajo y no al lado de la etiqueta: la clave tiene 50 dígitos y
+                en la misma fila se le montaba encima. */}
+            {f.fiscal && (
+              <p className="mt-2 break-all text-xs text-neutro-600">
+                Consecutivo fiscal: {f.fiscal.consecutivo}<br />Clave: {f.fiscal.clave}
+              </p>
+            )}
             <p className="mt-2 text-xs text-neutro-500">
               Creación: <strong className="text-neutro-700">{fecha(f.fecha)}</strong>
             </p>

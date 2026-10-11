@@ -49,7 +49,7 @@ async function datosCorreoFactura(id) {
   };
 }
 
-async function enviarFacturaPorCorreo(id, datos = {}) {
+async function enviarFacturaPorCorreo(id, datos = {}, { exigirFiscal = false } = {}) {
   // Frenar antes de consultar o armar el PDF; mailer mantiene además su propia
   // guarda. Las pruebas sustituyen el transporte, nunca abren SMTP real.
   if (salidasBloqueadas()) throw errorSalidaBloqueada('enviar facturas por correo');
@@ -58,6 +58,9 @@ async function enviarFacturaPorCorreo(id, datos = {}) {
   const mensaje = texto(datos.mensaje, 'el mensaje', 4000);
   const factura = await obtenerFactura(id);
   exigirEmitida(factura);
+  // La entrega automática promete "el PDF con los dos XML": si la factura no
+  // trae su comprobante aceptado, no sale un correo a medias con ese nombre.
+  if (exigirFiscal && !factura.fiscal) throw httpError(409, 'La factura todavía no está aceptada por Hacienda.');
   if (!mailer.estaConfigurado()) {
     const error = httpError(503, 'El envío de correo todavía no está configurado.');
     error.code = 'CORREO_NO_CONFIGURADO';
@@ -92,4 +95,43 @@ async function enviarFacturaPorCorreo(id, datos = {}) {
   return { para, numero: factura.numero, aceptado: true };
 }
 
-module.exports = { datosCorreoFactura, enviarFacturaPorCorreo };
+/**
+ * Entregarle al cliente su factura electrónica recién aceptada: el PDF, el
+ * XML firmado y la respuesta de Hacienda.
+ *
+ * SE MANDA SOLA, y es la excepción a la regla de arriba ("una persona
+ * confirma el destinatario"). El usuario lo pidió el 2026-10-11: «esta
+ * factura se le tiene que enviar al cliente por correo el pdf con los 2 XML».
+ * Entregar el comprobante es obligación de quien emite; dejarlo a un botón
+ * aparte es dejarlo a la memoria de quien factura. Va al correo de la FICHA
+ * del cliente, nunca a uno que venga en la petición.
+ *
+ * NO LANZA: la factura ya está aceptada y eso no depende del correo.
+ * Devuelve qué pasó, para que quede anotado y se vea en la factura:
+ *   { estado: 'enviado', para }
+ *   { estado: 'sin_correo', motivo }   la ficha no tiene un correo válido
+ *   { estado: 'error', para?, motivo } el servidor de correo no lo aceptó
+ * No reintenta sola: un envío incierto repetido son dos correos al cliente.
+ */
+async function entregarFacturaElectronica(id) {
+  let para = '';
+  try {
+    para = (await datosCorreoFactura(id)).para;
+    if (!para) return { estado: 'sin_correo', motivo: 'El cliente no tiene un correo válido en su ficha.' };
+    const factura = await obtenerFactura(id);
+    const numero = factura.fiscal?.consecutivo || factura.numero;
+    await enviarFacturaPorCorreo(id, {
+      para,
+      asunto: `Factura electrónica ${numero}`,
+      mensaje: `Adjuntamos su factura electrónica ${numero}, aceptada por el Ministerio de Hacienda: ` +
+        'el PDF, el comprobante XML y la respuesta de Hacienda.\n\nGracias por su compra.'
+    }, { exigirFiscal: true });
+    return { estado: 'enviado', para };
+  } catch (e) {
+    // Solo el texto de un error propio; el de nodemailer puede traer el
+    // servidor o el usuario y ya se reemplaza más arriba.
+    return { estado: 'error', ...(para ? { para } : {}), motivo: e?.status ? e.message : 'No se pudo enviar el correo al cliente.' };
+  }
+}
+
+module.exports = { datosCorreoFactura, enviarFacturaPorCorreo, entregarFacturaElectronica };

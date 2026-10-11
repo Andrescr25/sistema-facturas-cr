@@ -126,6 +126,17 @@ export function useFacturasEmitidas({ activa }) {
     }
   }
 
+  // Releer la factura abierta SIN cerrarla. `abrirDetalle` la vacía mientras
+  // carga, y con eso se desmontaba la pantalla entera: al emitir ante
+  // Hacienda se perdía de vista justo el avance que se estaba mirando.
+  const refrescarDetalle = async (id) => {
+    try {
+      const fresca = await facturacionService.detalleFacturaEmitida(id)
+      setDetalle(abierta => (abierta && fresca && abierta.id === fresca.id ? fresca : abierta))
+      cargar()   // la lista de atrás también cambia (electrónica, estado)
+    } catch { /* la pantalla sigue con lo que ya mostraba */ }
+  }
+
   const abrirEdicion = async () => {
     if (productos.length === 0 || clientes.length === 0) {
       const [p, c] = await Promise.all([
@@ -232,7 +243,7 @@ export function useFacturasEmitidas({ activa }) {
     pagina, setPagina,
     facturas, paginacion, cargando, error, setError,
     empresa,
-    detalleId, detalle, cargandoDetalle, abrirDetalle,
+    detalleId, detalle, cargandoDetalle, abrirDetalle, refrescarDetalle,
     volver: () => { cerrarCorreo(); setDetalleId(null); setDetalle(null); setEditando(false) },
     editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion, anularCobro,
     productos, clientes,

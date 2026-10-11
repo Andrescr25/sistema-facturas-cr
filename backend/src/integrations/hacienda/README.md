@@ -77,6 +77,14 @@ reales bloqueadas. Las dos configuraciones parten deshabilitadas.
 
 ## Flujo y recuperación
 
+**Una factura se emite con un clic** (2026-10-11): el botón “Emitir
+electrónicamente” prepara, envía y consulta sin preguntar ambiente ni tipo
+(producción si está habilitada, si no pruebas; factura con identificación del
+cliente, si no tiquete), el avance se ve dentro de la factura y, al aceptarla
+Hacienda en producción, al cliente le llega el PDF con los dos XML. Los pasos
+de abajo son los mismos; cambia quién los encadena. Detalle en
+`docs/grafo/modulo/hacienda.md`, “UN CLIC EMITE”.
+
 Preparar reserva el consecutivo fiscal en una transacción y conserva el XML
 firmado. HTTP 201/202 significa recibido. La aceptación exige GET autenticado,
 clave y emisor coincidentes, XML válido y firma verificable. La identidad del
@@ -93,7 +101,8 @@ derivado de las aplicaciones de notas y puede actualizarse sin cambiar el
 original fiscal.
 
 Un rechazo definitivo conserva documento y respuesta. Revisar la venta y
-usar “Preparar sustitución del rechazado”: nueva clave y consecutivo,
+usar “Volver a emitir” en la factura (en una nota de crédito, “Preparar
+sustitución del rechazado”): nueva clave y consecutivo,
 referencia tipo 10 / código 16. La acción es explícita; un doble clic normal
 devuelve el comprobante existente. Un aceptado se corrige mediante nota de
 crédito. La emisión fiscal no mueve inventario otra vez.

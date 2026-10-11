@@ -329,3 +329,31 @@ uno por uno (el porqué está en ese nodo). Del «y demás» solo se hizo la
 ruta: día de visita, día de entrega y ubicación Maps se siguen poniendo en
 la ficha de cada cliente; falta que diga si también los quiere en lote.
 
+## 2026-10-11 — Emitir electrónicamente con un clic
+
+Textual: «ocupo que con solo darle a este botón ya se emita electrónicamente
+y no me abra el modal de antes, sino que con solo darle click. Además
+necesito que en la misma factura, cuando le doy al botón, me indique qué va
+pasando, si se envió, o si la aceptó Hacienda. Además que esta factura se le
+tiene que enviar al cliente por correo el pdf con los 2 XML».
+
+**Hecho** el mismo día: [el nodo de Hacienda](grafo/modulo/hacienda.md),
+sección "UN CLIC EMITE", y [el del correo](grafo/modulo/correo-facturas.md).
+
+Decisiones de Claude para que el clic no pregunte, a revisar por él:
+
+- va a **producción** si ese ambiente está habilitado, y si no a pruebas (el
+  botón lleva la marca "Pruebas" cuando es así);
+- **factura electrónica** si el cliente tiene identificación, **tiquete** si
+  no;
+- el correo sale **solo en producción**, una vez, al correo de la **ficha**
+  del cliente; si no tiene, la factura lo dice y se manda después con un
+  botón;
+- una factura **con descuento** no sale sin que alguien elija el motivo
+  (regalía, comercial, volumen…): Hacienda lo exige y no se adivina. Se pide
+  dentro de la misma factura. Si siempre es el mismo motivo, falta que lo
+  diga para dejarlo fijo.
+
+Sigue sin contestar de antes: si la primera factura electrónica real sale
+con el número **4947** (como está) o con el 2481.
+

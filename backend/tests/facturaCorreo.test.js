@@ -10,6 +10,7 @@ const rutas = {
   consulta: require.resolve('../src/modules/facturacion/facturaConsulta.service'),
   nodemailer: require.resolve('nodemailer'),
   mailer: require.resolve('../services/mailer'),
+  fiscal: require.resolve('../src/integrations/hacienda/emision.service'),
   servicio: require.resolve('../src/modules/facturacion/facturaCorreo.service')
 };
 const FACTURA = {
@@ -56,6 +57,11 @@ function montar({ factura = FACTURA, ficha = { correo: 'actual@example.test' }, 
       return resultado || { messageId: 'doble', accepted: [datos.to], rejected: [] };
     } };
   } });
+  // Los dos XML de una factura aceptada los entrega el módulo fiscal; acá
+  // son de mentira, para no leer el almacén privado.
+  doble(rutas.fiscal, { crearServicio: () => ({
+    archivo: async (id, respuesta) => (respuesta ? `<MensajeHacienda id="${id}"/>` : `<FacturaElectronica id="${id}"/>`)
+  }) });
   delete require.cache[rutas.mailer];
   delete require.cache[rutas.servicio];
   return { servicio: require(rutas.servicio), enviados, transportes, consultas };
@@ -152,4 +158,75 @@ test('rechazo o ausencia de aceptación no se presentan como correo enviado', as
     const { servicio } = montar({ resultado });
     await assert.rejects(servicio.enviarFacturaPorCorreo(500, DATOS), e => e.code === 'CORREO_RECHAZADO');
   }
+});
+
+// --- La entrega automática de una factura aceptada por Hacienda ---
+// Pedido del usuario (2026-10-11): «esta factura se le tiene que enviar al
+// cliente por correo el pdf con los 2 XML». Sale sola al aceptarse, así que
+// NUNCA puede tumbar la aceptación: devuelve qué pasó en vez de lanzar.
+const ACEPTADA = { ...FACTURA, electronica: true, fiscal: { id: 31, consecutivo: '00100001010000004947', clave: '5'.repeat(50), tipo: '01' } };
+
+test('la factura aceptada le llega al cliente con el PDF y los dos XML', async () => {
+  const { servicio, enviados } = montar({ factura: ACEPTADA });
+  const r = await servicio.entregarFacturaElectronica(500);
+  assert.deepEqual(r, { estado: 'enviado', para: 'actual@example.test' });
+  assert.equal(enviados.length, 1);
+  assert.equal(enviados[0].to, 'actual@example.test', 'no fue al correo de la ficha del cliente');
+  assert.equal(enviados[0].subject, 'Factura electrónica 00100001010000004947');
+  assert.match(enviados[0].text, /aceptada por el Ministerio de Hacienda/);
+  assert.deepEqual(enviados[0].attachments.map(a => [a.filename, a.contentType]), [
+    ['factura-PROPIA-500.pdf', 'application/pdf'],
+    ['comprobante-00100001010000004947.xml', 'application/xml'],
+    ['respuesta-hacienda-00100001010000004947.xml', 'application/xml']
+  ]);
+  assert.equal(enviados[0].attachments[0].content.subarray(0, 5).toString(), '%PDF-');
+  assert.equal(enviados[0].attachments[1].content.toString(), '<FacturaElectronica id="31"/>');
+  assert.equal(enviados[0].attachments[2].content.toString(), '<MensajeHacienda id="31"/>');
+});
+test('si el cliente no tiene correo en su ficha, no se manda y se dice', async () => {
+  for (const correo of [null, '', 'no-es-un-correo', 'a@example.test;b@example.test']) {
+    const { servicio, enviados } = montar({ factura: ACEPTADA, ficha: { correo } });
+    const r = await servicio.entregarFacturaElectronica(500);
+    assert.equal(r.estado, 'sin_correo', String(correo));
+    assert.match(r.motivo, /no tiene un correo válido/);
+    assert.equal(enviados.length, 0);
+  }
+});
+test('sin la aceptación de Hacienda no sale un correo con el PDF solo', async () => {
+  const { servicio, enviados } = montar();   // la factura de siempre, sin datos fiscales
+  const r = await servicio.entregarFacturaElectronica(500);
+  assert.equal(r.estado, 'error');
+  assert.match(r.motivo, /todavía no está aceptada por Hacienda/);
+  assert.equal(enviados.length, 0);
+});
+test('si el correo falla, la entrega lo cuenta en vez de lanzar, y sin datos del servidor', async () => {
+  const { servicio, enviados } = montar({ factura: ACEPTADA, error: new Error('auth contraseña-de-prueba host-secreto') });
+  const r = await servicio.entregarFacturaElectronica(500);
+  assert.equal(r.estado, 'error');
+  assert.equal(r.para, 'actual@example.test');
+  assert.doesNotMatch(JSON.stringify(r), /contraseña-de-prueba|host-secreto/);
+  assert.equal(enviados.length, 1, 'un envío incierto no se reintenta: serían dos correos');
+});
+test('si el servidor de correo no acepta al destinatario, queda como error', async () => {
+  const { servicio } = montar({ factura: ACEPTADA, resultado: { accepted: [], rejected: ['actual@example.test'] } });
+  const r = await servicio.entregarFacturaElectronica(500);
+  assert.equal(r.estado, 'error');
+  assert.match(r.motivo, /no aceptó al destinatario/);
+});
+test('una factura que no existe, o una copia aislada, tampoco lanzan', async () => {
+  const falta = montar({ noExiste: true });
+  assert.equal((await falta.servicio.entregarFacturaElectronica(500)).estado, 'error');
+  assert.equal(falta.enviados.length, 0);
+
+  const aislada = montar({ factura: ACEPTADA });
+  delete process.env.NODE_TEST_CONTEXT;
+  assert.equal(aislado.salidasBloqueadas(), true);
+  const r = await aislada.servicio.entregarFacturaElectronica(500);
+  assert.equal(r.estado, 'error');
+  assert.equal(aislada.transportes.length, 0, 'la copia de desarrollo abrió el servidor de correo');
+});
+test('el botón Correo de siempre sigue mandando una factura sin comprobante', async () => {
+  const { servicio, enviados } = montar();
+  assert.equal((await servicio.enviarFacturaPorCorreo(500, DATOS)).aceptado, true);
+  assert.equal(enviados[0].attachments.length, 1);
 });

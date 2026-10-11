@@ -1,0 +1,137 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { estadoFactura, emitirFactura, reenviarCorreo, operar, mensajeError } from './api'
+import { emitirPasoAPaso, FINALES } from './emisionPasos'
+
+/**
+ * La emisión electrónica de UNA factura, vista desde su pantalla: cómo va,
+ * y el botón que la emite de un clic. El orden de los pasos y los textos
+ * viven en emisionPasos.js (sin React, con pruebas); acá solo se conectan
+ * con el servidor y con el estado de la pantalla.
+ *
+ * `activo` apaga todo cuando la factura no se puede emitir desde acá
+ * (histórica de Alegra, anulada, o mientras se edita).
+ */
+const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** Cada cuánto se relee mientras Hacienda no contesta y nadie toca nada. */
+const RELEER_MS = 15000
+
+export default function useEmisionFactura(facturaId, { activo = true, onCambio } = {}) {
+  const [estado, setEstado] = useState(null)
+  const [fase, setFase] = useState(null)
+  const [error, setError] = useState('')
+  const [pidiendoDatos, setPidiendoDatos] = useState(false)
+  const [enviandoCorreo, setEnviandoCorreo] = useState(false)
+
+  // La factura que se está mirando AHORA. Una emisión tarda segundos: si
+  // entre tanto se abrió otra factura, lo que llegue de la anterior no se
+  // pinta encima.
+  const actual = useRef(null)
+  const avisar = useRef(onCambio)
+  avisar.current = onCambio
+
+  const leer = useCallback(async (id) => {
+    const e = await estadoFactura(id)
+    if (actual.current === id) setEstado(e)
+    return e
+  }, [])
+
+  useEffect(() => {
+    actual.current = activo ? facturaId : null
+    setEstado(null)
+    setFase(null)
+    setError('')
+    setPidiendoDatos(false)
+    if (!activo) return undefined
+    leer(facturaId).catch(e => { if (actual.current === facturaId) setError(mensajeError(e)) })
+    return () => { actual.current = null }
+  }, [facturaId, activo, leer])
+
+  // Mientras Hacienda no contesta, el servidor la consulta solo cada minuto
+  // (si tiene encendido el seguimiento; `estado.seguimiento` lo dice). Acá se
+  // relee lo que el servidor ya sabe (no se llama a Hacienda), para que la
+  // aceptación aparezca sin tener que tocar nada.
+  const comprobante = estado?.comprobante
+  const esperandoSola = Boolean(activo && comprobante && !fase && estado.seguimiento &&
+    ['recibida', 'procesando'].includes(comprobante.estado))
+  useEffect(() => {
+    if (!esperandoSola) return undefined
+    const reloj = setInterval(async () => {
+      try {
+        const e = await leer(facturaId)
+        if (FINALES.includes(e.comprobante?.estado)) avisar.current?.()
+      } catch { /* se reintenta en la próxima vuelta */ }
+    }, RELEER_MS)
+    return () => clearInterval(reloj)
+  }, [esperandoSola, facturaId, leer])
+
+  /**
+   * Emitir, o seguir con el comprobante que quedó a medias. `lineas` solo
+   * viene cuando la factura pidió un dato (descuento, medicamento).
+   */
+  const emitir = async ({ lineas } = {}) => {
+    if (fase || !estado) return
+    const id = facturaId
+    const previo = estado.comprobante
+    const rechazado = previo?.estado === 'rechazada'
+    const continuar = Boolean(previo) && !rechazado
+    setError('')
+    if (!continuar && estado.motivoNoEmitible) return setError(estado.motivoNoEmitible)
+    if (!continuar && estado.pendientes?.length && !lineas) return setPidiendoDatos(true)
+
+    const mia = () => actual.current === id
+    setPidiendoDatos(false)
+    setFase(continuar ? 'enviando' : 'firmando')
+    // Al volver a emitir un rechazado, el panel arranca de cero.
+    if (rechazado) setEstado(e => ({ ...e, comprobante: null, correo: null }))
+    try {
+      await emitirPasoAPaso({
+        comprobante: continuar ? previo : null,
+        firmar: () => emitirFactura(id, { sustituir: rechazado, lineas }),
+        enviar: (c) => operar(c, 'enviar'),
+        consultar: (c) => operar(c, 'consultar'),
+        esperar,
+        sigue: mia,
+        alAvanzar: ({ fase: f, comprobante: c }) => {
+          if (!mia()) return
+          if (f) setFase(f)
+          // La consulta que consigue la aceptación trae cómo salió el correo.
+          if (c) setEstado(e => ({ ...e, comprobante: c, ...(c.correo ? { correo: c.correo } : {}) }))
+        }
+      })
+    } catch (e) {
+      if (!mia()) return
+      if (e.response?.data?.code === 'DATOS_FISCALES_PENDIENTES') setPidiendoDatos(true)
+      setError(mensajeError(e))
+    } finally {
+      if (mia()) {
+        setFase(null)
+        // Lo que quedó de verdad en el servidor, pase lo que pase arriba.
+        await leer(id).catch(() => {})
+        avisar.current?.()
+      }
+    }
+  }
+
+  /** Mandarle (otra vez) al cliente el PDF con los dos XML. */
+  const enviarAlCliente = async () => {
+    if (enviandoCorreo) return
+    const id = facturaId
+    setEnviandoCorreo(true)
+    setError('')
+    try {
+      const correo = await reenviarCorreo(id)
+      if (actual.current === id) setEstado(e => ({ ...e, correo }))
+    } catch (e) {
+      if (actual.current === id) setError(mensajeError(e))
+    } finally {
+      setEnviandoCorreo(false)
+    }
+  }
+
+  return {
+    activo, estado, fase, error, emitir,
+    pidiendoDatos, cerrarDatos: () => setPidiendoDatos(false),
+    enviarAlCliente, enviandoCorreo
+  }
+}

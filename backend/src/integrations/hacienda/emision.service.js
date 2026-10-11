@@ -42,7 +42,86 @@ function vista(r) {
   };
 }
 
-function crearServicio(pool, transporte = crearCliente()) {
+/**
+ * UN CLIC EMITE (2026-10-11). El modal preguntaba ambiente y tipo de
+ * comprobante en cada factura. El usuario pidió que el botón emita sin
+ * preguntar; estas tres reglas contestan lo que antes se elegía a mano.
+ */
+
+/** A qué ambiente va el clic: producción si está habilitada; si no, pruebas. */
+function ambienteDeEmision(filas) {
+  const habilitado = (a) => (filas || []).some((r) => r.ambiente === a && r.habilitada === true);
+  return habilitado("produccion") ? "produccion" : habilitado("pruebas") ? "pruebas" : null;
+}
+
+/**
+ * Factura electrónica si el cliente tiene identificación; si no, tiquete.
+ * Es lo que ya hacía este negocio en Alegra: 558 facturas electrónicas a
+ * clientes identificados y tiquete para el que no da cédula.
+ */
+function tipoDeFactura(factura) {
+  return String(factura?.cliente_identificacion ?? "").trim() ? "01" : "04";
+}
+
+/**
+ * Las líneas que necesitan un dato que solo una persona puede dar. Con una
+ * sola, el clic NO emite: la factura pide ese dato ahí mismo y sigue.
+ *  - el motivo de un descuento: Hacienda lo exige y cambia cómo se declara
+ *    (una regalía no es un descuento comercial), no se adivina;
+ *  - el registro sanitario y la forma farmacéutica de un medicamento, si la
+ *    ficha del producto no los trae.
+ * Es raro: al 2026-10-11, una de las últimas mil facturas tenía descuento y
+ * diez productos de dos mil son medicamentos.
+ *
+ * `dadas` es lo que la persona ya contestó ([{ numeroLinea, codigoDescuento,
+ * naturalezaDescuento, registroMedicamento, formaFarmaceutica }]): con eso
+ * la línea deja de estar pendiente.
+ */
+function datosPendientes(lineas, dadas = []) {
+  const pendientes = [];
+  for (const l of lineas || []) {
+    const d =
+      (Array.isArray(dadas) ? dadas : []).find(
+        (x) => Number(x?.numeroLinea) === Number(l.numero_linea),
+      ) || {};
+    const descuento = Number(l.descuento_monto) > 0,
+      medicamento = l.es_medicamento === true,
+      codigo = String(d.codigoDescuento || ""),
+      registro = String(d.registroMedicamento || l.registro_sanitario || "").trim(),
+      forma = String(d.formaFarmaceutica || l.forma_farmaceutica || "").trim();
+    const falta = [];
+    if (descuento && !/^(0[1-9]|99)$/.test(codigo)) falta.push("el motivo del descuento");
+    else if (descuento && codigo === "99" && !String(d.naturalezaDescuento || "").trim())
+      falta.push("la descripción del descuento");
+    if (medicamento && !(registro && /^\d{3}$/.test(forma))) falta.push("los datos del medicamento");
+    if (falta.length)
+      pendientes.push({
+        numeroLinea: l.numero_linea,
+        nombre: l.nombre,
+        falta,
+        descuento,
+        medicamento,
+        // Lo que la ficha ya trae, para no hacerlo escribir de nuevo.
+        registroSanitario: l.registro_sanitario || "",
+        formaFarmaceutica: l.forma_farmaceutica || "",
+      });
+  }
+  return pendientes;
+}
+
+/** Solo los cinco campos conocidos de cada línea, como texto y con tope. */
+function lineasDadas(dadas) {
+  const t = (v, largo) => String(v ?? "").trim().slice(0, largo);
+  return (Array.isArray(dadas) ? dadas : []).slice(0, 500).map((d) => ({
+    numeroLinea: Number(d?.numeroLinea),
+    codigoDescuento: t(d?.codigoDescuento, 2),
+    naturalezaDescuento: t(d?.naturalezaDescuento, 80),
+    registroMedicamento: t(d?.registroMedicamento, 60),
+    formaFarmaceutica: t(d?.formaFarmaceutica, 3),
+  }));
+}
+
+function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
   const tx = (fn) => enTransaccion(pool, fn);
   async function numerar(db, c, tipo) {
     const a = c.ambiente,
@@ -265,7 +344,7 @@ function crearServicio(pool, transporte = crearCliente()) {
           fk = origen === "nota_credito" ? "nota_credito_id" : "factura_id";
         const lineas = (
           await db.query(
-            `SELECT l.*,i.codigo_tarifa_hacienda,p.registro_sanitario,p.es_medicamento FROM ${tablaLinea} l LEFT JOIN impuesto i ON i.id=l.impuesto_id LEFT JOIN producto p ON p.id=l.producto_id WHERE l.${fk}=$1 ORDER BY l.numero_linea`,
+            `SELECT l.*,i.codigo_tarifa_hacienda,p.registro_sanitario,p.es_medicamento,p.forma_farmaceutica FROM ${tablaLinea} l LEFT JOIN impuesto i ON i.id=l.impuesto_id LEFT JOIN producto p ON p.id=l.producto_id WHERE l.${fk}=$1 ORDER BY l.numero_linea`,
             [n],
           )
         ).rows;
@@ -450,7 +529,10 @@ function crearServicio(pool, transporte = crearCliente()) {
       mensaje = texto(doc, "DetalleMensaje").slice(0, 2000);
       archivo = await almacen.guardarXml(xml);
     }
-    return tx(async (db) => {
+    // Solo la consulta que HACE el cambio a "aceptada" entrega al cliente:
+    // las que lleguen después encuentran el estado ya puesto y salen arriba.
+    let acabaDeAceptarse = false;
+    const resultado = await tx(async (db) => {
       r = (
         await db.query(
           "SELECT * FROM hacienda_comprobante WHERE id=$1 FOR UPDATE",
@@ -458,6 +540,7 @@ function crearServicio(pool, transporte = crearCliente()) {
         )
       ).rows[0];
       if (["aceptada", "rechazada"].includes(r.estado)) return vista(r);
+      acabaDeAceptarse = estado === "aceptada";
       r = (
         await db.query(
           "UPDATE hacienda_comprobante SET estado=$2,respuesta_ruta=COALESCE($3,respuesta_ruta),respuesta_sha256=COALESCE($5,respuesta_sha256),mensaje=$4,proxima_consulta=now()+interval '1 minute',actualizado_en=now() WHERE id=$1 RETURNING *",
@@ -504,6 +587,158 @@ function crearServicio(pool, transporte = crearCliente()) {
       });
       return vista(r);
     });
+    // Fuera de la transacción: la aceptación ya quedó guardada y un correo
+    // que falla no la deshace.
+    if (acabaDeAceptarse && resultado.estado === "aceptada") {
+      const correo = await entregar(resultado);
+      if (correo) return { ...resultado, correo };
+    }
+    return resultado;
+  }
+
+  /**
+   * Entregarle al cliente su factura aceptada: el PDF con los dos XML.
+   *
+   * SOLO una FACTURA aceptada en PRODUCCIÓN. Un comprobante de pruebas no
+   * tiene validez y no se le manda a nadie; una nota de crédito o la
+   * respuesta a una compra no son de este camino.
+   *
+   * El envío lo hace quien armó el servicio (`ganchos.alAceptarFactura`, que
+   * recibe el id de la factura): este módulo no importa correo. El resultado
+   * se anota SIEMPRE en la bitácora del comprobante —enviado, sin correo en
+   * la ficha, o por qué falló— porque es lo que después dice la pantalla, y
+   * nunca tumba la consulta: la factura ya está aceptada aunque el correo no
+   * salga. No se reintenta solo.
+   */
+  async function entregar(comprobante, usuarioId) {
+    if (typeof ganchos.alAceptarFactura !== "function") return null;
+    if (comprobante.ambiente !== "produccion" || comprobante.origen !== "factura") return null;
+    let correo;
+    try {
+      correo = await ganchos.alAceptarFactura(comprobante.origenId);
+    } catch {
+      correo = { estado: "error", motivo: "No se pudo enviar el correo al cliente." };
+    }
+    if (!correo) return null;
+    try {
+      await registrarCambio(pool, {
+        entidad: "hacienda_comprobante",
+        entidadId: comprobante.id,
+        accion: "correo",
+        despues: correo,
+        usuarioId,
+      });
+    } catch {
+      // Sin bitácora la pantalla no lo va a recordar, pero el correo ya salió.
+    }
+    return correo;
+  }
+  async function ultimoCorreo(comprobanteId) {
+    const r = (
+      await pool.query(
+        "SELECT despues FROM bitacora_cambio WHERE entidad='hacienda_comprobante' AND entidad_id=$1 AND accion='correo' ORDER BY id DESC LIMIT 1",
+        [String(comprobanteId)],
+      )
+    ).rows[0];
+    return r ? r.despues : null;
+  }
+
+  /**
+   * Todo lo que la factura necesita saber de su emisión electrónica: a qué
+   * ambiente iría un clic, qué comprobante saldría, si le falta algún dato,
+   * y cómo va el que ya se preparó (con su correo al cliente).
+   */
+  async function estadoDeFactura(n, dadas = []) {
+    const f = (
+      await pool.query(
+        "SELECT id, numero, estado, electronica, alegra_id, cliente_identificacion, hacienda_comprobante_id FROM factura WHERE id=$1",
+        [id(n)],
+      )
+    ).rows[0];
+    if (!f) throw error("NO_EXISTE", "No existe esa factura.", 404);
+    const a = ambienteDeEmision(
+      (await pool.query("SELECT ambiente, habilitada FROM hacienda_configuracion")).rows,
+    );
+    const lineas = (
+      await pool.query(
+        "SELECT l.numero_linea,l.nombre,l.descuento_monto,p.es_medicamento,p.registro_sanitario,p.forma_farmaceutica FROM factura_linea l LEFT JOIN producto p ON p.id=l.producto_id WHERE l.factura_id=$1 ORDER BY l.numero_linea",
+        [f.id],
+      )
+    ).rows;
+    // El comprobante que cuenta: el que la factura ya tiene reservado en
+    // producción; si no, el último del ambiente al que iría el clic.
+    const c = f.hacienda_comprobante_id
+      ? (await pool.query("SELECT * FROM hacienda_comprobante WHERE id=$1", [f.hacienda_comprobante_id])).rows[0]
+      : a
+        ? (
+            await pool.query(
+              "SELECT * FROM hacienda_comprobante WHERE ambiente=$1 AND origen='factura' AND origen_id=$2 ORDER BY revision_documento DESC LIMIT 1",
+              [a, f.id],
+            )
+          ).rows[0]
+        : null;
+    const motivoNoEmitible = c && c.estado !== "rechazada"
+      ? null
+      : f.estado !== "emitida"
+        ? "Solo se emite electrónicamente una factura emitida."
+        : f.alegra_id || f.electronica
+          ? "Es un documento histórico o ya electrónico: no se vuelve a emitir."
+          : !a
+            ? "Habilitá un ambiente en Configuración → Hacienda."
+            : null;
+    return {
+      ambiente: c?.ambiente || a,
+      tipo: tipoDeFactura(f),
+      pendientes: datosPendientes(lineas, dadas),
+      motivoNoEmitible,
+      comprobante: vista(c),
+      correo: c ? await ultimoCorreo(c.id) : null,
+    };
+  }
+
+  /**
+   * El botón "Emitir electrónicamente": prepara y firma el comprobante sin
+   * preguntar nada. Enviar y consultar son los pasos de siempre, que la
+   * pantalla encadena para ir mostrando el avance.
+   */
+  async function emitirFactura(n, datos = {}, usuarioId) {
+    const lineas = lineasDadas(datos.lineas);
+    const e = await estadoDeFactura(n, lineas);
+    if (e.motivoNoEmitible) throw error("NO_EMITIBLE", e.motivoNoEmitible, 409);
+    // Con un comprobante en curso no se pide nada: `preparar` devuelve ese
+    // mismo, sin firmar otro ni gastar otro número.
+    const enCurso = e.comprobante && e.comprobante.estado !== "rechazada";
+    if (!enCurso && e.pendientes.length)
+      throw error(
+        "DATOS_FISCALES_PENDIENTES",
+        "Esta factura necesita un dato más antes de emitirse: " +
+          e.pendientes
+            .slice(0, 3)
+            .map((p) => `${p.falta.join(" y ")} de «${p.nombre}»`)
+            .join("; ") +
+          (e.pendientes.length > 3 ? "…" : "."),
+        409,
+      );
+    return preparar(
+      "factura",
+      n,
+      { ambiente: e.ambiente, tipo: e.tipo, sustituir: datos.sustituir === true, lineas },
+      usuarioId,
+    );
+  }
+
+  /** Volver a mandarle el comprobante al cliente, a pedido de una persona. */
+  async function reenviarCorreo(n, usuarioId) {
+    const e = await estadoDeFactura(n);
+    if (e.comprobante?.estado !== "aceptada" || e.comprobante.ambiente !== "produccion")
+      throw error(
+        "SIN_ACEPTAR",
+        "Solo se le manda al cliente una factura aceptada por Hacienda en producción.",
+        409,
+      );
+    const correo = await entregar(e.comprobante, usuarioId);
+    if (!correo) throw error("CORREO_NO_DISPONIBLE", "El envío de correo no está disponible en este servidor.", 503);
+    return correo;
   }
   async function enviar(n) {
     let r = await fila(n);
@@ -781,6 +1016,9 @@ function crearServicio(pool, transporte = crearCliente()) {
     datosDocumento,
     compraDeBuzon,
     subirOriginal,
+    estadoDeFactura,
+    emitirFactura,
+    reenviarCorreo,
   };
 }
-module.exports = { crearServicio, vista, id };
+module.exports = { crearServicio, vista, id, ambienteDeEmision, tipoDeFactura, datosPendientes, lineasDadas };

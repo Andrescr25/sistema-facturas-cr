@@ -18,7 +18,7 @@ archivos:
   - frontend/src/components/facturacion/ModalEnviarFacturaCorreo.jsx
 aristas:
   relacionado: [modulo/hacienda, modulo/facturacion, modulo/permisos, leccion/un-borrador-no-es-una-venta, leccion/la-db-local-es-produccion]
-medido: 2026-10-05
+medido: 2026-10-11
 ---
 
 ENTRADA. Facturación → Facturas → abrir una emitida → Correo. El modal
@@ -70,3 +70,27 @@ aislada; aceptación/rechazo simulados y sin errores JS ni correos reales.
 
 HACIENDA (2026-10-05): [[modulo/hacienda]] describe configuración, emisión y
 seguimiento fiscal separados; no repetir el movimiento comercial al enviar.
+
+ENTREGA AUTOMÁTICA DE LA FACTURA ELECTRÓNICA (2026-10-11). Es la excepción a
+"una persona confirma el destinatario", pedida por el usuario: «esta factura
+se le tiene que enviar al cliente por correo el pdf con los 2 XML».
+`entregarFacturaElectronica(id)` la llama el módulo fiscal cuando Hacienda
+acepta una factura en producción ([[modulo/hacienda]], "UN CLIC EMITE"):
+
+- va al correo de la FICHA del cliente, con las mismas reglas de arriba (un
+  solo buzón; un correo quitado de la ficha no se resucita);
+- adjunta el PDF, el XML firmado y la respuesta de Hacienda, y se niega a
+  mandar el PDF solo si la factura todavía no trae su comprobante aceptado;
+- NO LANZA: devuelve `enviado`, `sin_correo` o `error` con un motivo sin datos
+  del servidor de correo. La factura ya está aceptada y eso no depende de un
+  correo;
+- no reintenta sola (un envío incierto repetido son dos correos al cliente);
+  la persona lo repite desde el panel de la factura.
+
+El botón Correo de siempre no cambió: sigue pidiendo confirmar destinatario,
+asunto y mensaje, y sirve también para una factura sin emitir. Siete pruebas
+nuevas en `facturaCorreo.test.js`, con nodemailer sustituido.
+
+Pendiente del usuario: ver llegar el primer correo real. En el servidor tiene
+que estar configurada la cuenta del buzón; si no, el panel de la factura dice
+«El envío de correo todavía no está configurado» y la factura queda aceptada.

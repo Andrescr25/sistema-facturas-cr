@@ -7,7 +7,14 @@ const { crearServicio } = require("./emision.service");
 const { crearCliente } = require("./transporte/cliente");
 const { enTransaccion } = require("../../utils/transaccion");
 const { error } = require("./errores");
-const servicio = crearServicio(pool),
+// EL CORREO SE ENCHUFA ACÁ, no dentro del servicio fiscal: el módulo de
+// Hacienda no importa correo. Cuándo se entrega (solo una factura aceptada en
+// producción) lo decide el servicio; acá solo se dice CON QUÉ. El `require`
+// va adentro porque el servicio de correo importa a su vez este módulo.
+const servicio = crearServicio(pool, undefined, {
+    alAceptarFactura: (facturaId) =>
+      require("../../modules/facturacion/facturaCorreo.service").entregarFacturaElectronica(facturaId),
+  }),
   cliente = crearCliente();
 const configuracion = express.Router(),
   ventas = express.Router(),
@@ -133,6 +140,37 @@ for (const [router, origen, ruta] of [
     ),
   );
 }
+// Un clic desde la factura: el estado para pintar el avance, emitir sin
+// preguntar ambiente ni tipo, y volver a mandarle el comprobante al cliente.
+ventas.get(
+  "/facturas/:id/estado",
+  envolver(async (req, res) =>
+    res.json({
+      success: true,
+      data: {
+        ...(await servicio.estadoDeFactura(req.params.id)),
+        // ¿Este servidor consulta solo a Hacienda cada minuto? La pantalla
+        // solo promete "sigue consultando solo" si es cierto.
+        seguimiento: process.env.HACIENDA_TRABAJADOR === "true",
+      },
+    }),
+  ),
+);
+ventas.post(
+  "/facturas/:id/emitir",
+  envolver(async (req, res) =>
+    res.json({
+      success: true,
+      data: await servicio.emitirFactura(req.params.id, req.body || {}, req.usuario?.id),
+    }),
+  ),
+);
+ventas.post(
+  "/facturas/:id/correo",
+  envolver(async (req, res) =>
+    res.json({ success: true, data: await servicio.reenviarCorreo(req.params.id, req.usuario?.id) }),
+  ),
+);
 compras.get(
   "/buzon/:id",
   envolver(async (req, res) =>

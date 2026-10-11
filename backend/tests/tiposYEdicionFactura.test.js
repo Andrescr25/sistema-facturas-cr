@@ -53,7 +53,12 @@ describe('editar sobre el mismo documento', () => {
 
   test('una factura electrónica, cobrada o acreditada no se edita, y dice por qué', () => {
     assert.match(vista, /razonNoEditable/);
-    assert.match(vista, /electronica \?/);
+    assert.match(vista, /\(f\.electronica \|\| reservaFiscal\?\.estado === 'aceptada'\) \?/);
+    // Reservada ante Hacienda: lo dice la factura o, antes de releerla, el
+    // panel de emisión (2026-10-11: al emitir de un clic quedaba un momento
+    // con Editar ofrecido sobre un documento que la base ya no deja tocar).
+    assert.match(vista, /\|\| reservaFiscal\) \? 'Está reservada ante Hacienda/);
+    assert.match(vista, /emision\.fase \? 'Se está emitiendo electrónicamente\.'/);
     assert.match(vista, /cobrado > 0 \?/);
     assert.match(vista, /acreditado > 0 \?/);
     // El botón queda apagado con el motivo a la vista, no muerto sin más.

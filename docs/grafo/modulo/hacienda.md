@@ -23,6 +23,13 @@ archivos:
   - backend/migrations/independencia/043_hacienda.sql
   - frontend/src/integrations/hacienda/ConfiguracionHacienda.jsx
   - frontend/src/integrations/hacienda/DocumentoFiscal.jsx
+  - frontend/src/integrations/hacienda/BotonEmitirFactura.jsx
+  - frontend/src/integrations/hacienda/PanelEmisionFactura.jsx
+  - frontend/src/integrations/hacienda/useEmisionFactura.js
+  - frontend/src/integrations/hacienda/emisionPasos.js
+  - frontend/src/integrations/hacienda/api.js
+  - backend/tests/emisionUnClic.test.js
+  - backend/tests/haciendaUnClicPg.test.js
   - frontend/src/integrations/hacienda/catalogos.js
   - backend/tests/haciendaFiscal.test.js
   - backend/tests/haciendaTransporte.test.js
@@ -63,7 +70,8 @@ cobros, aplicaciones ni saldos. El indicador `anulada_por_nota` sigue siendo
 una derivación del negocio, no una edición del original fiscal.
 
 PDF de aceptadas propias usa número fiscal y emisor del XML firmado. El
-correo manual incorpora PDF + XML + respuesta, con las guardas existentes.
+correo incorpora PDF + XML + respuesta, con las guardas existentes; desde el
+2026-10-11 sale solo al aceptarse la factura (ver "UN CLIC EMITE", abajo).
 La compra usa su id propio; desde el buzón se resuelve primero el UUID. Sin
 XML original no se fabrica mensaje receptor. Cargarlo exige correspondencia
 de clave, proveedor, receptor y total. La aceptación comercial y fiscal son
@@ -201,3 +209,66 @@ Dos cosas medidas ese día en producción, que explican lo que se va a ver:
   nunca. Deja un salto de numeración; a cambio, si Alegra —que queda de
   respaldo— vuelve a emitir, sigue en 2481 y no choca. Es decisión fiscal del
   usuario si prefiere continuar en 2481 saltándose esos dos.
+
+UN CLIC EMITE, Y LA FACTURA CUENTA QUÉ PASA (2026-10-11). Pedido del usuario:
+«ocupo que con solo darle a este botón ya se emita electrónicamente y no me
+abra el modal de antes», «que en la misma factura me indique qué va pasando,
+si se envió, o si la aceptó Hacienda» y «esta factura se le tiene que enviar
+al cliente por correo el pdf con los 2 XML». Emitir era un modal, dos listas
+(ambiente y tipo) y tres botones en orden; además, al enviar, la pantalla se
+recargaba y cerraba el modal con el avance adentro.
+
+Los tres pasos del servidor (`preparar`, `enviar`, `consultar`) son los
+mismos. Lo nuevo es quién decide y quién los encadena:
+
+- **Lo que antes se elegía, ahora lo decide el servidor**
+  (`emision.service.js`, `emitirFactura`): va a producción si está
+  habilitada y si no a pruebas (`ambienteDeEmision`); factura electrónica si
+  el cliente tiene identificación y si no tiquete (`tipoDeFactura`).
+  `POST /api/facturacion/hacienda/facturas/:id/emitir`.
+- **La pantalla los encadena** (`emisionPasos.js`, sin React y con pruebas):
+  firma → envía → consulta cada 3 s hasta un minuto. Con un comprobante a
+  medias el botón CONTINÚA ese mismo; solo un rechazo prepara otro.
+- **El avance vive en la factura** (`PanelEmisionFactura.jsx`): cuatro
+  renglones —firmada, enviada, respuesta de Hacienda, correo al cliente— que
+  salen de `GET …/facturas/:id/estado`. El panel se queda: ahí se bajan los
+  dos XML y se le vuelve a mandar al cliente.
+- **Si Hacienda tarda más de un minuto** la pantalla deja de insistir y lo
+  dice; el seguimiento del servidor (`HACIENDA_TRABAJADOR=true`) sigue cada
+  minuto y la pantalla relee sola cada 15 s lo que el servidor ya sabe. SIN
+  esa variable nadie consulta: el panel no promete nada y pide tocar
+  «Consultar a Hacienda», y el correo al cliente espera a ese toque. Tiene
+  que estar encendida en producción.
+- **El correo sale solo al aceptarse**, una vez, y solo para una FACTURA en
+  PRODUCCIÓN (`entregar`, dentro de `consultar`): lo dispara la consulta que
+  HACE el cambio a aceptada —la de la persona o la del seguimiento—, fuera de
+  la transacción. Si falla, la factura queda aceptada igual. El resultado se
+  anota en `bitacora_cambio` (`accion='correo'` sobre el comprobante) y es lo
+  que muestra el panel; por eso no hizo falta una migración. No se reintenta
+  solo; "Enviar al cliente" lo repite a pedido
+  (`POST …/facturas/:id/correo`). El envío mismo está en
+  [[modulo/correo-facturas]], enchufado en `rutas.js`
+  (`ganchos.alAceptarFactura`): este módulo sigue sin importar correo.
+- **Cuándo el clic NO emite sin preguntar** (`datosPendientes`): una línea
+  con descuento necesita su motivo —Hacienda lo exige y una regalía no es un
+  descuento comercial— y un medicamento, su registro y forma farmacéutica si
+  la ficha no los trae. La factura lo pide ahí mismo y sigue sola. Es raro:
+  una de las últimas mil facturas tenía descuento, diez productos de dos mil
+  son medicamentos.
+
+`DocumentoFiscal.jsx` (el modal) queda para lo que sí necesita elegir algo:
+la nota de crédito (código de referencia) y la respuesta a una compra.
+
+En pruebas el botón lleva la marca "Pruebas" antes de tocarlo y el panel dice
+"sin validez fiscal": una aceptación de pruebas no vuelve electrónica la
+factura ni le manda nada al cliente, y al habilitar producción esa misma
+factura vuelve a ofrecer emitir.
+
+Verificado: `emisionUnClic.test.js` (reglas, orden de los pasos, textos),
+`haciendaUnClicPg.test.js` (base desechable: un correo por aceptación, también
+con dos consultas a la vez; nada en pruebas ni en rechazos; un correo que
+falla no tumba la aceptación) y un Chromium real a 1440, 820 y 390 px con
+Hacienda y correo simulados: aceptación, tiquete, rechazo y reemisión, envío
+no recibido, Hacienda lenta, descuento, pruebas y correo bloqueado. **No se
+emitió nada real ni salió ningún correo**: la primera factura de producción y
+su correo los va a ver el usuario.
