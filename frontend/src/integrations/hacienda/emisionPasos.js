@@ -175,8 +175,18 @@ export function lineasDe(pendientes, respuestas = {}) {
   })
 }
 
+/**
+ * ¿La factura necesita que alguien conteste algo antes de emitir? El motivo
+ * de un descuento, los datos de un medicamento o —en una venta de contado
+ * que nadie cobró todavía— con qué paga el cliente.
+ */
+export function pideDatos(estado) {
+  return Boolean(estado?.pendientes?.length || estado?.faltaMedioPago)
+}
+
 /** Qué falta contestar, en palabras. '' = ya se puede emitir. */
-export function faltaContestar(pendientes, respuestas = {}) {
+export function faltaContestar(pendientes, respuestas = {}, { faltaMedioPago = false } = {}) {
+  if (faltaMedioPago && !respuestas.metodoPagoId) return 'Elegí con qué paga el cliente.'
   for (const l of lineasDe(pendientes, respuestas)) {
     if ('codigoDescuento' in l) {
       if (!l.codigoDescuento) return 'Elegí el motivo del descuento.'
@@ -188,4 +198,15 @@ export function faltaContestar(pendientes, respuestas = {}) {
     }
   }
   return ''
+}
+
+/**
+ * Lo contestado, como lo espera el servidor. Solo viaja lo que se pidió: el
+ * medio de pago no se manda si la factura ya lo tenía.
+ */
+export function respuestaDe(estado, respuestas = {}) {
+  return {
+    ...(estado?.pendientes?.length ? { lineas: lineasDe(estado.pendientes, respuestas) } : {}),
+    ...(estado?.faltaMedioPago ? { metodoPagoId: respuestas.metodoPagoId } : {})
+  }
 }

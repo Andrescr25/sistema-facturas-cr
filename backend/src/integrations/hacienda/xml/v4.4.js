@@ -331,17 +331,26 @@ function generarVenta({
     correo: documento.cliente_correo,
   };
   const total = venta - descuento + impuesto;
-  const pago = requerido(
-    documento.codigo_medio_pago_hacienda,
-    "Medio de pago",
-    /^(0[1-7]|99)$/,
-  );
+  const credito = documento.condicion_venta === "credito";
+  // EL MEDIO DE PAGO SE EXIGE EN CONTADO, NO EN CRÉDITO (2026-10-11). Se
+  // pedía siempre, y desde que la factura nace sin cobrar ninguna lo traía:
+  // emitir respondía «Medio de pago: falta un dato fiscal válido» para toda
+  // venta. El XSD lo hace opcional; de las 247 facturas 4.4 que Hacienda ya
+  // aceptó, las 145 de contado lo declaran y una de las 102 de crédito salió
+  // sin él. En una venta a crédito que nadie cobró todavía no hay medio que
+  // declarar: se omite el nodo en vez de inventar uno.
+  const medio = String(documento.codigo_medio_pago_hacienda ?? "").trim();
+  if (!medio && !credito)
+    throw error(
+      "MEDIO_PAGO_FALTANTE",
+      "Falta el medio de pago: en una venta de contado Hacienda lo pide.",
+    );
+  const pago = medio ? requerido(medio, "Medio de pago", /^(0[1-7]|99)$/) : null;
   if (pago === "99")
     throw error(
       "MEDIO_PAGO_OTRO",
       "Configure un medio de pago fiscal específico para esta venta.",
     );
-  const credito = documento.condicion_venta === "credito";
   let xml =
     nodo("Clave", llave) +
     nodo(
@@ -397,10 +406,12 @@ function generarVenta({
       "</TotalDesgloseImpuesto>";
   xml +=
     nodo("TotalImpuesto", importe(impuesto)) +
-    "<MedioPago>" +
-    nodo("TipoMedioPago", pago) +
-    nodo("TotalMedioPago", importe(total)) +
-    "</MedioPago>" +
+    (pago
+      ? "<MedioPago>" +
+        nodo("TipoMedioPago", pago) +
+        nodo("TotalMedioPago", importe(total)) +
+        "</MedioPago>"
+      : "") +
     nodo("TotalComprobante", importe(total)) +
     "</ResumenFactura>";
   for (const ref of opciones.referencias || [])

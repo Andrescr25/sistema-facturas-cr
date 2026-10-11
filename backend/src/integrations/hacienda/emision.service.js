@@ -124,6 +124,76 @@ function lineasDadas(dadas) {
 
 function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
   const tx = (fn) => enTransaccion(pool, fn);
+  /**
+   * EL MEDIO DE PAGO QUE SE LE DECLARA A HACIENDA, en código (01 efectivo,
+   * 04 transferencia, 06 SINPE…) o null si no se sabe.
+   *
+   * POR QUÉ NO ALCANZA CON EL DE LA FACTURA (2026-10-11). Antes toda factura
+   * de contado nacía marcada "Efectivo" —y por eso salía cobrada sola—. Desde
+   * que nace sin cobrar no trae medio, y emitir respondía «Medio de pago:
+   * falta un dato fiscal válido». Se busca, en este orden:
+   *   1. lo que la persona contestó al emitir (`metodoPagoId`);
+   *   2. el medio anotado en la factura, si lo tiene;
+   *   3. el que ya se declaró para esta factura en este ambiente (su
+   *      comprobante anterior): así la nota de crédito dice lo mismo que su
+   *      factura, y volver a emitir un rechazo no pregunta de nuevo;
+   *   4. el del cobro vigente más grande.
+   * Si nada lo dice, NO se inventa "efectivo": una venta de contado lo pide
+   * (ver `estadoDeFactura`) y una a crédito sale sin ese dato.
+   * "99 Otros" no cuenta como respuesta: Hacienda quiere el medio específico.
+   */
+  async function medioDePago(db, factura, ambiente, metodoPagoId) {
+    const especifico = (c) => (/^0[1-7]$/.test(String(c || "")) ? String(c) : null);
+    if (metodoPagoId !== undefined && metodoPagoId !== null && metodoPagoId !== "") {
+      const elegido = (
+        await db.query(
+          "SELECT codigo_medio_pago_hacienda FROM metodo_pago WHERE id=$1 AND activo",
+          [id(metodoPagoId)],
+        )
+      ).rows[0];
+      if (!especifico(elegido?.codigo_medio_pago_hacienda))
+        throw error("MEDIO_PAGO_INVALIDO", "Elegí un medio de pago de la lista.");
+      return elegido.codigo_medio_pago_hacienda;
+    }
+    if (factura.metodo_pago_id) {
+      const propio = (
+        await db.query("SELECT codigo_medio_pago_hacienda FROM metodo_pago WHERE id=$1", [
+          factura.metodo_pago_id,
+        ])
+      ).rows[0];
+      if (especifico(propio?.codigo_medio_pago_hacienda)) return propio.codigo_medio_pago_hacienda;
+    }
+    const anterior = (
+      await db.query(
+        "SELECT xml_ruta, xml_sha256 FROM hacienda_comprobante WHERE ambiente=$1 AND origen='factura' AND origen_id=$2 ORDER BY revision_documento DESC LIMIT 1",
+        [ambiente, factura.id],
+      )
+    ).rows[0];
+    if (anterior) {
+      const declarado = /<TipoMedioPago>(\d{2})<\/TipoMedioPago>/.exec(
+        String(await almacen.leerXml(anterior.xml_ruta, anterior.xml_sha256)),
+      );
+      if (especifico(declarado?.[1])) return declarado[1];
+    }
+    const cobro = (
+      await db.query(
+        `SELECT mp.codigo_medio_pago_hacienda AS codigo
+           FROM pago_factura pf JOIN pago p ON p.id=pf.pago_id JOIN metodo_pago mp ON mp.id=p.metodo_pago_id
+          WHERE pf.factura_id=$1 AND p.anulado=FALSE AND mp.codigo_medio_pago_hacienda ~ '^0[1-7]$'
+          GROUP BY mp.codigo_medio_pago_hacienda ORDER BY sum(pf.monto) DESC, mp.codigo_medio_pago_hacienda LIMIT 1`,
+        [factura.id],
+      )
+    ).rows[0];
+    return cobro ? cobro.codigo : null;
+  }
+  /** Los medios que se pueden elegir al emitir: activos y con código específico. */
+  async function mediosDePago(db) {
+    return (
+      await db.query(
+        "SELECT id, nombre FROM metodo_pago WHERE activo AND codigo_medio_pago_hacienda ~ '^0[1-7]$' ORDER BY orden, id",
+      )
+    ).rows;
+  }
   // El número lo da numeracion.js: manda el numerador y se saltan los ya
   // usados (decisión del usuario del 2026-10-11, explicada ahí).
   const numerar = (db, c, tipo) => numeracion.reservar(db, c, tipo);
@@ -292,18 +362,12 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
             condicion_venta: factura.condicion_venta,
           };
         }
-        const pago = (
-          await db.query(
-            "SELECT codigo_medio_pago_hacienda FROM metodo_pago WHERE id=$1",
-            [factura.metodo_pago_id],
-          )
-        ).rows[0];
         const plazo = (
           await db.query("SELECT dias FROM plazo_credito WHERE id=$1", [
             factura.plazo_credito_id,
           ])
         ).rows[0];
-        documento.codigo_medio_pago_hacienda = pago?.codigo_medio_pago_hacienda;
+        documento.codigo_medio_pago_hacienda = await medioDePago(db, factura, a, datos.metodoPagoId);
         documento.plazo_dias = plazo?.dias;
         const tablaLinea =
             origen === "nota_credito" ? "nota_credito_linea" : "factura_linea",
@@ -617,7 +681,7 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
   async function estadoDeFactura(n, dadas = []) {
     const f = (
       await pool.query(
-        "SELECT id, numero, estado, electronica, alegra_id, cliente_identificacion, hacienda_comprobante_id FROM factura WHERE id=$1",
+        "SELECT id, numero, estado, electronica, alegra_id, cliente_identificacion, hacienda_comprobante_id, condicion_venta, metodo_pago_id FROM factura WHERE id=$1",
         [id(n)],
       )
     ).rows[0];
@@ -652,10 +716,17 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
           : !a
             ? "Habilitá un ambiente en Configuración → Hacienda."
             : null;
+    // En contado Hacienda pide el medio de pago; si ni la factura ni sus
+    // cobros lo dicen, lo tiene que decir quien emite.
+    const ambiente = c?.ambiente || a;
+    const faltaMedioPago =
+      f.condicion_venta !== "credito" && Boolean(ambiente) && !(await medioDePago(pool, f, ambiente));
     return {
-      ambiente: c?.ambiente || a,
+      ambiente,
       tipo: tipoDeFactura(f),
       pendientes: datosPendientes(lineas, dadas),
+      faltaMedioPago,
+      mediosPago: faltaMedioPago ? await mediosDePago(pool) : [],
       motivoNoEmitible,
       comprobante: vista(c),
       correo: c ? await ultimoCorreo(c.id) : null,
@@ -685,10 +756,23 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
           (e.pendientes.length > 3 ? "…" : "."),
         409,
       );
+    const eligioMedio = datos.metodoPagoId !== undefined && datos.metodoPagoId !== null && datos.metodoPagoId !== "";
+    if (!enCurso && e.faltaMedioPago && !eligioMedio)
+      throw error(
+        "DATOS_FISCALES_PENDIENTES",
+        "Falta decir con qué paga el cliente: en una venta de contado Hacienda pide el medio de pago.",
+        409,
+      );
     return preparar(
       "factura",
       n,
-      { ambiente: e.ambiente, tipo: e.tipo, sustituir: datos.sustituir === true, lineas },
+      {
+        ambiente: e.ambiente,
+        tipo: e.tipo,
+        sustituir: datos.sustituir === true,
+        lineas,
+        ...(eligioMedio ? { metodoPagoId: datos.metodoPagoId } : {}),
+      },
       usuarioId,
     );
   }

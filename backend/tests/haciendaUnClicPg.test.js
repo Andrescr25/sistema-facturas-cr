@@ -125,6 +125,27 @@ test(
         )
       ).rows[0].id;
       const usuarioId = (await db.query("SELECT min(id) AS id FROM usuario")).rows[0].id;
+      // Otro medio, distinto del de `pago` (01), para ver cuál se declara.
+      const sinpe = (
+        await db.query(
+          "UPDATE metodo_pago SET codigo_medio_pago_hacienda='06', activo=TRUE WHERE id=(SELECT min(id) FROM metodo_pago WHERE id<>$1) RETURNING id",
+          [pago],
+        )
+      ).rows[0].id;
+      const plazo = (await db.query("SELECT min(id) AS id FROM plazo_credito WHERE dias > 0")).rows[0].id;
+      /** Un cobro vigente de esa factura, con ese medio. */
+      const cobrar = async (f, metodo, monto = 113) => {
+        const p = (
+          await db.query(
+            "INSERT INTO pago(fecha,cliente_nombre,metodo_pago_id,metodo_pago_texto,monto) VALUES(CURRENT_DATE,'ZZ receptor',$1,'ZZ',$2) RETURNING id",
+            [metodo, monto],
+          )
+        ).rows[0].id;
+        await db.query("INSERT INTO pago_factura(pago_id,factura_id,factura_numero,monto) VALUES($1,$2,'ZZ-un-clic',$3)", [p, f.id, monto]);
+        return p;
+      };
+      const medioDeclarado = async (comprobanteId) =>
+        /<TipoMedioPago>(\d{2})<\/TipoMedioPago>/.exec(await s.archivo(comprobanteId))?.[1] || null;
       for (const a of ["pruebas", "produccion"])
         await config.guardar(
           puente,
@@ -139,15 +160,18 @@ test(
           c.p12,
         );
 
-      /** Una factura ZZ de una línea; `cedula` vacía = cliente sin identificar. */
-      const crear = async ({ cedula = "123456789", descuento = 0, extra = "" } = {}) => {
+      /**
+       * Una factura ZZ de una línea; `cedula` vacía = cliente sin identificar.
+       * `medio: null` = como nacen hoy las facturas: sin medio de pago.
+       */
+      const crear = async ({ cedula = "123456789", descuento = 0, extra = "", medio = pago, credito = false } = {}) => {
         const base = 100 - descuento,
           iva = Math.round(base * 13) / 100,
           total = base + iva;
         const f = (
           await db.query(
-            `INSERT INTO factura(numero,estado,fecha,cliente_nombre,cliente_identificacion,cliente_tipo_identificacion,actividad_economica,condicion_venta,metodo_pago_id,subtotal,descuento,impuesto,total${extra ? "," + extra : ""}) VALUES('ZZ-un-clic','emitida',CURRENT_DATE,'ZZ receptor',$2,$3,'123456','contado',$1,$4,$5,$6,$7${extra ? ",'zz-alegra-1'" : ""}) RETURNING id`,
-            [pago, cedula || null, cedula ? "CF" : null, base, descuento, iva, total],
+            `INSERT INTO factura(numero,estado,fecha,cliente_nombre,cliente_identificacion,cliente_tipo_identificacion,actividad_economica,condicion_venta,plazo_credito_id,metodo_pago_id,subtotal,descuento,impuesto,total${extra ? "," + extra : ""}) VALUES('ZZ-un-clic','emitida',CURRENT_DATE,'ZZ receptor',$2,$3,'123456',$8,$9,$1,$4,$5,$6,$7${extra ? ",'zz-alegra-1'" : ""}) RETURNING id`,
+            [medio, cedula || null, cedula ? "CF" : null, base, descuento, iva, total, credito ? "credito" : "contado", credito ? plazo : null],
           )
         ).rows[0].id;
         await db.query(
@@ -351,6 +375,89 @@ test(
         assert.match(xml, /<MontoDescuento>10\.00000<\/MontoDescuento>/);
         // Ya preparada, seguir no vuelve a pedir el dato.
         assert.equal((await s.emitirFactura(f.id)).id, p.id);
+      });
+
+      // --- EL MEDIO DE PAGO (2026-10-11): «Medio de pago: falta un dato
+      // fiscal válido», con la factura de contado a la vista. La factura
+      // nace sin cobrar y ya no trae medio; Hacienda lo pide en contado.
+      await t.test("contado sin medio de pago: no se inventa efectivo, se le pregunta a quien emite", async () => {
+        const f = await crear({ medio: null });
+        const e = await s.estadoDeFactura(f.id);
+        assert.equal(e.faltaMedioPago, true);
+        assert.ok(e.mediosPago.some((m) => m.id === sinpe) && e.mediosPago.every((m) => m.id && m.nombre));
+        await assert.rejects(
+          s.emitirFactura(f.id),
+          (x) => x.code === "DATOS_FISCALES_PENDIENTES" && x.status === 409 && /con qué paga el cliente/.test(x.message),
+        );
+        assert.equal(
+          (await db.query("SELECT count(*)::int AS n FROM hacienda_comprobante WHERE origen='factura' AND origen_id=$1", [f.id])).rows[0].n,
+          0,
+          "se reservó un número para una factura que no se pudo emitir",
+        );
+        const p = await s.emitirFactura(f.id, { metodoPagoId: sinpe });
+        assert.equal(await medioDeclarado(p.id), "06");
+        // Elegirlo NO cobra la factura ni le cambia nada.
+        const despues = (await db.query("SELECT metodo_pago_id, (SELECT count(*)::int FROM pago_factura WHERE factura_id=$1) AS cobros FROM factura WHERE id=$1", [f.id])).rows[0];
+        assert.deepEqual(despues, { metodo_pago_id: null, cobros: 0 });
+        // Ya emitida, consultar su estado no vuelve a pedir el dato.
+        assert.equal((await s.estadoDeFactura(f.id)).faltaMedioPago, false);
+      });
+
+      await t.test("un medio que no está en la lista se rechaza", async () => {
+        const f = await crear({ medio: null });
+        await assert.rejects(s.emitirFactura(f.id, { metodoPagoId: 999999 }), (x) => x.code === "MEDIO_PAGO_INVALIDO");
+        await db.query("UPDATE metodo_pago SET activo=FALSE WHERE id=$1", [sinpe]);
+        await assert.rejects(s.emitirFactura(f.id, { metodoPagoId: sinpe }), (x) => x.code === "MEDIO_PAGO_INVALIDO");
+        await db.query("UPDATE metodo_pago SET activo=TRUE WHERE id=$1", [sinpe]);
+      });
+
+      await t.test("si ya se cobró, sale con el medio del cobro y no pregunta nada", async () => {
+        const f = await crear({ medio: null });
+        const cobro = await cobrar(f, sinpe);
+        assert.equal((await s.estadoDeFactura(f.id)).faltaMedioPago, false);
+        // Un cobro ANULADO no cuenta: vuelve a hacer falta.
+        await db.query("UPDATE pago SET anulado=TRUE WHERE id=$1", [cobro]);
+        assert.equal((await s.estadoDeFactura(f.id)).faltaMedioPago, true);
+        await db.query("UPDATE pago SET anulado=FALSE WHERE id=$1", [cobro]);
+        assert.equal(await medioDeclarado((await s.emitirFactura(f.id)).id), "06");
+      });
+
+      await t.test("con dos cobros se declara el del monto mayor", async () => {
+        const f = await crear({ medio: null });
+        await cobrar(f, pago, 13);
+        await cobrar(f, sinpe, 100);
+        assert.equal(await medioDeclarado((await s.emitirFactura(f.id)).id), "06");
+      });
+
+      await t.test("el medio anotado en la factura manda sobre el del cobro", async () => {
+        const f = await crear();
+        await cobrar(f, sinpe);
+        assert.equal(await medioDeclarado((await s.emitirFactura(f.id)).id), "01");
+      });
+
+      await t.test("a crédito y sin cobrar sale SIN medio de pago, y no se pregunta", async () => {
+        const f = await crear({ medio: null, credito: true });
+        const e = await s.estadoDeFactura(f.id);
+        assert.equal(e.faltaMedioPago, false);
+        assert.deepEqual(e.mediosPago, []);
+        const p = await s.emitirFactura(f.id);
+        const xml = await s.archivo(p.id);
+        assert.match(xml, /<CondicionVenta>02<\/CondicionVenta>/);
+        assert.doesNotMatch(xml, /MedioPago/);
+      });
+
+      await t.test("al volver a emitir un rechazo se usa el medio ya declarado, sin preguntar otra vez", async () => {
+        const f = await crear({ medio: null });
+        modo = "rechazada";
+        const p = await s.emitirFactura(f.id, { metodoPagoId: sinpe });
+        totales.set(p.clave, f.total);
+        await s.enviar(p.id);
+        assert.equal((await s.consultar(p.id)).estado, "rechazada");
+        modo = "aceptada";
+        assert.equal((await s.estadoDeFactura(f.id)).faltaMedioPago, false, "el rechazo hizo olvidar el medio que ya se había dicho");
+        const nuevo = await s.emitirFactura(f.id, { sustituir: true });
+        assert.notEqual(nuevo.id, p.id);
+        assert.equal(await medioDeclarado(nuevo.id), "06");
       });
 
       await t.test("una histórica de Alegra no se emite", async () => {

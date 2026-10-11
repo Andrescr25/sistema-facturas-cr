@@ -387,6 +387,48 @@ describe('el dato que a veces falta se contesta en la misma factura', () => {
   });
 });
 
+describe('con qué paga el cliente, cuando la factura no lo dice', () => {
+  // EL ERROR (2026-10-11): «Medio de pago: falta un dato fiscal válido»,
+  // con la factura de contado a la vista. Desde que la factura nace sin
+  // cobrar ya no trae medio de pago, y Hacienda lo pide en contado.
+  const contado = { pendientes: [], faltaMedioPago: true, mediosPago: [{ id: 1, nombre: 'Efectivo' }, { id: 2, nombre: 'SINPE Móvil' }] };
+
+  test('una venta de contado sin medio de pago pide el dato antes de emitir', () => {
+    assert.equal(u.pideDatos(contado), true);
+    assert.equal(u.pideDatos({ pendientes: [], faltaMedioPago: false }), false);
+    assert.equal(u.pideDatos({ pendientes: [{ numeroLinea: 1 }], faltaMedioPago: false }), true);
+    assert.equal(u.pideDatos(null), false);
+  });
+
+  test('no deja emitir sin elegirlo, y lo que viaja es solo eso', () => {
+    assert.match(u.faltaContestar([], {}, contado), /con qué paga el cliente/);
+    assert.equal(u.faltaContestar([], { metodoPagoId: 2 }, contado), '');
+    assert.deepEqual(u.respuestaDe(contado, { metodoPagoId: 2, codigoDescuento: '07' }), { metodoPagoId: 2 });
+  });
+
+  test('si la factura ya dice el medio, no se manda ninguno: no se pisa el suyo', () => {
+    const conDescuento = { pendientes: [{ numeroLinea: 2, nombre: 'FRIJOLES', descuento: true, medicamento: false }], faltaMedioPago: false };
+    assert.deepEqual(u.respuestaDe(conDescuento, { metodoPagoId: 2, codigoDescuento: '07' }), {
+      lineas: [{ numeroLinea: 2, codigoDescuento: '07', naturalezaDescuento: '' }]
+    });
+    assert.deepEqual(u.respuestaDe({ pendientes: [], faltaMedioPago: false }, { metodoPagoId: 2 }), {});
+  });
+
+  test('descuento y medio de pago a la vez: se piden los dos', () => {
+    const ambos = { ...contado, pendientes: [{ numeroLinea: 2, nombre: 'FRIJOLES', descuento: true, medicamento: false }] };
+    assert.match(u.faltaContestar(ambos.pendientes, { codigoDescuento: '07' }, ambos), /con qué paga/);
+    assert.match(u.faltaContestar(ambos.pendientes, { metodoPagoId: 1 }, ambos), /motivo del descuento/);
+    assert.deepEqual(Object.keys(u.respuestaDe(ambos, { metodoPagoId: 1, codigoDescuento: '07' })).sort(), ['lineas', 'metodoPagoId']);
+  });
+
+  test('la pantalla dice que elegirlo NO registra un cobro', () => {
+    const panel = codigo('integrations', 'hacienda', 'PanelEmisionFactura.jsx');
+    assert.match(panel, /¿Con qué paga el cliente\?/);
+    assert.match(panel, /no registra ningún cobro/);
+    assert.match(panel, /estado\.mediosPago/);
+  });
+});
+
 describe('cómo quedó conectada la pantalla', () => {
   const vista = codigo('components', 'facturacion', 'VistaFactura.jsx');
   const boton = codigo('integrations', 'hacienda', 'BotonEmitirFactura.jsx');
@@ -414,7 +456,7 @@ describe('cómo quedó conectada la pantalla', () => {
 
   test('el gancho encadena con los pasos de siempre del servidor', () => {
     assert.match(gancho, /emitirPasoAPaso\(/);
-    assert.match(gancho, /firmar: \(\) => emitirFactura\(id, \{ sustituir: rechazado, lineas \}\)/);
+    assert.match(gancho, /firmar: \(\) => emitirFactura\(id, \{ sustituir: rechazado, lineas, metodoPagoId \}\)/);
     assert.match(gancho, /enviar: \(c\) => operar\(c, 'enviar'\)/);
     assert.match(gancho, /consultar: \(c\) => operar\(c, 'consultar'\)/);
   });

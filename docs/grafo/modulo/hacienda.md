@@ -33,6 +33,7 @@ archivos:
   - backend/tests/haciendaUnClicPg.test.js
   - backend/tests/haciendaNumeracion.test.js
   - backend/tests/haciendaNumeracionPg.test.js
+  - backend/tests/haciendaMedioPago.test.js
   - frontend/src/integrations/hacienda/NumeracionHacienda.jsx
   - frontend/src/integrations/hacienda/numeracionTexto.js
   - frontend/src/integrations/hacienda/catalogos.js
@@ -315,3 +316,38 @@ Verificado: `haciendaNumeracion.test.js`, `haciendaNumeracionPg.test.js`
 primera en 4947, cambio a 2481; rompiendo cada regla, alguna prueba falla) y
 un Chromium real a 1440, 820 y 390 px: cambio a 2481, dos facturas emitidas
 con 2481 y 2482, y el salto de 4946 a 4948.
+
+EL MEDIO DE PAGO: SE EXIGE EN CONTADO, SE BUSCA ANTES DE PREGUNTAR
+(2026-10-11, noche). En producción, al emitir: «Medio de pago: falta un dato
+fiscal válido», con la factura de contado a la vista. Dos cosas juntas: el
+XML exigía el medio de pago SIEMPRE, y desde que la factura nace sin cobrar
+(`leccion/lo-que-mueve-plata-no-va-por-omision`) ninguna lo trae. Quedó
+bloqueada toda emisión nueva, de contado y de crédito. El arreglo de la
+mañana y la emisión de un clic se probaron con facturas de prueba que sí
+traían medio: el camino real —factura nacida sin cobrar— no se recorrió.
+
+La regla, medida contra las 247 facturas 4.4 que Hacienda ya aceptó: las 145
+de contado declaran medio; de las 102 de crédito, una salió sin él. El
+esquema lo hace opcional (`minOccurs="0"`).
+
+- **Crédito sin cobrar:** sale sin el nodo `MedioPago`. No hay medio que
+  declarar y no se inventa.
+- **Contado:** se exige. `medioDePago` (en `emision.service.js`) lo busca en
+  este orden: lo que contestó quien emite; el anotado en la factura; el que
+  ya se declaró para esa factura en ese ambiente (así la nota de crédito dice
+  lo mismo que su factura y volver a emitir un rechazo no pregunta otra vez);
+  el del cobro vigente de mayor monto. «99 Otros» no cuenta.
+- **Si nada lo dice, se pregunta en la misma factura** («¿Con qué paga el
+  cliente?»), con los medios activos del negocio. Nunca se asume efectivo:
+  eso era exactamente el error de la mañana, con otra cara. Elegirlo NO
+  registra un cobro ni toca la factura, y la pantalla lo dice.
+
+Pruebas: `haciendaMedioPago.test.js` (XML y esquema oficial, con y sin el
+nodo, en factura, tiquete y nota), `emisionUnClic.test.js` y siete casos
+nuevos en `haciendaUnClicPg.test.js`. Chromium real con Hacienda simulada:
+contado sin cobrar (pregunta), crédito (un clic, sin nodo) y contado ya
+cobrado por SINPE (un clic, declara 06).
+
+**La regla que deja:** una prueba que arma su propio dato de entrada prueba
+ese dato. Cuando cambia cómo NACE un documento, hay que volver a recorrer
+todo lo que lo consume con un documento nacido de la forma nueva.

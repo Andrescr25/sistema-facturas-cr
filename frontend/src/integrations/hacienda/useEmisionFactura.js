@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { estadoFactura, emitirFactura, reenviarCorreo, operar, mensajeError } from './api'
-import { emitirPasoAPaso, FINALES } from './emisionPasos'
+import { emitirPasoAPaso, FINALES, pideDatos } from './emisionPasos'
 
 /**
  * La emisión electrónica de UNA factura, vista desde su pantalla: cómo va,
@@ -66,10 +66,11 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio }
   }, [esperandoSola, facturaId, leer])
 
   /**
-   * Emitir, o seguir con el comprobante que quedó a medias. `lineas` solo
-   * viene cuando la factura pidió un dato (descuento, medicamento).
+   * Emitir, o seguir con el comprobante que quedó a medias. `lineas` y
+   * `metodoPagoId` solo vienen cuando la factura pidió un dato (descuento,
+   * medicamento, con qué paga el cliente).
    */
-  const emitir = async ({ lineas } = {}) => {
+  const emitir = async ({ lineas, metodoPagoId } = {}) => {
     if (fase || !estado) return
     const id = facturaId
     const previo = estado.comprobante
@@ -77,7 +78,7 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio }
     const continuar = Boolean(previo) && !rechazado
     setError('')
     if (!continuar && estado.motivoNoEmitible) return setError(estado.motivoNoEmitible)
-    if (!continuar && estado.pendientes?.length && !lineas) return setPidiendoDatos(true)
+    if (!continuar && pideDatos(estado) && !lineas && !metodoPagoId) return setPidiendoDatos(true)
 
     const mia = () => actual.current === id
     setPidiendoDatos(false)
@@ -87,7 +88,7 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio }
     try {
       await emitirPasoAPaso({
         comprobante: continuar ? previo : null,
-        firmar: () => emitirFactura(id, { sustituir: rechazado, lineas }),
+        firmar: () => emitirFactura(id, { sustituir: rechazado, lineas, metodoPagoId }),
         enviar: (c) => operar(c, 'enviar'),
         consultar: (c) => operar(c, 'consultar'),
         esperar,

@@ -5,7 +5,7 @@ import {
 import Insignia from '../../components/ui/Insignia'
 import { descargar } from './api'
 import {
-  pasosDe, resumenDe, nombreDeTipo, MOTIVOS_DESCUENTO, lineasDe, faltaContestar
+  pasosDe, resumenDe, nombreDeTipo, MOTIVOS_DESCUENTO, faltaContestar, respuestaDe
 } from './emisionPasos'
 
 /**
@@ -49,12 +49,14 @@ function Paso({ paso }) {
 const CAMPO = 'mt-1 w-full rounded-lg border border-neutro-300 bg-white px-3 py-2 text-sm'
 
 /**
- * El dato que solo una persona puede dar: el motivo de un descuento o el
- * registro de un medicamento. Se pide acá, y al contestar la emisión sigue
- * sola: no se vuelve al modal de ambiente, tipo y tres botones.
+ * El dato que solo una persona puede dar: con qué paga el cliente, el motivo
+ * de un descuento o el registro de un medicamento. Se pide acá, y al
+ * contestar la emisión sigue sola: no se vuelve al modal de ambiente, tipo y
+ * tres botones.
  */
-function DatosPendientes({ pendientes, onEmitir, onCancelar }) {
-  const [r, setR] = useState({ codigoDescuento: '', naturalezaDescuento: '', medicamentos: {} })
+function DatosPendientes({ estado, onEmitir, onCancelar }) {
+  const pendientes = estado?.pendientes || []
+  const [r, setR] = useState({ metodoPagoId: null, codigoDescuento: '', naturalezaDescuento: '', medicamentos: {} })
   const [aviso, setAviso] = useState('')
   const conDescuento = pendientes.filter(p => p.descuento)
   const medicamentos = pendientes.filter(p => p.medicamento)
@@ -62,15 +64,46 @@ function DatosPendientes({ pendientes, onEmitir, onCancelar }) {
     setR(a => ({ ...a, medicamentos: { ...a.medicamentos, [n]: { ...a.medicamentos[n], [campo]: valor } } }))
 
   const emitir = () => {
-    const falta = faltaContestar(pendientes, r)
+    const falta = faltaContestar(pendientes, r, estado)
     if (falta) return setAviso(falta)
-    onEmitir(lineasDe(pendientes, r))
+    onEmitir(respuestaDe(estado, r))
   }
 
   return (
     <div data-datos-pendientes className="mt-4 rounded-xl border border-alerta-200 bg-alerta-50 p-4">
       <p className="font-semibold text-neutro-900">Antes de emitir falta un dato</p>
       <p className="mt-0.5 text-sm text-neutro-600">Hacienda lo exige y el sistema no lo puede adivinar.</p>
+
+      {/* EL MEDIO DE PAGO. La factura nace sin cobrar, así que una venta de
+          contado puede llegar acá sin decir con qué se paga, y Hacienda lo
+          pide. Elegirlo NO registra un cobro: eso se dice, porque el error
+          de antes era justamente una factura que salía pagada sola. */}
+      {estado?.faltaMedioPago && (
+        <div data-medio-pago className="mt-3">
+          <p className="text-sm font-medium text-neutro-800">¿Con qué paga el cliente?</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {(estado.mediosPago || []).map(m => (
+              <button
+                key={m.id}
+                type="button"
+                aria-pressed={r.metodoPagoId === m.id}
+                onClick={() => { setAviso(''); setR(a => ({ ...a, metodoPagoId: m.id })) }}
+                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+                  r.metodoPagoId === m.id
+                    ? 'border-primario-400 bg-primario-600 text-white'
+                    : 'border-neutro-300 bg-white text-neutro-700 hover:border-neutro-400'
+                }`}
+              >
+                {m.nombre}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-neutro-500">
+            Es una venta de contado y Hacienda pide el medio de pago. Esto no registra ningún cobro: la factura sigue
+            pendiente hasta que la cobrés.
+          </p>
+        </div>
+      )}
 
       {conDescuento.length > 0 && (
         <div className="mt-3">
@@ -196,8 +229,8 @@ export default function PanelEmisionFactura({ emision }) {
 
       {pidiendoDatos && !fase && (
         <DatosPendientes
-          pendientes={estado?.pendientes || []}
-          onEmitir={(lineas) => emision.emitir({ lineas })}
+          estado={estado}
+          onEmitir={(respuesta) => emision.emitir(respuesta)}
           onCancelar={emision.cerrarDatos}
         />
       )}
