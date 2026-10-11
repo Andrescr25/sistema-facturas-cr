@@ -132,6 +132,44 @@ la rama del 2026-10-08 y ninguno se puede comprobar desde la copia local.
    La fusión ES el corte: en cuanto entra a `main`, producción deja de usar
    Alegra. No se adelanta.
 
+## Corte iniciado el 2026-10-10
+
+Decisión del usuario ese día: pasar a producción ya y corregir ahí, con
+Alegra como respaldo hasta fin de mes. Se eligió migrar la base de Supabase
+en sitio y cargar ahí mismo; `main` avanza al final.
+
+**La base de PRODUCCIÓN ya tiene el esquema nuevo.** Quien lea esto no debe
+suponer que producción sigue como antes:
+
+| Paso | Estado |
+|---|---|
+| Respaldo de producción (`pg_dump`, 63 tablas, sin conversaciones) | Hecho, 18:36. Privado, fuera del repositorio |
+| Ensayo: ese respaldo restaurado en local + las 54 migraciones | Hecho. Atrapó la regla de renumeradas mal puesta en la 041 (hoy 054) |
+| Las 54 migraciones en producción, una transacción por archivo | Hecho, 18:41–18:42, sin errores |
+| Carga desde Alegra a las tablas nuevas | **Pendiente.** Mismo orden que `ensayar-corte.js`: maestras → enlaces → facturas, cobros, notas, débitos, cotizaciones → enlaces con 041 y 054 |
+| Verificación: conciliaciones y backend nuevo contra producción en solo lectura | Pendiente |
+| Variables del servicio en Render | Pendiente |
+| `main` avanza hasta esta rama y se sube | Pendiente. Es lo último |
+
+Mientras `main` no avance, en Render sigue el sistema anterior sobre una
+base ya migrada. Lo que se sabe que le falla: **Impresión y los reportes de
+faltantes** (la 032 renombró `faltantes.factura_id`, `faltantes.producto_id`
+y `facturas_reimpresion.factura_id`). Los pedidos del portal pueden fallar
+por el disparador nuevo de `pedido_cliente`; no se comprobó. El resto de las
+63 tablas anteriores no cambió de forma.
+
+El sistema anterior corre su limpieza semanal el domingo a las 23:59: conviene
+que el código nuevo esté desplegado antes.
+
+Variables que el servicio necesita para arrancar con este código:
+`PERMITIR_BASE_REMOTA=true` (sin ella no se conecta a una base remota),
+`PERMITIR_SALIDAS=true`, `PERMITIR_LECTURA_BUZON=true`, `NODE_VERSION=22`,
+y para Hacienda en pruebas `HACIENDA_PERMITIR_PRUEBAS=true` y
+`HACIENDA_TRABAJADOR=true`. No definir `MODO_AISLADO`.
+
+Vuelta atrás antes de subir `main`: devolver los tres nombres de columna de
+la 032. Las tablas nuevas pueden quedar; el sistema anterior no las mira.
+
 ## Vuelta atrás
 
 **Antes de la primera escritura real en el sistema nuevo:** mantenerlo cerrado,
