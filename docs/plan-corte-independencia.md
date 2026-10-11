@@ -146,8 +146,10 @@ suponer que producción sigue como antes:
 | Respaldo de producción (`pg_dump`, 63 tablas, sin conversaciones) | Hecho, 18:36. Privado, fuera del repositorio |
 | Ensayo: ese respaldo restaurado en local + las 54 migraciones | Hecho. Atrapó la regla de renumeradas mal puesta en la 041 (hoy 054) |
 | Las 54 migraciones en producción, una transacción por archivo | Hecho, 18:41–18:42, sin errores |
-| Carga desde Alegra a las tablas nuevas | **Pendiente.** Mismo orden que `ensayar-corte.js`: maestras → enlaces → facturas, cobros, notas, débitos, cotizaciones → enlaces con 041 y 054 |
-| Verificación: conciliaciones y backend nuevo contra producción en solo lectura | Pendiente |
+| Carga desde Alegra a las tablas nuevas | Hecha, 18:58–22:00 (3 h: facturas 2 h 19 min, cobros 35 min). 5.562 facturas, 53.855 líneas, 1.536 cobros, 27 notas, 942 compras, 2.157 productos, 248 clientes, 42 proveedores |
+| Verificación del estado (`verificarEstado`) y enlaces | Hecha: pasa. 0 intentos sin resolver, series seguras, 322 faltantes y 1.577 filas de Impresión enlazadas |
+| Conciliación contra Alegra, 2026-09-01 a 2026-10-10 | Ventas sin diferencias (233). Cobros sin diferencias (270). Saldos: 320 de 320 cobrables iguales. Notas: ninguna en el tramo. Compras: sin vínculo guardado, no se certifica (117 contra 117) |
+| Backend nuevo en local contra producción, solo lectura | 16 pantallas responden. Por cobrar: 45 clientes, 61 facturas, ₡2.509.202 |
 | Variables del servicio en Render | Pendiente |
 | `main` avanza hasta esta rama y se sube | Pendiente. Es lo último |
 
@@ -166,6 +168,18 @@ Variables que el servicio necesita para arrancar con este código:
 `PERMITIR_SALIDAS=true`, `PERMITIR_LECTURA_BUZON=true`, `NODE_VERSION=22`,
 y para Hacienda en pruebas `HACIENDA_PERMITIR_PRUEBAS=true` y
 `HACIENDA_TRABAJADOR=true`. No definir `MODO_AISLADO`.
+
+Pendiente aparte del despliegue, visto al verificar:
+
+- **Fotos.** 1.844 productos activos tienen la foto apuntando a Alegra; esas
+  direcciones firmadas vencen en unos ocho días. Hay que correr
+  `migrar-fotos.js` con almacenamiento persistente antes de que venzan.
+- **Hacienda** no está configurada en producción (ningún ambiente). Tres
+  impuestos de 0 % siguen sin código: los elige una persona.
+- **Inventario** en cero, a propósito, hasta el conteo.
+- **Anular un cobro** existe en el servidor y no tiene botón en la pantalla.
+- Un backend del sistema anterior corriendo en una máquina de desarrollo
+  también ejecuta la limpieza semanal contra producción: apagarlo.
 
 Vuelta atrás antes de subir `main`: devolver los tres nombres de columna de
 la 032. Las tablas nuevas pueden quedar; el sistema anterior no las mira.
