@@ -40,9 +40,12 @@ No ejecutar npm install ni regenerar Prisma en el backend enlazado. El
 postinstall del despliegue normal instala también este paquete, en un árbol
 nuevo que no debe ser un enlace compartido.
 
-Se requiere Node >=22 y `xmllint` de libxml2. En Debian/Ubuntu instalar
-`libxml2-utils` en la imagen; en macOS ya existe en `/usr/bin/xmllint`.
-Sin ese ejecutable, la preparación responde 503; nunca omite el XSD.
+Se requiere Node >=22. La validación contra el XSD usa libxml2 compilado a
+WebAssembly (`xmllint-wasm`, dependencia de este paquete): NO hace falta el
+programa `xmllint` en el servidor. Se quitó esa dependencia el 2026-10-11:
+Render no lo trae, con el entorno de Node no se puede instalar, y la primera
+prueba en producción respondió 503. Si la dependencia no estuviera instalada
+la preparación responde 503; nunca omite el XSD.
 Aplicar `migrations/independencia/043_hacienda.sql` antes de iniciar el módulo
 y antes de ejecutar los cargadores históricos actualizados. SQL puro, sin
 cambios del cliente Prisma.

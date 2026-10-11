@@ -97,11 +97,13 @@ con el usuario antes de preparar el servidor, porque de eso depende cómo se
 cumple cada punto. Ninguno estaba en este plan: salieron de la revisión de
 la rama del 2026-10-08 y ninguno se puede comprobar desde la copia local.
 
-1. **Node 22 y `xmllint`.** `backend/package.json` exige Node >= 22 y la
-   validación contra el XSD llama a `xmllint` (libxml2). Sin ese programa,
-   preparar un comprobante responde 503. `nixpacks.toml` y
-   `frontend/package.json` todavía piden Node 18: alinearlos y comprobar las
-   dos cosas en el servidor antes de D, no ese día.
+1. **Node 22.** `backend/package.json` exige Node >= 22. `nixpacks.toml` y
+   `frontend/package.json` todavía piden Node 18: alinearlos. *(El programa
+   `xmllint` figuraba acá como requisito del servidor. Render no lo trae y
+   no se puede instalar ahí: se encontró el 2026-10-11, con el sistema ya en
+   vivo, al preparar el primer comprobante. Desde ese día el XSD se valida
+   con libxml2 en WebAssembly, dependencia del módulo de Hacienda, y el
+   servidor no necesita nada más que Node.)*
 2. **Disco que sobreviva a un despliegue.** Todo archivo va a disco local:
    fotos (`ALMACENAMIENTO_DIR`, 270 MB medidos en la copia), PDF y XML
    privados (`ALMACENAMIENTO_PRIVADO_DIR`) y el almacén de Hacienda

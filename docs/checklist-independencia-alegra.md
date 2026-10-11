@@ -893,10 +893,13 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
   la base (`whatsapp_sesion`). En el corte: `WHATSAPP_PROVEEDOR=interno` y
   `PERMITIR_SALIDAS=true`, y copiar la sesión de producción o volver a
   vincular con el QR. En la rama aislada no se conecta nunca.
-- [ ] **Servidor: Node 22 y `xmllint`.** Revisión del 2026-10-08: el backend
-  exige Node >= 22 y Hacienda valida el XSD con `xmllint`; sin él, preparar
-  un comprobante responde 503. `nixpacks.toml` y `frontend/package.json`
-  siguen en Node 18. Alinear y comprobar en el servidor real antes de D.
+- [ ] **Servidor: Node 22.** Revisión del 2026-10-08: el backend exige
+  Node >= 22. `nixpacks.toml` y `frontend/package.json` siguen en Node 18.
+  ~~Y `xmllint`~~ — **ya no hace falta (2026-10-11).** Render no trae ese
+  programa y la primera prueba de Hacienda en producción respondió «Instale
+  libxml2 (xmllint) en el servidor». El XSD se valida ahora con el mismo
+  libxml2 en WebAssembly, como dependencia del módulo
+  (`backend/tests/haciendaValidadorXsd.test.js`).
   Detalle de este y de los tres siguientes en
   [el plan de corte](plan-corte-independencia.md), sección del servidor.
 - [ ] **Servidor: disco persistente y respaldo** para fotos

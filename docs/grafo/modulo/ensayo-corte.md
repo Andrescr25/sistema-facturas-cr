@@ -85,7 +85,8 @@ finales y no completa las dos pasadas del corte. Ese pendiente se conserva.
 
 REQUISITOS DEL SERVIDOR, 2026-10-08. El ensayo corre en la copia local y no
 prueba el servidor de producción. El plan operativo lista aparte lo que tiene
-que existir allá antes de D: Node 22 y `xmllint`, disco persistente para
+que existir allá antes de D: Node 22 (`xmllint` dejó de hacer falta el
+2026-10-11, ver [[modulo/hacienda]]), disco persistente para
 fotos, privados y almacén de Hacienda, las llaves `PERMITIR_*`, el paso real
 de las migraciones sobre la base de producción y la fusión a `main`, que es
 el corte mismo.

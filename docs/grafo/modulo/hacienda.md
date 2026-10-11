@@ -17,6 +17,7 @@ archivos:
   - backend/src/integrations/hacienda/firma/certificado.js
   - backend/src/integrations/hacienda/xml/v4.4.js
   - backend/src/integrations/hacienda/xml/validar.js
+  - backend/tests/haciendaValidadorXsd.test.js
   - backend/src/integrations/hacienda/esquemas/v4.4/fuentes.json
   - backend/migrations/independencia/043_hacienda.sql
   - frontend/src/integrations/hacienda/ConfiguracionHacienda.jsx
@@ -29,7 +30,7 @@ archivos:
   - docs/informes/hacienda-2026-10-05.md
 aristas:
   relacionado: [modulo/facturacion, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera]
-medido: 2026-10-10
+medido: 2026-10-11
 ---
 
 El usuario autorizó desarrollar Hacienda sin pedir nuevas confirmaciones,
@@ -140,3 +141,26 @@ con descuento o regalía, un rechazo con su sustitución y el correo con PDF +
 XML + respuesta. Los dos comprobantes aceptados usan como receptor la misma
 cédula del emisor; no prueban un cliente distinto.
 
+EL XSD SE VALIDA SIN NADA DEL SERVIDOR (2026-10-11). `xml/validar.js`
+ejecutaba el programa `xmllint`. La máquina de desarrollo lo trae; Render no,
+y con el entorno de Node ahí no se instala nada: en la primera prueba en
+producción, «Preparar XML firmado» respondió «Instale libxml2 (xmllint) en el
+servidor» con las catorce pruebas del módulo en verde —corren donde el
+programa sí está—. Ahora valida el mismo libxml2 compilado a WebAssembly
+(`xmllint-wasm`, versión exacta, en el `package.json` de esta carpeta, que el
+despliegue instala con `npm ci`). Los XSD oficiales se usan tal cual, con su
+importación relativa de la firma, y sin red.
+
+Comprobado: los 247 comprobantes 4.4 reales del archivo fiscal dan el mismo
+veredicto en los dos validadores; seis alteraciones por tipo (FE, TE, NC)
+también; y en un contenedor limpio —Linux, Node 22, sin `xmllint`— `npm ci`
+instala y valida. Cuesta ~40–100 ms por documento.
+
+De paso, al rechazar dice CUÁL elemento falló («…esquema oficial 4.4
+(CodigoCABYS)…»), nunca su valor: el diagnóstico crudo trae cédulas y montos.
+
+**La regla que deja:** lo que el servidor necesita y no está en un
+`package.json` es un requisito que nadie prueba. Antes de dar por listo un
+módulo, buscar `child_process` y preguntarse si ese programa existe donde se
+despliega. Hoy el backend no ejecuta ninguno (el `git` de `utils/grafo.js`
+es de las pruebas del grafo, no del servidor).
