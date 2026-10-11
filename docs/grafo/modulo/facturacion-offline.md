@@ -20,9 +20,11 @@ archivos:
   - backend/tests/facturaPdfFrontend.test.js
   - backend/tests/facturacionSinAlegra.test.js
   - backend/tests/baseLocalAbierta.test.js
+  - backend/tests/facturacionFlujoPantalla.test.js
+  - frontend/src/components/facturacion/PestanasFacturacion.jsx
 aristas:
-  relacionado: [modulo/historicos-contexto-documentos, modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
-medido: 2026-10-06
+  relacionado: [leccion/lo-que-mueve-plata-no-va-por-omision, modulo/historicos-contexto-documentos, modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
+medido: 2026-10-11
 ---
 
 SECCIÓN 16. Se retiró `facturaPropiaAdaptador.js`: la copia de facturas y
@@ -117,3 +119,25 @@ distingue Sin ciclo de metadata sin descargar y conserva la fotografía en
 los tres caminos de reenvío. Ver [[modulo/historicos-contexto-documentos]] y
 el informe historicos-contexto-2026-10-06; sus cifras reemplazan el relevo
 anterior. No confundir esta entrega con VAL o cierre integral RUT-08.
+
+LA PANTALLA SE ENTERA CUANDO LA SUBIDA TERMINA (2026-10-11). Al volver la
+conexión suben a la vez el servicio (`handleOnline`) y la pantalla; la
+segunda encuentra `syncInProgress` puesto y volvía a leer la cola antes de
+tiempo: mostraba "pendiente de envío" una factura ya creada, con un
+Reintentar que contestaba "Factura pendiente no encontrada", y no mostraba el
+motivo de la que el servidor rechazó. Ahora cada sincronización avisa al
+terminar (`facturacionService.alSincronizar`) y la pantalla relee ahí. Si el
+servidor rechazó alguna, queda un aviso fijo.
+
+LA COLA SE VE EN CUALQUIER ANCHO. El panel con lo pendiente —motivo,
+Reintentar, Descartar— era solo de teléfono (`md:hidden`): una tablet veía el
+"1" de la cabecera y no tenía dónde tocar. Con algo por subir la pestaña
+aparece como "Por subir", el número de la cabecera lleva ahí, lo pendiente va
+arriba del panel, e ir a verlo no borra la venta en curso. El contador "por
+subir" sale de la cola de ahora, no de la que había al abrir.
+
+EL CÓDIGO → CANTIDAD NO TIENE CARRERA. El foco pasa a la cantidad en el mismo
+Enter, antes de buscar el producto en IndexedDB: tecleando "64⏎10⏎" de
+corrido (o con lector) el "10" caía en la casilla del código. La búsqueda por
+código no distingue mayúsculas (662 productos tienen letras). Detalle en
+[[leccion/lo-que-mueve-plata-no-va-por-omision]].

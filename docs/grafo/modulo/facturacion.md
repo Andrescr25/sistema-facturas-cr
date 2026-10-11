@@ -16,10 +16,16 @@ archivos:
   - backend/tests/sugerenciasFacturacion.test.js
   - backend/tests/idempotenciaFactura.test.js
   - backend/tests/intentoDeFacturaIdPropio.test.js
+  - backend/tests/facturaCobroRevertido.test.js
+  - backend/tests/facturacionFlujoPantalla.test.js
+  - backend/src/modules/facturacion/factura.pdf.js
+  - frontend/src/components/facturacion/VistaFactura.jsx
+  - frontend/src/components/facturacion/SelectorPago.jsx
+  - frontend/src/components/facturacion/PanelCobro.jsx
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
 aristas:
-  relacionado: [modulo/hacienda, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
-medido: 2026-10-05
+  relacionado: [modulo/hacienda, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
+medido: 2026-10-11
 ---
 
 Ventas ya vive sobre la base propia (sección 6 del checklist). Se
@@ -139,3 +145,19 @@ cero, sin volver a descontar ventas históricas: [[modulo/inventario]].
 2026-10-05: ciclo explícito en portal/pedido de agente y facturación presencial;
 al facturar se conserva el recorrido original. Colas antiguas intactas,
 filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].
+
+RECORRIDO COMPLETO (2026-10-11), el día después del corte. La factura NACE
+SIN COBRAR para todo cliente (venía marcada "Efectivo" para los de contado,
+que son casi todos, y salía pagada sola); cobrar en el momento es una
+elección que se ve en la barra en cualquier ancho. Una factura cobrada se
+corrige anulando su cobro DESDE LA FACTURA (permiso `anular-cobro`), y la
+guarda del servidor ya no cuenta cobros ni notas anulados. La ficha y el PDF
+muestran el detalle escrito en cada línea y editar no lo borra; con descuento
+los totales cierran con la calculadora. El código del producto no distingue
+mayúsculas. Todo, con sus porqués, en
+[[leccion/lo-que-mueve-plata-no-va-por-omision]].
+
+SIN HACER, a propósito: la venta a medio armar se pierde si se recarga la
+página (o si la tablet descarta la pestaña); las referencias repetidas entre
+productos activos (`100231`, `27010136`, `7443000380100`) hacen que el código
+elija uno cualquiera — es dato del catálogo, no de la pantalla.

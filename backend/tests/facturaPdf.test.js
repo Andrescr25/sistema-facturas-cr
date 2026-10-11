@@ -1,7 +1,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 const {
-  generarPdfFactura, impuestoPorTarifa, importeLinea, tarifaTexto, columnas
+  generarPdfFactura, impuestoPorTarifa, importeLinea, tarifaTexto, columnas, detalleLinea, subtotalMostrado
 } = require('../src/modules/facturacion/factura.pdf');
 const { fechaLarga } = require('../src/utils/marcaPdf');
 
@@ -111,6 +111,61 @@ describe('el importe de la línea', () => {
 
   test('los NUMERIC como texto se multiplican como números', () => {
     assert.equal(importeLinea({ cantidad: '3.0000', precioUnitario: '1000.00000', descuentoMonto: '0.00' }), 3000);
+  });
+});
+
+describe('los totales cierran con la calculadora', () => {
+  // El papel decía "Subtotal 1.469 / Descuento −36 / IVA 191 / TOTAL 1.660",
+  // y 1.469 − 36 + 191 no es 1.660: el subtotal ya traía el descuento restado.
+  const CON_DESCUENTO = {
+    ...FACTURA, subtotal: 1469, descuento: 36, impuesto: 190.97, total: 1659.97,
+    lineas: [
+      { ...LINEA, cantidad: 8, precioUnitario: 130, descuentoMonto: 0, impuestoMonto: 135.2 },
+      { ...LINEA, numeroLinea: 2, cantidad: 6, precioUnitario: 60, descuentoPorcentaje: 10, descuentoMonto: 36, impuestoMonto: 42.12 },
+      { ...LINEA, numeroLinea: 3, cantidad: 1, precioUnitario: 105, descuentoMonto: 0, impuestoMonto: 13.65 }
+    ]
+  };
+
+  test('el subtotal impreso es la suma de la columna de importes', () => {
+    const suma = CON_DESCUENTO.lineas.reduce((s, l) => s + importeLinea(l), 0);
+    assert.equal(Math.round(subtotalMostrado(CON_DESCUENTO)), Math.round(suma));
+  });
+
+  test('subtotal + impuesto da el total: el descuento no se vuelve a restar', () => {
+    assert.ok(Math.abs(subtotalMostrado(CON_DESCUENTO) + CON_DESCUENTO.impuesto - CON_DESCUENTO.total) < 0.01);
+  });
+
+  test('una copiada de Alegra, que guarda el subtotal ANTES del descuento, también cierra', () => {
+    const deAlegra = { ...CON_DESCUENTO, subtotal: 1505 };
+    assert.ok(Math.abs(subtotalMostrado(deAlegra) + deAlegra.impuesto - deAlegra.total) < 0.01);
+  });
+
+  test('sin descuento se imprime el subtotal guardado, tal cual', () => {
+    assert.equal(subtotalMostrado(FACTURA), 3000);
+    assert.equal(subtotalMostrado({ ...FACTURA, subtotal: '3000.00', descuento: '0.00' }), 3000);
+  });
+});
+
+describe('el detalle escrito en la línea sale en el papel', () => {
+  // La pantalla lo llama "Detalle en la factura" y la factura salía sin él.
+  test('lo que alguien escribió se imprime', () => {
+    assert.equal(detalleLinea({ ...LINEA, descripcion: '  ENTREGADO ' }), 'ENTREGADO');
+    assert.equal(detalleLinea({ ...LINEA, descripcion: 'OJO CERRADO ,,VIGILADO X CAMARAS' }), 'OJO CERRADO ,,VIGILADO X CAMARAS');
+  });
+
+  test('si es el nombre del producto repetido, no se imprime dos veces', () => {
+    // Sin detalle escrito, el servidor guarda ahí la descripción del producto.
+    assert.equal(detalleLinea({ ...LINEA, descripcion: 'tornillo  goloso 8X1' }), null);
+    assert.equal(detalleLinea({ ...LINEA, descripcion: null }), null);
+    assert.equal(detalleLinea({ ...LINEA, descripcion: '   ' }), null);
+  });
+
+  test('el PDF se arma con detalles largos y con descuento', async () => {
+    const pdf = await generarPdfFactura({
+      ...FACTURA, subtotal: 2700, descuento: 300, impuesto: 351, total: 3051,
+      lineas: [{ ...LINEA, descuentoPorcentaje: 10, descuentoMonto: 300, impuestoMonto: 351, descripcion: 'ENTREGADO '.repeat(30) }]
+    });
+    assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   });
 });
 

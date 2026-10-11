@@ -181,9 +181,14 @@ async function obtenerFactura(id) {
       [n]
     ),
     pool.query(
-      `SELECT p.id, p.numero, p.fecha, p.metodo_pago_texto, p.referencia, p.anulado, pf.monto
+      // `monto` es lo aplicado a ESTA factura; `monto_pago` y `facturas`, el
+      // recibo entero. Un cobro de Cuentas por Cobrar puede cubrir varias, y
+      // anularlo las deja todas con saldo: la pantalla lo tiene que avisar.
+      `SELECT p.id, p.numero, p.fecha, p.metodo_pago_texto, p.referencia, p.anulado, p.motivo_anulacion, pf.monto,
+              p.monto AS monto_pago,
+              (SELECT COUNT(*) FROM pago_factura x WHERE x.pago_id = p.id)::int AS facturas
          FROM pago_factura pf JOIN pago p ON p.id = pf.pago_id
-        WHERE pf.factura_id = $1 ORDER BY p.fecha`,
+        WHERE pf.factura_id = $1 ORDER BY p.fecha, p.id`,
       [n]
     ),
     pool.query(
@@ -216,7 +221,8 @@ async function obtenerFactura(id) {
     // por un cobro que sí existió y nadie encuentre el rastro.
     cobros: cobros.rows.map(c => ({
       id: c.id, numero: c.numero, fecha: c.fecha, metodo: c.metodo_pago_texto,
-      referencia: c.referencia, anulado: c.anulado, monto: numero(c.monto)
+      referencia: c.referencia, anulado: c.anulado, motivoAnulacion: c.motivo_anulacion,
+      monto: numero(c.monto), montoPago: numero(c.monto_pago), facturas: c.facturas
     })),
     notasCredito: notas.rows.map(x => ({
       id: x.id, numero: x.numero, fecha: x.fecha, motivo: x.motivo,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../services/api'
 import facturacionService from '../services/facturacionService'
 import { abrirPdfFacturaPropia } from '../services/facturaPdf'
+import { anularAbono } from '../services/cuentasPorCobrarService'
 
 /**
  * Las facturas ya emitidas, desde nuestra base.
@@ -192,6 +193,19 @@ export function useFacturasEmitidas({ activa }) {
     return r
   }
 
+  // REVERTIR UN COBRO DESDE LA FACTURA. Una factura cobrada no se edita ni se
+  // anula hasta revertir su cobro, y no había desde dónde: la ruta del
+  // servidor existía sin botón en ninguna pantalla. El 2026-10-11 hizo falta
+  // de verdad —las facturas estaban saliendo cobradas solas— y hubo que
+  // hacerlo desde la consola del navegador. Es de administradores (decisión
+  // del usuario, 2026-10-03); el servidor lo hace valer.
+  const anularCobro = async (pagoId, motivo) => {
+    await anularAbono(pagoId, motivo)
+    setMensaje('Cobro anulado. La factura vuelve a tener saldo.')
+    setDetalle(await facturacionService.detalleFacturaEmitida(detalleId))
+    await cargar()
+  }
+
   const anular = async (id, motivo) => {
     await facturacionService.anularFacturaEmitida(id, motivo)
     setMensaje('Factura anulada. Conserva su número.')
@@ -220,7 +234,7 @@ export function useFacturasEmitidas({ activa }) {
     empresa,
     detalleId, detalle, cargandoDetalle, abrirDetalle,
     volver: () => { cerrarCorreo(); setDetalleId(null); setDetalle(null); setEditando(false) },
-    editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion,
+    editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion, anularCobro,
     productos, clientes,
     abriendoPdf, verPdf, anular, crearNota,
     enviando, abrirEnvio, cerrarEnvio: () => setEnviando(null), enviarPorWhatsApp,

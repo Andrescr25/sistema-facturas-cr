@@ -62,7 +62,7 @@ export default function Facturacion() {
     busquedaCliente, clientesEncontrados, totalClientesEncontrados,
     busquedaFactura, facturasEncontradas, buscandoFacturas,
     edicionesPendientes, facturasPendientesDetalle, reintentandoLocalId,
-    cacheStats, mensaje,
+    cacheStats, mensaje, cerrarMensaje,
     mostrarRecordatorioActualizacion, ocultarRecordatorioActualizacion,
     modalCantidadProducto, productoSeleccionadoCantidad,
     cantidadSeleccionada, setCantidadSeleccionada, productoPreviewRapido,
@@ -111,9 +111,10 @@ export default function Facturacion() {
         facturasPendientesCount={facturasPendientes.length}
         syncingCache={syncingCache}
         onActualizarCache={actualizarCache}
+        onVerPendientes={() => cambiarTab('editar')}
       />
 
-      <AvisoFlotante mensaje={mensaje} />
+      <AvisoFlotante mensaje={mensaje} onCerrar={cerrarMensaje} />
 
       {mostrarRecordatorioActualizacion && (
         <AvisoActualizar
@@ -129,6 +130,7 @@ export default function Facturacion() {
         onCambiarTab={cambiarTab}
         modoEdicion={modoEdicion}
         edicionesPendientesCount={edicionesPendientes.length}
+        facturasPendientesCount={facturasPendientes.length}
       />
 
       {tabActiva === 'editar' && (
@@ -160,7 +162,7 @@ export default function Facturacion() {
 
           {!clienteSeleccionado ? (
             <>
-              {cacheStats && <EstadoCatalogo cacheStats={cacheStats} />}
+              {cacheStats && <EstadoCatalogo cacheStats={cacheStats} porSubir={facturasPendientes.length} />}
               <PasoCliente
                 cardRef={clienteCardRef}
                 busquedaCliente={busquedaCliente}

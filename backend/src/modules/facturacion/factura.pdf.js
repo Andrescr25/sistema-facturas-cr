@@ -58,6 +58,33 @@ function importeLinea(l) {
   return num(l.cantidad) * num(l.precioUnitario) - num(l.descuentoMonto);
 }
 
+/**
+ * El detalle que alguien escribió para ESTA línea al facturar ("ENTREGADO",
+ * "OJO CERRADO, VIGILADO X CÁMARAS"), o null.
+ *
+ * El papel no lo traía: la pantalla lo llama "Detalle en la factura" y la
+ * factura salía sin él (287 líneas escritas a mano entre julio y octubre de
+ * 2026; Alegra sí las imprimía). Cuando nadie escribe nada el servidor
+ * guarda ahí la descripción del producto, que en este catálogo es el nombre
+ * repetido: eso no se imprime dos veces.
+ */
+function detalleLinea(l) {
+  const limpio = (v) => String(v || '').replace(/\s+/g, ' ').trim();
+  const detalle = limpio(l.descripcion);
+  if (!detalle || detalle.toLowerCase() === limpio(l.nombre).toLowerCase()) return null;
+  return detalle;
+}
+
+/**
+ * El Subtotal que se imprime: la suma de la columna de importes, que ya trae
+ * el descuento restado. Con descuento se saca del total, porque las facturas
+ * copiadas de Alegra guardan el subtotal ANTES del descuento y las propias,
+ * después; sin descuento, es el guardado.
+ */
+function subtotalMostrado(f) {
+  return num(f.descuento) > 0 ? num(f.total) - num(f.impuesto) : num(f.subtotal);
+}
+
 /** "13 %", "1 %", "0 %" — sin decimales cuando no los necesita. */
 function tarifaTexto(t) {
   const v = num(t);
@@ -306,7 +333,11 @@ function filas(doc, f, col, ancho, yInicio, F) {
     const altoNombre = doc.heightOfString(nombre, { width: anchoNombre });
     const alPie = [l.referencia ? `Ref: ${l.referencia}` : null, l.cabys ? `CAByS: ${l.cabys}` : null]
       .filter(Boolean).join('   ');
-    const alto = Math.max(26, altoNombre + (alPie ? 14 : 6) + 6);
+    const detalle = detalleLinea(l);
+    doc.font(F.normal).fontSize(7.5);
+    const altoDetalle = detalle ? doc.heightOfString(detalle, { width: anchoNombre }) + 2 : 0;
+    doc.font(F.negrita).fontSize(8.5);
+    const alto = Math.max(26, altoNombre + (alPie ? 14 : 6) + altoDetalle + 6);
 
     if (y + alto > doc.page.height - M - PIE_RESERVADO) {
       doc.addPage();
@@ -323,6 +354,10 @@ function filas(doc, f, col, ancho, yInicio, F) {
     if (alPie) {
       doc.font(F.normal).fontSize(6.3).fillColor(MARCA.grisSuave)
         .text(alPie, col.desc.x + 4, y + 5 + altoNombre + 1, { width: anchoNombre, lineBreak: false, ellipsis: true });
+    }
+    if (detalle) {
+      doc.font(F.normal).fontSize(7.5).fillColor(MARCA.gris)
+        .text(detalle, col.desc.x + 4, y + 5 + altoNombre + (alPie ? 10 : 2), { width: anchoNombre });
     }
 
     const yNum = y + 6;
@@ -397,8 +432,19 @@ function totales(doc, f, ancho, y, F, emisor) {
     yy += 15;
   };
 
-  renglon('Subtotal', colones(f.subtotal));
-  if (num(f.descuento) > 0) renglon('Descuento', `−${colones(f.descuento)}`, MARCA.naranjaOscuro);
+  // EL SUBTOTAL ES LA SUMA DE LA COLUMNA DE IMPORTES, que ya trae el descuento
+  // restado. Debajo salía "Descuento −₡36" como un renglón más de la cuenta,
+  // y entonces el papel no cerraba: 1.469 − 36 + 191 no es 1.660, y el
+  // cliente saca la calculadora con razón. El descuento se informa en una
+  // nota, sin columna de monto, para que no se lea como otra resta. Con
+  // descuento, el subtotal se saca del total (ver subtotalMostrado).
+  const hayDescuento = num(f.descuento) > 0;
+  renglon('Subtotal', colones(subtotalMostrado(f)));
+  if (hayDescuento) {
+    doc.font(F.normal).fontSize(7).fillColor(MARCA.naranjaOscuro)
+      .text(`Ya incluye ${colones(f.descuento)} de descuento`, xCaja, yy - 3, { width: anchoCaja, align: 'right' });
+    yy += 10;
+  }
 
   // Una línea por tarifa: "IVA 13 %", "IVA 1 %". Si todo va a la misma, sale
   // una sola y se lee igual que antes.
@@ -546,4 +592,7 @@ function generarPdfFactura(f, empresa = null) {
   return listo;
 }
 
-module.exports = { generarPdfFactura, datosEmisor, medioDePago, impuestoPorTarifa, importeLinea, tarifaTexto, columnas };
+module.exports = {
+  generarPdfFactura, datosEmisor, medioDePago, impuestoPorTarifa, importeLinea, tarifaTexto, columnas,
+  detalleLinea, subtotalMostrado
+};

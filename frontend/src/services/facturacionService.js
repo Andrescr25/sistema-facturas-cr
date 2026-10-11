@@ -51,6 +51,8 @@ class FacturacionService {
   constructor() {
     this.isOnline = navigator.onLine;
     this.syncInProgress = false;
+    // Quién quiere enterarse cuando una sincronización termina (la pantalla).
+    this.oyentesSincronizacion = new Set();
     
     // Escuchar cambios de conexión
     window.addEventListener('online', () => this.handleOnline());
@@ -575,6 +577,8 @@ class FacturacionService {
       return { success: false, sincronizadas: 0, mensaje: 'Sincronización en progreso' };
     }
 
+    // Lo que se le cuenta a la pantalla al terminar (null si se cortó antes).
+    let resumen = null;
     try {
       this.syncInProgress = true;
       console.log('🔄 Iniciando sincronización de facturas pendientes...');
@@ -660,7 +664,7 @@ class FacturacionService {
         fallidas: resultados.fallidas.length
       });
 
-      return {
+      resumen = {
         success: true,
         sincronizadas: resultados.exitosas.length,
         fallidas: resultados.fallidas.length,
@@ -668,12 +672,14 @@ class FacturacionService {
         sinSesion: Boolean(resultados.sinSesion),
         detalles: resultados
       };
+      return resumen;
 
     } catch (error) {
       console.error('❌ Error en sincronización:', error);
       throw error;
     } finally {
       this.syncInProgress = false;
+      this.avisarSincronizacion('facturas', resumen);
     }
   }
 
@@ -906,6 +912,32 @@ class FacturacionService {
   handleOffline() {
     console.log('📡 Conexión perdida - modo offline activado');
     this.isOnline = false;
+  }
+
+  /**
+   * Avisar cuando una sincronización TERMINA.
+   *
+   * POR QUÉ HACE FALTA. Al volver la conexión arrancan dos cosas a la vez:
+   * este servicio manda lo pendiente (`handleOnline`) y la pantalla de
+   * Facturación pide lo mismo. La segunda encuentra `syncInProgress` puesto,
+   * vuelve con las manos vacías y relee la cola ANTES de que la primera
+   * termine. Visto el 2026-10-11: la factura ya estaba creada en el servidor
+   * y la pantalla la seguía mostrando "pendiente de envío", con un botón
+   * Reintentar que contestaba "Factura pendiente no encontrada"; y la que el
+   * servidor había rechazado no mostraba el motivo. La pantalla ya no
+   * adivina cuándo terminó: se le avisa.
+   *
+   * Devuelve la función para dejar de escuchar.
+   */
+  alSincronizar(oyente) {
+    this.oyentesSincronizacion.add(oyente);
+    return () => this.oyentesSincronizacion.delete(oyente);
+  }
+
+  avisarSincronizacion(tipo, resultado) {
+    for (const oyente of this.oyentesSincronizacion || []) {
+      try { oyente({ tipo, resultado }); } catch (error) { console.error('Error avisando la sincronización:', error); }
+    }
   }
 
   /**
@@ -1195,6 +1227,7 @@ class FacturacionService {
       return { success: false, sincronizadas: 0, mensaje: 'Sincronización en progreso' };
     }
 
+    let resumen = null;
     try {
       this.syncInProgress = true;
       console.log('🔄 Iniciando sincronización de ediciones pendientes...');
@@ -1276,7 +1309,7 @@ class FacturacionService {
         fallidas: resultados.fallidas.length
       });
 
-      return {
+      resumen = {
         success: true,
         sincronizadas: resultados.exitosas.length,
         fallidas: resultados.fallidas.length,
@@ -1284,12 +1317,14 @@ class FacturacionService {
         sinSesion: Boolean(resultados.sinSesion),
         detalles: resultados
       };
+      return resumen;
 
     } catch (error) {
       console.error('❌ Error en sincronización de ediciones:', error);
       throw error;
     } finally {
       this.syncInProgress = false;
+      this.avisarSincronizacion('ediciones', resumen);
     }
   }
 

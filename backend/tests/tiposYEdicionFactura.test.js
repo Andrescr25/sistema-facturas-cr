@@ -90,8 +90,11 @@ describe('editar sobre el mismo documento', () => {
 describe('la pestaña de edición rápida', () => {
   const pestanas = leer('components', 'facturacion', 'PestanasFacturacion.jsx');
 
-  test('existe solo en el teléfono', () => {
-    assert.match(pestanas, /soloMovil: true/);
+  test('existe solo en el teléfono, salvo cuando hay algo por subir', () => {
+    // La cola de ventas sin enviar vive solo en ese panel: con algo pendiente
+    // tiene que verse también en tablet y escritorio (2026-10-11; ver
+    // facturacionFlujoPantalla.test.js).
+    assert.match(pestanas, /soloMovil: porSubir === 0/);
     assert.match(pestanas, /soloMovil \? 'md:hidden '/);
   });
 

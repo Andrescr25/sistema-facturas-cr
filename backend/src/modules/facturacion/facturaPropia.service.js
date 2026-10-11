@@ -55,6 +55,9 @@ const CAMPOS_FACTURA = {
 
 const dinero = (v) => Math.round((Number(v) || 0) * 100) / 100;
 
+/** "₡45.145,80", para los mensajes. `toLocaleString('es-CR')` daba "₡45 145,8". */
+const enColones = (v) => `₡${dinero(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+
 /**
  * Recorta un texto al largo de su columna.
  *
@@ -607,25 +610,35 @@ async function revisarSiSePuedeTocar(cliente, factura, accion) {
     throw httpError(409, 'La factura está reservada ante Hacienda. Consulte el resultado antes de editar o anular.');
   }
 
+  // SOLO LO VIGENTE. Un cobro anulado y una nota anulada siguen en su tabla
+  // —no se borran, por el rastro— y esta suma los contaba igual: después de
+  // revertir el cobro, la factura seguía respondiendo "tiene ₡X en cobros
+  // aplicados" PARA SIEMPRE, y no había manera de editarla ni de anularla.
+  // Es la misma regla del saldo (saldo.sql.js): cobros con `anulado = FALSE`
+  // y notas que no estén anuladas.
   const { rows: cobros } = await cliente.query(
-    'SELECT COALESCE(SUM(monto), 0) AS total FROM pago_factura WHERE factura_id = $1',
+    `SELECT COALESCE(SUM(pf.monto), 0) AS total
+       FROM pago_factura pf JOIN pago p ON p.id = pf.pago_id
+      WHERE pf.factura_id = $1 AND p.anulado = FALSE`,
     [factura.id]
   );
   const cobrado = Number(cobros[0].total) || 0;
   if (cobrado > 0) {
     throw httpError(409,
-      `La factura ${factura.numero} tiene ₡${cobrado.toLocaleString('es-CR')} en cobros aplicados. ` +
-      `Hay que revertir el cobro antes de ${accion}la.`);
+      `La factura ${factura.numero} tiene ${enColones(cobrado)} en cobros aplicados. ` +
+      `Hay que anular el cobro antes de ${accion}la.`);
   }
 
   const { rows: notas } = await cliente.query(
-    'SELECT COALESCE(SUM(monto), 0) AS total FROM nota_credito_factura WHERE factura_id = $1',
+    `SELECT COALESCE(SUM(nf.monto), 0) AS total
+       FROM nota_credito_factura nf JOIN nota_credito nc ON nc.id = nf.nota_credito_id
+      WHERE nf.factura_id = $1 AND nc.estado <> 'anulada'`,
     [factura.id]
   );
   const acreditado = Number(notas[0].total) || 0;
   if (acreditado > 0) {
     throw httpError(409,
-      `La factura ${factura.numero} ya tiene una nota de crédito aplicada por ₡${acreditado.toLocaleString('es-CR')}.`);
+      `La factura ${factura.numero} ya tiene una nota de crédito aplicada por ${enColones(acreditado)}.`);
   }
 }
 

@@ -265,45 +265,29 @@ class IndexedDBService {
    */
   async getProductoByReference(reference) {
     const db = await this.abierta();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORES.PRODUCTOS], 'readonly');
-      const store = transaction.objectStore(STORES.PRODUCTOS);
-      const index = store.index('reference');
-      
-      // Normalizar reference (puede venir como string o número)
-      const normalizedRef = String(reference).trim();
-      console.log(`📊 IndexedDB: Buscando reference normalizada: "${normalizedRef}"`);
-      
-      const request = index.get(normalizedRef);
+    // Normalizar reference (puede venir como string o número)
+    const normalizedRef = String(reference ?? '').trim();
+    if (!normalizedRef) return undefined;
 
-      request.onsuccess = () => {
-        if (request.result) {
-          console.log(`✅ IndexedDB: Producto encontrado:`, {
-            nombre: request.result.name,
-            reference: request.result.reference,
-            price: request.result.price,
-            tipoReference: typeof request.result.reference
-          });
-        } else {
-          console.log(`❌ IndexedDB: Resultado de búsqueda: No encontrado`);
-          // Debug: Ver qué hay en el store para comparar
-          const allRequest = store.getAll();
-          allRequest.onsuccess = () => {
-            const primeros5 = allRequest.result.slice(0, 5);
-            console.log(`🔍 Primeros 5 productos en IndexedDB para comparar:`, primeros5.map(p => ({
-              nombre: p.name,
-              reference: p.reference,
-              tipoReference: typeof p.reference
-            })));
-          };
-        }
-        resolve(request.result);
-      };
+    const exacto = await new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORES.PRODUCTOS], 'readonly');
+      const request = transaction.objectStore(STORES.PRODUCTOS).index('reference').get(normalizedRef);
+      request.onsuccess = () => resolve(request.result);
       request.onerror = () => {
         console.error(`📊 IndexedDB: Error en búsqueda:`, request.error);
         reject(request.error);
       };
     });
+    if (exacto) return exacto;
+
+    // SIN DISTINGUIR MAYÚSCULAS. El índice compara letra por letra, y 662
+    // productos tienen letras en la referencia: en la tablet se teclea
+    // "es-400" y la pantalla contestaba «Producto "es-400" no encontrado»
+    // teniendo ES-400 en el catálogo. Solo se recorre la lista si la búsqueda
+    // exacta no encontró nada, que es el caso raro.
+    const buscada = normalizedRef.toLowerCase();
+    const todos = await this.getProductos();
+    return todos.find(p => String(p.reference ?? '').trim().toLowerCase() === buscada);
   }
 
   /**

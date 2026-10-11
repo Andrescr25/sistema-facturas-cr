@@ -11,15 +11,19 @@ import { Package, Users, UploadCloud } from 'lucide-react'
  * De paso: el carrusel llamaba a `scrollbar-hide`, que no existe en
  * index.css (la clase real es `scrollbar-none`), así que la barra se veía
  * igual.
+ *
+ * `porSubir` es la cola de ahora mismo. `cacheStats` se lee al abrir y al
+ * actualizar el catálogo: después de facturar sin señal seguía diciendo
+ * "0 por subir" mientras la cabecera marcaba 1.
  */
-export default function EstadoCatalogo({ cacheStats }) {
+export default function EstadoCatalogo({ cacheStats, porSubir }) {
   const fecha = (valor) =>
     valor ? new Date(valor).toLocaleDateString('es-CR', { day: 'numeric', month: 'short' }) : null
 
   const datos = [
     { icono: Package, color: 'text-primario-600', etiqueta: 'productos', valor: cacheStats.productos.total, pie: fecha(cacheStats.productos.ultimaActualizacion) },
     { icono: Users, color: 'text-exito-600', etiqueta: 'clientes', valor: cacheStats.clientes.total, pie: fecha(cacheStats.clientes.ultimaActualizacion) },
-    { icono: UploadCloud, color: 'text-nota-600', etiqueta: 'por subir', valor: cacheStats.facturasPendientes, pie: null }
+    { icono: UploadCloud, color: 'text-nota-600', etiqueta: 'por subir', valor: porSubir ?? cacheStats.facturasPendientes, pie: null }
   ]
 
   return (

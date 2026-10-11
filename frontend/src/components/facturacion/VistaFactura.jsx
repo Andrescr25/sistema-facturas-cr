@@ -43,6 +43,14 @@ const medio = (v) => {
   return MEDIOS[k] || String(v).charAt(0).toUpperCase() + String(v).slice(1).toLowerCase()
 }
 
+/**
+ * ¿La línea trae un detalle que diga algo? Cuando nadie escribe nada, el
+ * servidor guarda ahí la descripción del producto, que en este catálogo es
+ * el mismo nombre repetido: mostrarla sería ruido.
+ */
+const mismoTexto = (a, b) => String(a || '').replace(/\s+/g, ' ').trim().toLowerCase() === String(b || '').replace(/\s+/g, ' ').trim().toLowerCase()
+const esDetallePropio = (l) => Boolean(String(l.descripcion || '').trim()) && !mismoTexto(l.descripcion, l.nombre)
+
 function Estado({ f }) {
   if (f.estado === 'anulada') return <Insignia tono="peligro">Anulada</Insignia>
   if (f.estado === 'borrador') return <Insignia tono="neutro">Borrador</Insignia>
@@ -68,12 +76,13 @@ const CELDA = 'w-full rounded-lg border border-primario-200 bg-primario-50/40 px
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
   onVolver, onPdf, onAnular, onNotaCredito, onEditar, onEnviar, onCorreo, cargandoCorreo,
-  onGuardar, onCancelarEdicion, abriendoPdf, onFiscalCambio
+  onGuardar, onCancelarEdicion, abriendoPdf, onFiscalCambio, onAnularCobro
 }) {
   const f = factura
   const emisor = empresa || {}
   const { usuario } = useAuth()
   const puedeAnular = puedeAccion(usuario, 'anular-factura')
+  const puedeAnularCobro = Boolean(onAnularCobro) && puedeAccion(usuario, 'anular-cobro')
   const direccionEmisor = [emisor.provincia, emisor.canton, emisor.distrito, emisor.barrio, emisor.otras_senas]
     .filter(Boolean).join(' ')
 
@@ -87,6 +96,27 @@ export default function VistaFactura({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
+  // ---- El cobro que se está por anular (uno a la vez) ----
+  const [cobroAnulando, setCobroAnulando] = useState(null)
+  const [motivoCobro, setMotivoCobro] = useState('')
+  const [anulandoCobro, setAnulandoCobro] = useState(false)
+  const [errorCobro, setErrorCobro] = useState('')
+
+  const confirmarAnularCobro = async () => {
+    if (!motivoCobro.trim()) return setErrorCobro('Escribí por qué se anula el cobro.')
+    setAnulandoCobro(true)
+    setErrorCobro('')
+    try {
+      await onAnularCobro(cobroAnulando.id, motivoCobro.trim())
+      setCobroAnulando(null)
+      setMotivoCobro('')
+    } catch (e) {
+      setErrorCobro(e.response?.data?.message || 'No se pudo anular el cobro.')
+    } finally {
+      setAnulandoCobro(false)
+    }
+  }
+
   // Al entrar a editar se copia el documento; al salir, lo copiado se
   // descarta. Cancelar no puede dejar nada a medias.
   useEffect(() => {
@@ -99,7 +129,12 @@ export default function VistaFactura({
       cantidad: num(l.cantidad),
       precioUnitario: num(l.precioUnitario),
       descuentoPorcentaje: num(l.descuentoPorcentaje),
-      tarifa: num(l.tarifa)
+      tarifa: num(l.tarifa),
+      // EL DETALLE VIAJA CON LA LÍNEA. No estaba en la copia, y como al
+      // guardar se reemplazan todas las líneas, corregir una cantidad
+      // borraba lo que alguien había escrito en las demás ("ENTREGADO",
+      // "OJO CERRADO, VIGILADO X CÁMARAS").
+      descripcion: l.descripcion || ''
     })))
     setCliente({ ...f.cliente })
     setObservaciones(f.observaciones || '')
@@ -114,7 +149,7 @@ export default function VistaFactura({
     : f.estado !== 'emitida' ? 'Todavía es un borrador.'
     : f.electronica ? 'Ya se emitió electrónicamente: se corrige con una nota de crédito.'
     : ['pendiente','enviada'].includes(f.haciendaEstado) ? 'Está reservada ante Hacienda. Consultá el resultado antes de editar.'
-    : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que revertirlo.'
+    : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que anularlo, abajo en «Cobros».'
     : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada.'
     : null
 
@@ -123,14 +158,25 @@ export default function VistaFactura({
     productoId: l.productoId, nombre: l.nombre, referencia: l.referencia, cabys: l.cabys,
     cantidad: num(l.cantidad), precioUnitario: num(l.precioUnitario),
     descuentoPorcentaje: num(l.descuentoPorcentaje), tarifa: num(l.tarifa),
-    impuestoMonto: num(l.impuestoMonto)
+    impuestoMonto: num(l.impuestoMonto), descripcion: l.descripcion || ''
   }))
 
   const base = (l) => l.cantidad * l.precioUnitario * (1 - (l.descuentoPorcentaje || 0) / 100)
   const impuestoDe = (l) => (editando ? base(l) * l.tarifa / 100 : l.impuestoMonto)
 
-  const subtotal = editando ? filas.reduce((s, l) => s + base(l), 0) : f.subtotal
   const impuesto = editando ? filas.reduce((s, l) => s + impuestoDe(l), 0) : f.impuesto
+  // EL SUBTOTAL ES LA SUMA DE LA COLUMNA "TOTAL LÍNEA", que ya trae el
+  // descuento restado. Debajo salía "Descuento −₡36" como un renglón más de
+  // la cuenta, y entonces no cerraba: 1.469 − 36 + 191 no es 1.660. El
+  // descuento se informa, no se vuelve a restar. Con descuento se calcula
+  // desde el total, porque las facturas copiadas de Alegra guardan el
+  // subtotal ANTES del descuento y las propias, después.
+  const descuento = editando
+    ? filas.reduce((s, l) => s + l.cantidad * l.precioUnitario * (num(l.descuentoPorcentaje) / 100), 0)
+    : num(f.descuento)
+  const subtotal = editando
+    ? filas.reduce((s, l) => s + base(l), 0)
+    : (descuento > 0 ? num(f.total) - num(f.impuesto) : f.subtotal)
   const total = editando ? subtotal + impuesto : f.total
 
   const porTarifa = [...filas.reduce((m, l) => {
@@ -165,7 +211,8 @@ export default function VistaFactura({
       precioUnitario: num(p.price),
       descuentoPorcentaje: 0,
       // La tarifa viene del maestro, igual que al facturar.
-      tarifa: p.tax?.length ? num(p.tax[0].percentage) : 0
+      tarifa: p.tax?.length ? num(p.tax[0].percentage) : 0,
+      descripcion: ''
     }])
     setTextoProducto('')
   }
@@ -179,11 +226,19 @@ export default function VistaFactura({
     try {
       await onGuardar({
         clienteId: cliente?.id,
+        // Además de los ids, lo que se veía: el servidor lo compara con su
+        // ficha y no deja cambiar un cliente o agregar un producto que acá
+        // sea OTRO (ver facturaPropia.service.js, `esLoMostrado`).
+        clienteNombre: cliente?.nombre || '',
+        clienteIdentificacion: cliente?.identificacion || '',
         items: lineas.map(l => ({
           productoId: l.productoId,
+          reference: l.referencia || '',
+          name: l.nombre || '',
           quantity: num(l.cantidad),
           price: num(l.precioUnitario),
-          discount: num(l.descuentoPorcentaje)
+          discount: Math.min(100, Math.max(0, num(l.descuentoPorcentaje))),
+          description: (l.descripcion || '').trim()
         })),
         observaciones,
         motivo: motivo.trim() || null
@@ -433,6 +488,18 @@ export default function VistaFactura({
                     <p className="text-[11px] text-neutro-400">
                       {[l.referencia && `Ref: ${l.referencia}`, l.cabys && `CAByS: ${l.cabys}`].filter(Boolean).join('   ')}
                     </p>
+                    {/* Lo que se escribió para ESTA línea al facturar. */}
+                    {editando ? (
+                      <input
+                        value={l.descripcion || ''}
+                        onChange={(e) => cambiarLinea(i, 'descripcion', e.target.value.slice(0, 250))}
+                        placeholder="Detalle de esta línea (opcional)"
+                        aria-label={`Detalle de ${l.nombre}`}
+                        className={`${CELDA} mt-1 max-w-md text-xs`}
+                      />
+                    ) : esDetallePropio(l) && (
+                      <p className="mt-0.5 text-xs italic text-neutro-600">{l.descripcion}</p>
+                    )}
                   </td>
 
                   <td className="px-2 py-2.5 text-center">
@@ -540,10 +607,10 @@ export default function VistaFactura({
             <div className="flex justify-between text-neutro-600">
               <span>Subtotal</span><span className="font-medium text-neutro-800">{colones(subtotal)}</span>
             </div>
-            {!editando && f.descuento > 0 && (
-              <div className="flex justify-between text-alerta-600">
-                <span>Descuento</span><span className="font-medium">−{colones(f.descuento)}</span>
-              </div>
+            {descuento > 0 && (
+              <p className="text-right text-xs text-alerta-600">
+                Ya incluye {colones(descuento)} de descuento
+              </p>
             )}
             {porTarifa.map(([tarifa, monto]) => (
               <div key={tarifa} className="flex justify-between text-neutro-600">
@@ -589,9 +656,52 @@ export default function VistaFactura({
                       {/* Marcado, no escondido: el cliente va a preguntar por
                           ese cobro y tiene que haber rastro. */}
                       {c.anulado && <Insignia tono="peligro">Anulado</Insignia>}
+                      {c.anulado && c.motivoAnulacion && <span className="text-xs text-neutro-400">{c.motivoAnulacion}</span>}
+                      {!c.anulado && puedeAnularCobro && f.estado === 'emitida' && cobroAnulando?.id !== c.id && (
+                        <button
+                          onClick={() => { setCobroAnulando(c); setMotivoCobro(''); setErrorCobro('') }}
+                          className="text-xs font-semibold text-peligro-600 hover:underline"
+                        >
+                          Anular cobro
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
+
+                {/* El cobro no se borra: queda anulado con su motivo, y la
+                    factura vuelve a tener saldo. */}
+                {cobroAnulando && (
+                  <div className="mt-2 flex flex-col gap-2 rounded-xl border border-peligro-200 bg-white p-3">
+                    <p className="text-xs text-neutro-600">
+                      Se anula el cobro de <strong>{colonesExacto(cobroAnulando.montoPago ?? cobroAnulando.monto)}</strong>
+                      {cobroAnulando.facturas > 1
+                        ? <> entero: cubre <strong>{cobroAnulando.facturas} facturas</strong> y todas vuelven a quedar con saldo.</>
+                        : <>. La factura vuelve a quedar con saldo y se puede editar o anular.</>}
+                    </p>
+                    <input
+                      autoFocus
+                      value={motivoCobro}
+                      onChange={(e) => setMotivoCobro(e.target.value)}
+                      placeholder="¿Por qué se anula el cobro?"
+                      className="input w-full text-sm"
+                      maxLength={500}
+                    />
+                    {errorCobro && <p className="text-xs text-peligro-700">{errorCobro}</p>}
+                    <div className="flex gap-2">
+                      <button onClick={() => setCobroAnulando(null)} disabled={anulandoCobro} className="btn btn-outline flex-1 text-sm">
+                        Dejarlo como está
+                      </button>
+                      <button
+                        onClick={confirmarAnularCobro}
+                        disabled={anulandoCobro}
+                        className="btn flex flex-1 items-center justify-center gap-2 bg-peligro-600 text-sm font-bold text-white hover:bg-peligro-700 disabled:opacity-50"
+                      >
+                        {anulandoCobro && <Loader2 size={14} className="animate-spin" />} Anular el cobro
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -11,6 +11,12 @@ import { Banknote, Smartphone, Landmark, CreditCard, Clock, Wallet } from 'lucid
  *
  * "Queda pendiente" no es un método de pago: es no cobrar ahora. La factura
  * sale con su saldo y aparece en Cuentas por Cobrar.
+ *
+ * ES LO QUE VIENE ELEGIDO, y por eso va primero (2026-10-11). Venía elegido
+ * "Efectivo" para todo cliente de contado y la opción de no cobrar quedaba
+ * al final: casi todas las facturas salían pagadas sin que nadie lo
+ * decidiera. Acá se factura el pedido y se cobra al entregarlo; cobrar en el
+ * momento es la excepción y hay que tocarla.
  */
 
 const ICONOS = {
@@ -30,19 +36,19 @@ export default function SelectorPago({
   const pideReferencia = Boolean(elegido?.pideReferencia)
 
   const opciones = [
+    // Va primero: es lo normal, y la única opción que NO cobra.
+    { clave: null, etiqueta: 'Queda pendiente', Icono: Clock, pendiente: true },
     ...metodos.map(m => ({
       clave: m.id,
       etiqueta: m.name,
       Icono: ICONOS[m.type] || Wallet
-    })),
-    // Va de último y separado: es la única opción que NO cobra.
-    { clave: null, etiqueta: 'Queda pendiente', Icono: Clock, pendiente: true }
+    }))
   ]
 
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[11px] font-semibold uppercase tracking-wider text-neutro-500">
-        ¿Cómo paga?
+        ¿Se cobra ahora?
       </span>
 
       <div className={`grid gap-1.5 ${compacto ? 'grid-cols-3' : 'grid-cols-2'}`}>

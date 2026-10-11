@@ -18,7 +18,7 @@ import { FileText, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react'
  * sin volver al inicio de la página.
  */
 export default function CabeceraFacturacion({
-  isOnline, facturasPendientesCount, syncingCache, onActualizarCache
+  isOnline, facturasPendientesCount, syncingCache, onActualizarCache, onVerPendientes
 }) {
   return (
     /* top-16 y no top-0: en pantalla angosta el sistema ya tiene su propia
@@ -48,13 +48,18 @@ export default function CabeceraFacturacion({
         </span>
 
         {facturasPendientesCount > 0 && (
-          <span
-            className="flex shrink-0 items-center gap-1 rounded-lg bg-alerta-100 px-2 py-1.5 text-xs font-bold text-alerta-800"
-            title={`${facturasPendientesCount} factura(s) esperando subir`}
+          /* Es un botón: el número solo decía que había algo esperando,
+             sin llevar a verlo. */
+          <button
+            type="button"
+            onClick={onVerPendientes}
+            className="flex shrink-0 items-center gap-1 rounded-lg bg-alerta-100 px-2 py-1.5 text-xs font-bold text-alerta-800 hover:bg-alerta-200"
+            title={`${facturasPendientesCount} factura(s) esperando subir: tocá para verlas`}
+            aria-label={`${facturasPendientesCount} factura(s) esperando subir: ver`}
           >
             <AlertCircle size={14} />
             {facturasPendientesCount}
-          </span>
+          </button>
         )}
 
         <button

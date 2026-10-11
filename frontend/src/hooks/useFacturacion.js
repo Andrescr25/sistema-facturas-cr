@@ -253,6 +253,34 @@ export function useFacturacion() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // LA COLA SE RELEE CUANDO LA SINCRONIZACIÓN TERMINA DE VERDAD, la haya
+  // lanzado esta pantalla o el servicio al volver la conexión (ver
+  // `alSincronizar` en facturacionService). Antes se releía al toque y
+  // quedaba la foto de antes de subir.
+  useEffect(() => facturacionService.alSincronizar(async ({ tipo, resultado }) => {
+    try {
+      const [pendientes, ediciones] = await Promise.all([
+        facturacionService.getFacturasPendientes(),
+        facturacionService.getEdicionesPendientes()
+      ])
+      setFacturasPendientes(pendientes)
+      setEdicionesPendientes(ediciones)
+      await refrescarFacturasLocales()
+    } catch (error) {
+      console.error('Error releyendo la cola después de sincronizar:', error)
+    }
+    if (!resultado) return
+    const que = tipo === 'ediciones' ? 'edición(es)' : 'factura(s)'
+    const rechazadas = (resultado.detalles?.fallidas || []).filter(f => f.rechazada).length
+    if (rechazadas > 0) {
+      // No se va solo: algo que el agente cree vendido NO quedó facturado.
+      mostrarMensaje(`${rechazadas} ${que} no se pudieron subir: el servidor las rechazó. Tocá «Por subir» para ver por qué.`, 'error', 0)
+    } else if (resultado.sincronizadas > 0) {
+      mostrarMensaje(`${resultado.sincronizadas} ${que} sincronizada(s)`, 'success')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [])
+
   // Auto-focus en código cuando cambia el modo (solo en desktop)
   useEffect(() => {
     if (modoEntradaRapida && codigoInputRef.current && !isMobile) {
@@ -475,15 +503,9 @@ export function useFacturacion() {
 
   const sincronizarFacturas = async () => {
     try {
-      const resultado = await facturacionService.sincronizarFacturasPendientes()
-
-      // Recargar pendientes
-      const pendientes = await facturacionService.getFacturasPendientes()
-      setFacturasPendientes(pendientes)
-
-      if (resultado.sincronizadas > 0) {
-        mostrarMensaje(`${resultado.sincronizadas} factura(s) sincronizada(s)`, 'success')
-      }
+      // El aviso de cuántas subieron y la relectura de la cola los hace quien
+      // escucha `alSincronizar`, cuando termina de verdad.
+      await facturacionService.sincronizarFacturasPendientes()
 
       await sincronizarEdiciones()
       await refrescarFacturasLocales()
@@ -500,15 +522,7 @@ export function useFacturacion() {
 
   const sincronizarEdiciones = async () => {
     try {
-      const resultado = await facturacionService.sincronizarEdicionesPendientes()
-      const ediciones = await facturacionService.getEdicionesPendientes()
-      setEdicionesPendientes(ediciones)
-
-      if (resultado.sincronizadas > 0) {
-        mostrarMensaje(`${resultado.sincronizadas} edición(es) sincronizada(s)`, 'success')
-      }
-
-      await refrescarFacturasLocales()
+      await facturacionService.sincronizarEdicionesPendientes()
     } catch (error) {
       console.error('Error sincronizando ediciones:', error)
     }
@@ -704,20 +718,26 @@ export function useFacturacion() {
       e.preventDefault()
 
       setProductoPreviewRapido(null) // Limpiar previa anterior
+      const codigoBuscado = codigoProducto
 
-      const producto = await buscarProductoPorCodigo(codigoProducto)
+      // EL FOCO PASA A LA CANTIDAD YA, antes de buscar. Buscar el código es
+      // una lectura de la base del navegador y el foco se movía después, con
+      // 50 ms más de espera: quien teclea "64 ⏎ 10 ⏎" de corrido —o un lector
+      // de códigos— metía el "10" en la casilla del código y la pantalla
+      // contestaba «Producto "6410" no encontrado». Si el código no existe,
+      // el foco vuelve y la cantidad tecleada se descarta.
+      setCantidadProducto('')
+      cantidadInputRef.current?.focus()
+
+      const producto = await buscarProductoPorCodigo(codigoBuscado)
 
       if (producto) {
         setProductoPreviewRapido(producto) // Cargar previa
-        // Producto encontrado, pasar a cantidad (vacío para que el usuario ingrese)
-        setCantidadProducto('')
-        setTimeout(() => {
-          cantidadInputRef.current?.focus()
-          cantidadInputRef.current?.select() // Seleccionar todo el contenido
-        }, 50)
       } else {
-        mostrarMensaje(`Producto "${codigoProducto}" no encontrado`, 'error')
+        mostrarMensaje(`Producto "${codigoBuscado}" no encontrado`, 'error')
         setCodigoProducto('')
+        setCantidadProducto('')
+        codigoInputRef.current?.focus()
       }
     }
   }
@@ -912,14 +932,16 @@ export function useFacturacion() {
   }
 
   const actualizarPrecioItem = (index, precio) => {
-    const nuevoPrecio = parseFloat(precio) || 0
+    const nuevoPrecio = Math.max(0, parseFloat(precio) || 0)
     setItems(items.map((item, i) =>
       i === index ? { ...item, price: nuevoPrecio } : item
     ))
   }
 
   const actualizarDescuentoItem = (index, descuento) => {
-    const nuevoDescuento = parseFloat(descuento) || 0
+    // Un 150 % dejaba la línea en negativo en pantalla y el servidor la
+    // rechazaba recién al facturar.
+    const nuevoDescuento = Math.min(100, Math.max(0, parseFloat(descuento) || 0))
     setItems(items.map((item, i) =>
       i === index ? { ...item, discount: nuevoDescuento } : item
     ))
@@ -1080,14 +1102,16 @@ export function useFacturacion() {
         if (resultado.online && resultado.data?.id) {
           try {
             await abrirPdfFacturaPropia(api, resultado.data.id)
-            mostrarMensaje('📄 PDF abierto en nueva pestaña', 'success', 2000)
+            // El número sigue en el aviso: antes "PDF abierto" lo reemplazaba
+            // al segundo y ya no se sabía cuál factura se acababa de hacer.
+            mostrarMensaje(`${mensajeTexto} · PDF abierto en otra pestaña`, 'success', 5000)
           } catch (pdfError) {
             console.error('❌ Error visualizando el PDF:', pdfError)
             console.error('❌ Stack:', pdfError.stack)
-            mostrarMensaje('⚠️ Error abriendo PDF. La factura fue creada correctamente.', 'warning', 3000)
+            mostrarMensaje(`⚠️ La factura #${numeroFacturaDisplay} se guardó bien, pero no se pudo abrir su PDF. Abrila desde Facturas.`, 'warning', 6000)
           }
         } else if (!resultado.online) {
-          mostrarMensaje('ℹ️ El PDF estará disponible cuando la factura se envíe', 'info', 4000)
+          // Un solo aviso: el de "guardada localmente" ya lo dice todo.
         } else {
           // El servidor reconoció la factura pero no devolvió un id nuestro:
           // se había creado en Alegra antes de pasar al sistema nuevo y
@@ -1118,7 +1142,9 @@ export function useFacturacion() {
       }
     } catch (error) {
       console.error('Error creando factura:', error)
-      mostrarMensaje('Error creando factura: ' + error.message, 'error')
+      // No se va solo: la venta sigue en pantalla y hay que leer por qué no
+      // salió antes de volver a intentar.
+      mostrarMensaje(`No se ${modoEdicion ? 'guardaron los cambios' : 'creó la factura'}: ${error.message}`, 'error', 0)
     } finally {
       setLoading(false)
     }
@@ -1137,11 +1163,31 @@ export function useFacturacion() {
     setClientesEncontrados([])
     setModoEdicion(false)
     setFacturaEditando(null)
+    // El cobro de una venta no se hereda a la siguiente.
+    setMetodoPagoId(null)
+    setReferenciaPago('')
   }
 
+  // UN SOLO RELOJ PARA EL AVISO. Cada aviso programaba su propio "borrar en
+  // 3 s" y ese borrado se llevaba el aviso que hubiera en pantalla, fuera el
+  // suyo o no: agregar un producto y facturar enseguida hacía que el motivo
+  // de un rechazo ("X está inactivo: no se puede facturar") desapareciera en
+  // un segundo, y la venta se quedaba en pantalla sin que nadie supiera por
+  // qué. Ahora un aviso nuevo cancela el reloj del anterior.
+  //
+  // `duracion: 0` = no se va solo: es para lo que hay que LEER antes de
+  // seguir (la factura no se creó). Se cierra tocándolo.
+  const relojMensaje = useRef(null)
+  const cerrarMensaje = () => {
+    if (relojMensaje.current) clearTimeout(relojMensaje.current)
+    relojMensaje.current = null
+    setMensaje(null)
+  }
   const mostrarMensaje = (texto, tipo = 'info', duracion = 3000) => {
-    setMensaje({ texto, tipo })
-    setTimeout(() => setMensaje(null), duracion)
+    if (relojMensaje.current) clearTimeout(relojMensaje.current)
+    relojMensaje.current = null
+    setMensaje({ texto, tipo, fijo: duracion === 0 })
+    if (duracion > 0) relojMensaje.current = setTimeout(cerrarMensaje, duracion)
   }
 
   const deseleccionarCliente = () => {
@@ -1174,12 +1220,16 @@ export function useFacturacion() {
     setBusquedaCliente('')
     setClientesEncontrados([])
 
-    // Por omisión, lo que pasa casi siempre: un cliente con plazo de crédito
-    // se lleva la factura y paga después; el de contado paga en el mostrador,
-    // y en efectivo. Quien factura lo puede cambiar en un toque.
-    const tieneCredito = Boolean(cliente?.plazoCreditoId) && cliente.plazoCreditoId !== 1
-    const efectivo = metodosPago.find(m => m.type === 'efectivo') || metodosPago[0] || null
-    setMetodoPagoId(tieneCredito ? null : (efectivo ? efectivo.id : null))
+    // LA FACTURA NACE SIN COBRAR, para todos. Antes, a un cliente "de contado"
+    // se le marcaba Efectivo sola —"paga en el mostrador"—, pero acá casi
+    // todos los clientes son de contado (185 de 247) y casi nada se cobra en
+    // un mostrador: se factura el pedido y se cobra al entregarlo. Resultado,
+    // visto en producción el 2026-10-11: toda factura salía pagada, con su
+    // recibo en caja y el papel diciendo "Pagado · SALDO ₡0", sin que nadie
+    // hubiera tocado nada (en tablet y teléfono la elección ni se veía:
+    // estaba dentro del desglose cerrado). Cobrar ahora es una decisión de
+    // quien factura, nunca un valor por omisión.
+    setMetodoPagoId(null)
     setReferenciaPago('')
   }
 
@@ -1255,7 +1305,10 @@ export function useFacturacion() {
     }
 
     setTabActiva('editar')
-    limpiarFactura()
+    // Ir a ver lo pendiente NO borra la venta en curso: alguien con veinte
+    // líneas armadas que toca el aviso de "1 por subir" no puede volver y
+    // encontrarse el mostrador vacío. Solo se sale de una edición a medias.
+    if (modoEdicion) limpiarFactura()
   }
 
   return {
@@ -1326,6 +1379,7 @@ export function useFacturacion() {
     // UI
     cacheStats,
     mensaje,
+    cerrarMensaje,
     mostrarRecordatorioActualizacion,
     ocultarRecordatorioActualizacion,
 

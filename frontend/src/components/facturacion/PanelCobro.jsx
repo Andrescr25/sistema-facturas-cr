@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, X, PencilLine, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
+import { Check, X, PencilLine, ChevronUp, ChevronDown, Loader2, Clock, Banknote } from 'lucide-react'
 
 const colones = (n) => `₡${(Number(n) || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -77,6 +77,17 @@ export default function PanelCobro({
         <span className="font-medium text-neutro-800">{colones(impuestosTotal)}</span>
       </div>
     </div>
+  )
+
+  // LO QUE VA A PASAR CON EL COBRO, A LA VISTA. En teléfono y tablet el
+  // selector vive dentro del desglose, que está cerrado: se facturaba sin ver
+  // si la venta iba a quedar pendiente o cobrada. La barra lo dice siempre.
+  const metodoElegido = metodosPago?.find(m => m.id === metodoPagoId) || null
+  const estadoCobro = modoEdicion || !metodosPago?.length ? null : (
+    <span className={`mt-0.5 flex items-center gap-1 text-[11px] font-bold ${metodoElegido ? 'text-exito-700' : 'text-alerta-700'}`}>
+      {metodoElegido ? <Banknote size={12} className="shrink-0" /> : <Clock size={12} className="shrink-0" />}
+      <span className="truncate">{metodoElegido ? `Se cobra ahora: ${metodoElegido.name}` : 'Queda pendiente de cobro'}</span>
+    </span>
   )
 
   // Editando una factura ya emitida no se cobra: el cobro se registra aparte.
@@ -164,6 +175,7 @@ export default function PanelCobro({
             <span className="block truncate text-xl font-extrabold leading-tight text-exito-600">
               {colones(total)}
             </span>
+            {estadoCobro}
           </button>
 
           <button
