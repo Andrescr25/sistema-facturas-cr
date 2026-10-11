@@ -117,7 +117,7 @@ export default function CatalogoAgente() {
     clientes, clienteActivo, statsPorProducto,
     seleccionarCliente, salirDeCliente,
     productosHabitualesDelCliente, productosPerdidosDelCliente,
-    configCatalogo, clienteNuevo, sinSesionEnSync, fotosSinLugar, requiereActualizar, errorCatalogo
+    configCatalogo, clienteNuevo, sinSesionEnSync, fotosSinLugar, fotosFallidas, requiereActualizar, errorCatalogo
   } = useCatalogoAgente()
 
   const [selectorAbierto, setSelectorAbierto] = useState(false)
@@ -238,11 +238,18 @@ export default function CatalogoAgente() {
             </Link>
           </div>
         )}
-        {/* Chrome cobra ~14,7 MB por foto guardada (ver cacheImagenesCatalogo.js):
-            las del fondo del catálogo pueden no caber. */}
+        {/* Las fotos propias pesan lo que pesan y entran todas; esto queda
+            para una tablet con el disco de verdad lleno. */}
         {fotosSinLugar > 0 && !isSyncing && (
           <p className="mb-4 rounded-2xl bg-neutro-100 px-4 py-3 text-xs text-neutro-600">
             No cupieron {fotosSinLugar} fotos en esta tablet: esas se ven solo con internet. Las de arriba del catálogo sí quedaron guardadas.
+          </p>
+        )}
+        {/* No es falta de lugar: se cortó la señal a la mitad o el archivo no
+            está. Decirlo aparte, porque se arregla distinto. */}
+        {fotosFallidas > 0 && !isSyncing && (
+          <p className="mb-4 rounded-2xl bg-alerta-50 px-4 py-3 text-sm text-alerta-800 ring-1 ring-alerta-200">
+            {fotosFallidas === 1 ? 'Una foto no se pudo bajar' : `${fotosFallidas} fotos no se pudieron bajar`}: sin internet no se van a ver. Tocá Actualizar de nuevo con buena señal.
           </p>
         )}
         {vacio ? (

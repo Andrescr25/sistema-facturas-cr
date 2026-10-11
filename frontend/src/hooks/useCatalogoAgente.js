@@ -7,6 +7,7 @@ import {
   CLIENTE_NUEVO, CLIENTE_NUEVO_ID, esClienteNuevo, catalogoClienteNuevo, enOrdenDelCatalogo
 } from '../utils/catalogoAgentePersonalizacion'
 import { fotosEnOrden, guardarFotosDelCatalogo } from '../utils/cacheImagenesCatalogo'
+import { urlArchivo } from '../utils/urlArchivo'
 import { conPromocionesDelCatalogo } from '../utils/promocionesCatalogoAgente'
 
 const PRODUCTOS_PATH = '/catalogo-agente/productos'
@@ -76,6 +77,7 @@ export function useCatalogoAgente() {
   // Cuántas fotos no cupieron en la tablet en la última sincronización (se
   // ven con internet). Ver utils/cacheImagenesCatalogo.js.
   const [fotosSinLugar, setFotosSinLugar] = useState(0)
+  const [fotosFallidas, setFotosFallidas] = useState(0)
   const [requiereActualizar, setRequiereActualizar] = useState(false)
   const [errorCatalogo, setErrorCatalogo] = useState('')
 
@@ -414,16 +416,19 @@ export function useCatalogoAgente() {
       bajasActuales.forEach(o => destacados.add(String(o.productoId)))
       nuevosActuales.forEach(n => destacados.add(String(n.productoId)))
       updateSyncUI('Preparando las fotos...', 95)
-      let resultadoFotos = { sinLugar: 0 }
+      let resultadoFotos = { sinLugar: 0, fallidas: 0 }
       try {
         const configParaOrden = await catalogoAgenteDb.getConfigCatalogo().catch(() => null)
         const enOrden = [...newBuffer.filter(p => destacados.has(String(p.id))),
           ...enOrdenDelCatalogo(newBuffer, configParaOrden).flatMap(b => b.productos)]
-        resultadoFotos = await guardarFotosDelCatalogo(fotosEnOrden(enOrden), (hechas,total) => {
+        // urlArchivo es lo que usa la tarjeta para pedir la foto: la llave de
+        // lo guardado tiene que ser esa misma dirección o sin señal no aparece.
+        resultadoFotos = await guardarFotosDelCatalogo(fotosEnOrden(enOrden, urlArchivo), (hechas,total) => {
           updateSyncUI(`Guardando fotos: ${hechas} / ${total}`, total ? Math.min(100, hechas/total*100) : 100)
         })
       } catch (error) { console.error('No se pudieron guardar las fotos:', error) }
       setFotosSinLugar(resultadoFotos.sinLugar || 0)
+      setFotosFallidas(resultadoFotos.fallidas || 0)
       return { success: true, count: newBuffer.length }
     } catch (error) {
       console.error('Error actualizando catálogo:', error)
@@ -449,6 +454,7 @@ export function useCatalogoAgente() {
     productosNuevos,
     sinSesionEnSync,
     fotosSinLugar,
+    fotosFallidas,
     requiereActualizar,
     errorCatalogo,
     synchronize,

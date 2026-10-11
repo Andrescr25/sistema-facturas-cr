@@ -12,6 +12,12 @@
  *    opaca, y sin cuota tampoco se guarda el catálogo).
  *  - El service worker solo sirve: no guarda lo que se mira.
  *  - En el catálogo del agente un 401 no manda al ingreso.
+ *  - LAS FOTOS PROPIAS (2026-10-11). Desde el corte la foto es una ruta
+ *    ("/archivos/productos/…") que sirve el backend, en otro dominio que la
+ *    web. Se descartaba por no ser una dirección completa y el worker solo
+ *    servía las de Alegra: el catálogo sin señal quedó sin fotos. La ruta se
+ *    completa con la misma función que la tarjeta, se pide legible (pesa lo
+ *    que pesa) y un 404 no se guarda como si fuera la foto.
  */
 
 const { test, describe } = require('node:test');
@@ -22,10 +28,10 @@ const path = require('path');
 const FRONT = path.join(__dirname, '..', '..', 'frontend');
 const FUENTE = fs.readFileSync(path.join(FRONT, 'src', 'utils', 'cacheImagenesCatalogo.js'), 'utf8');
 
-function cargar({ caches, navigator, fetch }) {
-  return new Function('caches', 'navigator', 'fetch', `${FUENTE.replace(/^export /gm, '')}
-    return { llaveImagen, firmaVigente, fotoDe, fotosEnOrden, guardarFotosDelCatalogo, CACHE_IMAGENES };`
-  )(caches, navigator, fetch);
+function cargar({ caches, navigator, fetch, location = { origin: 'https://web.ejemplo' } }) {
+  return new Function('caches', 'navigator', 'fetch', 'location', `${FUENTE.replace(/^export /gm, '')}
+    return { llaveImagen, firmaVigente, fotoDe, fotosEnOrden, esDeAlegra, guardarFotosDelCatalogo, CACHE_IMAGENES };`
+  )(caches, navigator, fetch, location);
 }
 
 const AHORA = Date.now();
@@ -101,7 +107,7 @@ describe('guardar las fotos del catálogo', () => {
     assert.deepEqual([...cache.datos.keys()].sort(), [`${CDN}/vencida.jpg`, `${CDN}/vigente.jpg`, `${CDN}/ya-bien.jpg`]);
     assert.equal(cache.datos.get(`${CDN}/vigente.jpg`), 'foto-vigente', 'no se volvió a bajar');
     assert.deepEqual(bajadas, [firmada('vencida.jpg', 7200, 'nueva')], 'solo se baja la que no servía');
-    assert.deepEqual(r, { yaEstaban: 2, nuevas: 1, sinLugar: 0, borradas: 3 });
+    assert.deepEqual(r, { yaEstaban: 2, nuevas: 1, sinLugar: 0, fallidas: 0, borradas: 3 });
   });
 
   test('una segunda actualización no baja nada', async () => {
@@ -140,13 +146,117 @@ describe('guardar las fotos del catálogo', () => {
   });
 });
 
+describe('las fotos propias, después del corte', () => {
+  const API = 'https://api.ejemplo';
+  // Lo mismo que hace frontend/src/utils/urlArchivo.js con el origen de la API.
+  const urlArchivo = (ruta) => (!ruta ? null : /^https?:/.test(ruta) ? ruta : `${API}${ruta}`);
+  const propio = (id, ruta) => ({ id, images: [{ url: ruta, favorite: true }] });
+  const navegador = { storage: { persist: async () => true, estimate: async () => ({ usage: 0, quota: 1e12 }) } };
+  const respuesta = (ok = true) => ({ ok, status: ok ? 200 : 404 });
+
+  test('una ruta propia se completa con la dirección de la API: es la que pide la tarjeta', () => {
+    const { fotosEnOrden } = cargar({});
+    const porLlave = fotosEnOrden([propio(7, '/archivos/productos/7-1.jpg'), { id: 8 }], urlArchivo);
+    assert.deepEqual([...porLlave], [[`${API}/archivos/productos/7-1.jpg`, `${API}/archivos/productos/7-1.jpg`]]);
+  });
+
+  test('antes se descartaba: sin completar, la ruta igual queda como dirección de la página', () => {
+    // La web y la API en el mismo dominio: urlArchivo devuelve la ruta tal cual.
+    const { fotosEnOrden } = cargar({});
+    const porLlave = fotosEnOrden([propio(7, '/archivos/productos/7-1.jpg')], (ruta) => ruta);
+    assert.deepEqual([...porLlave.keys()], ['https://web.ejemplo/archivos/productos/7-1.jpg']);
+  });
+
+  test('las de Alegra que queden siguen igual, mezcladas con las propias', () => {
+    const { fotosEnOrden, esDeAlegra } = cargar({});
+    const porLlave = fotosEnOrden([
+      propio(1, '/archivos/productos/1-1.jpg'),
+      { id: 2, images: [{ url: firmada('h2-foto.jpg') }] }
+    ], urlArchivo);
+    assert.deepEqual([...porLlave.keys()], [`${API}/archivos/productos/1-1.jpg`, `${CDN}/h2-foto.jpg`]);
+    assert.equal(esDeAlegra(`${CDN}/h2-foto.jpg`), true);
+    assert.equal(esDeAlegra(`${API}/archivos/productos/1-1.jpg`), false);
+    assert.equal(esDeAlegra('/archivos/productos/1-1.jpg'), false);
+  });
+
+  test('la propia se pide legible; la de Alegra, a ciegas', async () => {
+    const { cache, caches } = cacheFalsa();
+    const pedidos = [];
+    const m = cargar({ caches, navigator: navegador, fetch: async (url, opciones) => { pedidos.push([url, opciones.mode]); return respuesta(); } });
+    await m.guardarFotosDelCatalogo(new Map([
+      [`${API}/archivos/productos/1-1.jpg`, `${API}/archivos/productos/1-1.jpg`],
+      [`${CDN}/h2-foto.jpg`, firmada('h2-foto.jpg')]
+    ]));
+    assert.deepEqual(pedidos.map(([url, modo]) => [new URL(url).hostname, modo]).sort(),
+      [['api.ejemplo', 'cors'], ['cdn3.alegra.com', 'no-cors']]);
+    // Opaca, cada foto le cuesta a Chrome ~14,7 MB de cuota: no entrarían.
+    assert.ok(cache.datos.has(`${API}/archivos/productos/1-1.jpg`), 'la propia no quedó guardada');
+  });
+
+  test('un 404 no se guarda como si fuera la foto, y se cuenta aparte de la falta de lugar', async () => {
+    const { cache, caches } = cacheFalsa();
+    const m = cargar({ caches, navigator: navegador, fetch: async (url) => respuesta(!url.includes('perdida')) });
+    const r = await m.guardarFotosDelCatalogo(new Map([
+      [`${API}/archivos/productos/1-1.jpg`, `${API}/archivos/productos/1-1.jpg`],
+      [`${API}/archivos/productos/perdida.jpg`, `${API}/archivos/productos/perdida.jpg`]
+    ]));
+    assert.deepEqual([...cache.datos.keys()], [`${API}/archivos/productos/1-1.jpg`]);
+    assert.deepEqual(r, { yaEstaban: 0, nuevas: 1, sinLugar: 0, fallidas: 1, borradas: 0 });
+  });
+
+  test('si se corta la señal a la mitad, son fallidas: no "no cupieron"', async () => {
+    const { caches } = cacheFalsa();
+    let n = 0;
+    const m = cargar({ caches, navigator: navegador, fetch: async () => { if (++n > 3) throw new TypeError('Failed to fetch'); return respuesta(); } });
+    const porLlave = new Map(Array.from({ length: 10 }, (_, i) => [`${API}/archivos/productos/f${i}.jpg`, `${API}/archivos/productos/f${i}.jpg`]));
+    const r = await m.guardarFotosDelCatalogo(porLlave);
+    assert.deepEqual({ nuevas: r.nuevas, fallidas: r.fallidas, sinLugar: r.sinLugar }, { nuevas: 3, fallidas: 7, sinLugar: 0 });
+  });
+
+  test('una firma de Alegra ya vencida no se cuenta como "no cupo"', async () => {
+    // Visto en el navegador el 2026-10-11: 13 productos de la copia local
+    // seguían con dirección de Alegra vencida y la pantalla decía "No
+    // cupieron 13 fotos en esta tablet", con 10 GB libres.
+    const { caches } = cacheFalsa();
+    const m = cargar({ caches, navigator: navegador, fetch: async () => respuesta() });
+    const r = await m.guardarFotosDelCatalogo(new Map([
+      [`${API}/archivos/productos/1-1.jpg`, `${API}/archivos/productos/1-1.jpg`],
+      [`${CDN}/vencida.jpg`, firmada('vencida.jpg', -3600)]
+    ]));
+    assert.deepEqual({ nuevas: r.nuevas, fallidas: r.fallidas, sinLugar: r.sinLugar }, { nuevas: 1, fallidas: 1, sinLugar: 0 });
+  });
+
+  test('al actualizar después del corte, las de Alegra que ya no están en el catálogo se borran', async () => {
+    // Cada una ocupaba ~14,7 MB de cuota: borrarlas es lo que le hace lugar a las propias.
+    const { cache, caches } = cacheFalsa({ [`${CDN}/vieja-1.jpg`]: 'opaca', [`${CDN}/vieja-2.jpg`]: 'opaca' });
+    const m = cargar({ caches, navigator: navegador, fetch: async () => respuesta() });
+    const r = await m.guardarFotosDelCatalogo(new Map([[`${API}/archivos/productos/1-1.jpg`, `${API}/archivos/productos/1-1.jpg`]]));
+    assert.deepEqual([...cache.datos.keys()], [`${API}/archivos/productos/1-1.jpg`]);
+    assert.equal(r.borradas, 2);
+  });
+
+  test('la tarjeta y el guardado arman la dirección con la misma función', () => {
+    const { sinComentarios } = require('./dobles/sinComentarios');
+    const leer = (...p) => sinComentarios(fs.readFileSync(path.join(FRONT, 'src', ...p), 'utf8'));
+    assert.match(leer('hooks', 'useCatalogoAgente.js'), /fotosEnOrden\(enOrden, urlArchivo\)/);
+    assert.match(leer('components', 'catalogo-agente', 'TarjetaProductoAgente.jsx'), /urlArchivo\(favorita\?\.url\)/);
+  });
+});
+
 describe('el service worker y la API', () => {
   const sw = fs.readFileSync(path.join(FRONT, 'public', 'sw.js'), 'utf8');
   const ramaImagenes = sw.slice(sw.indexOf("url.hostname.endsWith('.alegra.com')"), sw.indexOf("if (url.origin !== location.origin)"));
 
   test('el worker busca la foto por su ruta y no guarda lo que se mira', () => {
-    assert.match(ramaImagenes, /cache\.match\(url\.origin \+ url\.pathname\)/);
+    assert.match(ramaImagenes, /cache\.match\(url\.origin \+ url\.pathname, \{ ignoreVary: true \}\)/);
     assert.doesNotMatch(ramaImagenes, /cache\.put/);
+  });
+
+  test('el worker también sirve las fotos propias, y lo decide ANTES de descartar otros dominios', () => {
+    // El backend es otro dominio que la web: después de ese descarte, la
+    // foto propia nunca llegaría a buscarse en lo guardado.
+    assert.match(ramaImagenes, /esFotoPropia = url\.pathname\.startsWith\('\/archivos\/'\)/);
+    assert.match(ramaImagenes, /if \(esFotoDeAlegra \|\| esFotoPropia\)/);
   });
 
   test('worker y sincronización usan la misma caché', () => {

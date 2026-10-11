@@ -76,10 +76,24 @@ self.addEventListener('fetch', (event) => {
   // fallar hasta el guardado del catálogo. Qué fotos se guardan lo decide la
   // sincronización (src/utils/cacheImagenesCatalogo.js), que para antes de
   // llenar la cuota. Lo que no está guardado se pide a la red.
-  if (url.hostname.endsWith('.alegra.com') && url.hostname.startsWith('cdn')) {
+  //
+  // FOTOS PROPIAS (2026-10-11). Desde el corte la foto es una ruta nuestra
+  // ("/archivos/productos/7-….jpg") que sirve el backend, y en Render el
+  // backend es OTRO dominio que la web: por eso también va antes del check
+  // de "mismo origen". Esta rama solo miraba el CDN de Alegra, y el día del
+  // corte el catálogo sin señal se quedó sin fotos. Se reconoce por la ruta,
+  // no por el dominio: el worker no sabe cuál es el del backend, y así sirve
+  // igual si algún día la web y la API comparten dirección. La ruta lleva el
+  // id y la hora de subida: una foto nueva es otra ruta, así que servir
+  // primero lo guardado nunca muestra una foto vieja.
+  const esFotoDeAlegra = url.hostname.endsWith('.alegra.com') && url.hostname.startsWith('cdn');
+  const esFotoPropia = url.pathname.startsWith('/archivos/');
+  if (esFotoDeAlegra || esFotoPropia) {
     event.respondWith(
       caches.open(CATALOGO_IMAGENES_CACHE).then(async (cache) => {
-        const cached = await cache.match(url.origin + url.pathname)
+        // ignoreVary: la propia se guardó pedida con CORS y el <img> la pide
+        // sin él; es la misma foto.
+        const cached = await cache.match(url.origin + url.pathname, { ignoreVary: true })
           || await cache.match(event.request); // guardadas antes, con la firma
         if (cached) return cached;
         try {

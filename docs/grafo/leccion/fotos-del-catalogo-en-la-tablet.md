@@ -8,9 +8,12 @@ archivos:
   - frontend/public/sw.js
   - frontend/src/services/api.js
   - backend/tests/cacheImagenesCatalogo.test.js
+  - frontend/src/utils/urlArchivo.js
+  - frontend/src/hooks/useCatalogoAgente.js
+  - frontend/src/components/catalogo-agente/TarjetaProductoAgente.jsx
 aristas:
   relacionado: [modulo/catalogo-agente]
-medido: 2026-09-28
+medido: 2026-10-11
 ---
 
 Reportado desde una tablet (la app instalada como acceso directo): al
@@ -49,3 +52,50 @@ La lección de método: "es un problema de caché" era cierto a medias. Lo que
 lo desarmó fue reproducir la actualización en un navegador limpio, sin
 sesión, mirando qué respondía cada pedido — y medir la cuota en vez de
 suponerla.
+
+## Después del corte: las fotos son propias (2026-10-11)
+
+Lo de arriba describe las fotos de Alegra. Desde el corte la foto es una
+ruta nuestra (`/archivos/productos/<id>-<hora>-<azar>.jpg`) que sirve el
+backend, y el punto 3 dejó de ser un límite: nuestro backend manda CORS, la
+foto se guarda legible y pesa lo que pesa. Pero el día del corte el catálogo
+sin señal quedó SIN NINGUNA foto, por dos huecos que se tapaban uno al otro:
+
+- `fotosEnOrden` descartaba toda dirección que no fuera completa
+  (`new URL('/archivos/…')` lanza). No se guardaba nada, sin error ni aviso.
+- `public/sw.js` solo buscaba en lo guardado las fotos de `cdn*.alegra.com`,
+  y a todo otro dominio lo dejaba pasar — y en Render el backend es otro
+  dominio que la web.
+
+Cómo quedó:
+
+- **La llave de lo guardado es la dirección que pide el `<img>`.** La tarjeta
+  la arma con `urlArchivo()` y el guardado recibe esa misma función
+  (`fotosEnOrden(enOrden, urlArchivo)`). Si las dos no coinciden, la foto
+  está guardada y no se encuentra. Una prueba ata las dos puntas.
+- La foto propia se pide con `mode: 'cors'`: respuesta legible, tamaño real,
+  y un 404 no se guarda bajo la llave de la foto.
+- El worker reconoce la foto propia por la RUTA (`/archivos/`), antes de
+  descartar otros dominios, y busca con `ignoreVary`: el backend contesta
+  `Vary: Origin`, se guardó pedida con CORS y el `<img>` la pide sin él.
+- Las de Alegra que quedaban guardadas se borran en la primera actualización
+  (ya no están en el catálogo): eso devuelve los ~14,7 MB de cuota de cada una.
+- El aviso de "no cupieron" quedó solo para falta de lugar; lo que no se pudo
+  bajar (señal cortada, archivo ausente, firma vencida) se cuenta y se dice
+  aparte, porque se arregla actualizando de nuevo.
+
+MEDIDO en Chromium con la web y la API en dos direcciones, como en Render:
+una actualización guardó 1.827 fotos (268 MB, todas `cors/200`); con los dos
+servidores APAGADOS se recargó la página y se bajó por todo el catálogo: 45
+de 45 fotos a la vista cargaron y el servidor no recibió ningún pedido. Una
+foto no guardada falló, como corresponde. En producción: 1.844 productos
+activos con foto propia; el backend contesta `access-control-allow-origin`
+con el origen de la web y `cross-origin-resource-policy: cross-origin`.
+
+Lo que cada tablet tiene que hacer una vez: abrir el catálogo con internet
+(toma el worker nuevo) y actualizar. La primera vez baja todas las fotos
+(~250 MB): conviene con wifi. Después solo baja las nuevas.
+
+La lección de método, otra vez: las pruebas del guardado pasaban todas —
+con direcciones de Alegra. Cuando cambia DE DÓNDE sale un dato, hay que
+volver a correr el recorrido entero con el dato nuevo, no solo las pruebas.
