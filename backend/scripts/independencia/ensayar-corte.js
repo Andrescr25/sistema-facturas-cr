@@ -64,7 +64,7 @@ async function main() {
       if (!r.tiene_usuarios || Number(r.tablas_conversacion)) throw new Error('Dump incompleto o incluye tablas privadas de conversaciones.');
     });
     const migraciones = (await fs.readdir(path.join(BACKEND, 'migrations/independencia'))).filter(f => /^\d{3}_.+\.sql$/.test(f)).sort();
-    const enlazar = new Set(['005', '007', '017', '018', '020', '023', '030', '031', '032', '035', '036', '037', '038', '039', '041']);
+    const enlazar = new Set(['005', '007', '017', '018', '020', '023', '030', '031', '032', '035', '036', '037', '038', '039', '041', '054']);
     const migrar = async (soloDatos = false) => {
       for (const m of migraciones.filter(m => !soloDatos || enlazar.has(m.slice(0, 3)))) {
         informe.migracion_actual = m;

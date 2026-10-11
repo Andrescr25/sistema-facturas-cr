@@ -100,10 +100,13 @@ aparecido igual el día del corte, corregidos el 2026-10-10:
   de que existieran las facturas propias: 286 faltantes y 1.571 filas de la
   cola quedaron sin `factura_propia_id` y esas pantallas salían vacías. Ahora
   vuelve a enlazar cada vez que corre (está en la lista de enlaces del ensayo).
-- MIGRACIÓN 041. 4 de 65 intentos de factura no enlazaban: tiquetes que
-  Alegra pasó a factura electrónica conservan el id y cambian de número. Se
-  reconocen cuando la factura copiada está en la plantilla electrónica o trae
-  clave fiscal de origen; `facturacion/idempotencia.js` usa la misma regla.
+- MIGRACIÓN 054 (completa la 041). 4 de 65 intentos de factura no
+  enlazaban: tiquetes que Alegra pasó a factura electrónica conservan el id y
+  cambian de número. Se reconocen cuando la factura copiada está en la
+  plantilla electrónica o trae clave fiscal de origen;
+  `facturacion/idempotencia.js` usa la misma regla. Primero se puso en la 041
+  y eso rompía una base armada desde cero: usa columnas que crea la 043. Lo
+  atrapó el ensayo del 2026-10-10 sobre el respaldo de producción.
 
 Comprobado sobre una copia de esa base devuelta al estado sin enlaces: 286 de
 286, 1.571 de 1.571 y 0 intentos sin resolver, igual en una segunda pasada, y
@@ -113,4 +116,10 @@ DURACIÓN. Esa pasada tardó unas 15 horas de reloj (9,8 solo facturas, 4,9
 cobros). No se sabe cuánto fue Alegra y cuánto el equipo suspendido de noche:
 medirlo antes de fijar la ventana del corte. Sigue pendiente el ensayo de dos
 pasadas desde un dump nuevo.
+
+ENSAYO DE MIGRACIONES SOBRE EL RESPALDO DEL CORTE, 2026-10-10: respaldo de
+producción restaurado en una base local nueva y las 54 migraciones aplicadas
+en orden, sin error, en segundos. Diez no se pueden repetir enteras (025 y
+044 a 052): en producción se aplican una sola vez; lo que se repite después
+de las cargas es la lista de enlaces de `ensayar-corte.js`.
 

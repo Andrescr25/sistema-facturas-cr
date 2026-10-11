@@ -28,6 +28,7 @@ const path = require('path');
  */
 
 const MIGRACION = path.join(__dirname, '..', 'migrations', 'independencia', '041_intento_de_factura_con_id_propio.sql');
+const MIGRACION_RENUMERADAS = path.join(__dirname, '..', 'migrations', 'independencia', '054_intentos_de_facturas_renumeradas.sql');
 
 describe('el intento de factura y los ids propios — contra PostgreSQL local', () => {
   let pool, conexion, idem;
@@ -142,10 +143,11 @@ describe('el intento de factura y los ids propios — contra PostgreSQL local', 
   });
 
   test('la migración enlaza la factura y deja la cotización sin enlazar; correrla dos veces no cambia nada', async () => {
-    const sentencias = fs.readFileSync(MIGRACION, 'utf8')
+    // La 041 y su complemento, la 054 (renumeradas), en el orden en que corren.
+    const sentencias = [MIGRACION, MIGRACION_RENUMERADAS].flatMap(archivo => fs.readFileSync(archivo, 'utf8')
       .replace(/^--.*$/gm, '')
-      .split(';').map(s => s.trim()).filter(s => /^UPDATE factura_intento/.test(s));
-    assert.equal(sentencias.length, 3, 'la migración cambió de forma: revisar qué corre esta prueba');
+      .split(';').map(s => s.trim()).filter(s => /^UPDATE factura_intento/.test(s)));
+    assert.equal(sentencias.length, 3, 'las migraciones cambiaron de forma: revisar qué corre esta prueba');
 
     // Lo que hizo la primera versión de la migración: la cotización enlazada
     // a la factura vieja que calza en id y número.
@@ -166,6 +168,13 @@ describe('el intento de factura y los ids propios — contra PostgreSQL local', 
     await correr();
     const despues = (await conexion.query(`SELECT clave, factura_id FROM factura_intento WHERE clave LIKE 'zz-%' ORDER BY clave`)).rows;
     assert.deepEqual(despues, antes);
+  });
+
+  // 2026-10-10. La regla de las renumeradas se había puesto en la 041 y usa
+  // columnas que crea la 043: una base armada desde cero fallaba ahí.
+  test('la 041 no usa columnas que todavía no existen cuando corre', () => {
+    const sql = fs.readFileSync(MIGRACION, 'utf8').replace(/^--.*$/gm, '');
+    assert.doesNotMatch(sql, /plantilla_electronica|hacienda_origen/);
   });
 
   test('en la copia local no queda ningún intento sin huella con factura', async () => {

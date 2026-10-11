@@ -61,26 +61,6 @@ UPDATE factura_intento i
    AND f.alegra_id = i.alegra_invoice_id
    AND f.numero = i.numero_factura;
 
--- LAS QUE ALEGRA RENUMERÓ. Medido el 2026-10-09 en el ensayo con datos de
--- producción: 4 de 65 intentos quedaban sin enlazar y eso cortaba el ensayo
--- antes de las conciliaciones. Las cuatro nacieron como tiquete (la clave
--- guarda 001000014897) y después se pasaron a factura electrónica: Alegra
--- conserva el id del documento (5437) pero le cambia el número
--- (00100001010000002467). Con "id Y número" no enlazan nunca.
---
--- El id de Alegra es la identidad del documento; el número se pidió encima
--- para no cruzar ids propios con ids de Alegra. Acá se afloja SOLO para la
--- causa conocida del cambio: la factura copiada está en la plantilla
--- electrónica o trae clave fiscal de origen. Una factura común con otro
--- número sigue sin enlazarse. `facturacion/idempotencia.js` usa la misma
--- regla al leer.
-UPDATE factura_intento i
-   SET factura_id = f.id
-  FROM factura f
- WHERE i.estado = 'creada'
-   AND i.huella IS NOT NULL
-   AND i.factura_id IS NULL
-   AND i.alegra_invoice_id IS NOT NULL
-   AND f.alegra_id = i.alegra_invoice_id
-   AND f.numero <> i.numero_factura
-   AND (f.plantilla_electronica OR f.hacienda_origen ->> 'clave' IS NOT NULL);
+-- Las facturas que Alegra renumeró al pasarlas a la plantilla electrónica
+-- (mismo id, otro número) se enlazan en la 054: esa regla necesita columnas
+-- que recién crea la 043, y acá todavía no existen.
