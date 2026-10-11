@@ -185,6 +185,28 @@ ventas.post(
     }),
   ),
 );
+// La nota de crédito, igual que la factura: cómo va y emitir de un clic.
+ventas.get(
+  "/notas-credito/:id/estado",
+  envolver(async (req, res) =>
+    res.json({
+      success: true,
+      data: {
+        ...(await servicio.estadoDeNota(req.params.id)),
+        seguimiento: process.env.HACIENDA_TRABAJADOR === "true",
+      },
+    }),
+  ),
+);
+ventas.post(
+  "/notas-credito/:id/emitir",
+  envolver(async (req, res) =>
+    res.json({
+      success: true,
+      data: await servicio.emitirNota(req.params.id, req.body || {}, req.usuario?.id),
+    }),
+  ),
+);
 ventas.post(
   "/facturas/:id/correo",
   envolver(async (req, res) =>

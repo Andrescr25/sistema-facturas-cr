@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { estadoFactura, emitirFactura, reenviarCorreo, operar, mensajeError } from './api'
+import { estadoFactura, emitirFactura, estadoNota, emitirNota, reenviarCorreo, operar, mensajeError } from './api'
 import { emitirPasoAPaso, FINALES, pideDatos } from './emisionPasos'
 
 /**
@@ -10,13 +10,23 @@ import { emitirPasoAPaso, FINALES, pideDatos } from './emisionPasos'
  *
  * `activo` apaga todo cuando la factura no se puede emitir desde acá
  * (histórica de Alegra, anulada, o mientras se edita).
+ *
+ * `origen: 'nota_credito'` hace lo mismo para una nota de crédito: mismos
+ * pasos y mismo panel, con sus dos llamadas al servidor.
  */
 const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 /** Cada cuánto se relee mientras Hacienda no contesta y nadie toca nada. */
 const RELEER_MS = 15000
 
-export default function useEmisionFactura(facturaId, { activo = true, onCambio } = {}) {
+/** Las dos llamadas que cambian según el documento; lo demás es igual. */
+const SERVIDOR = {
+  factura: { estado: estadoFactura, emitir: emitirFactura },
+  nota_credito: { estado: estadoNota, emitir: emitirNota }
+}
+
+export default function useEmisionFactura(facturaId, { activo = true, onCambio, origen = 'factura' } = {}) {
+  const servidor = SERVIDOR[origen] || SERVIDOR.factura
   const [estado, setEstado] = useState(null)
   const [fase, setFase] = useState(null)
   const [error, setError] = useState('')
@@ -31,10 +41,10 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio }
   avisar.current = onCambio
 
   const leer = useCallback(async (id) => {
-    const e = await estadoFactura(id)
+    const e = await servidor.estado(id)
     if (actual.current === id) setEstado(e)
     return e
-  }, [])
+  }, [servidor])
 
   useEffect(() => {
     actual.current = activo ? facturaId : null
@@ -66,11 +76,12 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio }
   }, [esperandoSola, facturaId, leer])
 
   /**
-   * Emitir, o seguir con el comprobante que quedó a medias. `lineas` y
-   * `metodoPagoId` solo vienen cuando la factura pidió un dato (descuento,
-   * medicamento, con qué paga el cliente).
+   * Emitir, o seguir con el comprobante que quedó a medias. `respuesta`
+   * solo viene cuando el documento pidió un dato (descuento, medicamento,
+   * con qué paga el cliente, qué hace la nota): ver `respuestaDe`.
    */
-  const emitir = async ({ lineas, metodoPagoId } = {}) => {
+  const emitir = async (respuesta = {}) => {
+    const contesto = Object.keys(respuesta).length > 0
     if (fase || !estado) return
     const id = facturaId
     const previo = estado.comprobante
@@ -78,7 +89,7 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio }
     const continuar = Boolean(previo) && !rechazado
     setError('')
     if (!continuar && estado.motivoNoEmitible) return setError(estado.motivoNoEmitible)
-    if (!continuar && pideDatos(estado) && !lineas && !metodoPagoId) return setPidiendoDatos(true)
+    if (!continuar && pideDatos(estado) && !contesto) return setPidiendoDatos(true)
 
     const mia = () => actual.current === id
     setPidiendoDatos(false)
@@ -88,7 +99,7 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio }
     try {
       await emitirPasoAPaso({
         comprobante: continuar ? previo : null,
-        firmar: () => emitirFactura(id, { sustituir: rechazado, lineas, metodoPagoId }),
+        firmar: () => servidor.emitir(id, { sustituir: rechazado, ...respuesta }),
         enviar: (c) => operar(c, 'enviar'),
         consultar: (c) => operar(c, 'consultar'),
         esperar,
@@ -131,7 +142,7 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio }
   }
 
   return {
-    activo, estado, fase, error, emitir,
+    activo, origen, estado, fase, error, emitir,
     pidiendoDatos, cerrarDatos: () => setPidiendoDatos(false),
     enviarAlCliente, enviandoCorreo
   }

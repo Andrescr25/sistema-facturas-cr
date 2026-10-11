@@ -364,3 +364,31 @@ la factura electrónica con 2481».
   Hecho: [nodo de Hacienda](grafo/modulo/hacienda.md), "LA NUMERACIÓN LA
   DECIDE EL DUEÑO". El número se pone desde Configuración → Hacienda →
   Numeración; **falta que él lo ponga en producción**.
+
+## 2026-10-11 — Medio de pago al emitir y seguimiento de la nota de crédito
+
+Textual: «cuando quiero emitir me sale este mensaje: Medio de pago: falta un
+dato fiscal válido. Pero la factura dice que es de contado». Y: «haz bien el
+seguimiento de la nota de crédito, esta no se sabe bien si se aplicó, si
+anuló el documento o qué pasó… también que indique si la nota de crédito es
+aplicada a una factura electrónica o una de venta normal. Lo que me pasó
+antes fue que apliqué la nota de crédito y no avisó nada y solo me salió la
+factura como pagada».
+
+**Hecho** el mismo día: [Hacienda](grafo/modulo/hacienda.md), "EL MEDIO DE
+PAGO" y "LA NOTA DE CRÉDITO, DE UN CLIC", y
+[Facturación](grafo/modulo/facturacion.md), "LA NOTA DE CRÉDITO CUENTA QUÉ
+HIZO".
+
+Decisiones de Claude, a revisar por él:
+
+- en una venta de **contado sin cobrar**, la factura pregunta con qué paga el
+  cliente al emitir (no se asume efectivo); a **crédito** sale sin ese dato;
+- al emitir una **nota de crédito** se pregunta qué hace (anula, devolución,
+  corrige el monto…): no se deduce del motivo con que se creó;
+- una factura acreditada entera dice **«Anulada con nota de crédito»**, no
+  "Pagada".
+
+Sin hacer, por si los pide: anular una nota desde la pantalla y mandarle la
+nota electrónica al cliente por correo.
+

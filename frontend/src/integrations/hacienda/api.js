@@ -50,6 +50,14 @@ export async function estadoFactura(id) {
 export async function emitirFactura(id, datos = {}) {
   return (await api.post(`/facturacion/hacienda/facturas/${id}/emitir`, datos)).data.data;
 }
+/** Cómo va la emisión de una nota de crédito (mismo formato que la factura). */
+export async function estadoNota(id) {
+  return (await api.get(`/facturacion/hacienda/notas-credito/${id}/estado`)).data.data;
+}
+/** Prepara y firma la nota: lleva qué hace sobre su factura (`codigoReferencia`). */
+export async function emitirNota(id, datos = {}) {
+  return (await api.post(`/facturacion/hacienda/notas-credito/${id}/emitir`, datos)).data.data;
+}
 /** Volver a mandarle al cliente el PDF con los dos XML. */
 export async function reenviarCorreo(id) {
   return (await api.post(`/facturacion/hacienda/facturas/${id}/correo`)).data.data;

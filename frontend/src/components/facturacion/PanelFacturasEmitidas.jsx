@@ -11,6 +11,7 @@ import { mensajeFactura } from '../../utils/mensajesWhatsApp'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones } from '../../utils/colones'
 import ContextoCicloDocumento from '../ContextoCicloDocumento'
+import { estadoDeFactura, notasDeFactura } from '../../utils/notaCreditoTexto'
 
 /**
  * Las facturas ya emitidas.
@@ -29,11 +30,17 @@ import ContextoCicloDocumento from '../ContextoCicloDocumento'
 
 const fecha = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '')
 
+/** La misma regla que dentro de la factura: saldo en cero no es "Pagada". */
 function EstadoFactura({ f }) {
-  if (f.estado === 'anulada') return <Insignia tono="peligro">Anulada</Insignia>
-  if (f.estado === 'borrador') return <Insignia tono="neutro">Borrador</Insignia>
-  if (f.saldo > 0) return <Insignia tono="alerta">Debe {colones(f.saldo)}</Insignia>
-  return <Insignia tono="exito">Pagada</Insignia>
+  const e = estadoDeFactura(f, colones)
+  return (
+    <>
+      <Insignia tono={e.tono}>{e.texto}</Insignia>
+      {notasDeFactura(f, colones) && (
+        <p className="mt-0.5 text-[11px] font-semibold text-nota-700">{notasDeFactura(f, colones)}</p>
+      )}
+    </>
+  )
 }
 
 function ModalAnular({ factura, onCerrar, onAnular }) {

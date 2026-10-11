@@ -438,8 +438,9 @@ describe('cómo quedó conectada la pantalla', () => {
   test('la factura usa el botón de un clic, no el modal', () => {
     assert.match(vista, /<BotonEmitirFactura emision=\{emision\} \/>/);
     assert.doesNotMatch(vista, /<DocumentoFiscal documento=\{f\}/, 'la factura volvió a abrir el modal');
-    // Las notas de crédito siguen con sus opciones: ahí hay que elegir el motivo.
-    assert.match(vista, /<DocumentoFiscal origen="nota_credito"/);
+    // Tampoco las notas de crédito: tienen su tarjeta con el mismo botón
+    // (ver notaCreditoSeguimiento.test.js).
+    assert.doesNotMatch(vista, /DocumentoFiscal/);
   });
 
   test('el botón no abre nada: llama a emitir', () => {
@@ -456,7 +457,8 @@ describe('cómo quedó conectada la pantalla', () => {
 
   test('el gancho encadena con los pasos de siempre del servidor', () => {
     assert.match(gancho, /emitirPasoAPaso\(/);
-    assert.match(gancho, /firmar: \(\) => emitirFactura\(id, \{ sustituir: rechazado, lineas, metodoPagoId \}\)/);
+    assert.match(gancho, /firmar: \(\) => servidor\.emitir\(id, \{ sustituir: rechazado, \.\.\.respuesta \}\)/);
+    assert.match(gancho, /factura: \{ estado: estadoFactura, emitir: emitirFactura \}/);
     assert.match(gancho, /enviar: \(c\) => operar\(c, 'enviar'\)/);
     assert.match(gancho, /consultar: \(c\) => operar\(c, 'consultar'\)/);
   });

@@ -122,6 +122,15 @@ function lineasDadas(dadas) {
   }));
 }
 
+/**
+ * Lo que una nota de crédito puede declarar que hace sobre su factura
+ * (anexo 4.4, `CodigoReferenciaType`). Quedan fuera los que no son de una
+ * nota sobre una venta: 05 contingencia, 07/15/16 sustituciones (las arma el
+ * sistema al volver a emitir un rechazo), 08 endoso, 10 débito, 11 proveedor
+ * no domiciliado.
+ */
+const REFERENCIAS_DE_NOTA = Object.freeze(["01", "02", "04", "06", "09", "12", "13", "14", "99"]);
+
 function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
   const tx = (fn) => enTransaccion(pool, fn);
   /**
@@ -777,6 +786,139 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
     );
   }
 
+  /**
+   * LA NOTA DE CRÉDITO, DE UN CLIC (2026-10-11). Mismo camino que la
+   * factura: qué falta, a qué ambiente iría y cómo va su comprobante.
+   *
+   * Lo que cambia respecto de la factura:
+   *  - solo va a Hacienda si su factura es electrónica (o fue aceptada en ese
+   *    ambiente). Una nota sobre una factura de venta común no se emite, y se
+   *    dice por qué en vez de ofrecer un botón que va a fallar;
+   *  - Hacienda pide QUÉ HACE la nota (anula, devolución, corrige el monto…).
+   *    Eso lo contesta una persona: no se convierte "error" en "anula";
+   *  - el medio de pago es el de su factura (ver `medioDePago`).
+   */
+  async function estadoDeNota(n, dadas = []) {
+    const nota = (
+      await pool.query("SELECT id, numero, estado, electronica, alegra_id FROM nota_credito WHERE id=$1", [id(n)])
+    ).rows[0];
+    if (!nota) throw error("NO_EXISTE", "No existe esa nota de crédito.", 404);
+    const facturas = (
+      await pool.query(
+        "SELECT f.id, f.numero, f.electronica, f.clave_hacienda, f.condicion_venta, f.metodo_pago_id FROM nota_credito_factura nf JOIN factura f ON f.id=nf.factura_id WHERE nf.nota_credito_id=$1",
+        [nota.id],
+      )
+    ).rows;
+    const a = ambienteDeEmision(
+      (await pool.query("SELECT ambiente, habilitada FROM hacienda_configuracion")).rows,
+    );
+    const lineas = (
+      await pool.query(
+        "SELECT l.numero_linea,l.nombre,l.descuento_monto,p.es_medicamento,p.registro_sanitario,p.forma_farmaceutica FROM nota_credito_linea l LEFT JOIN producto p ON p.id=l.producto_id WHERE l.nota_credito_id=$1 ORDER BY l.numero_linea",
+        [nota.id],
+      )
+    ).rows;
+    // El comprobante que cuenta: el de producción si ya existe (una nota
+    // emitida de verdad no "vuelve" a pruebas); si no, el del ambiente del clic.
+    const c = (
+      await pool.query(
+        "SELECT * FROM hacienda_comprobante WHERE origen='nota_credito' AND origen_id=$1 AND ambiente = ANY($2::text[]) ORDER BY (ambiente='produccion') DESC, revision_documento DESC LIMIT 1",
+        [nota.id, a === "produccion" || !a ? ["produccion"] : ["produccion", a]],
+      )
+    ).rows[0];
+    const ambiente = c?.ambiente || a;
+    const factura = facturas.length === 1 ? facturas[0] : null;
+    // ¿La factura tiene una clave contra la cual referenciar la nota?
+    const aceptadaAca =
+      factura && ambiente
+        ? (
+            await pool.query(
+              "SELECT 1 FROM hacienda_comprobante WHERE ambiente=$1 AND origen='factura' AND origen_id=$2 AND estado='aceptada'",
+              [ambiente, factura.id],
+            )
+          ).rows.length > 0
+        : false;
+    const enCurso = c && c.estado !== "rechazada";
+    const motivoNoEmitible = enCurso
+      ? null
+      : nota.estado !== "emitida"
+        ? "La nota está anulada: no se emite."
+        : nota.alegra_id || nota.electronica
+          ? "Es una nota histórica o ya electrónica: no se vuelve a emitir."
+          : !factura
+            ? "La emisión de esta nota requiere una sola factura de referencia."
+            : !aceptadaAca && !factura.clave_hacienda
+              ? "La factura no es electrónica: esta nota no va a Hacienda."
+              : !a
+                ? "Habilitá un ambiente en Configuración → Hacienda."
+                : null;
+    const faltaMedioPago =
+      !enCurso && !motivoNoEmitible && factura.condicion_venta !== "credito" && !(await medioDePago(pool, factura, ambiente));
+    return {
+      ambiente,
+      tipo: "03",
+      pendientes: datosPendientes(lineas, dadas),
+      faltaMedioPago,
+      mediosPago: faltaMedioPago ? await mediosDePago(pool) : [],
+      // Qué hace la nota ante Hacienda se pregunta siempre que haya que
+      // preparar un comprobante nuevo.
+      faltaReferencia: !enCurso && !motivoNoEmitible,
+      motivoNoEmitible,
+      comprobante: vista(c),
+      correo: null,
+    };
+  }
+
+  async function emitirNota(n, datos = {}, usuarioId) {
+    const lineas = lineasDadas(datos.lineas);
+    const e = await estadoDeNota(n, lineas);
+    if (e.motivoNoEmitible) throw error("NO_EMITIBLE", e.motivoNoEmitible, 409);
+    const enCurso = e.comprobante && e.comprobante.estado !== "rechazada";
+    const codigo = String(datos.codigoReferencia || "").trim();
+    const otro = String(datos.referenciaOtro || "").trim().slice(0, 100);
+    if (!enCurso) {
+      if (!REFERENCIAS_DE_NOTA.includes(codigo))
+        throw error(
+          "DATOS_FISCALES_PENDIENTES",
+          "Falta decir qué hace esta nota ante Hacienda: anula la factura, es una devolución, corrige el monto…",
+          409,
+        );
+      if (codigo === "99" && !otro)
+        throw error("DATOS_FISCALES_PENDIENTES", "Describí qué hace la nota (elegiste «Otro»).", 409);
+      if (e.pendientes.length)
+        throw error(
+          "DATOS_FISCALES_PENDIENTES",
+          "Esta nota necesita un dato más antes de emitirse: " +
+            e.pendientes
+              .slice(0, 3)
+              .map((p) => `${p.falta.join(" y ")} de «${p.nombre}»`)
+              .join("; ") +
+            (e.pendientes.length > 3 ? "…" : "."),
+          409,
+        );
+    }
+    const eligioMedio = datos.metodoPagoId !== undefined && datos.metodoPagoId !== null && datos.metodoPagoId !== "";
+    if (!enCurso && e.faltaMedioPago && !eligioMedio)
+      throw error(
+        "DATOS_FISCALES_PENDIENTES",
+        "Falta decir con qué pagó el cliente la factura: en una venta de contado Hacienda pide el medio de pago.",
+        409,
+      );
+    return preparar(
+      "nota_credito",
+      n,
+      {
+        ambiente: e.ambiente,
+        codigoReferencia: codigo,
+        ...(codigo === "99" ? { referenciaOtro: otro } : {}),
+        sustituir: datos.sustituir === true,
+        lineas,
+        ...(eligioMedio ? { metodoPagoId: datos.metodoPagoId } : {}),
+      },
+      usuarioId,
+    );
+  }
+
   /** Volver a mandarle el comprobante al cliente, a pedido de una persona. */
   async function reenviarCorreo(n, usuarioId) {
     const e = await estadoDeFactura(n);
@@ -1069,6 +1211,8 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
     estadoDeFactura,
     emitirFactura,
     reenviarCorreo,
+    estadoDeNota,
+    emitirNota,
   };
 }
-module.exports = { crearServicio, vista, id, ambienteDeEmision, tipoDeFactura, datosPendientes, lineasDadas };
+module.exports = { crearServicio, vista, id, ambienteDeEmision, tipoDeFactura, datosPendientes, lineasDadas, REFERENCIAS_DE_NOTA };

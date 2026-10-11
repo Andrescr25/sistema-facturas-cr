@@ -168,7 +168,7 @@ export default function DocumentoFiscal({
                     >
                       <option value="">Elegir motivo</option>
                       <option value="01">Anula documento</option>
-                      <option value="02">Corrige monto</option>
+                      <option value="02">Corrige texto del documento</option>
                       <option value="04">Referencia a otro documento</option>
                       <option value="06">Devolución de mercancía</option>
                       <option value="07">Sustituye comprobante</option>

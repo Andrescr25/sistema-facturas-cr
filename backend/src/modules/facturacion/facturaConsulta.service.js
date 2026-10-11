@@ -192,9 +192,19 @@ async function obtenerFactura(id) {
       [n]
     ),
     pool.query(
-      `SELECT nc.id, nc.numero, nc.fecha, nc.motivo, nc.motivo_texto, nc.estado, nc.alegra_id, nf.monto
+      // De cada nota, además de cuánto acreditó: cuántas unidades devolvió
+      // y cómo va ante Hacienda (su último comprobante de producción). Es lo
+      // que deja decir en la factura QUÉ hizo la nota y si falta emitirla.
+      `SELECT nc.id, nc.numero, nc.fecha, nc.motivo, nc.motivo_texto, nc.estado, nc.alegra_id, nf.monto,
+              nc.electronica, nc.hacienda_estado,
+              (SELECT COALESCE(SUM(l.cantidad), 0) FROM nota_credito_linea l WHERE l.nota_credito_id = nc.id) AS unidades,
+              hc.consecutivo AS fiscal_consecutivo, hc.estado AS fiscal_estado
          FROM nota_credito_factura nf JOIN nota_credito nc ON nc.id = nf.nota_credito_id
-        WHERE nf.factura_id = $1 ORDER BY nc.fecha`,
+         LEFT JOIN LATERAL (
+           SELECT c.consecutivo, c.estado FROM hacienda_comprobante c
+            WHERE c.ambiente = 'produccion' AND c.origen = 'nota_credito' AND c.origen_id = nc.id
+            ORDER BY c.revision_documento DESC LIMIT 1) hc ON TRUE
+        WHERE nf.factura_id = $1 ORDER BY nc.fecha, nc.id`,
       [n]
     )
   ]);
@@ -226,7 +236,12 @@ async function obtenerFactura(id) {
     })),
     notasCredito: notas.rows.map(x => ({
       id: x.id, numero: x.numero, fecha: x.fecha, motivo: x.motivo,
-      motivoTexto: x.motivo_texto, estado: x.estado, historica:Boolean(x.alegra_id), monto: numero(x.monto)
+      motivoTexto: x.motivo_texto, estado: x.estado, historica:Boolean(x.alegra_id), monto: numero(x.monto),
+      unidades: numero(x.unidades),
+      // Electrónica = aceptada por Hacienda. `fiscal` es su comprobante
+      // propio, aceptado o no; las de Alegra no tienen.
+      electronica: Boolean(x.electronica), haciendaEstado: x.hacienda_estado,
+      fiscal: x.fiscal_consecutivo ? { consecutivo: x.fiscal_consecutivo, estado: x.fiscal_estado } : null
     }))
   };
 }

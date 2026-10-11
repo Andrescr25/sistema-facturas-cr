@@ -66,8 +66,9 @@ export const nombreDeTipo = (tipo) => NOMBRE_TIPO[tipo] || 'Comprobante electró
  * Los cuatro renglones que ve quien factura. Cada uno:
  *   estado: 'hecho' | 'activo' | 'pendiente' | 'fallo' | 'aviso' | 'omitido'
  * `seguimiento` es si el servidor consulta solo a Hacienda cada minuto.
+ * `conCorreo: false` (nota de crédito) deja los tres primeros.
  */
-export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento }) {
+export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento, conCorreo = true }) {
   const estado = c?.estado
   const enviada = [...EN_HACIENDA, ...FINALES].includes(estado)
 
@@ -109,7 +110,10 @@ export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento })
 
   return [
     { clave: 'firma', ...firma }, { clave: 'envio', ...envio },
-    { clave: 'respuesta', ...respuesta }, { clave: 'correo', ...entrega }
+    { clave: 'respuesta', ...respuesta },
+    // La nota de crédito no tiene entrega automática por correo: no se
+    // muestra un renglón que nunca se va a llenar.
+    ...(conCorreo ? [{ clave: 'correo', ...entrega }] : [])
   ]
 }
 
@@ -176,16 +180,38 @@ export function lineasDe(pendientes, respuestas = {}) {
 }
 
 /**
- * ¿La factura necesita que alguien conteste algo antes de emitir? El motivo
- * de un descuento, los datos de un medicamento o —en una venta de contado
- * que nadie cobró todavía— con qué paga el cliente.
+ * Lo que una nota de crédito puede declarar que hace sobre su factura, en
+ * palabras de quien factura y con el código del anexo 4.4. Son los de uso
+ * diario; el servidor admite además los demás de `REFERENCIAS_DE_NOTA`.
+ *
+ * EL 02 NO ES "CORRIGE MONTO": el modal viejo lo decía así y el anexo dice
+ * «Corrige texto de documento de referencia». Corregir un monto es el 14.
+ */
+export const REFERENCIAS_NOTA = [
+  ['01', 'Anula la factura completa'],
+  ['06', 'Devolución de mercancía'],
+  ['14', 'Corrige el monto (hubo un error)'],
+  ['02', 'Corrige un texto de la factura'],
+  ['09', 'Rebaja o descuento posterior (nota financiera)'],
+  ['99', 'Otro']
+]
+
+/**
+ * ¿El documento necesita que alguien conteste algo antes de emitir? El motivo
+ * de un descuento, los datos de un medicamento, con qué paga el cliente —en
+ * una venta de contado que nadie cobró todavía— o, en una nota de crédito,
+ * qué hace la nota sobre su factura.
  */
 export function pideDatos(estado) {
-  return Boolean(estado?.pendientes?.length || estado?.faltaMedioPago)
+  return Boolean(estado?.pendientes?.length || estado?.faltaMedioPago || estado?.faltaReferencia)
 }
 
 /** Qué falta contestar, en palabras. '' = ya se puede emitir. */
-export function faltaContestar(pendientes, respuestas = {}, { faltaMedioPago = false } = {}) {
+export function faltaContestar(pendientes, respuestas = {}, { faltaMedioPago = false, faltaReferencia = false } = {}) {
+  if (faltaReferencia) {
+    if (!respuestas.codigoReferencia) return 'Elegí qué hace la nota.'
+    if (respuestas.codigoReferencia === '99' && !String(respuestas.referenciaOtro || '').trim()) return 'Describí qué hace la nota.'
+  }
   if (faltaMedioPago && !respuestas.metodoPagoId) return 'Elegí con qué paga el cliente.'
   for (const l of lineasDe(pendientes, respuestas)) {
     if ('codigoDescuento' in l) {
@@ -207,6 +233,10 @@ export function faltaContestar(pendientes, respuestas = {}, { faltaMedioPago = f
 export function respuestaDe(estado, respuestas = {}) {
   return {
     ...(estado?.pendientes?.length ? { lineas: lineasDe(estado.pendientes, respuestas) } : {}),
-    ...(estado?.faltaMedioPago ? { metodoPagoId: respuestas.metodoPagoId } : {})
+    ...(estado?.faltaMedioPago ? { metodoPagoId: respuestas.metodoPagoId } : {}),
+    ...(estado?.faltaReferencia ? {
+      codigoReferencia: respuestas.codigoReferencia,
+      ...(respuestas.codigoReferencia === '99' ? { referenciaOtro: String(respuestas.referenciaOtro || '').trim() } : {})
+    } : {})
   }
 }

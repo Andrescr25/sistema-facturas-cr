@@ -34,6 +34,8 @@ archivos:
   - backend/tests/haciendaNumeracion.test.js
   - backend/tests/haciendaNumeracionPg.test.js
   - backend/tests/haciendaMedioPago.test.js
+  - backend/tests/notaCreditoSeguimiento.test.js
+  - frontend/src/components/facturacion/NotasCreditoFactura.jsx
   - frontend/src/integrations/hacienda/NumeracionHacienda.jsx
   - frontend/src/integrations/hacienda/numeracionTexto.js
   - frontend/src/integrations/hacienda/catalogos.js
@@ -351,3 +353,37 @@ cobrado por SINPE (un clic, declara 06).
 **La regla que deja:** una prueba que arma su propio dato de entrada prueba
 ese dato. Cuando cambia cómo NACE un documento, hay que volver a recorrer
 todo lo que lo consume con un documento nacido de la forma nueva.
+
+LA NOTA DE CRÉDITO, DE UN CLIC (2026-10-11, noche). Emitir una nota era el
+modal viejo —ambiente, código de referencia, tres botones— escondido en un
+renglón al pie de la factura; el usuario hizo una en producción y no supo qué
+había pasado (ver [[modulo/facturacion]], "LA NOTA DE CRÉDITO CUENTA QUÉ
+HIZO"). Ahora usa el mismo gancho, el mismo botón y los mismos pasos que la
+factura (`useEmisionFactura` con `origen: 'nota_credito'`), dentro de la
+tarjeta de la nota.
+
+- `estadoDeNota` / `emitirNota` en `emision.service.js`;
+  `GET`/`POST /api/facturacion/hacienda/notas-credito/:id/estado|emitir`.
+- **Solo va a Hacienda si su factura es electrónica** (o fue aceptada en ese
+  ambiente). Si no, `motivoNoEmitible` lo dice y la pantalla no ofrece emitir.
+- **Qué hace la nota lo contesta una persona**, al emitir: anula la factura,
+  devolución de mercancía, corrige el monto… (`REFERENCIAS_DE_NOTA`, del
+  `CodigoReferenciaType` del anexo). No se deduce del motivo con que se creó:
+  una devolución total puede ser un 01 o un 06 y eso lo sabe quien factura.
+  OJO: **el 02 es «corrige texto», no «corrige monto»** (el modal viejo lo
+  rotulaba mal); corregir un monto es el 14.
+- **El medio de pago es el de su factura**: sale del XML que ya se declaró
+  (`medioDePago`, paso 3), así que no se pregunta dos veces ni puede decir
+  otra cosa.
+- Tres pasos, no cuatro: la nota no tiene entrega automática por correo.
+- Rechazada: «Volver a emitir» prepara otra y vuelve a preguntar qué hace.
+
+`DocumentoFiscal.jsx` (el modal) queda solo para responder comprobantes de
+compra.
+
+Pruebas: cuatro casos en `haciendaUnClicPg.test.js` (no electrónica; pide el
+código y no reserva número sin él; XML con la clave y el medio de su factura;
+«Otro» con su descripción; anulada; rechazo y reemisión) y
+`notaCreditoSeguimiento.test.js`. Chromium real con Hacienda simulada: nota
+total sobre una electrónica creada desde la pantalla y emitida, y nota
+parcial sobre una factura de venta común.

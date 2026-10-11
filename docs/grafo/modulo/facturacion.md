@@ -20,6 +20,11 @@ archivos:
   - backend/tests/facturacionFlujoPantalla.test.js
   - backend/src/modules/facturacion/factura.pdf.js
   - frontend/src/components/facturacion/VistaFactura.jsx
+  - frontend/src/components/facturacion/NotasCreditoFactura.jsx
+  - frontend/src/components/facturacion/ModalNotaCredito.jsx
+  - frontend/src/utils/notaCreditoTexto.js
+  - backend/src/modules/facturacion/notaCredito.service.js
+  - backend/tests/notaCreditoSeguimiento.test.js
   - frontend/src/components/facturacion/SelectorPago.jsx
   - frontend/src/components/facturacion/PanelCobro.jsx
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
@@ -161,3 +166,39 @@ SIN HACER, a propósito: la venta a medio armar se pierde si se recarga la
 página (o si la tablet descarta la pestaña); las referencias repetidas entre
 productos activos (`100231`, `27010136`, `7443000380100`) hacen que el código
 elija uno cualquiera — es dato del catálogo, no de la pantalla.
+
+LA NOTA DE CRÉDITO CUENTA QUÉ HIZO (2026-10-11). El usuario hizo una sobre
+una factura electrónica y contó: «apliqué la nota de crédito y no avisó nada
+y solo me salió la factura como pagada». Pidió que se sepa «si se aplicó, si
+anuló el documento o qué pasó» y «si la nota es aplicada a una factura
+electrónica o una de venta normal». Tenía razón en las tres cosas: el aviso
+decía «creada» a secas, la nota era un renglón gris al pie del documento, y
+la etiqueta de la factura decía "Pagada" porque el saldo había quedado en
+cero.
+
+- **Saldo en cero no es "Pagada".** `estadoDeFactura`
+  (`utils/notaCreditoTexto.js`) pregunta primero si la acreditaron entera:
+  entonces dice «Anulada con nota de crédito». Con una nota parcial sigue
+  diciendo lo que debe (o "Pagada" si lo demás se cobró) y abajo «Nota de
+  crédito por ₡X». Misma regla en la factura y en la lista.
+- **Cada nota es una tarjeta ARRIBA del documento**
+  (`NotasCreditoFactura.jsx`), con tres recuadros: *qué hizo* (anuló la
+  factura completa, o acreditó tanto de tanto y cuánto se sigue debiendo;
+  cuántas unidades volvieron al inventario; si quedó plata a favor de un
+  cliente que ya había pagado), *a qué se aplicó* (factura electrónica con su
+  consecutivo, tiquete, o factura de venta «no electrónica») y *cómo va ante
+  Hacienda*.
+- **El aviso al crearla** dice lo mismo en una línea, con la factura ya
+  releída.
+- **Si la factura es electrónica, la nota se emite ahí mismo**, con el botón
+  de un clic y los pasos de la factura: ver [[modulo/hacienda]], "LA NOTA DE
+  CRÉDITO, DE UN CLIC". Si no lo es, la tarjeta dice «No va a Hacienda» y no
+  ofrece un botón que va a fallar.
+
+`facturaConsulta.service.js` devuelve de cada nota, además del monto, las
+unidades devueltas y su comprobante de producción. Pruebas:
+`notaCreditoSeguimiento.test.js`, con el caso real (₡62,15, electrónica,
+acreditada entera).
+
+No se hizo: anular una nota desde la pantalla (el servidor ya lo permite) y
+mandarle la nota electrónica al cliente por correo.

@@ -460,6 +460,118 @@ test(
         assert.equal(await medioDeclarado(nuevo.id), "06");
       });
 
+      // --- LA NOTA DE CRÉDITO, DE UN CLIC (2026-10-11). El usuario pidió
+      // saber «si se aplicó, si anuló el documento o qué pasó» y «si es
+      // aplicada a una factura electrónica o una de venta normal».
+      let notas = 0;
+      /** Una nota ZZ que acredita la factura entera. */
+      const acreditar = async (f, { estado = "emitida" } = {}) => {
+        const nc = (
+          await db.query(
+            "INSERT INTO nota_credito(numero,estado,fecha,cliente_nombre,cliente_identificacion,motivo,motivo_texto,subtotal,impuesto,total) VALUES($1,$2,CURRENT_DATE,'ZZ receptor','123456789','devolucion','ZZ mal estado',100,13,113) RETURNING id",
+            ["ZZ-nota-" + ++notas, estado],
+          )
+        ).rows[0].id;
+        await db.query(
+          "INSERT INTO nota_credito_linea(nota_credito_id,numero_linea,nombre,cabys,unidad,cantidad,precio_unitario,impuesto_id,tarifa,impuesto_monto,total) VALUES($1,1,'ZZ producto','1234567890123','Unid',1,100,$2,13,13,113)",
+          [nc, impuesto],
+        );
+        await db.query("INSERT INTO nota_credito_factura(nota_credito_id,factura_id,monto) VALUES($1,$2,113)", [nc, f.id]);
+        return nc;
+      };
+
+      await t.test("una nota sobre una factura de venta común no va a Hacienda, y se dice por qué", async () => {
+        const f = await crear();
+        const nc = await acreditar(f);
+        const e = await s.estadoDeNota(nc);
+        assert.match(e.motivoNoEmitible, /La factura no es electrónica: esta nota no va a Hacienda/);
+        assert.equal(e.faltaReferencia, false, "pide un dato para algo que no se puede emitir");
+        assert.equal(e.comprobante, null);
+        await assert.rejects(s.emitirNota(nc, { codigoReferencia: "01" }), (x) => x.code === "NO_EMITIBLE" && x.status === 409);
+      });
+
+      await t.test("sobre una factura electrónica: pide qué hace la nota, y con eso se emite y se acepta", async () => {
+        const f = await crear({ medio: null });
+        // La factura salió declarando SINPE, elegido al emitir.
+        const pf = await s.emitirFactura(f.id, { metodoPagoId: sinpe });
+        totales.set(pf.clave, f.total);
+        await s.enviar(pf.id);
+        assert.equal((await s.consultar(pf.id)).estado, "aceptada");
+        const nc = await acreditar(f);
+
+        const e = await s.estadoDeNota(nc);
+        assert.equal(e.motivoNoEmitible, null);
+        assert.equal(e.tipo, "03");
+        assert.equal(e.ambiente, "produccion");
+        assert.equal(e.faltaReferencia, true);
+        assert.equal(e.faltaMedioPago, false, "la nota pregunta el medio que su factura ya declaró");
+        const sinNumero = async () =>
+          (await db.query("SELECT count(*)::int AS n FROM hacienda_comprobante WHERE origen='nota_credito' AND origen_id=$1", [nc])).rows[0].n;
+        // No se convierte el motivo de la nota en un código fiscal: se pregunta.
+        await assert.rejects(s.emitirNota(nc), (x) => x.code === "DATOS_FISCALES_PENDIENTES" && /qué hace esta nota/.test(x.message));
+        await assert.rejects(s.emitirNota(nc, { codigoReferencia: "07" }), (x) => x.code === "DATOS_FISCALES_PENDIENTES");
+        await assert.rejects(s.emitirNota(nc, { codigoReferencia: "99" }), (x) => /Describí qué hace la nota/.test(x.message));
+        assert.equal(await sinNumero(), 0, "se reservó un número para una nota que no se pudo emitir");
+
+        const p = await s.emitirNota(nc, { codigoReferencia: "06" }, usuarioId);
+        assert.equal(p.tipo, "03");
+        assert.equal(p.origen, "nota_credito");
+        const xml = await s.archivo(p.id);
+        assert.match(xml, /<InformacionReferencia>[\s\S]*<Codigo>06<\/Codigo>/);
+        assert.ok(xml.includes(pf.clave), "la nota no referencia la clave de su factura");
+        assert.match(xml, /<TipoMedioPago>06<\/TipoMedioPago>/, "la nota no declara el mismo medio de pago que su factura");
+        // Dos clics no gastan dos números, y ya en curso no vuelve a pedir nada.
+        assert.equal((await s.emitirNota(nc)).id, p.id);
+        assert.equal((await s.estadoDeNota(nc)).faltaReferencia, false);
+
+        totales.set(p.clave, "113");
+        await s.enviar(p.id);
+        const antes = entregas.length;
+        const r = await s.consultar(p.id);
+        assert.equal(r.estado, "aceptada");
+        assert.equal(entregas.length, antes, "la nota disparó el correo de la factura");
+        const fila = (await db.query("SELECT electronica, hacienda_estado FROM nota_credito WHERE id=$1", [nc])).rows[0];
+        assert.deepEqual(fila, { electronica: true, hacienda_estado: "aceptada" });
+        const final = await s.estadoDeNota(nc);
+        assert.equal(final.comprobante.estado, "aceptada");
+        assert.equal(final.motivoNoEmitible, null);
+      });
+
+      await t.test("«Otro» lleva su descripción al XML, y una nota anulada no se emite", async () => {
+        const f = await crear();
+        await clic(f);
+        const nc = await acreditar(f);
+        const p = await s.emitirNota(nc, { codigoReferencia: "99", referenciaOtro: "  ZZ ajuste acordado  " });
+        const xml = await s.archivo(p.id);
+        assert.match(xml, /<Codigo>99<\/Codigo>/);
+        assert.match(xml, /<CodigoReferenciaOTRO>ZZ ajuste acordado<\/CodigoReferenciaOTRO>/);
+
+        const anulada = await acreditar(await (async () => { const g = await crear(); await clic(g); return g; })(), { estado: "anulada" });
+        const e = await s.estadoDeNota(anulada);
+        assert.match(e.motivoNoEmitible, /está anulada/);
+        await assert.rejects(s.emitirNota(anulada, { codigoReferencia: "01" }), (x) => x.code === "NO_EMITIBLE");
+        await assert.rejects(s.estadoDeNota(999999999), (x) => x.code === "NO_EXISTE" && x.status === 404);
+      });
+
+      await t.test("una nota rechazada se vuelve a emitir pidiendo otra vez qué hace", async () => {
+        const f = await crear();
+        await clic(f);
+        const nc = await acreditar(f);
+        modo = "rechazada";
+        const p = await s.emitirNota(nc, { codigoReferencia: "01" });
+        totales.set(p.clave, "113");
+        await s.enviar(p.id);
+        assert.equal((await s.consultar(p.id)).estado, "rechazada");
+        modo = "aceptada";
+        const e = await s.estadoDeNota(nc);
+        assert.equal(e.comprobante.estado, "rechazada");
+        assert.equal(e.motivoNoEmitible, null);
+        assert.equal(e.faltaReferencia, true);
+        const nuevo = await s.emitirNota(nc, { codigoReferencia: "01", sustituir: true });
+        assert.notEqual(nuevo.id, p.id);
+        assert.notEqual(nuevo.consecutivo, p.consecutivo);
+      });
+
       await t.test("una histórica de Alegra no se emite", async () => {
         const f = await crear({ extra: "alegra_id" });
         const e = await s.estadoDeFactura(f.id);

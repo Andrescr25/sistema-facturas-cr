@@ -3,6 +3,8 @@ import api from '../services/api'
 import facturacionService from '../services/facturacionService'
 import { abrirPdfFacturaPropia } from '../services/facturaPdf'
 import { anularAbono } from '../services/cuentasPorCobrarService'
+import { colones } from '../utils/colones'
+import { avisoNotaCreada } from '../utils/notaCreditoTexto'
 
 /**
  * Las facturas ya emitidas, desde nuestra base.
@@ -226,10 +228,16 @@ export function useFacturasEmitidas({ activa }) {
 
   const crearNota = async (datos) => {
     const nota = await facturacionService.crearNotaCredito(datos)
-    setMensaje(`Nota de crédito ${nota.numero} creada.`)
+    // El aviso dice QUÉ PASÓ, con la factura ya releída: «creada» a secas no
+    // le decía a nadie si la nota anuló la factura, cuánto quedó debiendo ni
+    // si falta emitirla ante Hacienda.
+    let aviso = `Nota de crédito ${nota.numero} creada.`
     if (detalleId === datos.facturaId) {
-      setDetalle(await facturacionService.detalleFacturaEmitida(datos.facturaId))
+      const fresca = await facturacionService.detalleFacturaEmitida(datos.facturaId)
+      setDetalle(fresca)
+      if (fresca) aviso = avisoNotaCreada(nota, fresca, colones)
     }
+    setMensaje(aviso)
     await cargar()
     return nota
   }

@@ -9,7 +9,8 @@ import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones, colonesExacto } from '../../utils/colones'
 import { useAuth } from '../../contexts/AuthContext'
 import { puedeAccion } from '../../utils/modulos'
-import DocumentoFiscal from '../../integrations/hacienda/DocumentoFiscal'
+import NotasCreditoFactura from './NotasCreditoFactura'
+import { estadoDeFactura, notasDeFactura } from '../../utils/notaCreditoTexto'
 import useEmisionFactura from '../../integrations/hacienda/useEmisionFactura'
 import BotonEmitirFactura from '../../integrations/hacienda/BotonEmitirFactura'
 import PanelEmisionFactura from '../../integrations/hacienda/PanelEmisionFactura'
@@ -54,11 +55,13 @@ const medio = (v) => {
 const mismoTexto = (a, b) => String(a || '').replace(/\s+/g, ' ').trim().toLowerCase() === String(b || '').replace(/\s+/g, ' ').trim().toLowerCase()
 const esDetallePropio = (l) => Boolean(String(l.descripcion || '').trim()) && !mismoTexto(l.descripcion, l.nombre)
 
+/**
+ * Saldo en cero no es "Pagada": una factura acreditada entera por una nota
+ * de crédito no la pagó nadie (ver utils/notaCreditoTexto.js).
+ */
 function Estado({ f }) {
-  if (f.estado === 'anulada') return <Insignia tono="peligro">Anulada</Insignia>
-  if (f.estado === 'borrador') return <Insignia tono="neutro">Borrador</Insignia>
-  if (f.saldo > 0) return <Insignia tono="alerta">Debe {colones(f.saldo)}</Insignia>
-  return <Insignia tono="exito">Pagada</Insignia>
+  const e = estadoDeFactura(f, colones)
+  return <Insignia tono={e.tono}>{e.texto}</Insignia>
 }
 
 /** Etiqueta arriba, valor abajo: se lee de un vistazo sin buscar los dos puntos. */
@@ -363,6 +366,10 @@ export default function VistaFactura({
 
       {!editando && <PanelEmisionFactura emision={emision} />}
 
+      {/* Las notas de crédito van ARRIBA del documento: dicen qué le pasó a
+          la factura, y abajo —donde estaban— nadie las veía. */}
+      {!editando && <NotasCreditoFactura factura={f} onCambio={onFiscalCambio} />}
+
       {/* ---------- El documento ---------- */}
       <div className={`card overflow-hidden rounded-2xl ${editando ? 'ring-2 ring-primario-200' : ''}`}>
         {/* Emisor y documento — no se editan desde acá: viven en Configuración */}
@@ -394,6 +401,9 @@ export default function VistaFactura({
             </div>
             <p className="mt-1 text-xl font-extrabold text-primario-600">{f.numero}</p>
             <div className="mt-1 flex sm:justify-end"><Estado f={f} /></div>
+            {notasDeFactura(f, colones) && (
+              <p className="mt-1 text-xs font-semibold text-nota-700">{notasDeFactura(f, colones)}</p>
+            )}
             {/* Debajo y no al lado de la etiqueta: la clave tiene 50 dígitos y
                 en la misma fila se le montaba encima. */}
             {f.fiscal && (
@@ -727,22 +737,6 @@ export default function VistaFactura({
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {!editando && f.notasCredito?.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutro-400">Notas de crédito</p>
-                <div className="flex flex-col gap-1">
-                  {f.notasCredito.map(n => (
-                    <div key={n.id} className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="text-neutro-600">{n.numero} · {fecha(n.fecha)} · {n.motivo || 'sin motivo'}</span>
-                      <span className="font-semibold text-nota-700">{colones(n.monto)}</span>
-                      {n.estado === 'anulada' && <Insignia tono="peligro">Anulada</Insignia>}
-                      {n.estado !== 'anulada' && !n.historica && <DocumentoFiscal origen="nota_credito" documento={n} onCambio={onFiscalCambio}/>}
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
 

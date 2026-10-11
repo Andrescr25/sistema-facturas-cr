@@ -5,7 +5,7 @@ import {
 import Insignia from '../../components/ui/Insignia'
 import { descargar } from './api'
 import {
-  pasosDe, resumenDe, nombreDeTipo, MOTIVOS_DESCUENTO, faltaContestar, respuestaDe
+  pasosDe, resumenDe, nombreDeTipo, MOTIVOS_DESCUENTO, REFERENCIAS_NOTA, faltaContestar, respuestaDe
 } from './emisionPasos'
 
 /**
@@ -56,7 +56,7 @@ const CAMPO = 'mt-1 w-full rounded-lg border border-neutro-300 bg-white px-3 py-
  */
 function DatosPendientes({ estado, onEmitir, onCancelar }) {
   const pendientes = estado?.pendientes || []
-  const [r, setR] = useState({ metodoPagoId: null, codigoDescuento: '', naturalezaDescuento: '', medicamentos: {} })
+  const [r, setR] = useState({ metodoPagoId: null, codigoReferencia: '', referenciaOtro: '', codigoDescuento: '', naturalezaDescuento: '', medicamentos: {} })
   const [aviso, setAviso] = useState('')
   const conDescuento = pendientes.filter(p => p.descuento)
   const medicamentos = pendientes.filter(p => p.medicamento)
@@ -73,6 +73,43 @@ function DatosPendientes({ estado, onEmitir, onCancelar }) {
     <div data-datos-pendientes className="mt-4 rounded-xl border border-alerta-200 bg-alerta-50 p-4">
       <p className="font-semibold text-neutro-900">Antes de emitir falta un dato</p>
       <p className="mt-0.5 text-sm text-neutro-600">Hacienda lo exige y el sistema no lo puede adivinar.</p>
+
+      {/* QUÉ HACE LA NOTA. Hacienda lo pide en toda nota de crédito, y no es
+          lo mismo anular la factura que devolver mercancía o corregir un
+          monto. Lo contesta quien la emite: no se deduce del motivo. */}
+      {estado?.faltaReferencia && (
+        <div data-referencia className="mt-3">
+          <p className="text-sm font-medium text-neutro-800">¿Qué hace esta nota sobre la factura?</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {REFERENCIAS_NOTA.map(([codigo, texto]) => (
+              <button
+                key={codigo}
+                type="button"
+                aria-pressed={r.codigoReferencia === codigo}
+                onClick={() => { setAviso(''); setR(a => ({ ...a, codigoReferencia: codigo })) }}
+                className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+                  r.codigoReferencia === codigo
+                    ? 'border-primario-400 bg-primario-600 text-white'
+                    : 'border-neutro-300 bg-white text-neutro-700 hover:border-neutro-400'
+                }`}
+              >
+                {texto}
+              </button>
+            ))}
+          </div>
+          {r.codigoReferencia === '99' && (
+            <label className="mt-2 block text-sm font-medium text-neutro-800">
+              Describilo
+              <input
+                className={CAMPO}
+                maxLength={100}
+                value={r.referenciaOtro}
+                onChange={e => { setAviso(''); setR(a => ({ ...a, referenciaOtro: e.target.value })) }}
+              />
+            </label>
+          )}
+        </div>
+      )}
 
       {/* EL MEDIO DE PAGO. La factura nace sin cobrar, así que una venta de
           contado puede llegar acá sin decir con qué se paga, y Hacienda lo
@@ -171,7 +208,7 @@ function DatosPendientes({ estado, onEmitir, onCancelar }) {
   )
 }
 
-export default function PanelEmisionFactura({ emision }) {
+export default function PanelEmisionFactura({ emision, incrustado = false }) {
   const [bajando, setBajando] = useState(false)
   const [errorDescarga, setErrorDescarga] = useState('')
   const { estado, fase, error, pidiendoDatos } = emision
@@ -179,7 +216,10 @@ export default function PanelEmisionFactura({ emision }) {
   if (!emision.activo || !(c || fase || error || pidiendoDatos)) return null
 
   const ambiente = c?.ambiente || estado?.ambiente
-  const pasos = pasosDe({ comprobante: c, correo: estado?.correo, fase, ambiente, seguimiento: estado?.seguimiento })
+  const esNota = emision.origen === 'nota_credito'
+  const pasos = pasosDe({
+    comprobante: c, correo: estado?.correo, fase, ambiente, seguimiento: estado?.seguimiento, conCorreo: !esNota
+  })
   const resumen = resumenDe({ comprobante: c, fase })
   const enProduccion = ambiente === 'produccion'
   const yaEnviado = estado?.correo?.estado === 'enviado'
@@ -197,7 +237,11 @@ export default function PanelEmisionFactura({ emision }) {
   }
 
   return (
-    <section data-panel-emision aria-live="polite" className="card rounded-2xl p-5">
+    <section
+      data-panel-emision
+      aria-live="polite"
+      className={incrustado ? 'rounded-xl border border-neutro-200 bg-white p-4' : 'card rounded-2xl p-5'}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <ShieldCheck size={18} className="shrink-0 text-primario-600" />
@@ -210,7 +254,7 @@ export default function PanelEmisionFactura({ emision }) {
       </div>
 
       {(c || fase) && (
-        <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <ol className={`mt-4 grid gap-3 ${esNota ? 'sm:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4'}`}>
           {pasos.map(p => <Paso key={p.clave} paso={p} />)}
         </ol>
       )}
@@ -249,7 +293,7 @@ export default function PanelEmisionFactura({ emision }) {
                 <Download size={14} /> Respuesta de Hacienda
               </button>
             )}
-            {c.estado === 'aceptada' && enProduccion && (
+            {c.estado === 'aceptada' && enProduccion && !esNota && (
               <button
                 type="button"
                 data-enviar-cliente
