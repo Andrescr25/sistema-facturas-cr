@@ -1,5 +1,9 @@
 # Categorías visuales del catálogo del agente — 2026-10-11
 
+Este informe conserva la primera implementación (solo entradas de cabecera).
+El [refinamiento posterior solicitado por el usuario](catalogo-revelado-subcategorias-2026-10-11.md)
+añade subcategorías visibles y entrada de productos; sus mediciones son las vigentes.
+
 Cada categoría comienza con una cabecera horizontal: nombre, foto, cantidad
 de productos y posición en la colección. Los productos empiezan inmediatamente
 debajo; el usuario puede seguir desplazándose mientras carga la imagen o se

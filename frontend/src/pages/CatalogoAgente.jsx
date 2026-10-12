@@ -9,7 +9,7 @@ import { enOrdenDelCatalogo, nombreVisibleDeCategoria } from '../utils/catalogoA
 import { applyCatalogoAgenteGuards } from '../utils/catalogoAgenteSecurity'
 import BarraSuperior from '../components/catalogo-agente/BarraSuperior'
 import BarraCategorias from '../components/catalogo-agente/BarraCategorias'
-import TarjetaProductoAgente from '../components/catalogo-agente/TarjetaProductoAgente'
+import Cuadricula from '../components/catalogo-agente/Cuadricula'
 import SyncOverlay from '../components/catalogo-agente/SyncOverlay'
 import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
 import IntroduccionCategoria from '../components/catalogo-agente/IntroduccionCategoria'
@@ -41,52 +41,16 @@ import { imagenDeCategoria } from '../utils/imagenesCategoriaCatalogo'
  */
 
 /**
- * Una cuadrícula de productos. Las columnas siguen el ancho, no el aparato.
- *
- * DOS POR FILA, NO SEIS
- * El primer intento llenaba la tablet con doce productos a la vez y nadie los
- * miraba: el cliente que ve la pantalla desde el otro lado del mostrador se
- * queda con el conjunto, no con ninguno. Con dos por fila la foto se ve de
- * verdad y entran tres filas de alto, que es lo que una persona alcanza a
- * recorrer sin perderse.
- *
- * La tablet reporta entre 640 y 767px, así que las dos columnas tienen que
- * aguantar hasta `lg`. Recién en una pantalla de escritorio se agregan más.
- */
-function Cuadricula({ productos, familias, statsPorProducto }) {
-  // Las familias conservan el orden canónico y la prioridad del cliente.
-  // Se recorren en una sola cuadrícula: abrir otra por subcategoría dejaba
-  // filas casi vacías. Solo el cambio de categoría empieza un bloque nuevo.
-  const productosOrdenados = useMemo(
-    () => familias ? familias.flatMap((f) => f.productos) : productos,
-    [familias, productos]
-  )
-
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-      {productosOrdenados.map((p) => (
-        <TarjetaProductoAgente
-          key={p.id}
-          product={p}
-          stats={p._stats || statsPorProducto?.get(String(p.id))}
-          mostrarSinSubcategoria={Boolean(familias)}
-        />
-      ))}
-    </div>
-  )
-}
-
-/**
  * Categorías dentro de ofertas, nuevos y las secciones de "Cliente nuevo".
  * Cada una tiene su encabezado y una cuadrícula continua; las subcategorías
- * se identifican en las tarjetas para poder compartir fila sin confusión.
+ * tienen navegación y títulos, conservando completas las filas compartidas.
  */
 function BloquesPorCategoria({ bloques, configCatalogo, nivel = 3 }) {
   return bloques.map((b, i) => (
     <div key={b.clave} className="mb-6 last:mb-0">
       <IntroduccionCategoria nombre={b.nombre} cantidad={b.productos.length} nivel={nivel}
         imagen={imagenDeCategoria(b.clave, configCatalogo, b.productos)} numero={i + 1} total={bloques.length} />
-      <Cuadricula productos={b.productos} familias={b.familias} />
+      <Cuadricula productos={b.productos} familias={b.familias} nivel={nivel + 1} />
     </div>
   ))
 }
@@ -279,7 +243,7 @@ export default function CatalogoAgente() {
               ? `los ${filteredData.flat.length} más parecidos de ${filteredData.totalCoincidencias}`
               : `${filteredData.flat.length} productos`}
             icono={ChevronRight} color="bg-neutro-100 text-neutro-500">
-            <Cuadricula productos={filteredData.flat} statsPorProducto={statsPorProducto}
+            <Cuadricula productos={filteredData.flat} statsPorProducto={statsPorProducto} animar={false}
               />
           </Seccion>
         ) : clienteNuevo ? (

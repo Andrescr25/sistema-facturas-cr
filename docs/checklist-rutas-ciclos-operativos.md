@@ -593,6 +593,9 @@ el ajuste anterior `cfddb83`. Este segundo pedido se prepara solo local.
 por categoría y edición de imagen junto al nombre en Gestión, con variantes
 WebP livianas y caché sin señal. Validación aislada, conservando selección,
 familias, promociones y búsqueda. [Informe](informes/catalogo-categorias-visuales-2026-10-11.md).
+Refinamiento después de revisar localhost: navegación/títulos por familia y
+entradas de productos al desplazarse, conservando filas completas.
+[Informe vigente](informes/catalogo-revelado-subcategorias-2026-10-11.md).
 No cierra IDs de operación ni revisiones humanas: **96/3**, independencia **133/14**.
 
 1. Rutas/ciclos y ficha del cliente: §1 y §2.

@@ -1,5 +1,4 @@
-/* Solo las cabeceras se animan. Sin parallax, blur, scroll handlers ni capas
-   permanentes por cada ficha: cientos de productos conservan su costo. */
+/* El contenedor conserva su altura: su imagen nunca bloquea el recorrido. */
 .introduccion-categoria {
   position: relative;
   isolation: isolate;
@@ -37,8 +36,10 @@
   .introduccion-categoria__nombre { max-width: 65%; font-size: 44px; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .introduccion-categoria[data-entrada="visible"] .introduccion-categoria__contenido { animation: categoria-entrada .65s cubic-bezier(.22,1,.36,1) both; }
-  .introduccion-categoria[data-entrada="visible"] .introduccion-categoria__imagen { animation: categoria-foto .95s cubic-bezier(.22,1,.36,1) both; }
+  .introduccion-categoria[data-entrada="espera"] .introduccion-categoria__contenido,
+  .introduccion-categoria[data-entrada="espera"] .introduccion-categoria__imagen { opacity: 0; }
+  .introduccion-categoria[data-entrada="visible"] .introduccion-categoria__contenido:not([data-entrada-terminada]) { animation: categoria-entrada .8s cubic-bezier(.22,1,.36,1) both; }
+  .introduccion-categoria[data-entrada="visible"] .introduccion-categoria__imagen:not([data-entrada-terminada]) { animation: categoria-foto 1s cubic-bezier(.22,1,.36,1) both; }
 }
-@keyframes categoria-entrada { from { opacity: .5; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes categoria-foto { from { opacity: .65; transform: scale(1.035); } to { opacity: 1; transform: scale(1); } }
+@keyframes categoria-entrada { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes categoria-foto { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: scale(1); } }

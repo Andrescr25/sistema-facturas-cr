@@ -33,6 +33,11 @@ archivos:
   - frontend/src/utils/entradaCategoria.js
   - frontend/src/utils/imagenesCategoriaCatalogo.js
   - backend/tests/categoriasVisuales.test.js
+  - backend/tests/filasCatalogo.test.js
+  - frontend/src/components/catalogo-agente/Cuadricula.jsx
+  - frontend/src/components/catalogo-agente/cuadricula.css
+  - frontend/src/hooks/useColumnasCatalogo.js
+  - frontend/src/utils/filasCatalogo.js
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
@@ -52,7 +57,7 @@ falló) todo sale alfabético.
 fila que la anterior. Solo una categoría nueva abre otro bloque; al final de
 una categoría puede quedar una fila incompleta. `Cuadricula` recorre las
 familias canónicas seguidas, sin reordenar por tamaño ni mezclar categorías.
-La tarjeta dice la subcategoría en su propia línea, con hasta dos líneas
+La tarjeta dice la subcategoría en una etiqueta, con hasta dos líneas
 visibles y el nombre completo en `title`; los sueltos de una categoría con
 familias dicen «Sin subcategoría» y siguen al final. Sin familias, no se
 inventan rótulos. Se reutiliza `BloquesPorCategoria` para rebajas y nuevos.
@@ -75,14 +80,37 @@ en Gestión gana; sin ella se aprovecha una foto de producto, o un fondo con
 icono si tampoco hay fotos. Buscar sigue dando resultados planos. Elegir un
 filtro de categoría vuelve arriba para mostrar su introducción.
 
-Un único `IntersectionObserver` observa CABECERAS, nunca las tarjetas; al
-entrar marca el DOM y deja de observar, sin actualizar estado React por el
-scroll. CSS anima solo transform y opacity durante 650/950 ms. Todo es visible
-sin observador y con movimiento reducido. `<picture>` elige la WebP móvil;
-lazy/async/prioridad baja, altura reservada y respaldo si falla, sin bloquear
-el recorrido. Las dos variantes se descargan al actualizar el catálogo y
-viajan en su caché existente: [[leccion/fotos-del-catalogo-en-la-tablet]].
-[Diseño, límites y pruebas](../../informes/catalogo-categorias-visuales-2026-10-11.md).
+Refinamiento del mismo día, pedido del usuario después de ver localhost:
+las subcategorías necesitaban protagonismo y los productos entradas tipo Apple.
+`Cuadricula` muestra navegación horizontal por familia, fija bajo las categorías,
+y títulos al empezar una familia. Cuando dos familias comparten fila, aparecen
+sus nombres sobre ella y cada tarjeta conserva su etiqueta. `filasCatalogo.js`
+consume el orden ya calculado: no reordena ni deja huecos al cambiar de familia.
+Dos consultas de ancho compartidas ajustan las filas a 2/3/4 columnas. Los
+saltos se dirigen a la fila inicial de la familia con margen para las barras.
+
+Cabeceras, colecciones y próximas CUATRO FILAS de las colecciones en pantalla
+comparten un único observador;
+cada entrada retira su observación y prepara la siguiente fila. Las restantes
+son visibles por defecto: saltarse filas no descubre una pantalla oculta.
+Sin listeners de scroll ni estado React por frame. Las fichas entran una vez
+con fade/deslizamiento de 700 ms y 65 ms de desfase; la cabecera con texto
+800 ms y foto 1 s. Al terminar se elimina la animación del elemento, sin
+transforms/capas permanentes. En pasadas mayores a 4.000 px/s, calculadas solo
+desde las notificaciones del observador, las fichas aparecen directamente;
+las introducciones de categoría conservan su efecto. Búsqueda, movimiento
+reducido y ausencia/fallo de observador siguen mostrando los productos sin
+animación. Las filas usan `display: contents` dentro de una sola cuadrícula por categoría;
+el observador toma la primera ficha como referencia y revela su fila completa.
+No hay cientos de cuadrículas, alturas estimadas ni virtualización que cambie
+la posición del scroll.
+
+`<picture>` elige la WebP móvil; lazy/async/prioridad baja, altura reservada y
+respaldo si falla, sin bloquear el recorrido. Las dos variantes se descargan
+al actualizar el catálogo y viajan en su caché existente:
+[[leccion/fotos-del-catalogo-en-la-tablet]].
+[Primera implementación](../../informes/catalogo-categorias-visuales-2026-10-11.md)
+y [refinamiento y pruebas vigentes](../../informes/catalogo-revelado-subcategorias-2026-10-11.md).
 
 2026-10-07, segunda corrección del usuario: OFERTAS DENTRO DE SU FAMILIA.
 En Todo no hay bloque superior de ofertas/rebajas/liquidación. El hook cruza

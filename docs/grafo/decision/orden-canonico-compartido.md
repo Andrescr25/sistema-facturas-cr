@@ -9,7 +9,7 @@ archivos:
   - backend/tests/subgruposCatalogoAgente.test.js
 aristas:
   relacionado: [modulo/gestion-catalogo, modulo/catalogo-agente, tabla/categoria-config, tabla/subcategoria]
-medido: 2026-10-07
+medido: 2026-10-11
 ---
 
 Gestión de Catálogo tiene que mostrar las categorías y familias en el MISMO
@@ -25,7 +25,12 @@ crear la primera); el agente no. Los bloques que no son el catálogo entero
 
 2026-10-07: el agente dibuja las familias seguidas en una cuadrícula por
 categoría, con la subcategoría escrita en cada tarjeta. Compartir una fila
-no cambia el orden ni la clasificación. Gestión conserva sus bloques de
+no cambia el orden ni la clasificación. Desde el refinamiento visual del
+2026-10-11 también se muestran navegación y títulos de familia sobre las
+filas: si una familia empieza a mitad de fila, el título puede incluir las
+dos familias y las tarjetas mantienen sus etiquetas. El helper de presentación
+`filasCatalogo.js` empaqueta el orden recibido sin ordenar por tamaños ni
+modificar el helper canónico. Gestión conserva sus bloques de
 administración; el helper canónico conserva el contrato y no importa nada.
 
 Segunda corrección del mismo día: Cliente nuevo usa `todos` para reunir

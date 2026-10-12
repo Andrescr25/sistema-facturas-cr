@@ -87,7 +87,7 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, mos
 
   return (
     <article
-      className={`group relative flex flex-col overflow-hidden rounded-2xl bg-white transition-shadow ${
+      className={`catalogo-ficha group relative flex flex-col overflow-hidden rounded-2xl bg-white transition-shadow ${
         esOferta ? 'ring-2 ring-acento-400 shadow-md shadow-acento-100' : descuentoPorcentaje > 0 ? 'ring-1 ring-nota-300' : 'ring-1 ring-neutro-200'
       }`}
     >
@@ -126,8 +126,8 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, mos
             propio: pegado a la referencia y truncado ya no se podía leer.
             Sin subcategoría identifica los sueltos de una categoría dividida. */}
         {mostrarSubcategoria && subcategoria && (
-          <p title={subcategoria} className={`line-clamp-2 text-[11px] font-semibold leading-4 sm:text-xs ${
-            product.subcategoria?.nombre ? 'text-primario-600' : 'text-neutro-400'
+          <p title={subcategoria} className={`mb-1 line-clamp-2 w-fit max-w-full rounded-md px-1.5 py-1 text-[11px] font-bold leading-4 sm:text-xs ${
+            product.subcategoria?.nombre ? 'bg-primario-50 text-primario-700' : 'bg-neutro-50 text-neutro-500'
           }`}>
             {subcategoria}
           </p>

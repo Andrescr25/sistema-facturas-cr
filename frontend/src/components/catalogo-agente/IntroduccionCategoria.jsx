@@ -1,7 +1,7 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowDownRight, Layers } from 'lucide-react'
 import { urlArchivo } from '../../utils/urlArchivo'
-import { observarEntradaCategoria } from '../../utils/entradaCategoria'
+import { observarEntradaCategoria, terminarEntrada } from '../../utils/entradaCategoria'
 import './introduccionCategoria.css'
 
 /** Una pausa visual en el recorrido, nunca una pausa de la navegación. */
@@ -10,12 +10,12 @@ function IntroduccionCategoria({ nombre, cantidad, imagen, numero, total, nivel 
   const [fallida, setFallida] = useState(null)
   const foto = imagen?.url && fallida !== imagen.url ? imagen : null
   const Titulo = `h${nivel}`
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (animar) return observarEntradaCategoria(elemento.current)
   }, [animar])
 
   return (
-    <div ref={elemento} className={`introduccion-categoria ${foto?.esProducto ? 'introduccion-categoria--producto' : ''}`}>
+    <div ref={elemento} onAnimationEnd={terminarEntrada} className={`introduccion-categoria ${foto?.esProducto ? 'introduccion-categoria--producto' : ''}`}>
       {/* Reserva su espacio antes de cargar. Una imagen lenta o rota no
           oculta el nombre ni modifica la altura de la sección. */}
       {foto ? (

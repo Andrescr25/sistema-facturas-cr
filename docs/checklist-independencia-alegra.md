@@ -47,6 +47,10 @@ desechable. SQL 055 agrega solo metadatos; no se aplicó en producción.
 [Informe](informes/catalogo-categorias-visuales-2026-10-11.md). No altera los
 IDs históricos **133/14** ni el operativo **96/3**; no se atribuye una nueva
 autorización para publicar en `main` a este pedido.
+Refinamiento posterior: títulos y navegación por subcategoría, fichas que
+aparecen al entrar, observación limitada a próximas filas y movimiento
+reducido. [Validación vigente](informes/catalogo-revelado-subcategorias-2026-10-11.md).
+Vista 5173/3000 conservada; sin SQL adicional ni cambio de los IDs anteriores.
 
 - **Dos carpetas, una por rama**, para que corran a la vez:
 

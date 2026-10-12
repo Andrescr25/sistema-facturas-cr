@@ -77,7 +77,15 @@ lazy loading y animaciones ligeras que no bloqueen el scroll. La imagen debe
 asignarse en **Gestión de Catálogo junto a donde se edita el nombre**.
 Preparación en worktree propio y base desechable; `main` requiere autorización
 específica nueva. Facturación/Hacienda quedan a cargo de Claude.
-[Implementación y comprobaciones](informes/catalogo-categorias-visuales-2026-10-11.md).
+[Implementación inicial](informes/catalogo-categorias-visuales-2026-10-11.md).
+
+Después de revisar localhost pidió subcategorías visibles y entradas de objetos
+al hacer scroll «tipo Apple». Se refuerzan categorías y fichas, con navegación
+y títulos de familia, preservando filas completas, orden y fluidez móvil.
+[Refinamiento y comprobaciones](informes/catalogo-revelado-subcategorias-2026-10-11.md).
+Mantener la vista solicitada en 5173/3000 y su clon local; los otros servicios
+se detuvieron por pedido del usuario para reducir consumo. Esta corrección
+sigue en revisión local antes de una autorización nueva para `main`.
 
 Después de consultar los pendientes de migración, el usuario indicó «esto lo
 vemos después» y pidió «ahora, rediseña el módulo de clientes; siento que está
