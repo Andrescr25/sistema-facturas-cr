@@ -1,4 +1,4 @@
-# Mapa del grafo — rama `independencia-alegra`
+# Mapa del grafo
 
 Por acá se entra. Cada nodo es un archivo con un frontmatter que lee la
 máquina (`archivos:` que existen de verdad, `aristas:` hacia otros nodos) y un
@@ -6,8 +6,13 @@ cuerpo para la persona. `npm test` valida todo — incluido que este mapa nombre
 cada nodo (`backend/tests/grafo.test.js`).
 
 **Antes que nada, [CLAUDE.md](../../CLAUDE.md)**: los invariantes que rompen
-algo real si se ignoran (en qué worktree la base es producción, qué no se
+algo real si se ignoran (en qué carpeta la base es producción, qué no se
 toca, qué no se regenera).
+
+Este mapa nació en la rama de la migración, `independencia-alegra`, que se
+borró el 2026-10-11: desde el corte es el grafo de `developer` y `main`. Los
+nodos que la nombran cuentan cómo se hizo la migración; el nombre de las
+carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 
 ## Cómo usarlo
 

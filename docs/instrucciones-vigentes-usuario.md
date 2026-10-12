@@ -417,3 +417,16 @@ partidas.
 Después, textual: «y quita el tab que dice con saldo, porque eso lo veo en
 cuentas por cobrar entonces no es necesario». **Hecho**: la pestaña se quitó
 y la pantalla abre en "Facturas de venta". No volver a ponerla.
+
+## 2026-10-11 — Solo dos ramas: developer y main
+
+Textual: «la rama independencia alegra la podemos borrar y ya dejar solo
+developer y main».
+
+**Hecho**: se borró `independencia-alegra` local y en GitHub (estaba en el
+mismo commit que `developer`: no se perdió nada). [CLAUDE.md](../CLAUDE.md) y
+[AGENTS.md](../AGENTS.md) ya lo dicen. La carpeta
+`sistema-facturas-cr-independencia` —el entorno local aislado— se conservó
+con todos sus archivos, sin rama propia; falta que él diga si también la
+quiere quitar.
+

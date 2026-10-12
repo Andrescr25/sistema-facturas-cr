@@ -7,29 +7,41 @@ validan solas (`backend/tests/grafo.test.js`, corre con `npm test`). Cada rama
 tiene su propio grafo, que describe el código de ESA rama.
 Este archivo es más corto: solo lo que, si se ignora, rompe algo real.
 
-## Dos worktrees, dos realidades de base de datos
+## Dos ramas: `developer` y `main`
 
-| Worktree | Rama | Base "local" |
+En `developer` se trabaja; `main` es lo que está en producción y **la sube
+solo el usuario**. No hay más ramas: `independencia-alegra`, la de la
+migración, se borró el 2026-10-11 por decisión suya (ya era idéntica a
+`developer`). No volver a crearla.
+
+## Dos carpetas, dos realidades de base de datos
+
+| Carpeta | Qué tiene | Base "local" |
 |---|---|---|
-| `sistema-facturas-cr` | `main`, `developer` | **es producción** — ver [docs/grafo/leccion/la-db-local-es-produccion.md](docs/grafo/leccion/la-db-local-es-produccion.md) |
-| `sistema-facturas-cr-independencia` | `independencia-alegra` | propia, aislada por `backend/config/aislado.js` |
+| `sistema-facturas-cr` | `developer` o `main` | **es producción** — ver [docs/grafo/leccion/la-db-local-es-produccion.md](docs/grafo/leccion/la-db-local-es-produccion.md) |
+| `sistema-facturas-cr-independencia` | el commit de `developer`, sin rama propia | propia, aislada por `backend/config/aislado.js` |
 
-Antes de correr algo que escriba, confirmar en cuál worktree se está parado.
-En los dos primeros, capturar el estado previo a un archivo antes de mutar
-nada — no hay red de seguridad.
+Lo que aísla es la CARPETA —su `backend/.env.aislado`, que git ignora—, no
+una rama. Para ponerla al día:
+`git -C ../sistema-facturas-cr-independencia switch --detach developer`.
 
-## El aislamiento de `independencia-alegra` no se toca
+Antes de correr algo que escriba, confirmar en cuál carpeta se está parado.
+En la primera, capturar el estado previo a un archivo antes de mutar nada —
+no hay red de seguridad.
+
+## El aislamiento local no se toca
 
 `backend/config/aislado.js` bloquea escrituras a Alegra, WhatsApp y correo
-saliente desde esta rama (`salidasBloqueadas()`), y exige que `DATABASE_URL`
-resuelva a `localhost`/`127.0.0.1` (`asegurarBaseLocal()`). El trabajo de
-migración va **solo** en esta rama; no se mezcla con `main`/`developer` sin
-autorización explícita.
+saliente (`salidasBloqueadas()`), y exige que `DATABASE_URL` resuelva a
+`localhost`/`127.0.0.1` (`asegurarBaseLocal()`). Las llaves
+`PERMITIR_BASE_REMOTA` y `PERMITIR_SALIDAS` existen para producción y se
+prenden a propósito: nunca para probar. Lo que escribe se verifica contra una
+copia desechable de la base local o con BEGIN/ROLLBACK.
 
-## Prisma no se regenera en `independencia-alegra`
+## Prisma no se regenera en la carpeta aislada
 
-`backend/node_modules` ahí es un enlace simbólico al árbol de `main`/`developer`.
-`npm install` o `prisma generate` en esa rama le cambian el cliente a la otra.
+`backend/node_modules` ahí es un enlace simbólico al de `sistema-facturas-cr`.
+`npm install` o `prisma generate` en esa carpeta le cambian el cliente a la otra.
 Toda tabla o columna nueva va por SQL puro en
 `backend/migrations/independencia/NNN_*.sql`, y se lee con `pg`
 (`config/database.js`), nunca con Prisma. Ver
