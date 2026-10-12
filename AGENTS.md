@@ -18,12 +18,15 @@ y la sube solo el usuario. La migración terminó con el corte del 2026-10-10 y
 su rama, `independencia-alegra`, se borró el 2026-10-11 por decisión suya. No
 volver a crearla ni a publicar otra rama.
 
-La carpeta `sistema-facturas-cr-independencia` es el entorno local aislado
-(su `.env.aislado` apunta a la base local; no tiene rama propia, se para en
-el commit de `developer`). La carpeta hermana `sistema-facturas-cr` usa la
-base de producción. No regeneres Prisma ni instales dependencias en el
-backend: `node_modules` es un enlace compartido. Conservá las protecciones de
-`config/aislado.js`.
+La carpeta principal, `sistema-facturas-cr`, usa la base de producción. El
+entorno local aislado ya no es una carpeta del escritorio (la
+`sistema-facturas-cr-independencia` se quitó el 2026-10-11 por decisión del
+usuario): es el archivo `.env.aislado`, guardado con las fotos y los archivos
+de la base local en `~/.local/share/sistema-facturas-cr/entorno-aislado/`.
+Tu carpeta de trabajo queda aislada al enlazar ahí `backend/.env` y
+`backend/.env.aislado`. No regeneres Prisma ni instales dependencias en el
+backend: `node_modules` y las dependencias de Hacienda son enlaces a los de
+la carpeta principal. Conservá las protecciones de `config/aislado.js`.
 
 Nunca ejecutes la limpieza semanal: tampoco desde pruebas, cron o botón.
 Las verificaciones que escriben usan una copia desechable de PostgreSQL o

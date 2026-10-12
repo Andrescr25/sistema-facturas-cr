@@ -14,19 +14,23 @@ solo el usuario**. No hay más ramas: `independencia-alegra`, la de la
 migración, se borró el 2026-10-11 por decisión suya (ya era idéntica a
 `developer`). No volver a crearla.
 
-## Dos carpetas, dos realidades de base de datos
+## La carpeta principal usa la base de producción
 
-| Carpeta | Qué tiene | Base "local" |
-|---|---|---|
-| `sistema-facturas-cr` | `developer` o `main` | **es producción** — ver [docs/grafo/leccion/la-db-local-es-produccion.md](docs/grafo/leccion/la-db-local-es-produccion.md) |
-| `sistema-facturas-cr-independencia` | el commit de `developer`, sin rama propia | propia, aislada por `backend/config/aislado.js` |
+| Dónde | Base "local" |
+|---|---|
+| `sistema-facturas-cr`, la carpeta principal (su `backend/.env`) | **es producción** — ver [docs/grafo/leccion/la-db-local-es-produccion.md](docs/grafo/leccion/la-db-local-es-produccion.md) |
+| una carpeta de trabajo (`git worktree`) que enlace `backend/.env.aislado` | propia, aislada por `backend/config/aislado.js` |
 
-Lo que aísla es la CARPETA —su `backend/.env.aislado`, que git ignora—, no
-una rama. Para ponerla al día:
-`git -C ../sistema-facturas-cr-independencia switch --detach developer`.
+Lo que aísla es ese archivo `.env.aislado`, que git ignora: ni una rama ni
+una carpeta fija. La carpeta `sistema-facturas-cr-independencia`, que lo
+tenía, se quitó el 2026-10-11 por decisión del usuario; su configuración, las
+fotos y los archivos de la base local viven en
+`~/.local/share/sistema-facturas-cr/entorno-aislado/`. Una carpeta de trabajo
+queda aislada enlazando ahí su `backend/.env` y `backend/.env.aislado`; las
+fotos se le pasan con `ALMACENAMIENTO_DIR` y `ALMACENAMIENTO_PRIVADO_DIR`.
 
 Antes de correr algo que escriba, confirmar en cuál carpeta se está parado.
-En la primera, capturar el estado previo a un archivo antes de mutar nada —
+En la principal, capturar el estado previo a un archivo antes de mutar nada —
 no hay red de seguridad.
 
 ## El aislamiento local no se toca
@@ -38,10 +42,13 @@ saliente (`salidasBloqueadas()`), y exige que `DATABASE_URL` resuelva a
 prenden a propósito: nunca para probar. Lo que escribe se verifica contra una
 copia desechable de la base local o con BEGIN/ROLLBACK.
 
-## Prisma no se regenera en la carpeta aislada
+## Prisma no se regenera en una carpeta de trabajo
 
-`backend/node_modules` ahí es un enlace simbólico al de `sistema-facturas-cr`.
-`npm install` o `prisma generate` en esa carpeta le cambian el cliente a la otra.
+En las carpetas de trabajo (`git worktree`) `backend/node_modules` es un
+enlace simbólico al de `sistema-facturas-cr`, y las dependencias de Hacienda
+(`backend/src/integrations/hacienda/node_modules`) también enlazan a las de
+la principal. `npm install` o `prisma generate` ahí le cambian el cliente a la
+carpeta principal.
 Toda tabla o columna nueva va por SQL puro en
 `backend/migrations/independencia/NNN_*.sql`, y se lee con `pg`
 (`config/database.js`), nunca con Prisma. Ver

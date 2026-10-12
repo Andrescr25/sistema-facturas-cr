@@ -425,8 +425,12 @@ developer y main».
 
 **Hecho**: se borró `independencia-alegra` local y en GitHub (estaba en el
 mismo commit que `developer`: no se perdió nada). [CLAUDE.md](../CLAUDE.md) y
-[AGENTS.md](../AGENTS.md) ya lo dicen. La carpeta
-`sistema-facturas-cr-independencia` —el entorno local aislado— se conservó
-con todos sus archivos, sin rama propia; falta que él diga si también la
-quiere quitar.
+[AGENTS.md](../AGENTS.md) ya lo dicen.
+
+Se le preguntó por la carpeta `sistema-facturas-cr-independencia` y contestó
+que sí, que se quitara. **Hecho** ese mismo día, sin perder nada: su
+configuración aislada, las fotos y los archivos de la base local se mudaron a
+`~/.local/share/sistema-facturas-cr/entorno-aislado/`, y las dependencias de
+Hacienda —que la carpeta principal y las de trabajo tomaban de ahí por un
+enlace— quedaron como copia real en la carpeta principal.
 
