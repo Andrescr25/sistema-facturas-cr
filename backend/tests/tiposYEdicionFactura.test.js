@@ -51,16 +51,24 @@ describe('editar sobre el mismo documento', () => {
     assert.match(vista, /editando \?/);
   });
 
+  // Desde el 2026-10-11 la pantalla está partida como el resto del proyecto:
+  // las reglas en utils/facturaVista.js (probadas de verdad en
+  // facturaVista.test.js), la copia que se edita en hooks/useEdicionFactura.js
+  // y cada sección en su componente. Acá se cuida que sigan enchufadas.
+  const reglas = leer('utils', 'facturaVista.js');
+  const edicion = leer('hooks', 'useEdicionFactura.js');
+  const lineas = leer('components', 'facturacion', 'LineasFactura.jsx');
+
   test('una factura electrónica, cobrada o acreditada no se edita, y dice por qué', () => {
-    assert.match(vista, /razonNoEditable/);
-    assert.match(vista, /\(f\.electronica \|\| reservaFiscal\?\.estado === 'aceptada'\) \?/);
+    assert.match(vista, /const razonNoEditable = porQueNoSeEdita\(f, \{ reservaFiscal, emitiendo: Boolean\(emision\.fase\) \}\)/);
+    assert.match(reglas, /\(f\.electronica \|\| reservaFiscal\?\.estado === 'aceptada'\) \?/);
     // Reservada ante Hacienda: lo dice la factura o, antes de releerla, el
     // panel de emisión (2026-10-11: al emitir de un clic quedaba un momento
     // con Editar ofrecido sobre un documento que la base ya no deja tocar).
-    assert.match(vista, /\|\| reservaFiscal\) \? 'Está reservada ante Hacienda/);
-    assert.match(vista, /emision\.fase \? 'Se está emitiendo electrónicamente\.'/);
-    assert.match(vista, /cobrado > 0 \?/);
-    assert.match(vista, /acreditado > 0 \?/);
+    assert.match(reglas, /\|\| reservaFiscal\) \? 'Está reservada ante Hacienda/);
+    assert.match(reglas, /emitiendo \? 'Se está emitiendo electrónicamente\.'/);
+    assert.match(reglas, /cobrado > 0 \?/);
+    assert.match(reglas, /acreditado > 0 \?/);
     // El botón queda apagado con el motivo a la vista, no muerto sin más.
     assert.match(vista, /disabled=\{Boolean\(razonNoEditable\)\}/);
   });
@@ -68,27 +76,41 @@ describe('editar sobre el mismo documento', () => {
   test('el IVA no es un campo que se escriba', () => {
     // Los tres que sí se editan por línea, en su propia celda.
     for (const campo of ["'cantidad'", "'precioUnitario'", "'descuentoPorcentaje'"]) {
-      assert.ok(vista.includes(`cambiarLinea(i, ${campo}`), `falta poder editar ${campo}`);
+      assert.ok(lineas.includes(`cambiarLinea(i, ${campo}`), `falta poder editar ${campo}`);
     }
-    assert.equal(/cambiarLinea\(i, 'tarifa'/.test(vista), false, 'el impuesto volvió a ser editable');
-    assert.equal(/cambiarLinea\(i, 'impuesto/.test(vista), false, 'el impuesto volvió a ser editable');
+    for (const archivo of [vista, lineas, edicion]) {
+      assert.equal(/cambiarLinea\(i, 'tarifa'/.test(archivo), false, 'el impuesto volvió a ser editable');
+      assert.equal(/cambiarLinea\(i, 'impuesto/.test(archivo), false, 'el impuesto volvió a ser editable');
+    }
   });
 
   test('la tarifa de una línea nueva sale del producto', () => {
-    assert.match(vista, /tarifa: p\.tax\?\.length \? num\(p\.tax\[0\]\.percentage\) : 0/);
+    assert.match(reglas, /tarifa: p\.tax\?\.length \? num\(p\.tax\[0\]\.percentage\) : 0/);
+    assert.match(edicion, /setLineas\(\[\.\.\.lineas, lineaDeProducto\(p\)\]\)/);
   });
 
   test('se puede corregir el cliente, que es el error más caro', () => {
-    assert.match(vista, /clienteId: cliente\?\.id/);
+    assert.match(reglas, /clienteId: cliente\?\.id/);
+    assert.match(leer('components', 'facturacion', 'ClienteFactura.jsx'), /edicion\.elegirCliente\(c\)/);
   });
 
   test('el motivo de la corrección queda en la bitácora', () => {
-    assert.match(vista, /motivo: motivo\.trim\(\) \|\| null/);
+    assert.match(reglas, /motivo: String\(motivo \|\| ''\)\.trim\(\) \|\| null/);
+    assert.match(vista, /value=\{edicion\.motivo\} onChange=\{\(e\) => edicion\.setMotivo\(e\.target\.value\)\}/);
   });
 
   test('cancelar no deja nada a medias', () => {
     // La copia de trabajo se rehace cada vez que se entra a editar.
-    assert.match(vista, /if \(!editando\) return/);
+    assert.match(edicion, /if \(!editando\) return/);
+    assert.match(edicion, /setLineas\(f\.lineas\.map\(filaDe\)\)/);
+  });
+
+  test('la pantalla quedó partida: reglas, gancho y secciones', () => {
+    for (const parte of ['ClienteFactura', 'LineasFactura', 'TotalesFactura', 'CobrosFactura', 'NotasCreditoFactura']) {
+      assert.match(vista, new RegExp(`<${parte}\\b`), `la sección ${parte} volvió a estar escrita dentro de la vista`);
+    }
+    assert.match(vista, /useEdicionFactura\(\{ factura: f, editando, clientes, productos, onGuardar \}\)/);
+    assert.doesNotMatch(vista, /useState|useEffect|useMemo/, 'la vista volvió a guardar estado propio');
   });
 });
 

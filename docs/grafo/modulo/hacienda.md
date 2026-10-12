@@ -10,6 +10,7 @@ archivos:
   - backend/src/integrations/hacienda/configuracion.service.js
   - backend/src/integrations/hacienda/emision.service.js
   - backend/src/integrations/hacienda/numeracion.js
+  - backend/src/integrations/hacienda/unClic.service.js
   - backend/src/integrations/hacienda/lectura.service.js
   - backend/src/integrations/hacienda/trabajador.js
   - backend/src/integrations/hacienda/transporte/cliente.js
@@ -24,10 +25,11 @@ archivos:
   - backend/migrations/independencia/043_hacienda.sql
   - frontend/src/integrations/hacienda/ConfiguracionHacienda.jsx
   - frontend/src/integrations/hacienda/DocumentoFiscal.jsx
-  - frontend/src/integrations/hacienda/BotonEmitirFactura.jsx
-  - frontend/src/integrations/hacienda/PanelEmisionFactura.jsx
-  - frontend/src/integrations/hacienda/useEmisionFactura.js
-  - frontend/src/integrations/hacienda/emisionPasos.js
+  - frontend/src/components/facturacion/BotonEmitirFactura.jsx
+  - frontend/src/components/facturacion/PanelEmisionFactura.jsx
+  - frontend/src/components/facturacion/DatosPendientesEmision.jsx
+  - frontend/src/hooks/useEmisionFactura.js
+  - frontend/src/utils/emisionPasos.js
   - frontend/src/integrations/hacienda/api.js
   - backend/tests/emisionUnClic.test.js
   - backend/tests/haciendaUnClicPg.test.js
@@ -36,8 +38,9 @@ archivos:
   - backend/tests/haciendaMedioPago.test.js
   - backend/tests/notaCreditoSeguimiento.test.js
   - frontend/src/components/facturacion/NotasCreditoFactura.jsx
-  - frontend/src/integrations/hacienda/NumeracionHacienda.jsx
-  - frontend/src/integrations/hacienda/numeracionTexto.js
+  - frontend/src/components/configuracion/NumeracionHacienda.jsx
+  - frontend/src/hooks/useNumeracionHacienda.js
+  - frontend/src/utils/numeracionTexto.js
   - frontend/src/integrations/hacienda/catalogos.js
   - backend/tests/haciendaFiscal.test.js
   - backend/tests/haciendaTransporte.test.js
@@ -45,7 +48,7 @@ archivos:
   - docs/plan-integracion-hacienda.md
   - docs/informes/hacienda-2026-10-05.md
 aristas:
-  relacionado: [modulo/facturacion, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera]
+  relacionado: [modulo/facturacion, leccion/la-estructura-se-cuida-con-una-prueba, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera]
 medido: 2026-10-11
 ---
 
@@ -387,3 +390,22 @@ código y no reserva número sin él; XML con la clave y el medio de su factura;
 `notaCreditoSeguimiento.test.js`. Chromium real con Hacienda simulada: nota
 total sobre una electrónica creada desde la pantalla y emitida, y nota
 parcial sobre una factura de venta común.
+
+DÓNDE VIVE CADA PARTE DESDE EL 2026-10-11 (revisión de estructura; ver
+[[leccion/la-estructura-se-cuida-con-una-prueba]]). Las secciones de arriba
+nombran los archivos donde nacieron; quedaron así:
+
+- `emision.service.js` es otra vez solo el camino fiscal (preparar, enviar,
+  consultar). Lo que el botón de un clic decide solo —ambiente, tipo, datos
+  pendientes, medio de pago, estado de factura y de nota, correo al cliente—
+  está en `unClic.service.js`, que recibe `preparar` del servicio de emisión.
+- En el frontend, `integrations/hacienda/` conserva el cliente de la API
+  (`api.js`), la pantalla de configuración y el modal de compras
+  (`DocumentoFiscal.jsx`, ya sin las partes de ventas). El resto sigue el
+  molde del proyecto: `hooks/useEmisionFactura.js` y
+  `hooks/useNumeracionHacienda.js`; `components/facturacion/BotonEmitirFactura.jsx`,
+  `PanelEmisionFactura.jsx` y `DatosPendientesEmision.jsx`;
+  `components/configuracion/NumeracionHacienda.jsx`; y las reglas puras en
+  `utils/emisionPasos.js` y `utils/numeracionTexto.js`.
+- Ningún componente llama al servidor: bajar los XML también pasa por el
+  gancho.

@@ -3,6 +3,7 @@ import { AlertTriangle, Save, Package, Receipt } from 'lucide-react'
 import HojaModal from '../pagos/HojaModal'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
+import { fechaCorta } from '../../utils/fechaCR'
 
 /**
  * La ficha de un proveedor: quién es y qué le compramos.
@@ -61,7 +62,6 @@ function Aviso({ children }) {
   )
 }
 
-const fecha = (valor) => (valor ? String(valor).slice(0, 10).split('-').reverse().join('/') : '—')
 
 export default function ModalFichaProveedor({ proveedor, plazos, guardando, onGuardar, onCerrar }) {
   const editando = Boolean(proveedor?.id)
@@ -109,7 +109,7 @@ export default function ModalFichaProveedor({ proveedor, plazos, guardando, onGu
             {proveedor.productos > 0 && <Insignia tono="neutro">{proveedor.productos} producto(s)</Insignia>}
             {proveedor.compras > 0 && <Insignia tono="neutro">{proveedor.compras} compra(s)</Insignia>}
             {proveedor.ultima_compra && (
-              <span className="text-xs text-neutro-400">Última compra: {fecha(proveedor.ultima_compra)}</span>
+              <span className="text-xs text-neutro-400">Última compra: {fechaCorta(proveedor.ultima_compra)}</span>
             )}
           </div>
         )}
@@ -171,7 +171,7 @@ export default function ModalFichaProveedor({ proveedor, plazos, guardando, onGu
                 <ul className="space-y-1 text-xs text-neutro-600">
                   {compras.slice(0, 5).map(c => (
                     <li key={c.numero_consecutivo} className="flex justify-between gap-2">
-                      <span className="truncate">{fecha(c.fecha_emision)} · {c.numero_consecutivo}</span>
+                      <span className="truncate">{fechaCorta(c.fecha_emision)} · {c.numero_consecutivo}</span>
                       <span className="font-bold text-neutro-800 shrink-0">{colones.format(c.total_factura)}</span>
                     </li>
                   ))}

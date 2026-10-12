@@ -9,10 +9,28 @@ Este archivo es más corto: solo lo que, si se ignora, rompe algo real.
 
 ## Dos ramas: `developer` y `main`
 
-En `developer` se trabaja; `main` es lo que está en producción y **la sube
-solo el usuario**. No hay más ramas: `independencia-alegra`, la de la
-migración, se borró el 2026-10-11 por decisión suya (ya era idéntica a
+En `developer` se trabaja; `main` es lo que está en producción (Render
+despliega solo). No hay más ramas: `independencia-alegra`, la de la
+migración, se borró el 2026-10-11 por decisión del usuario (ya era idéntica a
 `developer`). No volver a crearla.
+
+**Los agentes pueden subir a `main`** (decisión del usuario, 2026-10-11),
+diciendo siempre quién subió qué. Subir es producción, así que: solo lo
+verificado, mirando antes qué más viaja (`git log origin/main..developer`), y
+nunca un commit cuya migración no esté aplicada allá. El detalle, en
+[AGENTS.md](AGENTS.md).
+
+## La estructura se mantiene, y una prueba la cuida
+
+Para el usuario es «de suma importancia». El molde: reglas puras en
+`frontend/src/utils/`, estado y llamadas al servidor en `frontend/src/hooks/`,
+cada sección de una pantalla en `frontend/src/components/<pantalla>/`; en el
+backend, rutas → controlador → servicio dentro de su módulo. Diseño con la
+paleta por rol, una sola copia de cada ayudante, y lo que deja de usarse se
+borra. `backend/tests/estructura.test.js` falla cuando eso se pierde (también
+si un archivo crece más allá de su tope): se acomoda el cambio al molde en
+ese mismo commit, no "después". Ver
+[docs/grafo/leccion/la-estructura-se-cuida-con-una-prueba.md](docs/grafo/leccion/la-estructura-se-cuida-con-una-prueba.md).
 
 ## La carpeta principal usa la base de producción
 

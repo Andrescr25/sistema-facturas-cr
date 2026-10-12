@@ -16,6 +16,7 @@ archivos:
   - frontend/src/components/clientes/ListaClientes.jsx
   - frontend/src/components/clientes/ListaCuentas.jsx
   - frontend/src/components/clientes/VistaRutas.jsx
+  - frontend/src/hooks/useAsignarClientesRuta.js
   - frontend/src/components/clientes/AsignarClientesRuta.jsx
   - frontend/src/utils/asignacionRuta.js
   - frontend/src/services/rutasService.js

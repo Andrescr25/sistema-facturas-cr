@@ -24,7 +24,7 @@ const codigo = (...partes) => sinComentarios(fs.readFileSync(path.join(FRONTEND,
 const servidor = (...partes) => sinComentarios(fs.readFileSync(path.join(__dirname, '..', 'src', 'integrations', 'hacienda', ...partes), 'utf8'));
 
 let u;
-before(async () => { u = await import('../../frontend/src/integrations/hacienda/numeracionTexto.js'); });
+before(async () => { u = await import('../../frontend/src/utils/numeracionTexto.js'); });
 
 describe('el primer número libre', () => {
   const USADOS = ['4902', '4946', '4947'];   // como llegan de la base: texto
@@ -123,9 +123,12 @@ describe('cómo quedó conectado', () => {
   test('Configuración → Hacienda muestra la numeración del ambiente elegido', () => {
     const pantalla = codigo('integrations', 'hacienda', 'ConfiguracionHacienda.jsx');
     assert.match(pantalla, /<NumeracionHacienda key=\{`\$\{ambiente\}-\$\{estado\.revision\}`\} ambiente=\{ambiente\} \/>/);
-    const bloque = codigo('integrations', 'hacienda', 'NumeracionHacienda.jsx');
-    assert.match(bloque, /fijarNumeracion\(ambiente, t\.tipo, numero\)/);
+    // El bloque dibuja; hablar con el servidor es del gancho.
+    const bloque = codigo('components', 'configuracion', 'NumeracionHacienda.jsx');
     assert.match(bloque, /Hacienda rechaza un número repetido/);
+    assert.match(bloque, /useNumeracionHacienda\(ambiente\)/);
+    assert.doesNotMatch(bloque, /integrations\/hacienda\/api/, 'el bloque volvió a llamar al servidor por su cuenta');
+    assert.match(codigo('hooks', 'useNumeracionHacienda.js'), /fijarNumeracion\(ambiente, t\.tipo, numero\)/);
     const api = codigo('integrations', 'hacienda', 'api.js');
     assert.match(api, /api\.get\(`\/configuracion\/hacienda\/\$\{ambiente\}\/numeracion`\)/);
     assert.match(api, /api\.put\(`\/configuracion\/hacienda\/\$\{ambiente\}\/numeracion`, \{ tipo, siguiente \}\)/);

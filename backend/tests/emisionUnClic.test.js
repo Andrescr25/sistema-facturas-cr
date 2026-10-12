@@ -5,7 +5,7 @@ const path = require('path');
 const { sinComentarios } = require('./dobles/sinComentarios');
 const {
   ambienteDeEmision, tipoDeFactura, datosPendientes, lineasDadas
-} = require('../src/integrations/hacienda/emision.service');
+} = require('../src/integrations/hacienda/unClic.service');
 
 /**
  * Emitir una factura electrónica de UN clic.
@@ -30,7 +30,7 @@ const FRONTEND = path.join(__dirname, '..', '..', 'frontend', 'src');
 const codigo = (...partes) => sinComentarios(fs.readFileSync(path.join(FRONTEND, ...partes), 'utf8'));
 
 let u;
-before(async () => { u = await import('../../frontend/src/integrations/hacienda/emisionPasos.js'); });
+before(async () => { u = await import('../../frontend/src/utils/emisionPasos.js'); });
 
 describe('lo que antes se elegía en el modal', () => {
   test('va a producción si está habilitada; si no, a pruebas; si no, a ninguna', () => {
@@ -422,18 +422,18 @@ describe('con qué paga el cliente, cuando la factura no lo dice', () => {
   });
 
   test('la pantalla dice que elegirlo NO registra un cobro', () => {
-    const panel = codigo('integrations', 'hacienda', 'PanelEmisionFactura.jsx');
-    assert.match(panel, /¿Con qué paga el cliente\?/);
-    assert.match(panel, /no registra ningún cobro/);
-    assert.match(panel, /estado\.mediosPago/);
+    const datos = codigo('components', 'facturacion', 'DatosPendientesEmision.jsx');
+    assert.match(datos, /¿Con qué paga el cliente\?/);
+    assert.match(datos, /no registra ningún cobro/);
+    assert.match(datos, /estado\.mediosPago/);
   });
 });
 
 describe('cómo quedó conectada la pantalla', () => {
   const vista = codigo('components', 'facturacion', 'VistaFactura.jsx');
-  const boton = codigo('integrations', 'hacienda', 'BotonEmitirFactura.jsx');
-  const panel = codigo('integrations', 'hacienda', 'PanelEmisionFactura.jsx');
-  const gancho = codigo('integrations', 'hacienda', 'useEmisionFactura.js');
+  const boton = codigo('components', 'facturacion', 'BotonEmitirFactura.jsx');
+  const panel = codigo('components', 'facturacion', 'PanelEmisionFactura.jsx');
+  const gancho = codigo('hooks', 'useEmisionFactura.js');
 
   test('la factura usa el botón de un clic, no el modal', () => {
     assert.match(vista, /<BotonEmitirFactura emision=\{emision\} \/>/);
@@ -441,6 +441,24 @@ describe('cómo quedó conectada la pantalla', () => {
     // Tampoco las notas de crédito: tienen su tarjeta con el mismo botón
     // (ver notaCreditoSeguimiento.test.js).
     assert.doesNotMatch(vista, /DocumentoFiscal/);
+  });
+
+  test('cada cosa en su lugar: reglas en utils, estado en el gancho, y los componentes solo dibujan', () => {
+    // El molde del proyecto. Estos archivos nacieron juntos dentro de
+    // integrations/hacienda, con otro formato que el de esa carpeta y con el
+    // panel llamando al servidor por su cuenta (revisión del 2026-10-11).
+    for (const ruta of [['utils', 'emisionPasos.js'], ['hooks', 'useEmisionFactura.js'],
+      ['components', 'facturacion', 'BotonEmitirFactura.jsx'], ['components', 'facturacion', 'PanelEmisionFactura.jsx'],
+      ['components', 'facturacion', 'DatosPendientesEmision.jsx']]) {
+      assert.ok(fs.existsSync(path.join(FRONTEND, ...ruta)), `falta ${ruta.join('/')}`);
+    }
+    for (const dibujo of [boton, panel, codigo('components', 'facturacion', 'DatosPendientesEmision.jsx')]) {
+      assert.doesNotMatch(dibujo, /integrations\/hacienda\/api|services\//, 'un componente volvió a llamar al servidor por su cuenta');
+    }
+    assert.match(gancho, /from '\.\.\/integrations\/hacienda\/api'/);
+    // Bajar los XML también pasa por el gancho.
+    assert.match(gancho, /await descargar\(c, respuesta\)/);
+    assert.match(panel, /bajar, bajando, errorDescarga \} = emision/);
   });
 
   test('el botón no abre nada: llama a emitir', () => {
@@ -483,7 +501,7 @@ describe('cómo quedó conectada la pantalla', () => {
     assert.match(rutas, /"\/facturas\/:id\/correo"/);
     assert.match(rutas, /alAceptarFactura:/);
     assert.match(rutas, /seguimiento: process\.env\.HACIENDA_TRABAJADOR === "true"/);
-    assert.match(codigo('integrations', 'hacienda', 'PanelEmisionFactura.jsx'), /seguimiento: estado\?\.seguimiento/);
+    assert.match(codigo('components', 'facturacion', 'PanelEmisionFactura.jsx'), /seguimiento: estado\?\.seguimiento/);
     assert.match(rutas, /entregarFacturaElectronica\(facturaId\)/);
     const api = codigo('integrations', 'hacienda', 'api.js');
     assert.match(api, /api\.get\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/estado`\)/);

@@ -1,5 +1,5 @@
 import { ShieldCheck, Loader2 } from 'lucide-react'
-import { botonDe } from './emisionPasos'
+import { botonDe } from '../../utils/emisionPasos'
 
 /**
  * "Emitir electrónicamente": UN clic firma, envía y consulta. Sin modal.

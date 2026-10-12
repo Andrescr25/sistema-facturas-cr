@@ -129,6 +129,7 @@ carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 - [Dos funciones `texto` con firmas opuestas](leccion/dos-helpers-texto.md)
 - [Un id propio y uno de Alegra no son intercambiables](leccion/ids-propios-y-de-alegra-no-se-mezclan.md)
 - [Un valor por omisión que cobra, y una suma que cuenta lo anulado — Facturación recorrida entera](leccion/lo-que-mueve-plata-no-va-por-omision.md)
+- [La estructura no se cuida sola — el molde del proyecto, y la prueba que lo hace cumplir](leccion/la-estructura-se-cuida-con-una-prueba.md)
 - [Cambiar los ids del catálogo conserva pedidos y facturas pendientes](leccion/cache-con-ids-propios-no-borra-pendientes.md)
 - [Un doble de Prisma no valida tipos — un NULL donde el cliente espera un texto revienta todas las lecturas](leccion/el-doble-de-prisma-no-valida-tipos.md)
 - [El precio va sin IVA y el costo con IVA — compararlos crudos da un margen falso](leccion/precio-sin-iva-costo-con-iva.md)

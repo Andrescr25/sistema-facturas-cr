@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, X, AlertCircle, Edit, RefreshCw, RotateCw, Loader2, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { colonesExacto } from '../../utils/colones'
+import { fechaCorta } from '../../utils/fechaCR'
 
 /**
  * Contenido de la pestaña "Editar Facturas": búsqueda de facturas
@@ -233,7 +234,7 @@ export default function PanelEditarFacturas({
                       </p>
                       <ContextoCicloDocumento documento={factura} />
                       <p className="text-sm text-neutro-500">
-                        Fecha: {factura.fecha ? String(factura.fecha).slice(0, 10).split('-').reverse().join('/') : 'N/A'}
+                        Fecha: {fechaCorta(factura.fecha, 'N/A')}
                       </p>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {factura.pendienteSincronizar && (

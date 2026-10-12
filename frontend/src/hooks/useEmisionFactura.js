@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { estadoFactura, emitirFactura, estadoNota, emitirNota, reenviarCorreo, operar, mensajeError } from './api'
-import { emitirPasoAPaso, FINALES, pideDatos } from './emisionPasos'
+import {
+  estadoFactura, emitirFactura, estadoNota, emitirNota, reenviarCorreo, operar, descargar, mensajeError
+} from '../integrations/hacienda/api'
+import { emitirPasoAPaso, FINALES, pideDatos } from '../utils/emisionPasos'
 
 /**
  * La emisión electrónica de UNA factura, vista desde su pantalla: cómo va,
  * y el botón que la emite de un clic. El orden de los pasos y los textos
- * viven en emisionPasos.js (sin React, con pruebas); acá solo se conectan
- * con el servidor y con el estado de la pantalla.
+ * viven en utils/emisionPasos.js (sin React, con pruebas); acá solo se
+ * conectan con el servidor y con el estado de la pantalla. Los componentes
+ * que la dibujan (BotonEmitirFactura, PanelEmisionFactura) no llaman al
+ * servidor: todo pasa por acá.
  *
  * `activo` apaga todo cuando la factura no se puede emitir desde acá
  * (histórica de Alegra, anulada, o mientras se edita).
@@ -32,6 +36,8 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio, 
   const [error, setError] = useState('')
   const [pidiendoDatos, setPidiendoDatos] = useState(false)
   const [enviandoCorreo, setEnviandoCorreo] = useState(false)
+  const [bajando, setBajando] = useState(false)
+  const [errorDescarga, setErrorDescarga] = useState('')
 
   // La factura que se está mirando AHORA. Una emisión tarda segundos: si
   // entre tanto se abrió otra factura, lo que llegue de la anterior no se
@@ -141,8 +147,24 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio, 
     }
   }
 
+  /** Bajar el XML firmado, o la respuesta de Hacienda, del comprobante. */
+  const bajar = async (respuesta = false) => {
+    const c = estado?.comprobante
+    if (!c || bajando) return
+    setBajando(true)
+    setErrorDescarga('')
+    try {
+      await descargar(c, respuesta)
+    } catch {
+      setErrorDescarga('No se pudo descargar el archivo.')
+    } finally {
+      setBajando(false)
+    }
+  }
+
   return {
     activo, origen, estado, fase, error, emitir,
+    bajar, bajando, errorDescarga,
     pidiendoDatos, cerrarDatos: () => setPidiendoDatos(false),
     enviarAlCliente, enviandoCorreo
   }

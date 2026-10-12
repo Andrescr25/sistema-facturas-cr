@@ -449,3 +449,22 @@ configuración aislada, las fotos y los archivos de la base local se mudaron a
 Hacienda —que la carpeta principal y las de trabajo tomaban de ahí por un
 enlace— quedaron como copia real en la carpeta principal.
 
+## 2026-10-11 — Estructura estricta y permiso de subir a main
+
+Después de pedir una revisión de «si los agentes han respetado la estructura
+de lógica y diseño», textual: «ok, corrige todos esos detalles y en memoria
+sé más estricto con el mantenimiento de la estructura, es de suma
+importancia, solo procura de no romper nada y también agrega en memoria que
+sí tienen permiso de subir directo a main y decir quién fue el que subió
+qué».
+
+**Hecho**:
+- Los desvíos de Claude, corregidos sin cambiar comportamiento:
+  [la lección](grafo/leccion/la-estructura-se-cuida-con-una-prueba.md) los
+  lista uno por uno. Los de Codex (tres hojas de estilo del catálogo con
+  colores a mano) quedaron anotados como deuda: estaba trabajando ahí.
+- La estructura quedó escrita en [AGENTS.md](../AGENTS.md) y
+  [CLAUDE.md](../CLAUDE.md), y la cuida `backend/tests/estructura.test.js`.
+- El permiso de subir a `main`, con sus condiciones y la obligación de decir
+  quién subió qué, también está en esos dos archivos y en la memoria.
+

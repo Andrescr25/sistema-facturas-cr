@@ -9,7 +9,7 @@ import {
   descargar,
   mensajeError,
 } from "./api";
-import NumeracionHacienda from "./NumeracionHacienda";
+import NumeracionHacienda from "../../components/configuracion/NumeracionHacienda";
 
 const CAMPOS = [
   [

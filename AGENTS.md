@@ -14,7 +14,7 @@ No conectar con la base de producción para desarrollar ni probar: usar copias
 locales.
 
 LAS RAMAS SON DOS: `developer`, donde se trabaja, y `main`, que es producción
-y la sube solo el usuario. La migración terminó con el corte del 2026-10-10 y
+(más abajo, cuándo se sube). La migración terminó con el corte del 2026-10-10 y
 su rama, `independencia-alegra`, se borró el 2026-10-11 por decisión suya. No
 volver a crearla ni a publicar otra rama.
 
@@ -45,5 +45,56 @@ El nombre de esa rama es el aviso de qué tiene cada uno; antes de empezar,
 comitean sus archivos. El que termina monta su trabajo sobre `developer`
 (rebase y avance sin fusión) y publica `developer`; el otro lo revisa. Antes
 de publicar, mirar qué más trae `developer`: empujarla publica también lo que
-el otro haya montado. `main` no la sube ningún agente. La base local es compartida: una
-migración que cambia datos se avisa en el relevo.
+el otro haya montado. La base local es compartida: una migración que cambia
+datos se avisa en el relevo.
+
+**Cada commit lleva la firma del agente que lo hizo** (`Co-Authored-By: …` al
+final del mensaje). Sin eso, en el historial no se distingue quién hizo qué.
+
+## Subir a `main`
+
+Los agentes pueden subir a `main` directamente (decisión del usuario,
+2026-10-11: «sí tienen permiso de subir directo a main y decir quién fue el
+que subió qué»). `main` es producción: Render despliega solo.
+
+- Se sube con `git push origin developer:main` (avance sin fusión) y después
+  `git fetch origin main:main`.
+- **Solo lo verificado**: suite completa, pruebas con base y, si toca
+  pantallas, recorrido en navegador. Nunca "para probar en producción".
+- **Mirar qué más viaja**: `git log origin/main..developer`. Si hay commits
+  del otro agente, decirlo. Si no están revisados, o les falta una migración
+  en producción, no se sube y se explica por qué.
+- **Las migraciones no viajan con el push**: producción no las corre sola. Un
+  commit que necesita SQL nuevo espera a que esté aplicado.
+- **Decir quién subió qué**: en la respuesta al usuario («Subí yo, <agente>,
+  a main: tales commits; míos estos, de <otro> aquellos») y en el registro
+  de la memoria compartida (`permiso-subir-a-main.md`).
+
+## La estructura: se mantiene en cada cambio
+
+Para el usuario es «de suma importancia» (2026-10-11), y vale tanto como que
+el cambio funcione. El porqué y el caso real están en
+[la lección](docs/grafo/leccion/la-estructura-se-cuida-con-una-prueba.md).
+Antes de comitear:
+
+- **Cada cosa en su carpeta.** Frontend: reglas y cuentas puras en
+  `src/utils/` (sin React ni servidor, con su prueba); estado y llamadas al
+  servidor en `src/hooks/use*.js`; cada sección en
+  `src/components/<pantalla>/`; la página solo arma. Un componente no importa
+  `services/` ni el cliente de una integración. Backend: rutas → controlador
+  → servicio dentro de `src/modules/<módulo>/` o `src/integrations/<x>/`.
+- **Si el archivo crece, se parte en ese mismo cambio.** Topes: 500 líneas en
+  el frontend, 700 en el backend.
+- **Diseño con la paleta por rol** (`primario`, `neutro`, `exito`, `alerta`,
+  `peligro`, `nota`): nada de `gray-500`, `blue-600` ni colores `#hex` a
+  mano. Sin hojas `.css` nuevas salvo animaciones, y con `theme('colors.…')`.
+  Tarjetas grandes y lista → detalle, reusando `Insignia`, `Boton`,
+  `TarjetasResumen` y `Modal`.
+- **Una sola copia** de cada ayudante (buscar en `utils/` antes de escribir
+  otro) y **nada de código muerto**: lo que deja de usarse se borra ahí mismo.
+- **Escribir como el archivo vecino**: comillas, punto y coma, comentarios.
+
+`backend/tests/estructura.test.js` lo hace cumplir y corre con `npm test`. Si
+falla, se acomoda el cambio al molde. Una excepción se anota en esa prueba,
+en el mismo commit, con su porqué; sus listas de "deuda" pueden achicarse,
+nunca crecer.

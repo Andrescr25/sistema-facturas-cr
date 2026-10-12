@@ -12,6 +12,7 @@ import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones } from '../../utils/colones'
 import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { estadoDeFactura, notasDeFactura } from '../../utils/notaCreditoTexto'
+import { fechaCorta } from '../../utils/fechaCR'
 
 /**
  * Las facturas ya emitidas.
@@ -30,7 +31,6 @@ import { estadoDeFactura, notasDeFactura } from '../../utils/notaCreditoTexto'
  *     ellos.
  */
 
-const fecha = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '')
 
 /** La misma regla que dentro de la factura: saldo en cero no es "Pagada". */
 function EstadoFactura({ f }) {
@@ -225,7 +225,7 @@ export default function PanelFacturasEmitidas({ f }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-neutro-900">{factura.cliente.nombre}</p>
                 <p className="truncate text-xs text-neutro-500">
-                  {factura.numero} · {fecha(factura.fecha)} · {factura.lineas} {factura.lineas === 1 ? 'línea' : 'líneas'}
+                  {factura.numero} · {fechaCorta(factura.fecha, '')} · {factura.lineas} {factura.lineas === 1 ? 'línea' : 'líneas'}
                 </p>
                 <ContextoCicloDocumento documento={factura} />
                 <div className="mt-1">

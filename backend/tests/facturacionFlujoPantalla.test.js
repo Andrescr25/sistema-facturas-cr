@@ -271,29 +271,37 @@ describe('lo que espera subir', () => {
 describe('la factura ya emitida, vista y corregida desde la lista', () => {
   const vista = codigo('components', 'facturacion', 'VistaFactura.jsx');
 
+  // Las cuentas de esta pantalla viven en utils/facturaVista.js y se prueban
+  // de verdad en facturaVista.test.js; acá queda lo que es de cada sección.
   test('la copia que se edita lleva el detalle de cada línea, y al guardar se manda', () => {
-    assert.match(vista, /descripcion: l\.descripcion \|\| ''/);
-    const guardar = cuerpoDe(vista, 'guardar');
-    assert.match(guardar, /description: \(l\.descripcion \|\| ''\)\.trim\(\)/);
+    const reglas = codigo('utils', 'facturaVista.js');
+    assert.match(reglas, /descripcion: l\.descripcion \|\| ''/);
+    assert.match(reglas, /description: \(l\.descripcion \|\| ''\)\.trim\(\)/);
   });
 
   test('al guardar se manda también lo que la pantalla mostraba', () => {
-    const guardar = cuerpoDe(vista, 'guardar');
+    const reglas = codigo('utils', 'facturaVista.js');
     for (const campo of [/clienteNombre: cliente\?\.nombre/, /clienteIdentificacion: cliente\?\.identificacion/, /reference: l\.referencia/, /name: l\.nombre/]) {
-      assert.match(guardar, campo);
+      assert.match(reglas, campo);
     }
+    assert.match(codigo('hooks', 'useEdicionFactura.js'), /await onGuardar\(cuerpoDeEdicion\(\{ cliente, lineas, observaciones, motivo \}\)\)/);
   });
 
   test('el descuento se informa; no se vuelve a restar debajo del subtotal', () => {
-    assert.match(vista, /Ya incluye \{colones\(descuento\)\} de descuento/);
-    assert.doesNotMatch(vista, /<span>Descuento<\/span><span[^>]*>−\{colones\(f\.descuento\)\}/, 'volvió el renglón que hacía que la cuenta no cerrara');
+    const totales = codigo('components', 'facturacion', 'TotalesFactura.jsx');
+    assert.match(totales, /Ya incluye \{colones\(descuento\)\} de descuento/);
+    for (const archivo of [vista, totales]) {
+      assert.doesNotMatch(archivo, /<span>Descuento<\/span><span[^>]*>−\{colones\(f\.descuento\)\}/, 'volvió el renglón que hacía que la cuenta no cerrara');
+    }
   });
 
   test('el cobro se puede anular desde la factura, solo quien tiene el permiso', () => {
+    const cobros = codigo('components', 'facturacion', 'CobrosFactura.jsx');
     assert.match(vista, /puedeAccion\(usuario, 'anular-cobro'\)/);
-    assert.match(vista, /Anular cobro/);
+    assert.match(vista, /puedeAnular=\{puedeAnularCobro && f\.estado === 'emitida'\}/);
+    assert.match(cobros, /Anular cobro/);
     // Un cobro de Cuentas por Cobrar puede cubrir varias facturas: se avisa.
-    assert.match(vista, /cobroAnulando\.facturas > 1/);
+    assert.match(cobros, /cobroAnulando\.facturas > 1/);
     assert.match(codigo('hooks', 'useFacturasEmitidas.js'), /await anularAbono\(pagoId, motivo\)/);
     assert.match(codigo('components', 'facturacion', 'PanelFacturasEmitidas.jsx'), /onAnularCobro=\{f\.anularCobro\}/);
   });

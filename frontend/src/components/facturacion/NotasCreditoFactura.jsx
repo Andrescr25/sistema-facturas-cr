@@ -1,12 +1,13 @@
 import { Undo2 } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import { colones } from '../../utils/colones'
+import { fechaCorta } from '../../utils/fechaCR'
 import {
   motivoDeNota, efectoDeNota, inventarioDeNota, aplicadaA, haciendaDeNota
 } from '../../utils/notaCreditoTexto'
-import useEmisionFactura from '../../integrations/hacienda/useEmisionFactura'
-import BotonEmitirFactura from '../../integrations/hacienda/BotonEmitirFactura'
-import PanelEmisionFactura from '../../integrations/hacienda/PanelEmisionFactura'
+import useEmisionFactura from '../../hooks/useEmisionFactura'
+import BotonEmitirFactura from './BotonEmitirFactura'
+import PanelEmisionFactura from './PanelEmisionFactura'
 
 /**
  * Las notas de crédito de una factura, con lo que hizo cada una.
@@ -23,8 +24,6 @@ import PanelEmisionFactura from '../../integrations/hacienda/PanelEmisionFactura
  * nota con el mismo botón de un clic y los mismos pasos que la factura.
  * Los textos se deciden en utils/notaCreditoTexto.js.
  */
-
-const fecha = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '—')
 
 const TONO = {
   exito: 'border-exito-200 bg-exito-50',
@@ -68,7 +67,7 @@ function TarjetaNota({ nota: n, factura: f, onCambio }) {
           </p>
           <p className="text-lg font-extrabold text-neutro-900">{n.numero}</p>
           <p className="text-sm text-neutro-600">
-            {fecha(n.fecha)} · {motivoDeNota(n.motivo)}{n.motivoTexto ? ` — «${n.motivoTexto}»` : ''}
+            {fechaCorta(n.fecha)} · {motivoDeNota(n.motivo)}{n.motivoTexto ? ` — «${n.motivoTexto}»` : ''}
           </p>
         </div>
         <div className="shrink-0 text-right">

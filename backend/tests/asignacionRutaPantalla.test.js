@@ -150,18 +150,27 @@ describe('cómo quedó conectada la pantalla', () => {
   });
 
   const pantalla = codigo('components', 'clientes', 'AsignarClientesRuta.jsx');
+  // El estado y lo que habla con el servidor viven en el gancho; la pantalla
+  // solo dibuja (revisión de estructura del 2026-10-11).
+  const gancho = codigo('hooks', 'useAsignarClientesRuta.js');
+
+  test('la pantalla no llama al servidor: todo pasa por su gancho', () => {
+    assert.doesNotMatch(pantalla, /rutasService|services\//);
+    assert.match(pantalla, /useAsignarClientesRuta\(\{ ruta, modelo: m, confirm, onVolver \}\)/);
+    assert.match(gancho, /rutasService\.candidatos\(ruta\.id\)/);
+  });
 
   test('nada se manda hasta tocar "Guardar cambios", y lo pendiente queda a la vista', () => {
-    assert.equal((pantalla.match(/rutasService\.asignar\(/g) || []).length, 1, 'se guarda desde más de un lugar');
-    assert.match(pantalla, /const guardar = async/);
+    assert.equal((gancho.match(/rutasService\.asignar\(/g) || []).length, 1, 'se guarda desde más de un lugar');
+    assert.match(gancho, /const guardar = async/);
     assert.match(pantalla, /cambios\.total > 0 && <div className="sticky bottom-4/);
     assert.match(pantalla, /Todavía no se guardó/);
   });
 
   test('traer a alguien de otra ruta se confirma antes, y salir con cambios también', () => {
-    assert.match(pantalla, /if \(cambios\.movidos\.length > 0\)/);
-    assert.match(pantalla, /title: 'Cambiar de ruta'/);
-    assert.match(pantalla, /title: 'Salir sin guardar'/);
+    assert.match(gancho, /if \(cambios\.movidos\.length > 0\)/);
+    assert.match(gancho, /title: 'Cambiar de ruta'/);
+    assert.match(gancho, /title: 'Salir sin guardar'/);
   });
 
   test('toda la tarjeta es el check: es un botón con su estado, no una casilla chica', () => {
@@ -170,6 +179,6 @@ describe('cómo quedó conectada la pantalla', () => {
   });
 
   test('abre en "Sin ruta", que es a quien hay que ubicar', () => {
-    assert.match(pantalla, /useState\(\{ estado: 'sin-ruta', dias: 'todos' \}\)/);
+    assert.match(gancho, /useState\(\{ estado: 'sin-ruta', dias: 'todos' \}\)/);
   });
 });

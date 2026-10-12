@@ -16,3 +16,15 @@ const FORMATO = new Intl.DateTimeFormat('en-CA', {
 export function hoyEnCostaRica(momento = new Date()) {
   return FORMATO.format(momento)
 }
+
+/**
+ * "2026-10-11…" → "11/10/2026", para leer en pantalla. Corta el texto en vez
+ * de pasar por `Date`: una fecha de calendario no tiene hora, y convertirla
+ * la corre un día según la zona.
+ *
+ * Estaba copiada en cada componente de Facturación; una sola copia.
+ */
+export function fechaCorta(f, vacio = '—') {
+  return f ? String(f).slice(0, 10).split('-').reverse().join('/') : vacio
+}
+

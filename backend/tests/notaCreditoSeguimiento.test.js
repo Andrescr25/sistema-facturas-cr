@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { sinComentarios } = require('./dobles/sinComentarios');
-const { REFERENCIAS_DE_NOTA } = require('../src/integrations/hacienda/emision.service');
+const { REFERENCIAS_DE_NOTA } = require('../src/integrations/hacienda/unClic.service');
 
 /**
  * El seguimiento de la nota de crédito: qué hizo, a qué se aplicó y cómo va
@@ -34,7 +34,7 @@ const fmt = (n) => `₡${Math.round(Number(n) || 0)}`;
 let u, pasos;
 before(async () => {
   u = await import('../../frontend/src/utils/notaCreditoTexto.js');
-  pasos = await import('../../frontend/src/integrations/hacienda/emisionPasos.js');
+  pasos = await import('../../frontend/src/utils/emisionPasos.js');
 });
 
 // La factura del caso real: ₡62,15, electrónica, acreditada entera por una nota.
@@ -257,7 +257,7 @@ describe('cómo quedó conectada la pantalla', () => {
     assert.match(tarjetas, /<BotonEmitirFactura emision=\{emision\} \/>/);
     assert.match(tarjetas, /<PanelEmisionFactura emision=\{emision\} incrustado \/>/);
     assert.doesNotMatch(tarjetas, /DocumentoFiscal|Modal/);
-    const gancho = codigo('integrations', 'hacienda', 'useEmisionFactura.js');
+    const gancho = codigo('hooks', 'useEmisionFactura.js');
     assert.match(gancho, /nota_credito: \{ estado: estadoNota, emitir: emitirNota \}/);
   });
 

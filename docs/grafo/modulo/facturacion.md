@@ -20,6 +20,13 @@ archivos:
   - backend/tests/facturacionFlujoPantalla.test.js
   - backend/src/modules/facturacion/factura.pdf.js
   - frontend/src/components/facturacion/VistaFactura.jsx
+  - frontend/src/components/facturacion/ClienteFactura.jsx
+  - frontend/src/components/facturacion/LineasFactura.jsx
+  - frontend/src/components/facturacion/TotalesFactura.jsx
+  - frontend/src/components/facturacion/CobrosFactura.jsx
+  - frontend/src/utils/facturaVista.js
+  - frontend/src/hooks/useEdicionFactura.js
+  - backend/tests/facturaVista.test.js
   - frontend/src/components/facturacion/NotasCreditoFactura.jsx
   - frontend/src/components/facturacion/ModalNotaCredito.jsx
   - frontend/src/utils/notaCreditoTexto.js
@@ -32,7 +39,7 @@ archivos:
   - frontend/src/components/facturacion/PanelCobro.jsx
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
 aristas:
-  relacionado: [modulo/hacienda, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
+  relacionado: [modulo/hacienda, leccion/la-estructura-se-cuida-con-una-prueba, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
 medido: 2026-10-11
 ---
 
@@ -226,3 +233,16 @@ ninguna queda fuera ni repetida (medido en la copia local: 4.728 + 516 =
 5.244). `emitidas`, las dos juntas, sigue existiendo para quien llame sin
 decir cuál quiere. "Anuladas" y "Todas" siguen mezclando las dos: no se
 pidió partirlas.
+
+LA PANTALLA DE LA FACTURA, PARTIDA COMO EL RESTO (2026-10-11). `VistaFactura.jsx`
+llegó a 790 líneas con todo adentro. Ahora arma la pantalla y nada más: las
+cuentas y las reglas (totales, por qué no se edita, qué se manda al guardar)
+están en `utils/facturaVista.js` con pruebas de verdad; la copia que se edita,
+en `hooks/useEdicionFactura.js`; y cada sección en su componente
+(`ClienteFactura`, `LineasFactura`, `TotalesFactura`, `CobrosFactura`,
+`NotasCreditoFactura`). El botón y el panel de la emisión electrónica también
+viven acá, en `components/facturacion/`. El porqué y la prueba que lo cuida:
+[[leccion/la-estructura-se-cuida-con-una-prueba]].
+
+De paso se corrigió un fallo viejo: la segunda corrección seguida de una
+misma factura encontraba «Guardar cambios» apagado.

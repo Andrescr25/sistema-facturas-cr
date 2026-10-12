@@ -12,20 +12,18 @@ import {
 
 const INPUT =
   "mt-1 w-full rounded-lg border border-neutro-200 px-3 py-2 text-sm";
-const DESCUENTOS = [
-  ["01", "Regalía"],
-  ["02", "Regalía con IVA cobrado al cliente"],
-  ["03", "Bonificación"],
-  ["04", "Volumen"],
-  ["05", "Temporada"],
-  ["06", "Promocional"],
-  ["07", "Comercial"],
-  ["08", "Frecuencia"],
-  ["09", "Sostenido"],
-  ["99", "Otro"],
-];
+/**
+ * Responder ante Hacienda el comprobante de un proveedor (aceptarlo o
+ * rechazarlo), desde una compra ya registrada.
+ *
+ * SOLO COMPRAS (2026-10-11). Este modal también emitía facturas y notas de
+ * crédito: ambiente, tipo, código de referencia y tres botones en orden. Las
+ * ventas ya no pasan por acá —se emiten de un clic desde la factura y desde
+ * la tarjeta de la nota (hooks/useEmisionFactura.js)—, así que esas partes se
+ * quitaron en vez de dejarlas sin uso.
+ */
 export default function DocumentoFiscal({
-  origen = "factura",
+  origen = "compra",
   documento,
   onCambio,
   desdeBuzon = false,
@@ -33,7 +31,7 @@ export default function DocumentoFiscal({
   const [abierto, setAbierto] = useState(false),
     [ambiente, setAmbiente] = useState("pruebas"),
     [c, setC] = useState(null);
-  const [datos, setDatos] = useState({ tipo: "01", lineas: [] }),
+  const [datos, setDatos] = useState({}),
     [ocupado, setOcupado] = useState(false),
     [error, setError] = useState("");
   const [detalle, setDetalle] = useState(documento),
@@ -42,23 +40,11 @@ export default function DocumentoFiscal({
     setAbierto(false);
     setC(null);
     setDetalle(documento);
-    setDatos({ tipo: "01", lineas: [] });
+    setDatos({});
     setXmlOriginal(null);
     setError("");
   }, [documento.id, origen]);
   const actualizar = (k, v) => setDatos((d) => ({ ...d, [k]: v }));
-  const linea = (numero, k, v) =>
-    setDatos((d) => ({
-      ...d,
-      lineas: [
-        ...d.lineas.filter((l) => l.numeroLinea !== numero),
-        {
-          ...(d.lineas.find((l) => l.numeroLinea === numero) || {}),
-          numeroLinea: numero,
-          [k]: v,
-        },
-      ],
-    }));
   async function accion(fn) {
     setOcupado(true);
     setError("");
@@ -83,17 +69,11 @@ export default function DocumentoFiscal({
         }}
       >
         <ShieldCheck size={16} />
-        {origen === "compra"
-          ? "Respuesta a Hacienda"
-          : "Emitir electrónicamente"}
+        Respuesta a Hacienda
       </button>
       {abierto && (
         <Modal
-          titulo={
-            origen === "compra"
-              ? "Responder comprobante del proveedor"
-              : "Emitir ante Hacienda"
-          }
+          titulo="Responder comprobante del proveedor"
           ancho="xl"
           onCerrar={() => {
             if (!ocupado) setAbierto(false);
@@ -138,78 +118,13 @@ export default function DocumentoFiscal({
             )}
             {!c && (
               <>
-                {origen === "factura" && (
-                  <>
-                    <label className="block">
-                      Comprobante
-                      <select
-                        className={INPUT}
-                        value={datos.tipo}
-                        onChange={(e) => actualizar("tipo", e.target.value)}
-                      >
-                        <option value="01">Factura electrónica</option>
-                        <option value="04">Tiquete electrónico</option>
-                      </select>
-                    </label>
-                    {/* La actividad económica del receptor no se pide: es
-                        opcional para Hacienda (decisión del usuario,
-                        2026-10-11; ver xml/v4.4.js). */}
-                  </>
-                )}
-                {origen === "nota_credito" && (
-                  <label className="block">
-                    Código fiscal de referencia
-                    <select
-                      className={INPUT}
-                      value={datos.codigoReferencia || ""}
-                      onChange={(e) =>
-                        actualizar("codigoReferencia", e.target.value)
-                      }
-                    >
-                      <option value="">Elegir motivo</option>
-                      <option value="01">Anula documento</option>
-                      <option value="02">Corrige texto del documento</option>
-                      <option value="04">Referencia a otro documento</option>
-                      <option value="06">Devolución de mercancía</option>
-                      <option value="07">Sustituye comprobante</option>
-                      <option value="09">Nota de crédito financiera</option>
-                      <option value="12">
-                        Crédito por exoneración posterior
-                      </option>
-                      <option value="13">Anula por error material</option>
-                      <option value="14">
-                        Corrige monto por error material
-                      </option>
-                      <option value="15">Sustituye por error material</option>
-                      <option value="16">
-                        Sustituye comprobante rechazado
-                      </option>
-                      <option value="99">Otros</option>
-                    </select>
-                  </label>
-                )}
-                {origen === "nota_credito" &&
-                  datos.codigoReferencia === "99" && (
-                    <label className="block">
-                      Detalle de otra referencia
-                      <input
-                        className={INPUT}
-                        value={datos.referenciaOtro || ""}
-                        onChange={(e) =>
-                          actualizar("referenciaOtro", e.target.value)
-                        }
-                        maxLength={100}
-                      />
-                    </label>
-                  )}
                 {datos.sustituir && (
                   <p>
                     Se conservará el rechazo y se preparará un nuevo consecutivo
                     con referencia al comprobante rechazado.
                   </p>
                 )}
-                {origen === "compra" && (
-                  <>
+                <>
                     {detalle.necesitaXml && (
                       <div className="rounded-lg border border-neutro-200 p-3">
                         <label className="block">
@@ -305,97 +220,7 @@ export default function DocumentoFiscal({
                         }
                       />
                     </label>
-                  </>
-                )}
-                {(detalle.lineas || [])
-                  .filter(
-                    (l) => Number(l.descuentoMonto) > 0 || l.esMedicamento,
-                  )
-                  .map((l, i) => {
-                    const n = l.numeroLinea || i + 1,
-                      d = datos.lineas.find((a) => a.numeroLinea === n) || {};
-                    return (
-                      <div
-                        key={n}
-                        className="rounded-lg border border-neutro-100 p-3"
-                      >
-                        <p className="font-semibold">
-                          {n}. {l.nombre}
-                        </p>
-                        {Number(l.descuentoMonto) > 0 && (
-                          <>
-                            <label className="block mt-2">
-                              Motivo del descuento
-                              <select
-                                className={INPUT}
-                                value={d.codigoDescuento || ""}
-                                onChange={(e) =>
-                                  linea(n, "codigoDescuento", e.target.value)
-                                }
-                              >
-                                <option value="">Elegir motivo</option>
-                                {DESCUENTOS.map(([k, t]) => (
-                                  <option key={k} value={k}>
-                                    {t}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="block mt-2">
-                              Descripción del descuento
-                              <input
-                                className={INPUT}
-                                value={d.naturalezaDescuento || ""}
-                                onChange={(e) =>
-                                  linea(
-                                    n,
-                                    "naturalezaDescuento",
-                                    e.target.value,
-                                  )
-                                }
-                                maxLength={80}
-                              />
-                            </label>
-                          </>
-                        )}
-                        {l.esMedicamento && (
-                          <>
-                            <label className="block mt-2">
-                              Registro sanitario
-                              <input
-                                className={INPUT}
-                                value={
-                                  d.registroMedicamento ||
-                                  l.registroSanitario ||
-                                  ""
-                                }
-                                onChange={(e) =>
-                                  linea(
-                                    n,
-                                    "registroMedicamento",
-                                    e.target.value,
-                                  )
-                                }
-                                maxLength={60}
-                              />
-                            </label>
-                            <label className="block mt-2">
-                              Forma farmacéutica
-                              <input
-                                className={INPUT}
-                                value={d.formaFarmaceutica || ""}
-                                onChange={(e) =>
-                                  linea(n, "formaFarmaceutica", e.target.value)
-                                }
-                                maxLength={3}
-                                placeholder="Código de 3 dígitos"
-                              />
-                            </label>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
+                </>
                 <button
                   disabled={ocupado || detalle.necesitaXml}
                   className="btn btn-primary"

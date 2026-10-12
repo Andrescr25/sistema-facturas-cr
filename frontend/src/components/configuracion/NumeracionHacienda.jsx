@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Hash, Loader2 } from 'lucide-react'
-import { numeracion, fijarNumeracion, mensajeError } from './api'
-import { avisoDeUsados, numeroEscrito } from './numeracionTexto'
+import useNumeracionHacienda from '../../hooks/useNumeracionHacienda'
+import { avisoDeUsados, numeroEscrito } from '../../utils/numeracionTexto'
 
 /**
  * Con qué número sale el próximo comprobante, y dónde se cambia.
@@ -13,7 +13,8 @@ import { avisoDeUsados, numeroEscrito } from './numeracionTexto'
  * fiscal suya, así que se toma acá, a la vista, y queda en la bitácora.
  *
  * Los números ya usados se saltan solos (ver numeracion.js en el servidor):
- * acá se dicen, para que no sorprenda el salto cuando llegue.
+ * acá se dicen, para que no sorprenda el salto cuando llegue. Los textos
+ * están en utils/numeracionTexto.js y el estado en hooks/useNumeracionHacienda.js.
  */
 const INPUT = 'mt-1 w-full rounded-lg border border-neutro-200 px-3 py-2 text-sm'
 
@@ -57,41 +58,8 @@ function Tipo({ t, ocupado, onCambiar }) {
 }
 
 export default function NumeracionHacienda({ ambiente }) {
-  const [tipos, setTipos] = useState(null)
-  const [ocupado, setOcupado] = useState(false)
-  const [error, setError] = useState('')
-  const [mensaje, setMensaje] = useState('')
-
-  useEffect(() => {
-    let viva = true
-    setTipos(null)
-    setError('')
-    setMensaje('')
-    numeracion(ambiente)
-      .then((t) => { if (viva) setTipos(t) })
-      // Sin sucursal y terminal todavía no hay serie que numerar: el servidor
-      // lo dice, y este bloque lo repite en vez de quedar vacío.
-      .catch((e) => { if (viva) setError(mensajeError(e)) })
-    return () => { viva = false }
-  }, [ambiente])
-
-  const cambiar = async (t, numero) => {
-    setOcupado(true)
-    setError('')
-    setMensaje('')
-    try {
-      const nuevos = await fijarNumeracion(ambiente, t.tipo, numero)
-      setTipos(nuevos)
-      const ahora = nuevos.find((n) => n.tipo === t.tipo)
-      setMensaje(`Listo: la próxima ${t.nombre.toLowerCase()} sale con el ${ahora?.proximo}.`)
-      return true
-    } catch (e) {
-      setError(mensajeError(e))
-      return false
-    } finally {
-      setOcupado(false)
-    }
-  }
+  // Lo que habla con el servidor está en el gancho; acá solo se dibuja.
+  const { tipos, ocupado, error, mensaje, cambiar } = useNumeracionHacienda(ambiente)
 
   return (
     <div data-numeracion-hacienda className="rounded-2xl border border-neutro-200 bg-white p-5">

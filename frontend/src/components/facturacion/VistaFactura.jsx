@@ -1,19 +1,25 @@
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
-import { useState, useEffect, useMemo } from 'react'
 import {
   ArrowLeft, FileText, Ban, Undo2, Loader2, Building2,
-  PencilLine, ShieldCheck, Save, X, Trash2, Plus, Search, MessageCircle, Mail
+  PencilLine, Save, X, MessageCircle, Mail
 } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
-import { colones, colonesExacto } from '../../utils/colones'
+import ClienteFactura from './ClienteFactura'
+import LineasFactura from './LineasFactura'
+import TotalesFactura from './TotalesFactura'
+import CobrosFactura from './CobrosFactura'
+import NotasCreditoFactura from './NotasCreditoFactura'
+import BotonEmitirFactura from './BotonEmitirFactura'
+import PanelEmisionFactura from './PanelEmisionFactura'
+import { CELDA } from './estilosFactura'
+import { colones } from '../../utils/colones'
+import { fechaCorta } from '../../utils/fechaCR'
 import { useAuth } from '../../contexts/AuthContext'
 import { puedeAccion } from '../../utils/modulos'
-import NotasCreditoFactura from './NotasCreditoFactura'
 import { estadoDeFactura, notasDeFactura } from '../../utils/notaCreditoTexto'
-import useEmisionFactura from '../../integrations/hacienda/useEmisionFactura'
-import BotonEmitirFactura from '../../integrations/hacienda/BotonEmitirFactura'
-import PanelEmisionFactura from '../../integrations/hacienda/PanelEmisionFactura'
+import { medio, filaDe, totalesDe, reservaFiscalDe, porQueNoSeEdita } from '../../utils/facturaVista'
+import useEmisionFactura from '../../hooks/useEmisionFactura'
+import useEdicionFactura from '../../hooks/useEdicionFactura'
 
 /**
  * Una factura, en su propia pantalla — y en el mismo lugar se corrige.
@@ -32,28 +38,15 @@ import PanelEmisionFactura from '../../integrations/hacienda/PanelEmisionFactura
  *     productos al 1 % cobrando 13 %.
  *   · El número, la serie y la fecha tampoco: es el mismo documento con otro
  *     contenido, no otro papel.
+ *
+ * CÓMO ESTÁ PARTIDA (2026-10-11; llegó a 790 líneas con todo adentro). Este
+ * archivo arma la pantalla; cada parte vive donde dice el molde del proyecto:
+ *   · las cuentas y las reglas, en utils/facturaVista.js;
+ *   · la copia que se edita, en hooks/useEdicionFactura.js;
+ *   · la emisión electrónica, en hooks/useEmisionFactura.js;
+ *   · cada sección en su componente: ClienteFactura, LineasFactura,
+ *     TotalesFactura, CobrosFactura, NotasCreditoFactura.
  */
-
-const fecha = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '—')
-const num = (v) => Number(v) || 0
-
-const MEDIOS = {
-  cash: 'Efectivo', transfer: 'Transferencia', 'credit-card': 'Tarjeta de crédito',
-  'debit-card': 'Tarjeta de débito', check: 'Cheque', sinpe_movil: 'SINPE Móvil'
-}
-const medio = (v) => {
-  if (!v) return null
-  const k = String(v).trim().toLowerCase()
-  return MEDIOS[k] || String(v).charAt(0).toUpperCase() + String(v).slice(1).toLowerCase()
-}
-
-/**
- * ¿La línea trae un detalle que diga algo? Cuando nadie escribe nada, el
- * servidor guarda ahí la descripción del producto, que en este catálogo es
- * el mismo nombre repetido: mostrarla sería ruido.
- */
-const mismoTexto = (a, b) => String(a || '').replace(/\s+/g, ' ').trim().toLowerCase() === String(b || '').replace(/\s+/g, ' ').trim().toLowerCase()
-const esDetallePropio = (l) => Boolean(String(l.descripcion || '').trim()) && !mismoTexto(l.descripcion, l.nombre)
 
 /**
  * Saldo en cero no es "Pagada": una factura acreditada entera por una nota
@@ -75,10 +68,6 @@ function Dato({ etiqueta, children }) {
   )
 }
 
-/** El input de una celda: mismo tamaño que el texto que reemplaza. */
-const CELDA = 'w-full rounded-lg border border-primario-200 bg-primario-50/40 px-1.5 py-1 text-sm ' +
-  'focus:border-primario-400 focus:outline-none focus:ring-1 focus:ring-primario-300'
-
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
   onVolver, onPdf, onAnular, onNotaCredito, onEditar, onEnviar, onCorreo, cargandoCorreo,
@@ -99,176 +88,15 @@ export default function VistaFactura({
   const direccionEmisor = [emisor.provincia, emisor.canton, emisor.distrito, emisor.barrio, emisor.otras_senas]
     .filter(Boolean).join(' ')
 
-  // ---- Lo que se está editando (copia de trabajo) ----
-  const [lineas, setLineas] = useState([])
-  const [cliente, setCliente] = useState(null)
-  const [observaciones, setObservaciones] = useState('')
-  const [motivo, setMotivo] = useState('')
-  const [textoCliente, setTextoCliente] = useState(null)   // null = no se está buscando
-  const [textoProducto, setTextoProducto] = useState('')
-  const [guardando, setGuardando] = useState(false)
-  const [error, setError] = useState('')
+  // La copia de trabajo mientras se corrige: estado y acciones.
+  const edicion = useEdicionFactura({ factura: f, editando, clientes, productos, onGuardar })
 
-  // ---- El cobro que se está por anular (uno a la vez) ----
-  const [cobroAnulando, setCobroAnulando] = useState(null)
-  const [motivoCobro, setMotivoCobro] = useState('')
-  const [anulandoCobro, setAnulandoCobro] = useState(false)
-  const [errorCobro, setErrorCobro] = useState('')
-
-  const confirmarAnularCobro = async () => {
-    if (!motivoCobro.trim()) return setErrorCobro('Escribí por qué se anula el cobro.')
-    setAnulandoCobro(true)
-    setErrorCobro('')
-    try {
-      await onAnularCobro(cobroAnulando.id, motivoCobro.trim())
-      setCobroAnulando(null)
-      setMotivoCobro('')
-    } catch (e) {
-      setErrorCobro(e.response?.data?.message || 'No se pudo anular el cobro.')
-    } finally {
-      setAnulandoCobro(false)
-    }
-  }
-
-  // Al entrar a editar se copia el documento; al salir, lo copiado se
-  // descarta. Cancelar no puede dejar nada a medias.
-  useEffect(() => {
-    if (!editando) return
-    setLineas(f.lineas.map(l => ({
-      productoId: l.productoId,
-      nombre: l.nombre,
-      referencia: l.referencia,
-      cabys: l.cabys,
-      cantidad: num(l.cantidad),
-      precioUnitario: num(l.precioUnitario),
-      descuentoPorcentaje: num(l.descuentoPorcentaje),
-      tarifa: num(l.tarifa),
-      // EL DETALLE VIAJA CON LA LÍNEA. No estaba en la copia, y como al
-      // guardar se reemplazan todas las líneas, corregir una cantidad
-      // borraba lo que alguien había escrito en las demás ("ENTREGADO",
-      // "OJO CERRADO, VIGILADO X CÁMARAS").
-      descripcion: l.descripcion || ''
-    })))
-    setCliente({ ...f.cliente })
-    setObservaciones(f.observaciones || '')
-    setMotivo('')
-    setTextoCliente(null)
-    setTextoProducto('')
-    setError('')
-  }, [editando, f.id])
-
-  // El comprobante de producción que tiene reservada esta factura, según el
-  // panel de emisión. Se mira además de `f` porque el panel se entera antes:
-  // entre que Hacienda la recibe y que esta pantalla relee la factura, el
-  // botón Editar quedaba ofreciendo un cambio que la base va a rechazar.
-  const comprobanteFiscal = emision.estado?.comprobante
-  const reservaFiscal = comprobanteFiscal?.ambiente === 'produccion' && comprobanteFiscal.estado !== 'rechazada'
-    ? comprobanteFiscal : null
-  const razonNoEditable =
-    f.estado === 'anulada' ? 'Está anulada.'
-    : f.estado !== 'emitida' ? 'Todavía es un borrador.'
-    : (f.electronica || reservaFiscal?.estado === 'aceptada') ? 'Ya se emitió electrónicamente: se corrige con una nota de crédito.'
-    : emision.fase ? 'Se está emitiendo electrónicamente.'
-    : (['pendiente','enviada'].includes(f.haciendaEstado) || reservaFiscal) ? 'Está reservada ante Hacienda. Consultá el resultado antes de editar.'
-    : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que anularlo, abajo en «Cobros».'
-    : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada.'
-    : null
+  const reservaFiscal = reservaFiscalDe(emision.estado?.comprobante)
+  const razonNoEditable = porQueNoSeEdita(f, { reservaFiscal, emitiendo: Boolean(emision.fase) })
 
   // En edición manda la copia de trabajo; si no, el documento guardado.
-  const filas = editando ? lineas : f.lineas.map(l => ({
-    productoId: l.productoId, nombre: l.nombre, referencia: l.referencia, cabys: l.cabys,
-    cantidad: num(l.cantidad), precioUnitario: num(l.precioUnitario),
-    descuentoPorcentaje: num(l.descuentoPorcentaje), tarifa: num(l.tarifa),
-    impuestoMonto: num(l.impuestoMonto), descripcion: l.descripcion || ''
-  }))
-
-  const base = (l) => l.cantidad * l.precioUnitario * (1 - (l.descuentoPorcentaje || 0) / 100)
-  const impuestoDe = (l) => (editando ? base(l) * l.tarifa / 100 : l.impuestoMonto)
-
-  const impuesto = editando ? filas.reduce((s, l) => s + impuestoDe(l), 0) : f.impuesto
-  // EL SUBTOTAL ES LA SUMA DE LA COLUMNA "TOTAL LÍNEA", que ya trae el
-  // descuento restado. Debajo salía "Descuento −₡36" como un renglón más de
-  // la cuenta, y entonces no cerraba: 1.469 − 36 + 191 no es 1.660. El
-  // descuento se informa, no se vuelve a restar. Con descuento se calcula
-  // desde el total, porque las facturas copiadas de Alegra guardan el
-  // subtotal ANTES del descuento y las propias, después.
-  const descuento = editando
-    ? filas.reduce((s, l) => s + l.cantidad * l.precioUnitario * (num(l.descuentoPorcentaje) / 100), 0)
-    : num(f.descuento)
-  const subtotal = editando
-    ? filas.reduce((s, l) => s + base(l), 0)
-    : (descuento > 0 ? num(f.total) - num(f.impuesto) : f.subtotal)
-  const total = editando ? subtotal + impuesto : f.total
-
-  const porTarifa = [...filas.reduce((m, l) => {
-    const t = num(l.tarifa)
-    return m.set(t, (m.get(t) || 0) + impuestoDe(l))
-  }, new Map())].filter(([, monto]) => monto > 0).sort((a, b) => a[0] - b[0])
-
-  const hayDescuento = filas.some(l => num(l.descuentoPorcentaje) > 0) || editando
-
-  const clientesEncontrados = useMemo(() => {
-    const t = (textoCliente || '').trim().toLowerCase()
-    if (t.length < 2) return []
-    return clientes.filter(c => `${c.name} ${c.identification || ''}`.toLowerCase().includes(t)).slice(0, 6)
-  }, [textoCliente, clientes])
-
-  const productosEncontrados = useMemo(() => {
-    const t = textoProducto.trim().toLowerCase()
-    if (t.length < 2) return []
-    return productos.filter(p => `${p.name} ${p.reference || ''}`.toLowerCase().includes(t)).slice(0, 6)
-  }, [textoProducto, productos])
-
-  const cambiarLinea = (i, campo, valor) =>
-    setLineas(lineas.map((l, j) => (j === i ? { ...l, [campo]: valor } : l)))
-
-  const agregarProducto = (p) => {
-    setLineas([...lineas, {
-      productoId: p.productoId ?? p.id,
-      nombre: p.name,
-      referencia: p.reference,
-      cabys: p.cabys,
-      cantidad: 1,
-      precioUnitario: num(p.price),
-      descuentoPorcentaje: 0,
-      // La tarifa viene del maestro, igual que al facturar.
-      tarifa: p.tax?.length ? num(p.tax[0].percentage) : 0,
-      descripcion: ''
-    }])
-    setTextoProducto('')
-  }
-
-  const guardar = async () => {
-    setError('')
-    if (lineas.length === 0) return setError('La factura no puede quedar sin líneas.')
-    if (lineas.some(l => num(l.cantidad) <= 0)) return setError('Hay una línea con cantidad en cero.')
-
-    setGuardando(true)
-    try {
-      await onGuardar({
-        clienteId: cliente?.id,
-        // Además de los ids, lo que se veía: el servidor lo compara con su
-        // ficha y no deja cambiar un cliente o agregar un producto que acá
-        // sea OTRO (ver facturaPropia.service.js, `esLoMostrado`).
-        clienteNombre: cliente?.nombre || '',
-        clienteIdentificacion: cliente?.identificacion || '',
-        items: lineas.map(l => ({
-          productoId: l.productoId,
-          reference: l.referencia || '',
-          name: l.nombre || '',
-          quantity: num(l.cantidad),
-          price: num(l.precioUnitario),
-          discount: Math.min(100, Math.max(0, num(l.descuentoPorcentaje))),
-          description: (l.descripcion || '').trim()
-        })),
-        observaciones,
-        motivo: motivo.trim() || null
-      })
-    } catch (e) {
-      setError(e.response?.data?.message || 'No se pudo guardar la factura.')
-      setGuardando(false)
-    }
-  }
+  const filas = editando ? edicion.lineas : f.lineas.map(filaDe)
+  const totales = totalesDe(f, filas, editando)
 
   return (
     <div className="flex flex-col gap-4">
@@ -292,11 +120,11 @@ export default function VistaFactura({
                 <X size={16} /> Cancelar
               </button>
               <button
-                onClick={guardar}
-                disabled={guardando}
+                onClick={edicion.guardar}
+                disabled={edicion.guardando}
                 className="btn btn-primary flex items-center gap-2 disabled:opacity-50"
               >
-                {guardando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {edicion.guardando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                 Guardar cambios
               </button>
             </>
@@ -356,7 +184,7 @@ export default function VistaFactura({
         </div>
       </div>
 
-      {error && <p className="rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700">{error}</p>}
+      {edicion.error && <p className="rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700">{edicion.error}</p>}
 
       {!editando && razonNoEditable && f.estado === 'emitida' && (
         <p className="rounded-xl bg-neutro-100 px-3 py-2 text-sm text-neutro-600">
@@ -412,11 +240,11 @@ export default function VistaFactura({
               </p>
             )}
             <p className="mt-2 text-xs text-neutro-500">
-              Creación: <strong className="text-neutro-700">{fecha(f.fecha)}</strong>
+              Creación: <strong className="text-neutro-700">{fechaCorta(f.fecha)}</strong>
             </p>
             {f.fechaVencimiento && (
               <p className="text-xs text-neutro-500">
-                Vencimiento: <strong className="text-neutro-700">{fecha(f.fechaVencimiento)}</strong>
+                Vencimiento: <strong className="text-neutro-700">{fechaCorta(f.fechaVencimiento)}</strong>
               </p>
             )}
           </div>
@@ -424,74 +252,7 @@ export default function VistaFactura({
 
         {/* Cliente y condiciones */}
         <div className="grid gap-4 border-b border-neutro-100 bg-neutro-50/60 p-5 sm:grid-cols-2">
-          <div>
-            <ContextoCicloDocumento documento={f} />
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutro-400">Señor(es)</p>
-
-            {/* En edición, el nombre se vuelve un buscador EN SU LUGAR. */}
-            {editando ? (
-              <div className="mt-0.5">
-                {textoCliente === null ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-lg font-bold text-neutro-900">{cliente?.nombre}</span>
-                    <button
-                      onClick={() => setTextoCliente('')}
-                      className="text-xs font-semibold text-primario-600 hover:underline"
-                    >
-                      Cambiar
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-1.5">
-                    <div className="relative">
-                      <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutro-400" />
-                      <input
-                        autoFocus
-                        value={textoCliente}
-                        onChange={(e) => setTextoCliente(e.target.value)}
-                        placeholder="Nombre o cédula…"
-                        className={`${CELDA} pl-8 text-lg font-bold`}
-                      />
-                    </div>
-                    {clientesEncontrados.map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => {
-                          setCliente({
-                            id: c.id, nombre: c.name, identificacion: c.identification,
-                            telefono: c.phonePrimary || c.mobile, direccion: null, correo: c.email
-                          })
-                          setTextoCliente(null)
-                        }}
-                        className="rounded-lg border border-neutro-200 bg-white px-2.5 py-1.5 text-left text-sm hover:border-primario-300"
-                      >
-                        <span className="font-semibold text-neutro-800">{c.name}</span>
-                        {c.identification && <span className="ml-2 text-xs text-neutro-400">{c.identification}</span>}
-                      </button>
-                    ))}
-                    <button onClick={() => setTextoCliente(null)} className="self-start text-xs text-neutro-500 hover:underline">
-                      Dejar el que está
-                    </button>
-                  </div>
-                )}
-                <p className="mt-1 text-xs text-neutro-400">
-                  La cédula, el teléfono y la dirección se copian de la ficha del cliente al guardar.
-                </p>
-              </div>
-            ) : (
-              <>
-                <p className="text-lg font-bold text-neutro-900">{f.cliente.nombre}</p>
-                <div className="mt-1 space-y-0.5 text-sm text-neutro-600">
-                  {f.cliente.identificacion && (
-                    <p>{f.cliente.tipoIdentificacion === 'CJ' ? 'Cédula jurídica' : 'Cédula física'}: {f.cliente.identificacion}</p>
-                  )}
-                  {f.cliente.telefono && <p>Teléfono: {f.cliente.telefono}</p>}
-                  {f.cliente.direccion && <p>Dirección: {f.cliente.direccion}</p>}
-                  {f.cliente.correo && <p>Email: {f.cliente.correo}</p>}
-                </div>
-              </>
-            )}
-          </div>
+          <ClienteFactura factura={f} editando={editando} edicion={edicion} />
 
           <dl className="grid grid-cols-2 gap-3 sm:justify-items-end">
             <Dato etiqueta="Condición">{f.condicionVenta === 'credito' ? (f.plazo || 'Crédito') : 'Contado'}</Dato>
@@ -501,256 +262,35 @@ export default function VistaFactura({
           </dl>
         </div>
 
-        {/* Líneas */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="border-b border-neutro-200 bg-neutro-50 text-left text-[10px] uppercase tracking-wider text-neutro-500">
-                <th className="px-4 py-2 font-semibold">Producto / servicio</th>
-                <th className="px-2 py-2 text-center font-semibold">Cant.</th>
-                <th className="px-2 py-2 text-right font-semibold">Precio unit.</th>
-                {hayDescuento && <th className="px-2 py-2 text-right font-semibold">Descuento</th>}
-                <th className="px-2 py-2 text-right font-semibold">Impuesto</th>
-                <th className="px-4 py-2 text-right font-semibold">Total línea</th>
-                {editando && <th className="w-10 px-2 py-2" />}
-              </tr>
-            </thead>
-            <tbody>
-              {filas.map((l, i) => (
-                <tr key={`${l.productoId}-${i}`} className="border-b border-neutro-100 last:border-0">
-                  <td className="px-4 py-2.5">
-                    <p className="font-semibold text-neutro-800">{l.nombre}</p>
-                    <p className="text-[11px] text-neutro-400">
-                      {[l.referencia && `Ref: ${l.referencia}`, l.cabys && `CAByS: ${l.cabys}`].filter(Boolean).join('   ')}
-                    </p>
-                    {/* Lo que se escribió para ESTA línea al facturar. */}
-                    {editando ? (
-                      <input
-                        value={l.descripcion || ''}
-                        onChange={(e) => cambiarLinea(i, 'descripcion', e.target.value.slice(0, 250))}
-                        placeholder="Detalle de esta línea (opcional)"
-                        aria-label={`Detalle de ${l.nombre}`}
-                        className={`${CELDA} mt-1 max-w-md text-xs`}
-                      />
-                    ) : esDetallePropio(l) && (
-                      <p className="mt-0.5 text-xs italic text-neutro-600">{l.descripcion}</p>
-                    )}
-                  </td>
+        <LineasFactura filas={filas} editando={editando} edicion={edicion} totales={totales} />
 
-                  <td className="px-2 py-2.5 text-center">
-                    {editando ? (
-                      <input
-                        type="number" min="0" step="1" value={l.cantidad}
-                        onChange={(e) => cambiarLinea(i, 'cantidad', e.target.value)}
-                        className={`${CELDA} max-w-[4.5rem] text-center`}
-                      />
-                    ) : (
-                      <span className="font-semibold text-neutro-800">{l.cantidad}</span>
-                    )}
-                  </td>
+        <TotalesFactura factura={f} editando={editando} totales={totales} />
 
-                  <td className="px-2 py-2.5 text-right">
-                    {editando ? (
-                      <input
-                        type="number" min="0" step="0.01" value={l.precioUnitario}
-                        onChange={(e) => cambiarLinea(i, 'precioUnitario', e.target.value)}
-                        className={`${CELDA} max-w-[6.5rem] text-right`}
-                      />
-                    ) : (
-                      <span className="text-neutro-600">{colonesExacto(l.precioUnitario)}</span>
-                    )}
-                  </td>
-
-                  {hayDescuento && (
-                    <td className="px-2 py-2.5 text-right">
-                      {editando ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <input
-                            type="number" min="0" max="100" step="1" value={l.descuentoPorcentaje}
-                            onChange={(e) => cambiarLinea(i, 'descuentoPorcentaje', e.target.value)}
-                            className={`${CELDA} max-w-[3.5rem] text-right`}
-                          />
-                          <span className="text-xs text-neutro-400">%</span>
-                        </div>
-                      ) : (
-                        <span className="text-alerta-600">
-                          {num(l.descuentoPorcentaje) > 0 ? `−${l.descuentoPorcentaje}%` : '—'}
-                        </span>
-                      )}
-                    </td>
-                  )}
-
-                  {/* El impuesto NO se escribe: sale del maestro del producto. */}
-                  <td className="px-2 py-2.5 text-right text-neutro-600">
-                    {colones(impuestoDe(l))}
-                    <span className="ml-1 text-[11px] text-neutro-400">{l.tarifa}%</span>
-                  </td>
-
-                  <td className="px-4 py-2.5 text-right font-bold text-neutro-900">{colones(base(l))}</td>
-
-                  {editando && (
-                    <td className="px-2 py-2.5 text-right">
-                      <button
-                        onClick={() => setLineas(lineas.filter((_, j) => j !== i))}
-                        className="rounded-lg p-1.5 text-neutro-400 hover:bg-peligro-50 hover:text-peligro-600"
-                        title="Quitar esta línea"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-
-              {/* Agregar un producto: una fila más de la misma tabla */}
-              {editando && (
-                <tr className="border-t border-neutro-200 bg-primario-50/30">
-                  <td colSpan={hayDescuento ? 7 : 6} className="px-4 py-2.5">
-                    <div className="relative max-w-md">
-                      <Plus size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutro-400" />
-                      <input
-                        value={textoProducto}
-                        onChange={(e) => setTextoProducto(e.target.value)}
-                        placeholder="Agregar un producto: nombre o código…"
-                        className={`${CELDA} pl-8`}
-                      />
-                    </div>
-                    {productosEncontrados.length > 0 && (
-                      <div className="mt-1.5 flex max-w-md flex-col gap-1">
-                        {productosEncontrados.map(p => (
-                          <button
-                            key={p.id}
-                            onClick={() => agregarProducto(p)}
-                            className="flex items-center justify-between rounded-lg border border-neutro-200 bg-white px-2.5 py-1.5 text-left text-sm hover:border-primario-300"
-                          >
-                            <span className="min-w-0 truncate font-semibold text-neutro-800">{p.name}</span>
-                            <span className="ml-2 shrink-0 text-neutro-500">{colones(p.price)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Totales */}
-        <div className="flex justify-end border-t border-neutro-100 p-5">
-          <div className="w-full max-w-xs space-y-1.5 text-sm">
-            <div className="flex justify-between text-neutro-600">
-              <span>Subtotal</span><span className="font-medium text-neutro-800">{colones(subtotal)}</span>
-            </div>
-            {descuento > 0 && (
-              <p className="text-right text-xs text-alerta-600">
-                Ya incluye {colones(descuento)} de descuento
-              </p>
-            )}
-            {porTarifa.map(([tarifa, monto]) => (
-              <div key={tarifa} className="flex justify-between text-neutro-600">
-                <span>IVA {tarifa}%</span><span className="font-medium text-neutro-800">{colones(monto)}</span>
-              </div>
-            ))}
-            <div className="flex items-baseline justify-between border-t-2 border-neutro-200 pt-2">
-              <span className="font-bold text-neutro-900">Total</span>
-              <span className="text-xl font-extrabold text-primario-600">{colones(total)}</span>
-            </div>
-            {!editando && (f.cobrado > 0 || f.acreditado > 0) && (
-              <>
-                {f.cobrado > 0 && (
-                  <div className="flex justify-between text-exito-700">
-                    <span>Pagado</span><span className="font-medium">−{colones(f.cobrado)}</span>
-                  </div>
-                )}
-                {f.acreditado > 0 && (
-                  <div className="flex justify-between text-nota-700">
-                    <span>Nota de crédito</span><span className="font-medium">−{colones(f.acreditado)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t border-neutro-200 pt-1.5 font-bold text-neutro-900">
-                  <span>Saldo</span><span>{colones(f.saldo)}</span>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Cobros, notas y observaciones */}
-        {(editando || f.cobros?.length > 0 || f.notasCredito?.length > 0 || f.observaciones || f.motivoAnulacion) && (
+        {/* Cobros y observaciones. Las notas de crédito ya no van acá: tienen
+            su tarjeta arriba del documento. */}
+        {(editando || f.cobros?.length > 0 || f.observaciones || f.motivoAnulacion) && (
           <div className="grid gap-4 border-t border-neutro-100 bg-neutro-50/60 p-5 sm:grid-cols-2">
             {!editando && f.cobros?.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutro-400">Cobros</p>
-                <div className="flex flex-col gap-1">
-                  {f.cobros.map(c => (
-                    <div key={c.id} className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="text-neutro-600">{fecha(c.fecha)} · {medio(c.metodo) || 'sin método'}</span>
-                      {c.referencia && <span className="text-xs text-neutro-400">ref. {c.referencia}</span>}
-                      <span className="font-semibold text-neutro-800">{colones(c.monto)}</span>
-                      {/* Marcado, no escondido: el cliente va a preguntar por
-                          ese cobro y tiene que haber rastro. */}
-                      {c.anulado && <Insignia tono="peligro">Anulado</Insignia>}
-                      {c.anulado && c.motivoAnulacion && <span className="text-xs text-neutro-400">{c.motivoAnulacion}</span>}
-                      {!c.anulado && puedeAnularCobro && f.estado === 'emitida' && cobroAnulando?.id !== c.id && (
-                        <button
-                          onClick={() => { setCobroAnulando(c); setMotivoCobro(''); setErrorCobro('') }}
-                          className="text-xs font-semibold text-peligro-600 hover:underline"
-                        >
-                          Anular cobro
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <CobrosFactura
+                cobros={f.cobros}
+                puedeAnular={puedeAnularCobro && f.estado === 'emitida'}
+                onAnularCobro={onAnularCobro}
+              />
+            )}
 
-                {/* El cobro no se borra: queda anulado con su motivo, y la
-                    factura vuelve a tener saldo. */}
-                {cobroAnulando && (
-                  <div className="mt-2 flex flex-col gap-2 rounded-xl border border-peligro-200 bg-white p-3">
-                    <p className="text-xs text-neutro-600">
-                      Se anula el cobro de <strong>{colonesExacto(cobroAnulando.montoPago ?? cobroAnulando.monto)}</strong>
-                      {cobroAnulando.facturas > 1
-                        ? <> entero: cubre <strong>{cobroAnulando.facturas} facturas</strong> y todas vuelven a quedar con saldo.</>
-                        : <>. La factura vuelve a quedar con saldo y se puede editar o anular.</>}
-                    </p>
-                    <input
-                      autoFocus
-                      value={motivoCobro}
-                      onChange={(e) => setMotivoCobro(e.target.value)}
-                      placeholder="¿Por qué se anula el cobro?"
-                      className="input w-full text-sm"
-                      maxLength={500}
-                    />
-                    {errorCobro && <p className="text-xs text-peligro-700">{errorCobro}</p>}
-                    <div className="flex gap-2">
-                      <button onClick={() => setCobroAnulando(null)} disabled={anulandoCobro} className="btn btn-outline flex-1 text-sm">
-                        Dejarlo como está
-                      </button>
-                      <button
-                        onClick={confirmarAnularCobro}
-                        disabled={anulandoCobro}
-                        className="btn flex flex-1 items-center justify-center gap-2 bg-peligro-600 text-sm font-bold text-white hover:bg-peligro-700 disabled:opacity-50"
-                      >
-                        {anulandoCobro && <Loader2 size={14} className="animate-spin" />} Anular el cobro
-                      </button>
-                    </div>
-                  </div>
+            {(editando || f.observaciones) && (
+              <div className={editando ? '' : 'sm:col-span-2'}>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-neutro-400">Observaciones</p>
+                {editando ? (
+                  <textarea
+                    rows={2} value={edicion.observaciones} onChange={(e) => edicion.setObservaciones(e.target.value)}
+                    className={`${CELDA} w-full`}
+                  />
+                ) : (
+                  <p className="text-sm text-neutro-700">{f.observaciones}</p>
                 )}
               </div>
             )}
-
-            <div className={editando ? '' : 'sm:col-span-2'}>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-neutro-400">Observaciones</p>
-              {editando ? (
-                <textarea
-                  rows={2} value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
-                  className={`${CELDA} w-full`}
-                />
-              ) : (
-                f.observaciones && <p className="text-sm text-neutro-700">{f.observaciones}</p>
-              )}
-            </div>
 
             {/* Solo en edición: dentro de seis meses, "por qué cambió esta
                 factura" tiene que poder responderse. */}
@@ -760,7 +300,7 @@ export default function VistaFactura({
                   ¿Por qué se corrige? (queda en la bitácora)
                 </p>
                 <input
-                  value={motivo} onChange={(e) => setMotivo(e.target.value)}
+                  value={edicion.motivo} onChange={(e) => edicion.setMotivo(e.target.value)}
                   placeholder="Se facturó de más una unidad…"
                   className={`${CELDA} w-full`}
                 />
