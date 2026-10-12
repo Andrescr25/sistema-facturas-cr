@@ -23,6 +23,15 @@ const subirImagen = (req, res, next) => upload.single('imagen')(req, res, (error
   res.status(400).json({ success: false, message: mensaje, error: mensaje });
 });
 
+// La foto horizontal de categoría se optimiza al subirla. El teléfono puede
+// mandar hasta 8 MB; lo que baja el agente queda limitado a 60/180 KiB.
+const uploadCategoria = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 1 } });
+const subirImagenCategoria = (req, res, next) => uploadCategoria.single('imagen')(req, res, error => {
+  if (!error) return next();
+  const mensaje = error.code === 'LIMIT_FILE_SIZE' ? 'La imagen pesa más de 8 MB.' : 'No se pudo leer el archivo subido.';
+  return res.status(400).json({ success: false, message: mensaje, error: mensaje });
+});
+
 const routes = express.Router();
 // El rediseño de Gestión de Catálogo (el de `main`, sobre `producto`). Van
 // ANTES de '/productos/:id': si no, Express lee "lote" como un id.
@@ -38,6 +47,8 @@ routes.delete('/subcategorias/:id', controller.eliminarSubcategoria);
 routes.post('/subcategorias/:id/mover', controller.moverSubcategoria);
 routes.put('/categorias-orden', controller.reordenarCategorias);
 routes.put('/categorias/:id/nombre-visible', controller.nombreVisibleCategoria);
+routes.post('/categorias/:id/imagen', subirImagenCategoria, controller.imagenCategoria);
+routes.delete('/categorias/:id/imagen', controller.quitarImagenCategoria);
 
 routes.get('/productos', controller.listar);
 routes.get('/productos/proveedores', controller.proveedores);

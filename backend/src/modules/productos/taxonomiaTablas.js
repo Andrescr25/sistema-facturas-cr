@@ -66,7 +66,8 @@ function categoriaValida(valor) {
  */
 async function categoriasEnOrden(db = { query }) {
   const { rows } = await db.query(`
-    SELECT c.id, c.nombre, cfg.nombre_visible, cfg.orden
+    SELECT c.id, c.nombre, cfg.nombre_visible, cfg.orden,
+           to_jsonb(cfg)->'imagen' AS imagen
       FROM categoria_producto c
       LEFT JOIN categoria_config cfg ON cfg.categoria = c.nombre
      WHERE c.activo
@@ -78,6 +79,9 @@ async function categoriasEnOrden(db = { query }) {
       id: c.id,
       name: c.nombre,
       nombreVisible: c.nombre_visible || c.nombre,
+      // La lectura también funciona antes de aplicar la 055. Las tablets
+      // anteriores reciben el mismo contrato cuando no hay foto asignada.
+      ...(c.imagen ? { imagen: c.imagen } : {}),
       orden: c.orden !== null && c.orden !== undefined ? c.orden : 100000 + i
     }))
     .sort((a, b) => a.orden - b.orden);

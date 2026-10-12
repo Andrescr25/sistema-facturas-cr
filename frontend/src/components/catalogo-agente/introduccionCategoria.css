@@ -1,0 +1,44 @@
+/* Solo las cabeceras se animan. Sin parallax, blur, scroll handlers ni capas
+   permanentes por cada ficha: cientos de productos conservan su costo. */
+.introduccion-categoria {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  min-height: 168px;
+  margin-bottom: 14px;
+  border-radius: 20px;
+  background: #12263f;
+  color: #fff;
+}
+.introduccion-categoria__imagen { position: absolute; inset: 0; z-index: -2; }
+.introduccion-categoria__imagen img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.introduccion-categoria--producto .introduccion-categoria__imagen { left: 48%; background: #f0f4f9; }
+.introduccion-categoria--producto .introduccion-categoria__imagen img { object-fit: contain; padding: 14px; }
+.introduccion-categoria__velo { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg,rgba(6,15,29,.96) 0%,rgba(11,27,48,.82) 42%,rgba(11,27,48,.26) 100%); }
+.introduccion-categoria__sin-imagen { position: absolute; right: 5%; width: 120px; height: 120px; color: #628aae; opacity: .32; transform: rotate(-10deg); }
+.introduccion-categoria__sin-imagen svg { width: 100%; height: 100%; }
+.introduccion-categoria__contenido { position: relative; width: 100%; padding: 24px; }
+.introduccion-categoria__detalle { display: flex; align-items: center; gap: 9px; color: #dce3ed; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.introduccion-categoria__linea { width: 24px; height: 2px; background: #f2a878; }
+.introduccion-categoria__posicion { margin-left: auto; font-variant-numeric: tabular-nums; }
+.introduccion-categoria__nombre { max-width: 85%; margin: 12px 0 8px; font-size: clamp(24px,4.6vw,34px); font-weight: 800; letter-spacing: -.03em; line-height: 1.12; overflow-wrap: anywhere; text-wrap: balance; }
+.introduccion-categoria__cantidad { display: flex; align-items: center; gap: 8px; color: #dce3ed; font-size: 12px; font-weight: 500; }
+@media (min-width: 640px) {
+  .introduccion-categoria { min-height: 200px; border-radius: 24px; margin-bottom: 18px; }
+  .introduccion-categoria__contenido { padding: 30px 36px; }
+  .introduccion-categoria__nombre { max-width: 72%; font-size: 38px; }
+  .introduccion-categoria__detalle { font-size: 11px; }
+  .introduccion-categoria__cantidad { font-size: 13px; }
+}
+@media (min-width: 1024px) {
+  .introduccion-categoria { min-height: 216px; }
+  .introduccion-categoria__nombre { max-width: 65%; font-size: 44px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .introduccion-categoria[data-entrada="visible"] .introduccion-categoria__contenido { animation: categoria-entrada .65s cubic-bezier(.22,1,.36,1) both; }
+  .introduccion-categoria[data-entrada="visible"] .introduccion-categoria__imagen { animation: categoria-foto .95s cubic-bezier(.22,1,.36,1) both; }
+}
+@keyframes categoria-entrada { from { opacity: .5; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes categoria-foto { from { opacity: .65; transform: scale(1.035); } to { opacity: 1; transform: scale(1); } }

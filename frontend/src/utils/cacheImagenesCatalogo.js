@@ -93,13 +93,24 @@ export function fotoDe(producto) {
  * foto propia (urlArchivo). Tiene que ser la misma: la llave de lo guardado
  * es esa dirección, y el worker busca por la que pide el <img>.
  */
-export function fotosEnOrden(productos, completar = null) {
+export function fotosEnOrden(productos, completar = null, configCatalogo = null) {
   const porLlave = new Map()
   for (const p of productos) {
     const url = direccionCompleta(fotoDe(p), completar)
     if (!url) continue
     const llave = llaveImagen(url)
     if (!porLlave.has(llave)) porLlave.set(llave, url)
+  }
+  // Ambas versiones deben seguir dentro de esta MISMA caché: su renovación
+  // borra lo ajeno al conjunto. Un teléfono usa la pequeña y una tablet puede
+  // cambiar de orientación sin depender de volver a tener señal.
+  for (const categoria of configCatalogo?.categorias || []) {
+    for (const ruta of [categoria.imagen?.urlMovil, categoria.imagen?.url]) {
+      const url = direccionCompleta(ruta, completar)
+      if (!url) continue
+      const llave = llaveImagen(url)
+      if (!porLlave.has(llave)) porLlave.set(llave, url)
+    }
   }
   return porLlave
 }

@@ -356,6 +356,9 @@ export default function GestionCatalogo() {
           onVolver={volver}
           onEnfocar={taxonomia.enfocar}
           onRenombrarCategoria={(nombreVisible) => taxonomia.renombrarCategoria(categoriaActiva, nombreVisible)}
+          onGuardarImagen={archivo => taxonomia.guardarImagenCategoria(categoriaActiva, archivo)}
+          onQuitarImagen={() => taxonomia.quitarImagenCategoria(categoriaActiva)}
+          onImagenGuardada={mensaje => showToast(mensaje, 'success')}
           onCrearSub={(nombre) => taxonomia.crearSubcategoria(categoriaActiva, nombre)}
           onRenombrarSub={(id, nombre) => taxonomia.renombrarSubcategoria(categoriaActiva, id, nombre)}
           onReordenarSub={(ids) => taxonomia.reordenarSubcategorias(categoriaActiva, ids)}

@@ -71,7 +71,7 @@ Cómo quedó:
 
 - **La llave de lo guardado es la dirección que pide el `<img>`.** La tarjeta
   la arma con `urlArchivo()` y el guardado recibe esa misma función
-  (`fotosEnOrden(enOrden, urlArchivo)`). Si las dos no coinciden, la foto
+  (`fotosEnOrden(enOrden, urlArchivo, configParaOrden)`). Si las dos no coinciden, la foto
   está guardada y no se encuentra. Una prueba ata las dos puntas.
 - La foto propia se pide con `mode: 'cors'`: respuesta legible, tamaño real,
   y un 404 no se guarda bajo la llave de la foto.
@@ -99,3 +99,11 @@ Lo que cada tablet tiene que hacer una vez: abrir el catálogo con internet
 La lección de método, otra vez: las pruebas del guardado pasaban todas —
 con direcciones de Alegra. Cuando cambia DE DÓNDE sale un dato, hay que
 volver a correr el recorrido entero con el dato nuevo, no solo las pruebas.
+
+2026-10-11, introducciones visuales: `fotosEnOrden` incluye también las dos
+variantes de cada `categoria_config.imagen`, después de las fotos de productos
+para conservar su prioridad. Usan `urlArchivo` y la misma llave/cache; así
+la limpieza de fotos retiradas no las descarta en cada actualización. Ambas
+versiones se guardan para que girar o cambiar de tamaño sin señal también
+funcione. Un fallo/cuota insuficiente conserva nombre y altura de la cabecera,
+y permite seguir recorriendo. [Validación](../../informes/catalogo-categorias-visuales-2026-10-11.md).

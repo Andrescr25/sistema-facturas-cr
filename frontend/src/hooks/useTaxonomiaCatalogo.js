@@ -86,6 +86,25 @@ export function useTaxonomiaCatalogo() {
     }
   }, [cargarArbol])
 
+  const guardarImagenCategoria = useCallback(async (categoria, archivo) => {
+    const id = idDe(categoria)
+    if (!id) throw new Error('Recargá el catálogo antes de cambiar la imagen.')
+    const form = new FormData()
+    form.append('imagen', archivo)
+    const { data } = await api.post(`/maestro/categorias/${id}/imagen`, form, { headers:{ 'Content-Type':'multipart/form-data' } })
+    // Parchear por id, incluso si se cambió de categoría mientras guardaba.
+    setArbol(prev => prev.map(c => c.id === id ? { ...c,imagen:data.data.imagen } : c))
+    return data.data
+  }, [])
+
+  const quitarImagenCategoria = useCallback(async categoria => {
+    const id = idDe(categoria)
+    if (!id) throw new Error('Recargá el catálogo antes de cambiar la imagen.')
+    const { data } = await api.delete(`/maestro/categorias/${id}/imagen`)
+    setArbol(prev => prev.map(c => c.id === id ? { ...c,imagen:null } : c))
+    return data.data
+  }, [])
+
   /** `nombresEnOrden` es TODA la lista de categorías, en su orden final. */
   const reordenarCategorias = useCallback(async (nombresEnOrden) => {
     setArbol((prev) => {
@@ -161,6 +180,8 @@ export function useTaxonomiaCatalogo() {
     volverALista,
     crearCategoria,
     renombrarCategoria,
+    guardarImagenCategoria,
+    quitarImagenCategoria,
     reordenarCategorias,
     crearSubcategoria,
     renombrarSubcategoria,

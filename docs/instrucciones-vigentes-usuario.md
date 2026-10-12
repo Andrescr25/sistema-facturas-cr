@@ -68,6 +68,17 @@ siguen en [checklist de independencia](checklist-independencia-alegra.md).
 
 ## Prioridad actual — 2026-10-07
 
+**Actualización 2026-10-11:** el usuario confirmó que ya se pasó a producción.
+La separación histórica de migración/corte descrita arriba corresponde al
+trabajo anterior. Ahora solicita mejorar la navegación del **catálogo del
+agente**: introducción visual breve por categoría, nombre e imagen, productos
+inmediatamente debajo; moderna, mínima, rápida en móvil con miles de fichas,
+lazy loading y animaciones ligeras que no bloqueen el scroll. La imagen debe
+asignarse en **Gestión de Catálogo junto a donde se edita el nombre**.
+Preparación en worktree propio y base desechable; `main` requiere autorización
+específica nueva. Facturación/Hacienda quedan a cargo de Claude.
+[Implementación y comprobaciones](informes/catalogo-categorias-visuales-2026-10-11.md).
+
 Después de consultar los pendientes de migración, el usuario indicó «esto lo
 vemos después» y pidió «ahora, rediseña el módulo de clientes; siento que está
 muy desordenado». Clientes quedó reorganizado. Después pidió **rediseñar el
@@ -402,4 +413,3 @@ emitidas».
 LISTAS". Electrónica = aceptada por Hacienda (factura o tiquete). "Con
 saldo", "Anuladas" y "Todas" siguen mezclando las dos; falta que diga si
 también las quiere partidas.
-

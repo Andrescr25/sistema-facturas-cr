@@ -12,6 +12,8 @@ import BarraCategorias from '../components/catalogo-agente/BarraCategorias'
 import TarjetaProductoAgente from '../components/catalogo-agente/TarjetaProductoAgente'
 import SyncOverlay from '../components/catalogo-agente/SyncOverlay'
 import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
+import IntroduccionCategoria from '../components/catalogo-agente/IntroduccionCategoria'
+import { imagenDeCategoria } from '../utils/imagenesCategoriaCatalogo'
 
 /**
  * El catálogo que el agente lleva en la tablet.
@@ -79,13 +81,11 @@ function Cuadricula({ productos, familias, statsPorProducto }) {
  * Cada una tiene su encabezado y una cuadrícula continua; las subcategorías
  * se identifican en las tarjetas para poder compartir fila sin confusión.
  */
-function BloquesPorCategoria({ bloques }) {
-  return bloques.map((b) => (
+function BloquesPorCategoria({ bloques, configCatalogo, nivel = 3 }) {
+  return bloques.map((b, i) => (
     <div key={b.clave} className="mb-6 last:mb-0">
-      <div className="mb-3 flex items-baseline gap-2 border-b border-neutro-200 pb-1.5">
-        <h3 className={`text-[15px] font-extrabold ${b.clave === 'Otros' ? 'text-neutro-400' : 'text-neutro-800'}`}>{b.nombre}</h3>
-        <span className="text-xs font-semibold text-neutro-400">{b.productos.length}</span>
-      </div>
+      <IntroduccionCategoria nombre={b.nombre} cantidad={b.productos.length} nivel={nivel}
+        imagen={imagenDeCategoria(b.clave, configCatalogo, b.productos)} numero={i + 1} total={bloques.length} />
       <Cuadricula productos={b.productos} familias={b.familias} />
     </div>
   ))
@@ -209,7 +209,12 @@ export default function CatalogoAgente() {
       />
 
       {!buscando && !vacio && (
-        <BarraCategorias categorias={categorias} activa={categoria} onElegir={setCategoria} />
+        <BarraCategorias categorias={categorias} activa={categoria} onElegir={clave => {
+          setCategoria(clave)
+          // El filtro abre otra colección; desde el fondo de una categoría
+          // larga debe verse su introducción y sus primeros productos.
+          window.scrollTo({ top:0,behavior:'auto' })
+        }} />
       )}
 
       <main className="px-3 py-4">
@@ -281,7 +286,7 @@ export default function CatalogoAgente() {
           /* Misma selección de recomendaciones, ordenada por familia.
              La barra filtra promociones/rotación sin separarlas en Todo. */
           <>
-            <BloquesPorCategoria bloques={enTodo
+            <BloquesPorCategoria configCatalogo={configCatalogo} nivel={2} bloques={enTodo
               ? clienteNuevo.todos
               : clienteNuevo[{ __oferta: 'oferta', __liquidacion: 'liquidacion', __rotA: 'A', __rotB: 'B' }[categoria]] || []} />
             {clienteNuevo.totales.A + clienteNuevo.totales.B === 0 && (
@@ -298,7 +303,7 @@ export default function CatalogoAgente() {
             {categoria === '__ofertas' && ofertas.length > 0 && (
               <Seccion titulo="Ofertas y liquidación" descripcion="Filtradas por categoría y familia"
                 icono={Tag} color="bg-acento-50 text-acento-600">
-                <BloquesPorCategoria bloques={ofertasPorCategoria} />
+                <BloquesPorCategoria bloques={ofertasPorCategoria} configCatalogo={configCatalogo} />
               </Seccion>
             )}
 
@@ -307,7 +312,7 @@ export default function CatalogoAgente() {
             {(enTodo || categoria === '__nuevos') && productosNuevos.length > 0 && (
               <Seccion titulo="Productos nuevos" descripcion="Recién llegados al catálogo"
                 icono={Sparkles} color="bg-primario-50 text-primario-600">
-                <BloquesPorCategoria bloques={nuevosPorCategoria} />
+                <BloquesPorCategoria bloques={nuevosPorCategoria} configCatalogo={configCatalogo} />
               </Seccion>
             )}
 
@@ -327,16 +332,17 @@ export default function CatalogoAgente() {
 
             {filteredData.sortedKeys
               .filter((k) => enTodo || categoria === k)
-              .map((k) => {
+              .map((k, i, claves) => {
                 // Las familias siguen juntas, pero comparten las filas de
                 // su categoría. No se reordena por tamaño para llenar huecos.
                 const familias = filteredData.subgrupos?.[k]
                 return (
-                  <Seccion key={k} titulo={nombreVisibleDeCategoria(k, configCatalogo)} descripcion={`${filteredData.grouped[k].length} productos`}
-                    icono={ChevronRight} color="bg-neutro-100 text-neutro-500">
+                  <section key={k} className="mb-8">
+                    <IntroduccionCategoria nombre={nombreVisibleDeCategoria(k, configCatalogo)} cantidad={filteredData.grouped[k].length}
+                      imagen={imagenDeCategoria(k, configCatalogo, filteredData.grouped[k])} numero={i + 1} total={claves.length} />
                     <Cuadricula productos={filteredData.grouped[k]} familias={familias}
                       statsPorProducto={statsPorProducto} />
-                  </Seccion>
+                  </section>
                 )
               })}
           </>

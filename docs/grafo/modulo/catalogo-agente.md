@@ -28,10 +28,15 @@ archivos:
   - frontend/src/utils/catalogoAgenteDb.js
   - frontend/src/hooks/useCatalogoAgente.js
   - backend/tests/catalogoAgenteIdsPropios.test.js
+  - frontend/src/components/catalogo-agente/IntroduccionCategoria.jsx
+  - frontend/src/components/catalogo-agente/introduccionCategoria.css
+  - frontend/src/utils/entradaCategoria.js
+  - frontend/src/utils/imagenesCategoriaCatalogo.js
+  - backend/tests/categoriasVisuales.test.js
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-07
+medido: 2026-10-11
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar; el pedido
@@ -61,6 +66,23 @@ arriba de todo.
 
 La búsqueda (`buscarCatalogoAgente.js`) descarta el agrupado y devuelve una
 lista plana; Gestión de Catálogo hace lo mismo al buscar.
+
+2026-10-11, pedido de navegación visual: cada bloque de categoría comienza
+con `IntroduccionCategoria`, nombre, foto, contador y posición en la colección;
+la cuadrícula empieza inmediatamente después. También se reutiliza en Cliente
+nuevo, Ofertas y Nuevos, conservando su selección y orden. La imagen asignada
+en Gestión gana; sin ella se aprovecha una foto de producto, o un fondo con
+icono si tampoco hay fotos. Buscar sigue dando resultados planos. Elegir un
+filtro de categoría vuelve arriba para mostrar su introducción.
+
+Un único `IntersectionObserver` observa CABECERAS, nunca las tarjetas; al
+entrar marca el DOM y deja de observar, sin actualizar estado React por el
+scroll. CSS anima solo transform y opacity durante 650/950 ms. Todo es visible
+sin observador y con movimiento reducido. `<picture>` elige la WebP móvil;
+lazy/async/prioridad baja, altura reservada y respaldo si falla, sin bloquear
+el recorrido. Las dos variantes se descargan al actualizar el catálogo y
+viajan en su caché existente: [[leccion/fotos-del-catalogo-en-la-tablet]].
+[Diseño, límites y pruebas](../../informes/catalogo-categorias-visuales-2026-10-11.md).
 
 2026-10-07, segunda corrección del usuario: OFERTAS DENTRO DE SU FAMILIA.
 En Todo no hay bloque superior de ofertas/rebajas/liquidación. El hook cruza

@@ -1,15 +1,18 @@
 ---
 id: tabla/categoria-config
 tipo: tabla
-titulo: Orden y nombre visible de las categorías de Alegra
+titulo: Orden, nombre visible e imagen de las categorías
 estado: vigente
 archivos:
   - backend/migrations/add_orden_categorias.sql
   - backend/src/modules/productos/taxonomiaTablas.js
   - backend/tests/taxonomiaTablas.test.js
+  - backend/migrations/independencia/055_imagen_categoria_catalogo.sql
+  - backend/src/modules/productos/categorias.imagenes.js
+  - backend/tests/imagenCategoriaLocal.test.js
 aristas:
   relacionado: [tabla/subcategoria, decision/orden-canonico-compartido, modulo/gestion-catalogo, modulo/catalogo-agente]
-medido: 2026-10-04
+medido: 2026-10-11
 ---
 
 `categoria_config (categoria PK, nombre_visible, orden, actualizado_en)`.
@@ -33,3 +36,11 @@ tablet lo armaba pidiéndole las categorías a Alegra en vivo
 categorías en el mismo orden y con los mismos nombres visibles— pero dejaba el
 catálogo del agente dependiendo de que Alegra respondiera.
 
+2026-10-11: SQL 055 agrega `imagen JSONB NULL`, solo metadatos de la foto
+optimizada (`url`, `urlMovil`, `ancho`, `alto`, `anchoMovil`, `altoMovil`). Los
+archivos están en almacenamiento propio público `/archivos/categorias/`.
+NULL conserva la presentación sin foto asignada. La subida solo cambia
+imagen/timestamp, preserva nombre visible y orden. El renombre real mueve la
+fila completa y mantiene la foto; guardar imagen comparte su bloqueo por id.
+`categoriasEnOrden` lee `to_jsonb(cfg)->'imagen'`, compatible antes de aplicar
+055; árbol y configuración del agente reciben el mismo objeto.

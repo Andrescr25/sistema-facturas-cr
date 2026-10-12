@@ -4,6 +4,7 @@
 
 const servicio = require('./productos.service');
 const imagenes = require('./productos.imagenes');
+const imagenesCategorias = require('./categorias.imagenes');
 const taxonomia = require('./taxonomia.service');
 
 function responder(res, promesa, contexto, status = 200) {
@@ -74,6 +75,8 @@ module.exports = {
   moverSubcategoria: (req, res) => responder(res, taxonomia.moverSubcategoria(req.params.id, req.body, usuario(req)), 'mover subcategoría'),
   reordenarCategorias: (req, res) => responder(res, taxonomia.reordenarCategorias(req.body?.categorias), 'ordenar categorías'),
   nombreVisibleCategoria: (req, res) => responder(res, taxonomia.nombreVisibleCategoria(req.params.id, req.body?.nombreVisible), 'nombre visible'),
+  imagenCategoria: (req, res) => responder(res, imagenesCategorias.asignarDesdeArchivo(req.params.id, req.file, usuario(req)), 'imagen de categoría'),
+  quitarImagenCategoria: (req, res) => responder(res, imagenesCategorias.quitarImagen(req.params.id, usuario(req)), 'quitar imagen de categoría'),
 
   listarCategorias: (req, res) => responder(res, servicio.listarCategorias(), 'categorías'),
   crearCategoria: (req, res) => responder(res, servicio.crearCategoria(req.body, usuario(req)), 'crear categoría', 201),

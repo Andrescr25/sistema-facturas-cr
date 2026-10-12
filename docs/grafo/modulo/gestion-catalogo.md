@@ -19,11 +19,15 @@ archivos:
   - frontend/src/hooks/useFichaProducto.js
   - backend/tests/taxonomiaCatalogo.test.js
   - backend/tests/maestroFotosYReferencias.test.js
+  - backend/src/modules/productos/categorias.imagenes.js
+  - backend/tests/imagenCategoriaLocal.test.js
+  - frontend/src/components/gestion-catalogo/ImagenCategoria.jsx
+  - frontend/src/components/gestion-catalogo/DetalleCategoria.jsx
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
   relacionado: [modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, tabla/alegra-products-cache]
-medido: 2026-10-04
+medido: 2026-10-11
 ---
 
 QUÉ ES
@@ -63,6 +67,23 @@ subcategorías, y el orden y el nombre visible de las categorías, usan
 Renombrar una categoría DE VERDAD (pestaña
 Categorías) arrastra ese nombre en las dos tablas
 (`productos.service.editarCategoria`).
+
+2026-10-11: al abrir una categoría, el botón **Imagen** está junto a su nombre
+y lápiz. Abre vista previa, elegir/reemplazar, guardar o quitar. JPG/PNG/WebP,
+máximo 8 MiB; el servidor valida los bytes y limita la decodificación a 24
+megapíxeles, elimina metadatos y guarda dos WebP estáticos: hasta 960×540/180
+KiB y 480×270/60 KiB (reduce resolución si necesita cumplir el peso).
+`POST/DELETE /maestro/categorias/:id/imagen` requieren Gestión de Catálogo.
+No se admite URL externa ni se modifica la foto de un producto.
+
+El servicio bloquea `categoria_producto` por id y luego `categoria_config`
+por el nombre actual, igual que el renombre real: nombre visible, orden e
+imagen sobreviven al renombre/reordenamiento. Bitácora y configuración van
+en la misma transacción; si falla borra los archivos nuevos y conserva los
+anteriores. Al reemplazar/quitar solo borra las variantes de esa categoría,
+después del commit. La lectura funciona antes de SQL 055; guardar sin esa
+columna devuelve 503 y conserva la imagen previa. Pruebas con PostgreSQL
+desechable y multipart real en `imagenCategoriaLocal.test.js`.
 
 LO QUE SOLO SE VE CONTRA UNA BASE
 

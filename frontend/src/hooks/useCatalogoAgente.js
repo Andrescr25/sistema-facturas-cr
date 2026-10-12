@@ -423,7 +423,7 @@ export function useCatalogoAgente() {
           ...enOrdenDelCatalogo(newBuffer, configParaOrden).flatMap(b => b.productos)]
         // urlArchivo es lo que usa la tarjeta para pedir la foto: la llave de
         // lo guardado tiene que ser esa misma dirección o sin señal no aparece.
-        resultadoFotos = await guardarFotosDelCatalogo(fotosEnOrden(enOrden, urlArchivo), (hechas,total) => {
+        resultadoFotos = await guardarFotosDelCatalogo(fotosEnOrden(enOrden, urlArchivo, configParaOrden), (hechas,total) => {
           updateSyncUI(`Guardando fotos: ${hechas} / ${total}`, total ? Math.min(100, hechas/total*100) : 100)
         })
       } catch (error) { console.error('No se pudieron guardar las fotos:', error) }

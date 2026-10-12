@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlertCircle, ArrowLeft, Check, CheckCircle2, Loader2, PackageSearch, Pencil, Plus, Search, Tag, X } from 'lucide-react'
 import Boton from '../ui/Boton'
 import SeccionSubcategoria from './SeccionSubcategoria'
+import ImagenCategoria from './ImagenCategoria'
 
 function Ficha({ activa, alerta = false, onClick, children, cantidad }) {
   const estilo = activa
@@ -42,6 +43,9 @@ export default function DetalleCategoria({
   onVolver,
   onEnfocar,
   onRenombrarCategoria,
+  onGuardarImagen,
+  onQuitarImagen,
+  onImagenGuardada,
   onCrearSub,
   onRenombrarSub,
   onReordenarSub,
@@ -124,7 +128,7 @@ export default function DetalleCategoria({
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="break-words text-2xl font-bold text-neutro-900 sm:text-3xl">{categoria.nombreVisible}</h1>
                 <button
                   type="button"
@@ -136,6 +140,9 @@ export default function DetalleCategoria({
                 </button>
               </div>
             )}
+            <div className="mt-2">
+              <ImagenCategoria categoria={categoria} onGuardar={onGuardarImagen} onQuitar={onQuitarImagen} onGuardada={onImagenGuardada} />
+            </div>
             <p className="mt-0.5 text-sm text-neutro-500">
               {categoria.nombreVisible !== categoria.name && <>En el sistema: {categoria.name} · </>}
               {subsOrdenadas.length} subcategoría{subsOrdenadas.length === 1 ? '' : 's'}

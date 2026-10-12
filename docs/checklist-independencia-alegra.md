@@ -40,6 +40,14 @@ Se implementa localmente; no altera **133/14** ni acredita aceptación fiscal.
 
 ## Cómo trabajar en esta rama
 
+**Después del corte, 2026-10-11 — catálogo visual:** cabecera de categoría con
+foto y entrada breve, productos inmediatamente debajo, imagen editable junto
+al nombre en Gestión. Preparado en worktree de `developer`; pruebas en base
+desechable. SQL 055 agrega solo metadatos; no se aplicó en producción.
+[Informe](informes/catalogo-categorias-visuales-2026-10-11.md). No altera los
+IDs históricos **133/14** ni el operativo **96/3**; no se atribuye una nueva
+autorización para publicar en `main` a este pedido.
+
 - **Dos carpetas, una por rama**, para que corran a la vez:
 
   | Carpeta | Rama | Frontend | Backend | Base |

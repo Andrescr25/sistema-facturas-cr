@@ -146,6 +146,24 @@ describe('guardar las fotos del catálogo', () => {
   });
 });
 
+test('la sincronización incluye las dos versiones de categoría y las conserva sin señal', async () => {
+  const { caches,cache }=cacheFalsa();
+  const api='https://api.ejemplo';
+  const foto={url:'/archivos/categorias/7-grande.webp',urlMovil:'/archivos/categorias/7-movil.webp'};
+  const config={categorias:[{name:'Mascotas',imagen:foto},{name:'Sin foto'},{name:'Repetida',imagen:foto}]};
+  const m=cargar({caches,navigator:{storage:{estimate:async()=>({usage:0,quota:1e9})}},fetch:async()=>({ok:true})});
+  const conjunto=m.fotosEnOrden([{images:[{url:'/archivos/productos/1.webp'}]}],ruta=>ruta?api+ruta:null,config);
+  assert.deepEqual([...conjunto.values()],[api+'/archivos/productos/1.webp',api+foto.urlMovil,api+foto.url]);
+  await m.guardarFotosDelCatalogo(conjunto);
+  const r=await m.guardarFotosDelCatalogo(conjunto);
+  assert.equal(r.nuevas,0);
+  assert.equal(r.yaEstaban,3);
+  assert.equal(cache.datos.has(api+foto.urlMovil),true);
+  assert.equal(cache.datos.has(api+foto.url),true);
+  const quitada=await m.guardarFotosDelCatalogo(m.fotosEnOrden([],null,{categorias:[]}));
+  assert.equal(quitada.borradas,3);
+});
+
 describe('las fotos propias, después del corte', () => {
   const API = 'https://api.ejemplo';
   // Lo mismo que hace frontend/src/utils/urlArchivo.js con el origen de la API.
@@ -238,7 +256,7 @@ describe('las fotos propias, después del corte', () => {
   test('la tarjeta y el guardado arman la dirección con la misma función', () => {
     const { sinComentarios } = require('./dobles/sinComentarios');
     const leer = (...p) => sinComentarios(fs.readFileSync(path.join(FRONT, 'src', ...p), 'utf8'));
-    assert.match(leer('hooks', 'useCatalogoAgente.js'), /fotosEnOrden\(enOrden, urlArchivo\)/);
+    assert.match(leer('hooks', 'useCatalogoAgente.js'), /fotosEnOrden\(enOrden, urlArchivo, configParaOrden\)/);
     assert.match(leer('components', 'catalogo-agente', 'TarjetaProductoAgente.jsx'), /urlArchivo\(favorita\?\.url\)/);
   });
 });
