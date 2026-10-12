@@ -96,7 +96,7 @@ function aVista(f) {
 /**
  * @param {object} filtros
  * @param {string} filtros.buscar        número, cliente o cédula
- * @param {'emitidas'|'anuladas'|'borradores'|'con_saldo'|'todas'} filtros.estado
+ * @param {'ventas'|'electronicas'|'emitidas'|'anuladas'|'borradores'|'con_saldo'|'todas'} filtros.estado
  * @param {string} filtros.desde         AAAA-MM-DD
  * @param {string} filtros.hasta         AAAA-MM-DD
  */
@@ -106,13 +106,22 @@ async function listarFacturas({ buscar = '', estado = 'emitidas', desde = '', ha
   const agregar = (valor) => { params.push(valor); return `$${params.length}`; };
 
   switch (estado) {
+    // LAS EMITIDAS, EN DOS LISTAS (pedido del usuario, 2026-10-11): «que el
+    // tab que dice "emitidas" se divida en Facturas de venta y Facturas
+    // electrónicas, para que no me salgan ambas». Electrónica es la que
+    // Hacienda ACEPTÓ —factura o tiquete—, la misma regla de la etiqueta de
+    // cada documento: una enviada sin respuesta, o rechazada, sigue siendo
+    // de venta. Así ninguna emitida queda fuera de las dos ni en las dos.
+    case 'ventas': where.push("f.estado = 'emitida' AND f.electronica IS NOT TRUE"); break;
+    case 'electronicas': where.push("f.estado = 'emitida' AND f.electronica IS TRUE"); break;
+    // Las dos juntas: lo sigue usando quien llama sin decir cuál quiere.
     case 'emitidas': where.push("f.estado = 'emitida'"); break;
     case 'anuladas': where.push("f.estado = 'anulada'"); break;
     case 'borradores': where.push("f.estado = 'borrador'"); break;
     // Las que de verdad se le pueden cobrar a alguien.
     case 'con_saldo': where.push(`f.estado = 'emitida' AND f.total - ${COBRADO} - ${ACREDITADO} > 1`); break;
     case 'todas': break;
-    default: throw httpError(400, 'Estado: tiene que ser emitidas, anuladas, borradores, con_saldo o todas.');
+    default: throw httpError(400, 'Estado: tiene que ser ventas, electronicas, emitidas, anuladas, borradores, con_saldo o todas.');
   }
 
   const texto = String(buscar).trim();

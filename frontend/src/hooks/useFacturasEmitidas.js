@@ -18,9 +18,13 @@ import { avisoNotaCreada } from '../utils/notaCreditoTexto'
  * que cobrarle—, no "mostrame todas".
  */
 
+// "Emitidas" eran las de venta y las electrónicas revueltas. El usuario pidió
+// verlas en dos listas (2026-10-11); la regla de cuál es cuál la pone el
+// servidor y es la misma de la etiqueta de cada factura.
 const ESTADOS = [
   { clave: 'con_saldo', etiqueta: 'Con saldo' },
-  { clave: 'emitidas', etiqueta: 'Emitidas' },
+  { clave: 'ventas', etiqueta: 'Facturas de venta' },
+  { clave: 'electronicas', etiqueta: 'Facturas electrónicas' },
   { clave: 'anuladas', etiqueta: 'Anuladas' },
   { clave: 'todas', etiqueta: 'Todas' }
 ]

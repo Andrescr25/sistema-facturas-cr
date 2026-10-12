@@ -392,3 +392,14 @@ Decisiones de Claude, a revisar por él:
 Sin hacer, por si los pide: anular una nota desde la pantalla y mandarle la
 nota electrónica al cliente por correo.
 
+## 2026-10-11 — "Emitidas" en dos pestañas
+
+Textual: «ocupo que el tab que dice "emitidas" se divida mejor en 2 tabs que
+diga Facturas de venta y Facturas electrónicas para que no me salgan ambas en
+emitidas».
+
+**Hecho**: [Facturación](grafo/modulo/facturacion.md), "EMITIDAS SON DOS
+LISTAS". Electrónica = aceptada por Hacienda (factura o tiquete). "Con
+saldo", "Anuladas" y "Todas" siguen mezclando las dos; falta que diga si
+también las quiere partidas.
+

@@ -135,6 +135,57 @@ describe('la búsqueda', () => {
     assert.match(consultas[0].sql, /f\.total - .* > 1/);
   });
 
+  // LAS EMITIDAS, EN DOS LISTAS (2026-10-11). El usuario: «que el tab que
+  // dice "emitidas" se divida en Facturas de venta y Facturas electrónicas
+  // para que no me salgan ambas en emitidas».
+  test('"ventas" trae las emitidas que NO son electrónicas', async () => {
+    const { servicio, consultas } = montar();
+    await servicio.listarFacturas({ estado: 'ventas' });
+    assert.match(consultas[0].sql, /WHERE f\.estado = 'emitida' AND f\.electronica IS NOT TRUE/);
+  });
+
+  test('"electronicas" trae las emitidas que Hacienda aceptó', async () => {
+    const { servicio, consultas } = montar();
+    await servicio.listarFacturas({ estado: 'electronicas' });
+    assert.match(consultas[0].sql, /WHERE f\.estado = 'emitida' AND f\.electronica IS TRUE/);
+  });
+
+  test('entre las dos listas están todas las emitidas, y ninguna en las dos', async () => {
+    // Una condición es la negación exacta de la otra sobre las mismas
+    // emitidas: ni una anulada o un borrador se cuela, ni una emitida se
+    // pierde por tener el dato vacío.
+    const condicion = async (estado) => {
+      const { servicio, consultas } = montar();
+      await servicio.listarFacturas({ estado });
+      // El WHERE de la consulta de afuera: el último antes del ORDER BY
+      // (las subconsultas del saldo traen los suyos).
+      const sql = consultas[0].sql;
+      const fin = sql.indexOf(' ORDER BY');
+      return sql.slice(sql.lastIndexOf('WHERE ', fin) + 6, fin);
+    };
+    assert.equal(await condicion('ventas'), "f.estado = 'emitida' AND f.electronica IS NOT TRUE");
+    assert.equal(await condicion('electronicas'), "f.estado = 'emitida' AND f.electronica IS TRUE");
+    assert.equal(await condicion('emitidas'), "f.estado = 'emitida'");
+  });
+
+  test('la pantalla ofrece esas dos pestañas en lugar de "Emitidas", y el servidor las entiende', async () => {
+    const fs = require('fs');
+    const hook = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useFacturasEmitidas.js'), 'utf8');
+    const lista = /const ESTADOS = \[([\s\S]*?)\n\]/.exec(hook)[1];
+    const pestanas = [...lista.matchAll(/clave: '(\w+)', etiqueta: '([^']+)'/g)].map(m => [m[1], m[2]]);
+    assert.deepEqual(pestanas, [
+      ['con_saldo', 'Con saldo'],
+      ['ventas', 'Facturas de venta'],
+      ['electronicas', 'Facturas electrónicas'],
+      ['anuladas', 'Anuladas'],
+      ['todas', 'Todas']
+    ]);
+    for (const [clave] of pestanas) {
+      const { servicio } = montar();
+      await servicio.listarFacturas({ estado: clave });   // un 400 acá sería una pestaña que no abre
+    }
+  });
+
   test('un estado que no existe se rechaza antes de consultar', async () => {
     const { servicio, consultas } = montar();
     await assert.rejects(servicio.listarFacturas({ estado: 'pagadas' }), e => e.status === 400);

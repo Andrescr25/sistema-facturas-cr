@@ -25,6 +25,9 @@ archivos:
   - frontend/src/utils/notaCreditoTexto.js
   - backend/src/modules/facturacion/notaCredito.service.js
   - backend/tests/notaCreditoSeguimiento.test.js
+  - backend/tests/facturaConsulta.test.js
+  - frontend/src/hooks/useFacturasEmitidas.js
+  - frontend/src/components/facturacion/PanelFacturasEmitidas.jsx
   - frontend/src/components/facturacion/SelectorPago.jsx
   - frontend/src/components/facturacion/PanelCobro.jsx
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
@@ -202,3 +205,19 @@ acreditada entera).
 
 No se hizo: anular una nota desde la pantalla (el servidor ya lo permite) y
 mandarle la nota electrónica al cliente por correo.
+
+"EMITIDAS" SON DOS LISTAS (2026-10-11). Pedido del usuario: «que el tab que
+dice "emitidas" se divida en Facturas de venta y Facturas electrónicas, para
+que no me salgan ambas en emitidas». En Facturación → Facturas las pestañas
+son ahora: Con saldo · Facturas de venta · Facturas electrónicas · Anuladas ·
+Todas (`ESTADOS` en `useFacturasEmitidas.js`).
+
+La regla la pone el servidor (`listarFacturas`, estados `ventas` y
+`electronicas`) y es la misma de la etiqueta de cada documento: electrónica
+es la que Hacienda ACEPTÓ, factura o tiquete. Una enviada sin respuesta, o
+rechazada, sigue en "Facturas de venta" hasta que la acepten. Las dos
+condiciones son una la negación de la otra sobre las emitidas, así que
+ninguna queda fuera ni repetida (medido en la copia local: 4.728 + 516 =
+5.244). `emitidas`, las dos juntas, sigue existiendo para quien llame sin
+decir cuál quiere. "Con saldo", "Anuladas" y "Todas" siguen mezclando las
+dos: no se pidió partirlas.
