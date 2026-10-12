@@ -410,6 +410,10 @@ diga Facturas de venta y Facturas electrónicas para que no me salgan ambas en
 emitidas».
 
 **Hecho**: [Facturación](grafo/modulo/facturacion.md), "EMITIDAS SON DOS
-LISTAS". Electrónica = aceptada por Hacienda (factura o tiquete). "Con
-saldo", "Anuladas" y "Todas" siguen mezclando las dos; falta que diga si
-también las quiere partidas.
+LISTAS". Electrónica = aceptada por Hacienda (factura o tiquete). "Anuladas"
+y "Todas" siguen mezclando las dos; falta que diga si también las quiere
+partidas.
+
+Después, textual: «y quita el tab que dice con saldo, porque eso lo veo en
+cuentas por cobrar entonces no es necesario». **Hecho**: la pestaña se quitó
+y la pantalla abre en "Facturas de venta". No volver a ponerla.

@@ -21,8 +21,10 @@ import { estadoDeFactura, notasDeFactura } from '../../utils/notaCreditoTexto'
  * 5.398 copiadas tampoco se podían consultar sin abrir Alegra.
  *
  * DOS DECISIONES DE LA VISTA
- *   · Abre en "Con saldo", que es la pregunta real frente a esta pantalla
- *     —a quién hay que cobrarle—, no "mostrame todas".
+ *   · NO abre en "Con saldo": esa pestaña existió y el usuario la quitó
+ *     (2026-10-11), porque a quién hay que cobrarle ya lo dice Cuentas por
+ *     Cobrar. Acá se viene a buscar un documento: abre en "Facturas de
+ *     venta" y las electrónicas tienen su propia pestaña.
  *   · El SALDO se muestra aparte del total y solo cuando hay: una columna
  *     llena de "₡0" no dice nada, y el número que importa se pierde entre
  *     ellos.

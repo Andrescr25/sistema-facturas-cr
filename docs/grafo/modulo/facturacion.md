@@ -209,8 +209,13 @@ mandarle la nota electrónica al cliente por correo.
 "EMITIDAS" SON DOS LISTAS (2026-10-11). Pedido del usuario: «que el tab que
 dice "emitidas" se divida en Facturas de venta y Facturas electrónicas, para
 que no me salgan ambas en emitidas». En Facturación → Facturas las pestañas
-son ahora: Con saldo · Facturas de venta · Facturas electrónicas · Anuladas ·
-Todas (`ESTADOS` en `useFacturasEmitidas.js`).
+son ahora: Facturas de venta · Facturas electrónicas · Anuladas · Todas
+(`ESTADOS` en `useFacturasEmitidas.js`), y abre en la primera.
+
+"Con saldo" se quitó ese mismo día, también por pedido suyo: «eso lo veo en
+cuentas por cobrar, entonces no es necesario». Era la pestaña en la que abría
+la pantalla. El servidor conserva el estado `con_saldo` porque lo usa el
+tablero; no volver a ponerla acá sin que él lo pida.
 
 La regla la pone el servidor (`listarFacturas`, estados `ventas` y
 `electronicas`) y es la misma de la etiqueta de cada documento: electrónica
@@ -219,5 +224,5 @@ rechazada, sigue en "Facturas de venta" hasta que la acepten. Las dos
 condiciones son una la negación de la otra sobre las emitidas, así que
 ninguna queda fuera ni repetida (medido en la copia local: 4.728 + 516 =
 5.244). `emitidas`, las dos juntas, sigue existiendo para quien llame sin
-decir cuál quiere. "Con saldo", "Anuladas" y "Todas" siguen mezclando las
-dos: no se pidió partirlas.
+decir cuál quiere. "Anuladas" y "Todas" siguen mezclando las dos: no se
+pidió partirlas.

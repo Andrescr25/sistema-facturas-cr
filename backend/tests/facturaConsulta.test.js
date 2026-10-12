@@ -129,6 +129,8 @@ describe('la búsqueda', () => {
     assert.deepEqual(consultas[0].params.slice(0, 3), ['2026-09-01', '2026-09-30', 7]);
   });
 
+  // La pantalla de Facturas ya no ofrece esta lista (está en Cuentas por
+  // Cobrar), pero el servidor la conserva: la usa el tablero.
   test('"con_saldo" trae solo las que de verdad se le pueden cobrar a alguien', async () => {
     const { servicio, consultas } = montar();
     await servicio.listarFacturas({ estado: 'con_saldo' });
@@ -173,8 +175,9 @@ describe('la búsqueda', () => {
     const hook = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useFacturasEmitidas.js'), 'utf8');
     const lista = /const ESTADOS = \[([\s\S]*?)\n\]/.exec(hook)[1];
     const pestanas = [...lista.matchAll(/clave: '(\w+)', etiqueta: '([^']+)'/g)].map(m => [m[1], m[2]]);
+    // "Con saldo" se quitó ese mismo día: «eso lo veo en cuentas por cobrar,
+    // entonces no es necesario».
     assert.deepEqual(pestanas, [
-      ['con_saldo', 'Con saldo'],
       ['ventas', 'Facturas de venta'],
       ['electronicas', 'Facturas electrónicas'],
       ['anuladas', 'Anuladas'],
@@ -184,6 +187,9 @@ describe('la búsqueda', () => {
       const { servicio } = montar();
       await servicio.listarFacturas({ estado: clave });   // un 400 acá sería una pestaña que no abre
     }
+    // Y abre en la primera, no en una pestaña que ya no está.
+    assert.match(hook, /useState\(ESTADOS\[0\]\.clave\)/);
+    assert.doesNotMatch(hook, /useState\('con_saldo'\)/);
   });
 
   test('un estado que no existe se rechaza antes de consultar', async () => {

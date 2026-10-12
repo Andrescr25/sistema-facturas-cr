@@ -21,8 +21,11 @@ import { avisoNotaCreada } from '../utils/notaCreditoTexto'
 // "Emitidas" eran las de venta y las electrónicas revueltas. El usuario pidió
 // verlas en dos listas (2026-10-11); la regla de cuál es cuál la pone el
 // servidor y es la misma de la etiqueta de cada factura.
+//
+// NO HAY "CON SALDO": el usuario la quitó ese mismo día —«eso lo veo en
+// cuentas por cobrar, entonces no es necesario»—. A quién hay que cobrarle se
+// contesta allá; acá se viene a buscar un documento.
 const ESTADOS = [
-  { clave: 'con_saldo', etiqueta: 'Con saldo' },
   { clave: 'ventas', etiqueta: 'Facturas de venta' },
   { clave: 'electronicas', etiqueta: 'Facturas electrónicas' },
   { clave: 'anuladas', etiqueta: 'Anuladas' },
@@ -31,7 +34,8 @@ const ESTADOS = [
 
 export function useFacturasEmitidas({ activa }) {
   const [buscar, setBuscar] = useState('')
-  const [estado, setEstado] = useState('con_saldo')
+  // Abre en la primera pestaña.
+  const [estado, setEstado] = useState(ESTADOS[0].clave)
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [pagina, setPagina] = useState(1)
