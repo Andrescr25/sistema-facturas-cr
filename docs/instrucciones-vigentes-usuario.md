@@ -68,6 +68,12 @@ siguen en [checklist de independencia](checklist-independencia-alegra.md).
 
 ## Prioridad actual — 2026-10-07
 
+**Corrección solicitada 2026-10-12:** una factura anulada en Facturación
+seguía pendiente en Facturas en Bodega. Se corrige la vigencia por nota de
+crédito completa, las aperturas cacheadas y las escrituras de despacho.
+Verificado únicamente con copia local desechable y navegador; no requiere
+migración. [Resultado y pruebas](informes/bodega-anuladas-2026-10-12.md).
+
 **Actualización 2026-10-11:** el usuario confirmó que ya se pasó a producción.
 La separación histórica de migración/corte descrita arriba corresponde al
 trabajo anterior. Ahora solicita mejorar la navegación del **catálogo del

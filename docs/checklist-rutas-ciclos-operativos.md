@@ -204,6 +204,10 @@ comprobaron con fixtures propios y ROLLBACK. Checklist vigente:
 - [x] FIL-06 — Preparación de pedidos: filtrar ruta/ciclo.
 - [x] FIL-07 — Entregas: filtrar ruta/ciclo y conservar su avance propio.
 - [x] FIL-08 — Faltantes de bodega: filtrar ruta/ciclo.
+- [x] Bodega, corrección 2026-10-12 — Anulación directa o crédito total
+  vigente fuera de pendientes; aperturas cacheadas y despacho se validan.
+  Filtros y despacho de otra semana conservados en PostgreSQL desechable.
+  [Verificación](informes/bodega-anuladas-2026-10-12.md).
 - [x] FIL-09 — Pantallas muestran ruta y semana seleccionadas sin depender
   de una fecha global de reinicio.
 - [x] FIL-10 — Exportaciones respetan filtros e incluyen ruta/ciclo/procedencia.

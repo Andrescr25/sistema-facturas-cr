@@ -6,7 +6,7 @@
  * la tabla vieja `facturas`, buscado por `alegra_id`: una factura hecha en el
  * sistema no aparecía para alistar. Ahora:
  *
- *  - La lista sale de `factura` (solo EMITIDAS: ni proformas ni anuladas) con
+ *  - La lista sale de `factura` (solo EMITIDAS, sin crédito total vigente) con
  *    sus líneas de `factura_linea`, en la misma forma que ya dibujaba la
  *    pantalla, pero con `factura_id` —el id propio— como identidad. Nunca
  *    `alegra_id`: los dos son números y pasar uno por el otro abre OTRA
@@ -28,6 +28,7 @@ const { guardarFaltantes } = require('../../utils/guardarFaltantes');
 const { encolarSinPendientes } = require('../reprinting/colaImpresion');
 const { COLUMNAS_CICLO, JOIN_CICLO, contextoDocumento, filtrosOperacion } = require('../rutas/operacionCiclo.service');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
+const { SIN_CREDITO_TOTAL, asegurarFacturaVigente } = require('./vigenciaFactura');
 
 const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -113,7 +114,7 @@ function ordenarHistorial(listas) {
 async function listar({ dias, limit, rutaId, cicloId } = {}) {
   const d = acotar(dias, 1, 365, 30);
   const l = acotar(limit, 1, 500, 40);
-  const params = (rutaId || cicloId) ? [] : [d, l], where = ["f.estado = 'emitida'"];
+  const params = (rutaId || cicloId) ? [] : [d, l], where = ["f.estado = 'emitida'", SIN_CREDITO_TOTAL];
   filtrosOperacion({ rutaId, cicloId }, where, params);
   // Un ciclo no se corta por los últimos 30 días ni por las 40 facturas
   // recientes de otra ruta. Todos sus documentos deben estar disponibles.
@@ -157,6 +158,7 @@ async function listar({ dias, limit, rutaId, cicloId } = {}) {
 /** GET /bodega/facturas-propias/:facturaId/estados — lo registrado, producto por producto. */
 async function estados(facturaIdCrudo) {
   const facturaId = idDeFactura(facturaIdCrudo);
+  await asegurarFacturaVigente(facturaId, { query });
   const { rows } = await query(`
     SELECT f.tipo_faltante, f.cantidad_faltante, f.observaciones,
            p.id AS producto_id, p.referencia, p.alegra_id AS alegra_item_id
@@ -178,10 +180,10 @@ async function estados(facturaIdCrudo) {
 async function registrarFaltantes(facturaIdCrudo, faltantes, registradoPor = 'Bodega') {
   const facturaId = idDeFactura(facturaIdCrudo);
   if (!Array.isArray(faltantes)) throw httpError(400, 'No vino la lista de productos.');
-  const { rows: [f] } = await query('SELECT numero, estado FROM factura WHERE id = $1', [facturaId]);
-  if (!f) throw httpError(404, 'Esa factura no existe.');
-  if (f.estado !== 'emitida') throw httpError(409, `La factura ${f.numero || facturaId} está ${f.estado}: no se alista.`);
-  const guardados = await guardarFaltantes(facturaId, faltantes, registradoPor);
+  const guardados = await enTransaccion(async (c) => {
+    await asegurarFacturaVigente(facturaId, c, { bloquear: true });
+    return guardarFaltantes(facturaId, faltantes, registradoPor, c);
+  });
   return { factura_id: facturaId, faltantes_registrados: guardados };
 }
 
@@ -196,6 +198,7 @@ async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, 
   const procesado = estado === 'procesado';
 
   const resultado = await enTransaccion(async (c) => {
+    await asegurarFacturaVigente(facturaId, c, { bloquear: true });
     const { rows: [f] } = await c.query(`
       UPDATE factura
          SET estado_bodega = $1,

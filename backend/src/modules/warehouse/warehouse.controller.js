@@ -16,7 +16,8 @@ function responderPropia(res, promesa, contexto) {
     .catch((error) => {
       const status = error.status || 500;
       if (status >= 500) console.error(contexto, error);
-      res.status(status).json({ success: false, message: error.message });
+      res.status(status).json({ success: false, message: error.message,
+        ...(error.code === 'FACTURA_NO_VIGENTE' ? { code: error.code } : {}) });
     });
 }
 

@@ -11,10 +11,16 @@ archivos:
   - frontend/src/hooks/useFiltroCicloOperacion.js
   - backend/src/modules/warehouse/warehouse.controller.js
   - frontend/src/hooks/useFacturasBodega.js
+  - frontend/src/hooks/useFacturaBodegaAbierta.js
   - frontend/src/pages/FacturasBodega.jsx
   - frontend/src/utils/facturasBodegaUtils.js
   - backend/tests/bodegaUtils.test.js
   - backend/src/modules/warehouse/bodegaPropia.js
+  - backend/src/modules/warehouse/vigenciaFactura.js
+  - backend/src/modules/facturacion/saldo.sql.js
+  - backend/tests/bodegaAnuladasLocal.test.js
+  - backend/tests/bodegaHook.test.js
+  - docs/informes/bodega-anuladas-2026-10-12.md
   - backend/src/utils/guardarFaltantes.js
   - backend/migrations/independencia/031_bodega_en_factura.sql
   - frontend/src/services/bodegaPropiaService.js
@@ -22,7 +28,7 @@ archivos:
   - backend/src/modules/reprinting/colaImpresion.js
 aristas:
   relacionado: [modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-06
+medido: 2026-10-12
 ---
 
 SOBRE LA FACTURA PROPIA (sección 11 del checklist, terminada el
@@ -32,6 +38,25 @@ líneas (`bodegaPropia.js`, `GET /bodega/facturas-propias`), con
 (migración 031). Lo guardado en el teléfono va bajo claves nuevas
 (`facturasBodegaPropia:*`): con las viejas, un borrador de la factura 12 de
 Alegra se habría aplicado a la factura propia 12.
+
+ANULACIÓN CON NOTA COMPLETA (2026-10-12). Facturación muestra «Anulada con
+nota de crédito» cuando las notas vigentes cubren el total, pero conserva
+`factura.estado = 'emitida'`. El filtro anterior la seguía mostrando pendiente.
+Bodega excluye ahora también ese crédito total, antes de aplicar el límite y
+contar el resumen. Reutiliza `ACREDITADO` de Facturación: suma notas vigentes,
+ignora anuladas y respeta la misma tolerancia de medio colón. Una nota parcial
+o un cobro completo no retiran el pedido; anular una nota vuelve a habilitarlo
+si deja de estar acreditado por completo. No se borran registros históricos.
+
+EL DESPACHO ABIERTO TAMBIÉN SE VALIDA. Abrir cualquier factura pide sus estados
+al servidor; al volver a la pestaña o al refresco, valida la abierta sin
+reemplazar lo marcado. `FACTURA_NO_VIGENTE` la cierra, la retira de la lista y
+la caché conjunta y muestra el motivo; conserva el borrador. Una respuesta
+anterior no afecta otra apertura, incluso A → cerrar → A. Un error de red
+conserva el trabajo. Guardar faltantes y cambiar estado toman el bloqueo de
+factura y después releen créditos, en la misma transacción de la escritura:
+una nota confirmada mientras esperaban no puede pasar por un despacho válido.
+No hay migración nueva. [Pruebas y alcance](../../informes/bodega-anuladas-2026-10-12.md).
 
 LOS FALTANTES Y LA COLA cuelgan de `factura.id` y `producto.id` desde la
 migración 032 (ver [[modulo/faltantes]]): la pantalla manda el `producto_id`

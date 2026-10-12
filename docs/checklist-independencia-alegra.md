@@ -657,6 +657,12 @@ semanal. Evidencia en [el nodo de la demostración](grafo/modulo/demo-reporte-pr
 - [x] Leer las facturas propias — *Facturas en Bodega (2026-09-29):
   `warehouse/bodegaPropia.js` lista las emitidas de `factura` con sus líneas;
   la pantalla usa `factura_id`. Falta impresión y reimpresión (paso 2).*
+- [x] **Anuladas fuera de Bodega (2026-10-12).** Excluye anulación directa y
+  notas vigentes que cubren el total; las parciales y los cobros no cancelan
+  preparación. También valida aperturas cacheadas y escrituras bajo bloqueo,
+  conservando borradores. Suite completa, PostgreSQL desechable (incluyendo
+  concurrencia y ciclos), build y Chromium móvil/escritorio comprobados.
+  Sin SQL nueva; [evidencia](informes/bodega-anuladas-2026-10-12.md).
 - [x] Estados de alistado por `factura.id` — *migración 031: `factura.estado_bodega`,
   `bodega_procesado_en`, `bodega_observaciones`; lo ya despachado se copió.
   Puente: `facturas.factura_propia_id`, y despachar escribe en las dos hasta

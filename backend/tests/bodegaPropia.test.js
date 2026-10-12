@@ -36,6 +36,7 @@ function montar() {
     for (const [patron, filas] of respuestas) {
       if (patron.test(t)) return { rows: typeof filas === 'function' ? filas(params) : filas };
     }
+    if (/^SELECT f.numero, f.estado, f.total,/.test(t)) return { rows: [{ numero: FACTURA.numero, estado: 'emitida', total: FACTURA.total, acreditado: 0 }] };
     return { rows: [] };
   };
   const pool = {
@@ -51,7 +52,7 @@ function montar() {
   };
   const doble = (ruta, exports) => { require.cache[ruta] = { id: ruta, filename: ruta, loaded: true, exports }; };
   doble(rutaDb, { query, pool });
-  doble(rutaGuardar, { guardarFaltantes: async (fila, faltantes, quien) => { guardadas.push({ fila, faltantes, quien }); return faltantes.length; } });
+  doble(rutaGuardar, { guardarFaltantes: async (fila, faltantes, quien, db) => { guardadas.push({ fila, faltantes, quien, enTransaccion: Boolean(db) }); return faltantes.length; } });
   doble(rutaCola, {
     encolarSinPendientes: async (facturaId, db) => { encoladas.push({ facturaId, enTransaccion: db !== undefined }); }
   });
@@ -70,6 +71,8 @@ describe('la lista', () => {
     const r = await b.listar({ dias: '9999', limit: 'x' });
     const q = consultas[0];
     assert.match(q.t, /WHERE f\.estado = 'emitida'/);
+    assert.match(q.t, /SUM\(nf.monto\).*nc.estado <> 'anulada'/);
+    assert.match(q.t, />= f.total - 0.5/);
     assert.deepEqual(q.params, [365, 40], 'días acotados a un año; límite por omisión');
     assert.equal(r.data.pendientes.length, 1);
     assert.equal(r.data.listas.length, 1);
@@ -114,17 +117,30 @@ describe('despachar', () => {
   });
 
   test('los faltantes se guardan sobre factura.id', async () => {
-    respuestas = [[/SELECT numero, estado FROM factura WHERE id = \$1/, [{ numero: '001000014900', estado: 'emitida' }]]];
+    respuestas = [[/SELECT f.numero, f.estado, f.total,.*FROM factura f WHERE f.id = \$1/, [{ numero: '001000014900', estado: 'emitida' }]]];
     const r = await b.registrarFaltantes(7, [{ producto_id: 1709, cantidad_faltante: 1, tipo_faltante: 'parcial' }]);
     assert.equal(guardadas[0].fila, 7);
     assert.equal(r.faltantes_registrados, 1);
+    assert.equal(guardadas[0].enTransaccion, true);
+    assert.deepEqual(transacciones, ['BEGIN', 'COMMIT']);
+    assert.match(consultas[0].t, /FROM factura WHERE id = \$1 FOR UPDATE/);
     assert.ok(!consultas.some((c) => /FROM facturas WHERE|INTO facturas/.test(c.t)), 'no toca la tabla vieja');
   });
 
   test('una factura anulada no recibe faltantes', async () => {
-    respuestas = [[/SELECT numero, estado FROM factura WHERE id = \$1/, [{ numero: '001000014900', estado: 'anulada' }]]];
+    respuestas = [[/SELECT f.numero, f.estado, f.total,.*FROM factura f WHERE f.id = \$1/, [{ numero: '001000014900', estado: 'anulada' }]]];
     await assert.rejects(() => b.registrarFaltantes(7, []), (e) => e.status === 409);
     assert.equal(guardadas.length, 0);
+  });
+
+  test('la nota de crédito completa impide registrar, despachar y abrir una copia vieja', async () => {
+    respuestas = [[/SELECT f.numero, f.estado, f.total,/, [{ numero: FACTURA.numero, estado: 'emitida', total: 1000, acreditado: 1000 }]]];
+    for (const accion of [() => b.registrarFaltantes(7, []), () => b.actualizarEstado(7, { estado: 'procesado', enviarAImpresion: true }), () => b.estados(7)]) {
+      await assert.rejects(accion, e => e.status === 409 && e.code === 'FACTURA_NO_VIGENTE');
+    }
+    assert.equal(guardadas.length, 0);
+    assert.equal(encoladas.length, 0);
+    assert.equal(consultas.some(c => /^UPDATE factura/.test(c.t)), false);
   });
 
   test('lo registrado vuelve con el id propio del producto', async () => {

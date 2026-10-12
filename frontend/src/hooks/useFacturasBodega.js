@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useContextoConsulta } from './useContextoConsulta'
+import { useFacturaBodegaAbierta } from './useFacturaBodegaAbierta'
 import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
 import { bodegaPropiaService } from '../services/bodegaPropiaService'
 import {
   filtrarPendientesPorFecha,
   getItemIdFromFacturaItem,
-  buildDraftForFactura,
   filtrarPorBusqueda,
   calcularDiasYLimite,
-  normalizeReferenceValue,
-  aplicarEstadosGuardados
+  normalizeReferenceValue
 } from '../utils/facturasBodegaUtils'
 
 // Cada 2 minutos: el servidor contesta con lo guardado al toque y se
@@ -82,9 +81,6 @@ export function useFacturasBodega() {
   const { esActual, confirmar } = lectura
   const datosGuardiaRef = useRef(null)
 
-  const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
-  const [faltantesDraft, setFaltantesDraft] = useState({})
-  const [cargandoEstados, setCargandoEstados] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [successMessage, setSuccessMessage] = useState(null)
   const [clienteCompletado, setClienteCompletado] = useState(null)
@@ -165,6 +161,21 @@ export function useFacturasBodega() {
     }
   }, [esActual, confirmar])
 
+  const alInvalidarFactura = useCallback((facturaId) => {
+    const conservar = (facturas) => facturas.filter(f => f.factura_id !== facturaId)
+    setPendientesRaw(conservar)
+    setListas(conservar)
+    // Quitarla también de la copia conjunta; los borradores no se borran.
+    try {
+      const copia = JSON.parse(leer(STORAGE_KEYS.data) || 'null')
+      if (copia) guardarLista(conservar(copia.pendientes || []), conservar(copia.listas || []), copia.ultimaSync)
+    } catch { /* copia ilegible */ }
+  }, [])
+  const { facturaSeleccionada, faltantesDraft, setFaltantesDraft, cargandoEstados,
+    abrirFactura, cerrarFactura, verificarFacturaAbierta, descartarSiNoVigente } = useFacturaBodegaAbierta({
+    seleccionadaRef, claves: STORAGE_KEYS, leer, escribir, borrar, setAviso, alInvalidar: alInvalidarFactura
+  })
+
   // Arranque: lo guardado en el teléfono al instante, y después la red.
   useEffect(() => {
     try {
@@ -192,17 +203,23 @@ export function useFacturasBodega() {
   }, [])
 
   // Refresco: cada 2 minutos y al volver a la pantalla (el teléfono se
-  // bloquea seguido), nunca en medio de un despacho.
+  // bloquea seguido). Una factura abierta solo se valida, sin pisar lo marcado.
   useEffect(() => {
-    const refrescar = () => { if (!seleccionadaRef.current) cargar() }
+    const refrescar = () => {
+      if (document.visibilityState !== 'visible') return
+      if (seleccionadaRef.current) verificarFacturaAbierta()
+      else cargar()
+    }
     const intervalo = setInterval(refrescar, REFRESCO_MS)
     const alVolver = () => { if (document.visibilityState === 'visible') refrescar() }
     document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('focus', refrescar)
     return () => {
       clearInterval(intervalo)
       document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('focus', refrescar)
     }
-  }, [cargar])
+  }, [cargar, verificarFacturaAbierta])
 
   // Cambiar la fecha "desde" cambia la ventana que se le pide al servidor.
   const primeraVez = useRef(true)
@@ -215,14 +232,6 @@ export function useFacturasBodega() {
   useEffect(() => {
     if (facturaSeleccionada) window.scrollTo(0, 0)
   }, [facturaSeleccionada])
-
-  // Lo marcado se guarda en el teléfono, factura por factura (solo las
-  // pendientes: ver abrirFactura).
-  useEffect(() => {
-    if (!facturaSeleccionada || cargandoEstados || facturaSeleccionada.estado_bodega === 'procesado') return
-    if (Object.keys(faltantesDraft).length === 0) return
-    escribir(STORAGE_KEYS.draft(facturaSeleccionada.factura_id), JSON.stringify(faltantesDraft))
-  }, [faltantesDraft, facturaSeleccionada, cargandoEstados])
 
   // Las fotos ya asignadas en el catálogo propio, para los productos de la
   // factura abierta: las líneas no traen la foto.
@@ -251,54 +260,6 @@ export function useFacturasBodega() {
     })
   }
   const handleCerrarImagenProducto = () => setImagenProductoActivo(null)
-
-  /** Abrir una factura: pendiente para despacharla, o del historial para revisarla. */
-  async function abrirFactura(factura) {
-    seleccionadaRef.current = factura.factura_id
-    setFacturaSeleccionada(factura)
-    escribir(STORAGE_KEYS.selected, factura.factura_id)
-
-    const base = buildDraftForFactura(factura)
-    const esPendiente = factura.estado_bodega !== 'procesado'
-
-    // Lo marcado en este teléfono se retoma SOLO en una pendiente: si otro
-    // teléfono ya la despachó, lo registrado manda sobre un borrador viejo.
-    if (esPendiente) {
-      let enProgreso = null
-      try { enProgreso = JSON.parse(leer(STORAGE_KEYS.draft(factura.factura_id)) || 'null') } catch { enProgreso = null }
-      if (enProgreso && Object.keys(base).every((k) => enProgreso[k])) {
-        setFaltantesDraft(enProgreso)
-        return
-      }
-    }
-    if (factura.estadosProductos) {
-      setFaltantesDraft(factura.estadosProductos)
-      return
-    }
-    setFaltantesDraft(base)
-    if (esPendiente) return
-
-    // Del historial: lo registrado, de la base. Mientras llega, los botones
-    // quedan quietos para que nada de lo que se toque se pierda al llegar.
-    setCargandoEstados(true)
-    try {
-      const estados = await bodegaPropiaService.estados(factura.factura_id)
-      if (seleccionadaRef.current === factura.factura_id) setFaltantesDraft(aplicarEstadosGuardados(base, estados))
-    } catch (err) {
-      console.error('Error cargando lo registrado de la factura:', err)
-      setAviso('No se pudo cargar lo que ya se había registrado de esta factura.')
-    } finally {
-      if (seleccionadaRef.current === factura.factura_id) setCargandoEstados(false)
-    }
-  }
-
-  const cerrarFactura = () => {
-    seleccionadaRef.current = null
-    setFacturaSeleccionada(null)
-    setFaltantesDraft({})
-    setCargandoEstados(false)
-    borrar(STORAGE_KEYS.selected)
-  }
 
   const actualizarEntradaFaltante = (key, updater) => {
     setFaltantesDraft((prev) => (prev[key] ? { ...prev, [key]: { ...prev[key], ...updater(prev[key]) } } : prev))
@@ -341,7 +302,7 @@ export function useFacturasBodega() {
    * pasa a despachada. Sin faltantes va a la cola de impresión.
    */
   const handleRegistrarFaltantes = async () => {
-    if (!facturaSeleccionada || guardando) return
+    if (!facturaSeleccionada || guardando || cargandoEstados) return
     const factura = facturaSeleccionada
     const sinFaltantes = faltantesSeleccionados.length === 0
     try {
@@ -387,8 +348,9 @@ export function useFacturasBodega() {
       })
     } catch (err) {
       console.error('❌ Error guardando el despacho:', err)
-      // Lo marcado sigue guardado en el teléfono: se puede reintentar.
-      setAviso(`No se pudo guardar: ${err.message} Lo marcado sigue acá; probá de nuevo.`)
+      if (!descartarSiNoVigente(err, factura)) {
+        setAviso(`No se pudo guardar: ${err.response?.data?.message || err.message} Lo marcado sigue acá; probá de nuevo.`)
+      }
     } finally {
       setGuardando(false)
     }
