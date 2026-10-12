@@ -5,11 +5,11 @@ import { observarEntradaCategoria, terminarEntrada } from '../../utils/entradaCa
 import './introduccionCategoria.css'
 
 /** Una pausa visual en el recorrido, nunca una pausa de la navegación. */
-function IntroduccionCategoria({ nombre, cantidad, imagen, numero, total, nivel = 2, animar = true }) {
+function IntroduccionCategoria({ nombre, cantidad, imagen, numero, total, nivel = 2, animar = true, tituloDecorativo = false }) {
   const elemento = useRef(null)
   const [fallida, setFallida] = useState(null)
   const foto = imagen?.url && fallida !== imagen.url ? imagen : null
-  const Titulo = `h${nivel}`
+  const Titulo = tituloDecorativo ? 'div' : `h${nivel}`
   useLayoutEffect(() => {
     if (animar) return observarEntradaCategoria(elemento.current)
   }, [animar])

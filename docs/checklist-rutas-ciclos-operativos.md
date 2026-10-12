@@ -609,3 +609,11 @@ No cierra IDs de operación ni revisiones humanas: **96/3**, independencia **133
 El [checklist de independencia](checklist-independencia-alegra.md) conserva
 los pendientes anteriores de datos, conteo, aceptación fiscal y corte; estas
 nuevas funciones no los sustituyen ni se mezclan con sus cifras anteriores.
+
+
+**2026-10-11, foco de categoría al seguir el scroll:** vista oscura, nombre/foto
+y regreso a claro con los productos. Separador breve, imagen preparada cerca de
+la vista, estados ligados a posición, navegación y movimiento reducido.
+[Validación](informes/catalogo-foco-scroll-2026-10-11.md). Solo presentación:
+sin SQL adicional ni cambio de los IDs históricos **133/14** y operativos **96/3**.
+Vista 5173/3000 con clon propio conservada para revisión; `main` pendiente.

@@ -1,5 +1,9 @@
 # Subcategorías y entrada de productos al desplazarse — 2026-10-11
 
+El [ajuste posterior de foco por categoría](catalogo-foco-scroll-2026-10-11.md)
+sustituye la entrada de cabecera por oscuro → categoría → claro, al avanzar
+el scroll. Se conservan navegación de familias y entradas de productos.
+
 Después de revisar localhost, el usuario indicó que no distinguía las
 subcategorías ni veía transiciones durante el recorrido. La primera versión
 animaba únicamente las cabeceras y la subcategoría quedaba como texto pequeño

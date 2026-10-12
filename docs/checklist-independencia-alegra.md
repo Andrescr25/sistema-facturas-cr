@@ -957,3 +957,11 @@ quedan anotados en sus filas para las secciones de Compras y retiro de Alegra.
 Todo cuelga de productos y clientes. Facturación va después de inventario
 para que cada venta ya descuente existencias propias. Cobros va pegado a
 facturación para que no quede ninguna factura cuyo pago viva en otro lado.
+
+
+**2026-10-11, foco de categoría al seguir el scroll:** vista oscura, nombre/foto
+y regreso a claro con los productos. Separador breve, imagen preparada cerca de
+la vista, estados ligados a posición, navegación y movimiento reducido.
+[Validación](informes/catalogo-foco-scroll-2026-10-11.md). Solo presentación:
+sin SQL adicional ni cambio de los IDs históricos **133/14** y operativos **96/3**.
+Vista 5173/3000 con clon propio conservada para revisión; `main` pendiente.

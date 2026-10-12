@@ -12,7 +12,8 @@ import BarraCategorias from '../components/catalogo-agente/BarraCategorias'
 import Cuadricula from '../components/catalogo-agente/Cuadricula'
 import SyncOverlay from '../components/catalogo-agente/SyncOverlay'
 import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
-import IntroduccionCategoria from '../components/catalogo-agente/IntroduccionCategoria'
+import TransicionCategoria from '../components/catalogo-agente/TransicionCategoria'
+import RecorridoCategorias from '../components/catalogo-agente/RecorridoCategorias'
 import { imagenDeCategoria } from '../utils/imagenesCategoriaCatalogo'
 
 /**
@@ -48,7 +49,7 @@ import { imagenDeCategoria } from '../utils/imagenesCategoriaCatalogo'
 function BloquesPorCategoria({ bloques, configCatalogo, nivel = 3 }) {
   return bloques.map((b, i) => (
     <div key={b.clave} className="mb-6 last:mb-0">
-      <IntroduccionCategoria nombre={b.nombre} cantidad={b.productos.length} nivel={nivel}
+      <TransicionCategoria nombre={b.nombre} cantidad={b.productos.length} nivel={nivel}
         imagen={imagenDeCategoria(b.clave, configCatalogo, b.productos)} numero={i + 1} total={bloques.length} />
       <Cuadricula productos={b.productos} familias={b.familias} nivel={nivel + 1} />
     </div>
@@ -159,7 +160,7 @@ export default function CatalogoAgente() {
   const enTodo = categoria === 'todo'
 
   return (
-    <div className="min-h-screen bg-neutro-50 pb-24">
+    <RecorridoCategorias className="min-h-screen bg-neutro-50 pb-24">
       <BarraSuperior
         busqueda={searchQuery}
         onBuscar={setSearchQuery}
@@ -302,7 +303,7 @@ export default function CatalogoAgente() {
                 const familias = filteredData.subgrupos?.[k]
                 return (
                   <section key={k} className="mb-8">
-                    <IntroduccionCategoria nombre={nombreVisibleDeCategoria(k, configCatalogo)} cantidad={filteredData.grouped[k].length}
+                    <TransicionCategoria nombre={nombreVisibleDeCategoria(k, configCatalogo)} cantidad={filteredData.grouped[k].length}
                       imagen={imagenDeCategoria(k, configCatalogo, filteredData.grouped[k])} numero={i + 1} total={claves.length} />
                     <Cuadricula productos={filteredData.grouped[k]} familias={familias}
                       statsPorProducto={statsPorProducto} />
@@ -322,6 +323,6 @@ export default function CatalogoAgente() {
         clienteActivoId={clienteActivo?.id}
         onSeleccionar={seleccionarCliente}
       />
-    </div>
+    </RecorridoCategorias>
   )
 }

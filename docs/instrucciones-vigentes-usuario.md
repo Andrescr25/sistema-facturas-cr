@@ -87,6 +87,13 @@ Mantener la vista solicitada en 5173/3000 y su clon local; los otros servicios
 se detuvieron por pedido del usuario para reducir consumo. Esta corrección
 sigue en revisión local antes de una autorización nueva para `main`.
 
+Ajuste posterior del mismo recorrido: **oscurecer toda la vista → aparecer
+nombre/imagen de categoría al seguir bajando → aclarar y mostrar productos**,
+para enfocar al cliente en cada colección. La secuencia depende del scroll,
+conservando navegación móvil, imágenes optimizadas y alternativa con movimiento
+reducido. [Implementación y validación](informes/catalogo-foco-scroll-2026-10-11.md).
+Se mantiene la revisión en 5173/3000 y el clon local; no es una orden de `main`.
+
 Después de consultar los pendientes de migración, el usuario indicó «esto lo
 vemos después» y pidió «ahora, rediseña el módulo de clientes; siento que está
 muy desordenado». Clientes quedó reorganizado. Después pidió **rediseñar el

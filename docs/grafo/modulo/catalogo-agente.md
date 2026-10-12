@@ -38,6 +38,11 @@ archivos:
   - frontend/src/components/catalogo-agente/cuadricula.css
   - frontend/src/hooks/useColumnasCatalogo.js
   - frontend/src/utils/filasCatalogo.js
+  - frontend/src/components/catalogo-agente/RecorridoCategorias.jsx
+  - frontend/src/components/catalogo-agente/TransicionCategoria.jsx
+  - frontend/src/components/catalogo-agente/transicionCategoria.css
+  - frontend/src/utils/focoCategoria.js
+  - backend/tests/focoCategoria.test.js
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
@@ -89,28 +94,47 @@ consume el orden ya calculado: no reordena ni deja huecos al cambiar de familia.
 Dos consultas de ancho compartidas ajustan las filas a 2/3/4 columnas. Los
 saltos se dirigen a la fila inicial de la familia con margen para las barras.
 
-Cabeceras, colecciones y próximas CUATRO FILAS de las colecciones en pantalla
-comparten un único observador;
-cada entrada retira su observación y prepara la siguiente fila. Las restantes
-son visibles por defecto: saltarse filas no descubre una pantalla oculta.
-Sin listeners de scroll ni estado React por frame. Las fichas entran una vez
-con fade/deslizamiento de 700 ms y 65 ms de desfase; la cabecera con texto
-800 ms y foto 1 s. Al terminar se elimina la animación del elemento, sin
-transforms/capas permanentes. En pasadas mayores a 4.000 px/s, calculadas solo
-desde las notificaciones del observador, las fichas aparecen directamente;
-las introducciones de categoría conservan su efecto. Búsqueda, movimiento
-reducido y ausencia/fallo de observador siguen mostrando los productos sin
-animación. Las filas usan `display: contents` dentro de una sola cuadrícula por categoría;
-el observador toma la primera ficha como referencia y revela su fila completa.
-No hay cientos de cuadrículas, alturas estimadas ni virtualización que cambie
-la posición del scroll.
+Las colecciones y próximas CUATRO FILAS de las colecciones en pantalla
+comparten el observador de entrada de productos; cada entrada retira su
+observación y prepara la siguiente fila. Las restantes son visibles por defecto:
+saltarse filas no descubre una pantalla oculta. Las fichas entran una vez con
+fade/deslizamiento de 700 ms y 65 ms de desfase, sin estado React por frame.
+Al terminar se elimina su animación y transform. Pasadas mayores a 4.000 px/s
+muestran directamente las fichas. Búsqueda, movimiento reducido y ausencia/fallo
+del observador muestran productos sin animación. Las filas usan `display: contents`
+dentro de una cuadrícula por categoría, observando la primera ficha como referencia;
+no hay cientos de cuadrículas, alturas estimadas ni virtualización.
+
+Nueva indicación del usuario después de revisar este recorrido: al cambiar de
+categoría, OSCURO → NOMBRE/FOTO → CLARO/PRODUCTOS, avanzando al seguir el scroll.
+`TransicionCategoria` conserva el título lógico para lectores de pantalla y
+reutiliza la foto/cabecera como escena visual. `RecorridoCategorias` tiene un
+único velo fijo, que cubre la vista con opacidad y deja pasar los eventos de
+puntero. Modal de cliente/sincronización y controles con foco de teclado mantienen
+su acceso. El separador ocupa 85 svh (mínimo 440, máximo 900 px), sin espera,
+scroll forzado, bloqueo táctil ni salto automático. La escena central aparece
+solo durante su fase; luego se retira y los productos quedan en la vista clara.
+Gestión de Catálogo conserva su previsualización compacta de imagen.
+
+`focoCategoria.js` calcula el progreso desde la posición del separador, con
+oscurecimiento completo antes de que aparezca nombre/foto. Un observador para
+estos separadores activa un listener pasivo de scroll solo cerca de ellos;
+requestAnimationFrame agrupa la lectura de los separadores próximos antes de
+escribir opacidad/transform, sin recorrer productos ni renderizar React por frame.
+Al detener el scroll la fase permanece; al invertirlo vuelve por el mismo recorrido.
+No es un temporizador de pantalla. Las imágenes se preparan una sola vez al
+acercarse, evitando descargar todas por estar en escenas fijas. Buscar, cambiar
+colección, desmontar, preferir movimiento reducido o fallar la observación
+retiran el velo y dejan la versión compacta. La preferencia también se escucha
+si cambia durante una escena.
 
 `<picture>` elige la WebP móvil; lazy/async/prioridad baja, altura reservada y
 respaldo si falla, sin bloquear el recorrido. Las dos variantes se descargan
 al actualizar el catálogo y viajan en su caché existente:
 [[leccion/fotos-del-catalogo-en-la-tablet]].
 [Primera implementación](../../informes/catalogo-categorias-visuales-2026-10-11.md)
-y [refinamiento y pruebas vigentes](../../informes/catalogo-revelado-subcategorias-2026-10-11.md).
+[entrada de productos](../../informes/catalogo-revelado-subcategorias-2026-10-11.md)
+y [foco por categoría vigente](../../informes/catalogo-foco-scroll-2026-10-11.md).
 
 2026-10-07, segunda corrección del usuario: OFERTAS DENTRO DE SU FAMILIA.
 En Todo no hay bloque superior de ofertas/rebajas/liquidación. El hook cruza

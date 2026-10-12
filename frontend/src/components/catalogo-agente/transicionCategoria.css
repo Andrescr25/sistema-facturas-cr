@@ -1,0 +1,28 @@
+.catalogo-recorrido { isolation: isolate; }
+.catalogo-oscurecer { position: fixed; inset: 0; z-index: 40; background: #07121e; opacity: 0; pointer-events: none; }
+.catalogo-oscurecer__seguir { position: absolute; bottom: 36px; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: #b8c4d3; font-size: 12px; font-weight: 500; }
+.transicion-categoria[data-inmersiva] { min-height: clamp(440px, 85vh, 900px); min-height: clamp(440px, 85svh, 900px); }
+.transicion-categoria[data-inmersiva] .transicion-categoria__escena {
+  position: fixed; inset: 0; z-index: 41; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 24px 12px;
+  opacity: var(--foco-contenido, 0); pointer-events: none;
+  transform: translateY(var(--foco-y, 40px)) scale(var(--foco-escala, .97));
+  visibility: hidden;
+}
+.transicion-categoria[data-foco] .transicion-categoria__escena { visibility: visible; }
+.transicion-categoria[data-inmersiva] .introduccion-categoria { width: min(100%, 1000px); min-height: min(58vh, 550px); min-height: min(58svh, 550px); margin-bottom: 0; border: 1px solid #ffffff12; border-radius: 24px; }
+.transicion-categoria[data-inmersiva] .introduccion-categoria__contenido { padding: 30px 24px; }
+.transicion-categoria[data-inmersiva] .introduccion-categoria__nombre { font-size: clamp(32px, 6vw, 72px); line-height: 1.05; max-width: 85%; margin: 22px 0 16px; }
+.transicion-categoria[data-inmersiva] .introduccion-categoria__detalle { font-size: 10px; }
+.transicion-categoria[data-inmersiva] .introduccion-categoria__cantidad { font-size: 14px; }
+/* Los controles mantienen acceso con teclado durante el foco visual. */
+.catalogo-recorrido[data-foco-categoria] > header:has(:focus-visible),
+.catalogo-recorrido[data-foco-categoria] > nav:has(:focus-visible) { z-index: 45; }
+@media (min-width: 640px) {
+  .transicion-categoria[data-inmersiva] .transicion-categoria__escena { padding: 32px; }
+  .transicion-categoria[data-inmersiva] .introduccion-categoria__contenido { padding: 48px; }
+  .transicion-categoria[data-inmersiva] .introduccion-categoria__detalle { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalogo-oscurecer { display: none; }
+}
