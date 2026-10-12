@@ -9,6 +9,7 @@ archivos:
   - backend/tests/taxonomiaTablas.test.js
   - backend/migrations/independencia/055_imagen_categoria_catalogo.sql
   - backend/src/modules/productos/categorias.imagenes.js
+  - backend/src/modules/productos/categorias.imagen.optimizar.js
   - backend/tests/imagenCategoriaLocal.test.js
 aristas:
   relacionado: [tabla/subcategoria, decision/orden-canonico-compartido, modulo/gestion-catalogo, modulo/catalogo-agente]

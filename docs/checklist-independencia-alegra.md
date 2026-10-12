@@ -52,6 +52,11 @@ aparecen al entrar, observación limitada a próximas filas y movimiento
 reducido. [Validación vigente](informes/catalogo-revelado-subcategorias-2026-10-11.md).
 Vista 5173/3000 conservada; sin SQL adicional ni cambio de los IDs anteriores.
 
+Corrección de la subida/calidad después del despliegue: SQL 055 pendiente en
+producción explica el 503; las variantes ahora cubren la escena grande, con
+recorte móvil vertical y límites de peso. [Verificación](informes/catalogo-imagen-calidad-2026-10-11.md).
+El permiso para publicar código está en `AGENTS.md`; no aplica el SQL solo.
+
 - **Dos carpetas, una por rama**, para que corran a la vez:
 
   | Carpeta | Rama | Frontend | Backend | Base |

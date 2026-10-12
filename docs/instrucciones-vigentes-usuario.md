@@ -94,6 +94,14 @@ conservando navegación móvil, imágenes optimizadas y alternativa con movimien
 reducido. [Implementación y validación](informes/catalogo-foco-scroll-2026-10-11.md).
 Se mantiene la revisión en 5173/3000 y el clon local; no es una orden de `main`.
 
+Después de publicar esas mejoras, reportó **503 al subir una imagen de
+categoría y mala calidad**. Falta SQL 055 en producción; la compresión de las
+cabeceras pequeñas también era insuficiente para la escena grande. Se corrige
+la resolución/recorte móvil y se comprueba la subida en una copia desechable.
+[Corrección y validación](informes/catalogo-imagen-calidad-2026-10-11.md).
+El permiso de publicar código en `main` está registrado en `AGENTS.md`; la
+migración de producción sigue siendo un paso separado pendiente.
+
 Después de consultar los pendientes de migración, el usuario indicó «esto lo
 vemos después» y pidió «ahora, rediseña el módulo de clientes; siento que está
 muy desordenado». Clientes quedó reorganizado. Después pidió **rediseñar el
@@ -467,4 +475,3 @@ qué».
   [CLAUDE.md](../CLAUDE.md), y la cuida `backend/tests/estructura.test.js`.
 - El permiso de subir a `main`, con sus condiciones y la obligación de decir
   quién subió qué, también está en esos dos archivos y en la memoria.
-

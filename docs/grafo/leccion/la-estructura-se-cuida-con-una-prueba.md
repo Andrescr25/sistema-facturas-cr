@@ -13,6 +13,7 @@ archivos:
   - frontend/src/hooks/useEmisionFactura.js
   - frontend/src/hooks/useAsignarClientesRuta.js
   - frontend/src/hooks/useNumeracionHacienda.js
+  - frontend/src/hooks/useImagenCategoria.js
   - frontend/src/utils/fechaCR.js
   - backend/tests/facturaVista.test.js
 aristas:
@@ -98,8 +99,12 @@ en la misma prueba, en el mismo commit, con su porqué.
 nadie lo decida. Si algo importa —y la estructura importa—, tiene que haber
 algo que se ponga rojo cuando se pierde.
 
-DEUDA QUE QUEDÓ ANOTADA Y NO SE TOCÓ: las tres hojas de estilo del catálogo
+DEUDA QUE QUEDÓ ANOTADA AL HACER LA REVISIÓN: las tres hojas de estilo del catálogo
 del agente (`introduccionCategoria.css`, `cuadricula.css`,
 `transicionCategoria.css`), porque Codex estaba trabajando en esa carpeta; diecisiete componentes y páginas de
 antes que llaman a la API directo; cincuenta colores crudos; y catorce
 archivos que ya pasaban el tope de tamaño.
+
+Al corregir las fotos de categoría, Codex pasó las tres hojas del catálogo a
+`theme('colors.…')` y retiró su excepción de la prueba. El estado del modal de
+imagen vive ahora en `hooks/useImagenCategoria.js`; el componente dibuja.

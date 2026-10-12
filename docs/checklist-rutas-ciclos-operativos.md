@@ -617,3 +617,9 @@ la vista, estados ligados a posición, navegación y movimiento reducido.
 [Validación](informes/catalogo-foco-scroll-2026-10-11.md). Solo presentación:
 sin SQL adicional ni cambio de los IDs históricos **133/14** y operativos **96/3**.
 Vista 5173/3000 con clon propio conservada para revisión; `main` pendiente.
+
+**2026-10-11, corrección de imagen de categoría:** 503 reproducido por ausencia
+de SQL 055 y subida recuperada al aplicarla en PostgreSQL desechable. Compresión
+adaptada a la escena de pantalla completa y recorte móvil vertical; límites de
+descarga, carga diferida y caché conservados. [Evidencia](informes/catalogo-imagen-calidad-2026-10-11.md).
+SQL 055 en producción pendiente; no modifica los IDs anteriores.

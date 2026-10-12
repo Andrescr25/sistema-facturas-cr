@@ -128,13 +128,18 @@ colección, desmontar, preferir movimiento reducido o fallar la observación
 retiran el velo y dejan la versión compacta. La preferencia también se escucha
 si cambia durante una escena.
 
-`<picture>` elige la WebP móvil; lazy/async/prioridad baja, altura reservada y
+`<picture>` elige la WebP vertical en móvil y horizontal en escritorio. La
+compresión ya prepara resolución para la escena grande (hasta 1920×1080 y
+960×1280), en vez de las miniaturas de la cabecera original. Lazy/async/prioridad baja, altura reservada y
 respaldo si falla, sin bloquear el recorrido. Las dos variantes se descargan
 al actualizar el catálogo y viajan en su caché existente:
 [[leccion/fotos-del-catalogo-en-la-tablet]].
 [Primera implementación](../../informes/catalogo-categorias-visuales-2026-10-11.md)
 [entrada de productos](../../informes/catalogo-revelado-subcategorias-2026-10-11.md)
 y [foco por categoría vigente](../../informes/catalogo-foco-scroll-2026-10-11.md).
+Las tres hojas de animación usan colores de la paleta por rol (`theme()`);
+la prueba de estructura ya no las exceptúa.
+[Corrección de calidad y subida](../../informes/catalogo-imagen-calidad-2026-10-11.md).
 
 2026-10-07, segunda corrección del usuario: OFERTAS DENTRO DE SU FAMILIA.
 En Todo no hay bloque superior de ofertas/rebajas/liquidación. El hook cruza

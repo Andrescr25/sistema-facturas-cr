@@ -102,7 +102,7 @@ export function fotosEnOrden(productos, completar = null, configCatalogo = null)
     if (!porLlave.has(llave)) porLlave.set(llave, url)
   }
   // Ambas versiones deben seguir dentro de esta MISMA caché: su renovación
-  // borra lo ajeno al conjunto. Un teléfono usa la pequeña y una tablet puede
+  // borra lo ajeno al conjunto. Un teléfono usa la vertical y una tablet puede
   // cambiar de orientación sin depender de volver a tener señal.
   for (const categoria of configCatalogo?.categorias || []) {
     for (const ruta of [categoria.imagen?.urlMovil, categoria.imagen?.url]) {

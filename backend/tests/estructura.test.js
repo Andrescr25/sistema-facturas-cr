@@ -110,16 +110,10 @@ describe('el diseño sale de la paleta del sistema', () => {
     // El proyecto se dibuja con Tailwind y `index.css`. Una hoja propia solo
     // se justifica por animaciones o consultas de medios que Tailwind no
     // cubre, y sus colores tienen que salir de la paleta (`theme('colors.…')`).
-    // DEUDA: las tres del catálogo del agente, con colores a mano. Son de
-    // antes de esta prueba (la tercera entró el mismo día, mientras se
-    // escribía); pasarlas a la paleta es trabajo pendiente de esa pantalla.
-    const DEUDA = [
-      'components/catalogo-agente/cuadricula.css', 'components/catalogo-agente/introduccionCategoria.css',
-      'components/catalogo-agente/transicionCategoria.css'
-    ];
+    // El catálogo también usa theme(): ya no quedan hojas exceptuadas.
     const A_MANO = /#[0-9a-fA-F]{3,8}\b|rgba?\(/;
     const nuevas = archivos(FRONT, /\.css$/).map(r => rel(FRONT, r))
-      .filter(r => r !== 'index.css' && !DEUDA.includes(r))
+      .filter(r => r !== 'index.css')
       .filter(r => A_MANO.test(sinComentarios(fs.readFileSync(path.join(FRONT, r), 'utf8'))));
     assert.deepEqual(nuevas, [], 'esa hoja escribe colores a mano: tomalos de la paleta con theme(\'colors.…\')');
   });

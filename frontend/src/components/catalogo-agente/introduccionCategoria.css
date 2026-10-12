@@ -8,22 +8,22 @@
   min-height: 168px;
   margin-bottom: 14px;
   border-radius: 20px;
-  background: #12263f;
-  color: #fff;
+  background: theme('colors.primario.800');
+  color: theme('colors.white');
 }
 .introduccion-categoria__imagen { position: absolute; inset: 0; z-index: -2; }
 .introduccion-categoria__imagen img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
-.introduccion-categoria--producto .introduccion-categoria__imagen { left: 48%; background: #f0f4f9; }
+.introduccion-categoria--producto .introduccion-categoria__imagen { left: 48%; background: theme('colors.primario.50'); }
 .introduccion-categoria--producto .introduccion-categoria__imagen img { object-fit: contain; padding: 14px; }
-.introduccion-categoria__velo { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg,rgba(6,15,29,.96) 0%,rgba(11,27,48,.82) 42%,rgba(11,27,48,.26) 100%); }
-.introduccion-categoria__sin-imagen { position: absolute; right: 5%; width: 120px; height: 120px; color: #628aae; opacity: .32; transform: rotate(-10deg); }
+.introduccion-categoria__velo { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg,theme('colors.primario.950 / 96%') 0%,theme('colors.primario.900 / 82%') 42%,theme('colors.primario.900 / 26%') 100%); }
+.introduccion-categoria__sin-imagen { position: absolute; right: 5%; width: 120px; height: 120px; color: theme('colors.primario.400'); opacity: .32; transform: rotate(-10deg); }
 .introduccion-categoria__sin-imagen svg { width: 100%; height: 100%; }
 .introduccion-categoria__contenido { position: relative; width: 100%; padding: 24px; }
-.introduccion-categoria__detalle { display: flex; align-items: center; gap: 9px; color: #dce3ed; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-.introduccion-categoria__linea { width: 24px; height: 2px; background: #f2a878; }
+.introduccion-categoria__detalle { display: flex; align-items: center; gap: 9px; color: theme('colors.primario.100'); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.introduccion-categoria__linea { width: 24px; height: 2px; background: theme('colors.acento.300'); }
 .introduccion-categoria__posicion { margin-left: auto; font-variant-numeric: tabular-nums; }
 .introduccion-categoria__nombre { max-width: 85%; margin: 12px 0 8px; font-size: clamp(24px,4.6vw,34px); font-weight: 800; letter-spacing: -.03em; line-height: 1.12; overflow-wrap: anywhere; text-wrap: balance; }
-.introduccion-categoria__cantidad { display: flex; align-items: center; gap: 8px; color: #dce3ed; font-size: 12px; font-weight: 500; }
+.introduccion-categoria__cantidad { display: flex; align-items: center; gap: 8px; color: theme('colors.primario.100'); font-size: 12px; font-weight: 500; }
 @media (min-width: 640px) {
   .introduccion-categoria { min-height: 200px; border-radius: 24px; margin-bottom: 18px; }
   .introduccion-categoria__contenido { padding: 30px 36px; }

@@ -3,7 +3,7 @@ const { describe,test,before,after,beforeEach,afterEach }=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
 const path=require('node:path');
-const {randomUUID,randomBytes}=require('node:crypto');
+const {randomUUID}=require('node:crypto');
 const sharp=require('sharp');
 const {baseEnTransaccion}=require('./dobles/buzonEnTransaccion');
 const activo=process.env.PROBAR_BASE_LOCAL==='1';
@@ -39,28 +39,6 @@ describe('imágenes de categorías — PostgreSQL y disco desechables',{skip:!ac
     if(carpeta){assert.match(carpeta,/\/codex-imagen-categoria-/);await fs.rm(carpeta,{recursive:true,force:true});}
   });
 
-  test('prepara versiones estáticas WebP con resolución y peso acotados',async()=>{
-    const r=await servicio.optimizarImagen(foto);
-    for(const [k,maxAncho,maxBytes]of[['grande',960,180*1024],['movil',480,60*1024]]){
-      const meta=await sharp(r[k].data).metadata();
-      assert.equal(meta.format,'webp');assert.equal(meta.pages||1,1);
-      assert.ok(meta.width<=maxAncho);assert.ok(r[k].data.length<=maxBytes);
-      assert.equal(meta.width/meta.height,16/9);
-    }
-  });
-  test('también limita el peso de una foto de mucho detalle',async()=>{
-    const ruido=await sharp(randomBytes(1920*1080*3),{raw:{width:1920,height:1080,channels:3}}).jpeg({quality:90}).toBuffer();
-    const r=await servicio.optimizarImagen(ruido);
-    assert.ok(r.grande.data.length<=180*1024);
-    assert.ok(r.movil.data.length<=60*1024);
-  });
-  test('no agranda una foto pequeña ni conserva sus metadatos',async()=>{
-    const pequena=await sharp({create:{width:320,height:180,channels:3,background:'#e9501c'}})
-      .withMetadata().jpeg().toBuffer();
-    const r=await servicio.optimizarImagen(pequena);
-    const meta=await sharp(r.grande.data).metadata();
-    assert.equal(meta.width,320);assert.equal(meta.height,180);assert.equal(meta.exif,undefined);
-  });
   for(const [etiqueta,buffer]of[['vacía',Buffer.alloc(0)],['HTML',Buffer.from('<html>no es foto</html>')],
     ['PNG corrupto',Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0])],['mayor a 8 MB',Buffer.alloc(8*1024*1024+1)]]){
     test(`rechaza imagen ${etiqueta} sin archivos ni metadatos`,async()=>{
@@ -69,10 +47,6 @@ describe('imágenes de categorías — PostgreSQL y disco desechables',{skip:!ac
       assert.equal((await c.query('SELECT imagen FROM categoria_config WHERE categoria=$1',[nombre])).rows[0].imagen,null);
     });
   }
-  test('rechaza imágenes de demasiados píxeles',async()=>{
-    const grande=await sharp({create:{width:6000,height:5000,channels:3,background:'#fff'}}).png().toBuffer();
-    await assert.rejects(servicio.optimizarImagen(grande),e=>e.status===400);
-  });
   test('guardar entrega la misma imagen al árbol y al agente, sin cambiar nombre u orden',async()=>{
     const r=await servicio.asignarDesdeArchivo(id,{buffer:foto});
     assert.match(r.imagen.url,new RegExp(`^/archivos/categorias/${id}-grande-.*\\.webp$`));
@@ -117,8 +91,25 @@ describe('imágenes de categorías — PostgreSQL y disco desechables',{skip:!ac
   test('sin migración la lectura sigue disponible y subir falla sin dejar archivos',async()=>{
     await c.query('ALTER TABLE categoria_config DROP COLUMN imagen');
     assert.ok((await tablas.categoriasEnOrden()).find(x=>x.id===id));
-    await assert.rejects(servicio.asignarDesdeArchivo(id,{buffer:foto}),e=>e.status===503);
+    // Se detecta antes de decodificar: aun un archivo corrupto devuelve la
+    // causa real, y la petición nunca intenta crear archivos ni migrar tablas.
+    await assert.rejects(servicio.asignarDesdeArchivo(id,{buffer:Buffer.from('ZZ corrupta')}),e=>e.status===503 && /habilitadas/.test(e.message));
     assert.deepEqual(await archivos(),[]);
+    const express=require('express');const app=express();
+    app.use('/maestro',require('../src/modules/productos/productos.routes').routes);
+    const servidor=app.listen(0,'127.0.0.1');await new Promise(resolve=>servidor.once('listening',resolve));
+    try {
+      const form=new FormData();form.append('imagen',new Blob([foto],{type:'image/png'}),'ZZ.png');
+      const res=await fetch(`http://127.0.0.1:${servidor.address().port}/maestro/categorias/${id}/imagen`,{method:'POST',body:form});
+      assert.equal(res.status,503);
+      assert.match((await res.json()).message,/Avisá al administrador/);
+      assert.deepEqual(await archivos(),[]);
+      const sql=await fs.readFile(path.resolve(__dirname,'../migrations/independencia/055_imagen_categoria_catalogo.sql'),'utf8');
+      await c.query(sql);
+      const nuevo=new FormData();nuevo.append('imagen',new Blob([foto],{type:'image/png'}),'ZZ.png');
+      const bien=await fetch(`http://127.0.0.1:${servidor.address().port}/maestro/categorias/${id}/imagen`,{method:'POST',body:nuevo});
+      assert.equal(bien.status,200);assert.ok((await bien.json()).data.imagen.url);
+    } finally {await new Promise(resolve=>servidor.close(resolve));}
   });
   test('ids inválidos/inexistentes no escriben archivos',async()=>{
     await assert.rejects(servicio.asignarDesdeArchivo('mal',{buffer:foto}),e=>e.status===400);

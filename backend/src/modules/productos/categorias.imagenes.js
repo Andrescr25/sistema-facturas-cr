@@ -1,46 +1,25 @@
 /**
- * La cabecera del agente necesita una foto liviana, no el archivo original
+ * La transición del agente necesita una foto nítida, no el archivo original
  * del teléfono. Se generan dos WebP estáticos al subirla, nunca al navegar.
  * El bloqueo de categoría coordina la foto con renombrar la categoría real.
  */
-const sharp = require('sharp');
 const { pool } = require('../../../config/database');
 const almacenamiento = require('../../integrations/almacenamiento');
 const { enTransaccion } = require('../../utils/transaccion');
 const { httpError, idValido } = require('../../utils/validacion');
 const { registrarCambio } = require('../../utils/bitacora');
+const { optimizarImagen, MAXIMO_BYTES } = require('./categorias.imagen.optimizar');
 
-const MAXIMO_BYTES = 8 * 1024 * 1024;
-const MAXIMO_PIXELES = 24 * 1024 * 1024;
+const noHabilitada = () => httpError(503, 'Las imágenes de categorías todavía no están habilitadas en el servidor. Avisá al administrador para activarlas.');
 
-async function variante(buffer, ancho, maximoBytes) {
-  // Fotos con mucho detalle también tienen un techo de descarga. Reducir
-  // resolución es preferible a guardar una imagen enorme para cada sección.
-  let resultado;
-  do {
-    resultado = await sharp(buffer, { limitInputPixels: MAXIMO_PIXELES, animated: false })
-      .rotate().resize({ width: ancho, height: Math.round(ancho * 9 / 16), fit: 'cover', withoutEnlargement: true })
-      .webp({ quality: 72, effort: 4 }).toBuffer({ resolveWithObject: true });
-    ancho = Math.floor(ancho * 0.75);
-  } while (resultado.data.length > maximoBytes && ancho >= 240);
-  if (resultado.data.length > maximoBytes) throw httpError(400, 'No se pudo optimizar esta imagen. Elegí otra foto.');
-  return resultado;
-}
-
-async function optimizarImagen(buffer) {
-  if (!Buffer.isBuffer(buffer) || !buffer.length) throw httpError(400, 'Elegí una imagen.');
-  if (buffer.length > MAXIMO_BYTES) throw httpError(400, 'La imagen pesa más de 8 MB.');
-  if (!['jpg', 'png', 'webp'].includes(almacenamiento.tipoDeImagen(buffer))) {
-    throw httpError(400, 'Elegí una imagen JPG, PNG o WebP.');
-  }
-  try {
-    const grande = await variante(buffer, 960, 180 * 1024);
-    const movil = await variante(buffer, 480, 60 * 1024);
-    return { grande, movil };
-  } catch (error) {
-    if (error.status) throw error;
-    throw httpError(400, 'No se pudo leer la imagen. Elegí otra foto de hasta 24 megapíxeles.');
-  }
+async function comprobarHabilitada() {
+  const { rows: [estado] } = await pool.query(`SELECT EXISTS (
+    SELECT 1 FROM pg_attribute WHERE attrelid='categoria_config'::regclass
+      AND attname='imagen' AND NOT attisdropped
+  ) AS habilitada`);
+  // La migración es un paso de despliegue explícito. No hacemos DDL dentro
+  // de una petición ni procesamos/guardamos fotos si todavía falta ese paso.
+  if (!estado.habilitada) throw noHabilitada();
 }
 
 async function borrarImagen(id, imagen) {
@@ -65,7 +44,7 @@ async function guardarMetadatos(id, imagen, usuarioId) {
       return config?.imagen;
     });
   } catch (error) {
-    if (error.code === '42703') throw httpError(503, 'La imagen de categorías todavía no está habilitada en el servidor.');
+    if (error.code === '42703') throw noHabilitada();
     throw error;
   }
 }
@@ -74,6 +53,7 @@ async function asignarDesdeArchivo(idCrudo, archivo, usuarioId) {
   const id = idValido(idCrudo);
   const { rowCount } = await pool.query('SELECT id FROM categoria_producto WHERE id=$1', [id]);
   if (!rowCount) throw httpError(404, 'No existe esa categoría.');
+  await comprobarHabilitada();
   const { grande, movil } = await optimizarImagen(archivo?.buffer);
   const nuevas = [];
   let anterior, imagen;

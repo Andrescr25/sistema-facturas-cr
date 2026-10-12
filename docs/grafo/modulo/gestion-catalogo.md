@@ -20,8 +20,11 @@ archivos:
   - backend/tests/taxonomiaCatalogo.test.js
   - backend/tests/maestroFotosYReferencias.test.js
   - backend/src/modules/productos/categorias.imagenes.js
+  - backend/src/modules/productos/categorias.imagen.optimizar.js
+  - backend/tests/imagenCategoriaCalidad.test.js
   - backend/tests/imagenCategoriaLocal.test.js
   - frontend/src/components/gestion-catalogo/ImagenCategoria.jsx
+  - frontend/src/hooks/useImagenCategoria.js
   - frontend/src/components/gestion-catalogo/DetalleCategoria.jsx
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
@@ -71,8 +74,14 @@ Categorías) arrastra ese nombre en las dos tablas
 2026-10-11: al abrir una categoría, el botón **Imagen** está junto a su nombre
 y lápiz. Abre vista previa, elegir/reemplazar, guardar o quitar. JPG/PNG/WebP,
 máximo 8 MiB; el servidor valida los bytes y limita la decodificación a 24
-megapíxeles, elimina metadatos y guarda dos WebP estáticos: hasta 960×540/180
-KiB y 480×270/60 KiB (reduce resolución si necesita cumplir el peso).
+megapíxeles, corrige orientación y elimina metadatos. Para la transición de
+pantalla completa guarda dos WebP estáticos: escritorio hasta 1920×1080/800
+KiB y móvil vertical hasta 960×1280/400 KiB. Calidad 84, luego 80/76 si hace
+falta; solo después reduce a 1600/1440 o 800/720 de ancho. Si ni eso cumple,
+rechaza la foto en lugar de guardarla como una miniatura borrosa. Nunca
+agranda una fuente pequeña. El motivo central se conserva en ambos recortes.
+Las fotos ya comprimidas con la versión anterior requieren volver a subir su
+original. Selección, vista previa y envío viven en `useImagenCategoria.js`.
 `POST/DELETE /maestro/categorias/:id/imagen` requieren Gestión de Catálogo.
 No se admite URL externa ni se modifica la foto de un producto.
 
@@ -82,8 +91,13 @@ imagen sobreviven al renombre/reordenamiento. Bitácora y configuración van
 en la misma transacción; si falla borra los archivos nuevos y conserva los
 anteriores. Al reemplazar/quitar solo borra las variantes de esa categoría,
 después del commit. La lectura funciona antes de SQL 055; guardar sin esa
-columna devuelve 503 y conserva la imagen previa. Pruebas con PostgreSQL
-desechable y multipart real en `imagenCategoriaLocal.test.js`.
+columna devuelve 503 y conserva la imagen previa. Comprueba el esquema antes
+de comprimir o guardar archivos; no ejecuta migraciones desde la petición.
+SQL 055 se aplica explícitamente antes del despliegue. El 503 reportado en
+producción el 2026-10-11 corresponde a ese paso pendiente, no al tamaño del
+archivo. Pruebas de calidad siempre activas en `imagenCategoriaCalidad.test.js`
+y con PostgreSQL desechable/multipart en `imagenCategoriaLocal.test.js`,
+incluyendo reproducir el 503 y recuperar la misma subida al aplicar SQL 055.
 
 LO QUE SOLO SE VE CONTRA UNA BASE
 
