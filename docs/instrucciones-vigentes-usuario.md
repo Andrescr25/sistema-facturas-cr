@@ -475,3 +475,20 @@ qué».
   [CLAUDE.md](../CLAUDE.md), y la cuida `backend/tests/estructura.test.js`.
 - El permiso de subir a `main`, con sus condiciones y la obligación de decir
   quién subió qué, también está en esos dos archivos y en la memoria.
+
+## 2026-10-11 — La nota de crédito también se le manda al cliente
+
+Revisando Facturación, textual: «en nota de crédito está faltando enviar la
+nota de crédito por correo al cliente, el pdf con sus xml».
+
+**Hecho**: una nota de crédito aceptada por Hacienda en producción se le
+entrega sola al cliente, al correo de su ficha, con el PDF de la nota, el
+XML firmado y la respuesta de Hacienda; la tarjeta de la nota muestra ese
+cuarto paso y tiene «Enviar al cliente» y «Ver PDF». La nota no tenía PDF:
+se hizo, con el mismo diseño de la factura. Detalle en
+[correo-facturas](grafo/modulo/correo-facturas.md).
+
+**Queda para el usuario**: mandarle la nota 82 (aceptada antes de este
+cambio) con «Enviar al cliente» si quiere que el cliente la reciba; y
+decidir si el pie de los PDF electrónicos debe citar la resolución de
+Hacienda (hoy no cita ninguna).

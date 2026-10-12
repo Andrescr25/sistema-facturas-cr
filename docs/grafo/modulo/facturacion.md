@@ -31,6 +31,7 @@ archivos:
   - frontend/src/components/facturacion/ModalNotaCredito.jsx
   - frontend/src/utils/notaCreditoTexto.js
   - backend/src/modules/facturacion/notaCredito.service.js
+  - backend/src/modules/facturacion/notaCredito.controller.js
   - backend/tests/notaCreditoSeguimiento.test.js
   - backend/tests/facturaConsulta.test.js
   - frontend/src/hooks/useFacturasEmitidas.js
@@ -210,8 +211,11 @@ unidades devueltas y su comprobante de producción. Pruebas:
 `notaCreditoSeguimiento.test.js`, con el caso real (₡62,15, electrónica,
 acreditada entera).
 
-No se hizo: anular una nota desde la pantalla (el servidor ya lo permite) y
-mandarle la nota electrónica al cliente por correo.
+Desde esa misma noche la nota electrónica **le llega al cliente por correo**
+con su PDF y sus dos XML, y cada tarjeta tiene «Ver PDF»: ver
+[[modulo/correo-facturas]], "LA NOTA DE CRÉDITO TAMBIÉN SE ENTREGA".
+
+No se hizo: anular una nota desde la pantalla (el servidor ya lo permite).
 
 "EMITIDAS" SON DOS LISTAS (2026-10-11). Pedido del usuario: «que el tab que
 dice "emitidas" se divida en Facturas de venta y Facturas electrónicas, para

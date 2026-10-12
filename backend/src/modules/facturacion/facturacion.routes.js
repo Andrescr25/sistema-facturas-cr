@@ -43,6 +43,7 @@ router.patch('/facturas/:id/anular', facturaPropia.anular);
 // y la nota dice qué se devuelve y por qué.
 router.get('/notas-credito/motivos', notaCredito.motivos);
 router.post('/notas-credito', notaCredito.crear);
+router.get('/notas-credito/:id/pdf', notaCredito.pdf);
 router.patch('/notas-credito/:id/anular', notaCredito.anular);
 
 // Lo que ese cliente suele llevar, para recordárselo al tomarle el pedido.

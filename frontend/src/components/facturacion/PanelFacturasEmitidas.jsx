@@ -129,6 +129,7 @@ export default function PanelFacturasEmitidas({ f }) {
           abriendoPdf={f.abriendoPdf}
           onVolver={f.volver}
           onPdf={f.verPdf}
+          onPdfNota={f.verPdfNota}
           onAnular={setAnulando}
           onNotaCredito={setNota}
           onEnviar={f.abrirEnvio}

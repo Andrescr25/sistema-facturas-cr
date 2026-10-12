@@ -32,21 +32,77 @@ function exigirEmitida(factura) {
   if (factura.estado !== 'emitida') throw httpError(409, 'Solo se mandan por correo las facturas emitidas.');
 }
 
-async function datosCorreoFactura(id) {
-  const factura = await obtenerFactura(id);
-  exigirEmitida(factura);
-  let propuesta = factura.cliente?.correo || '';
-  if (factura.cliente?.id) {
-    const { rows } = await pool.query('SELECT correo FROM cliente WHERE id = $1', [factura.cliente.id]);
+/**
+ * A qué correo se le manda un documento de este cliente: el de su FICHA, o
+ * '' si no tiene uno válido. `cliente` es el del documento ({ id, correo }).
+ */
+async function correoDeFicha(cliente) {
+  let propuesta = cliente?.correo || '';
+  if (cliente?.id) {
+    const { rows } = await pool.query('SELECT correo FROM cliente WHERE id = $1', [cliente.id]);
     // Si se quitó un correo de la ficha, no resucitarlo desde la fotografía
     // histórica del documento. Esa fotografía sí se conserva en el PDF.
     if (rows[0]) propuesta = rows[0].correo || '';
   }
-  try { propuesta = direccion(propuesta); } catch { propuesta = ''; }
+  try { return direccion(propuesta); } catch { return ''; }
+}
+
+async function datosCorreoFactura(id) {
+  const factura = await obtenerFactura(id);
+  exigirEmitida(factura);
   return {
-    numero: factura.numero, para: propuesta, remitente: mailer.remitente() || '',
+    numero: factura.numero, para: await correoDeFicha(factura.cliente), remitente: mailer.remitente() || '',
     configurado: mailer.estaConfigurado(), bloqueado: salidasBloqueadas()
   };
+}
+
+/** Un nombre de archivo sin nada que un cliente de correo pueda malinterpretar. */
+const paraArchivo = (numero) => String(numero).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
+
+/** Los dos XML de un comprobante aceptado: el firmado y la respuesta de Hacienda. */
+async function adjuntosFiscales(fiscal) {
+  const servicio = require('../../integrations/hacienda/emision.service').crearServicio(pool);
+  const adjuntos = [];
+  for (const respuesta of [false, true]) {
+    adjuntos.push({
+      filename: `${respuesta ? 'respuesta-hacienda' : 'comprobante'}-${fiscal.consecutivo}.xml`,
+      content: Buffer.from(await servicio.archivo(fiscal.id, respuesta)),
+      contentType: 'application/xml'
+    });
+  }
+  return adjuntos;
+}
+
+/** Sin servidor de correo no se arma ni el PDF. */
+function exigirCorreoConfigurado() {
+  if (mailer.estaConfigurado()) return;
+  const error = httpError(503, 'El envío de correo todavía no está configurado.');
+  error.code = 'CORREO_NO_CONFIGURADO';
+  throw error;
+}
+
+/**
+ * Mandar UN correo a UNA dirección y comprobar que el servidor la aceptó.
+ * Lo usan la factura y la nota de crédito (notaCreditoCorreo.service.js):
+ * las reglas de arriba —no reintentar, no filtrar el error de SMTP— son una
+ * sola para los dos.
+ */
+async function despachar({ para, asunto, mensaje, adjuntos }) {
+  let resultado;
+  try {
+    resultado = await mailer.enviarCorreo({ para, asunto, texto: mensaje, adjuntos });
+  } catch {
+    // Un error de nodemailer puede llevar servidor, usuario o credenciales.
+    // No devolverlo ni registrarlo entero, ni reintentar un envío incierto.
+    const error = httpError(502, 'No se pudo confirmar el envío. Revisá los enviados de la cuenta antes de reintentar.');
+    error.code = 'CORREO_INCIERTO';
+    throw error;
+  }
+  if (resultado?.rechazados?.length || !resultado?.aceptados?.some(v => typeof v === 'string' && v.toLowerCase() === para)) {
+    const error = httpError(502, 'El servidor de correo no aceptó al destinatario. Revisá su dirección.');
+    error.code = 'CORREO_RECHAZADO';
+    throw error;
+  }
 }
 
 async function enviarFacturaPorCorreo(id, datos = {}, { exigirFiscal = false } = {}) {
@@ -61,37 +117,14 @@ async function enviarFacturaPorCorreo(id, datos = {}, { exigirFiscal = false } =
   // La entrega automática promete "el PDF con los dos XML": si la factura no
   // trae su comprobante aceptado, no sale un correo a medias con ese nombre.
   if (exigirFiscal && !factura.fiscal) throw httpError(409, 'La factura todavía no está aceptada por Hacienda.');
-  if (!mailer.estaConfigurado()) {
-    const error = httpError(503, 'El envío de correo todavía no está configurado.');
-    error.code = 'CORREO_NO_CONFIGURADO';
-    throw error;
-  }
+  exigirCorreoConfigurado();
   const { rows } = await pool.query('SELECT * FROM empresa WHERE id = 1');
   const pdf = await generarPdfFactura(factura, rows[0] || null);
-  const numeroArchivo = String(factura.numero || factura.id).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
-  const adjuntos=[{filename:`factura-${numeroArchivo}.pdf`,content:pdf,contentType:'application/pdf'}];
-  if(factura.fiscal) {
-    const fiscal=require('../../integrations/hacienda/emision.service').crearServicio(pool);
-    for(const respuesta of [false,true])adjuntos.push({filename:`${respuesta?'respuesta-hacienda':'comprobante'}-${factura.fiscal.consecutivo}.xml`,content:Buffer.from(await fiscal.archivo(factura.fiscal.id,respuesta)),contentType:'application/xml'});
-  }
-  let resultado;
-  try {
-    resultado = await mailer.enviarCorreo({
-      para, asunto, texto: mensaje,
-      adjuntos
-    });
-  } catch {
-    // Un error de nodemailer puede llevar servidor, usuario o credenciales.
-    // No devolverlo ni registrarlo entero, ni reintentar un envío incierto.
-    const error = httpError(502, 'No se pudo confirmar el envío. Revisá los enviados de la cuenta antes de reintentar.');
-    error.code = 'CORREO_INCIERTO';
-    throw error;
-  }
-  if (resultado?.rechazados?.length || !resultado?.aceptados?.some(v => typeof v === 'string' && v.toLowerCase() === para)) {
-    const error = httpError(502, 'El servidor de correo no aceptó al destinatario. Revisá su dirección.');
-    error.code = 'CORREO_RECHAZADO';
-    throw error;
-  }
+  const adjuntos = [{
+    filename: `factura-${paraArchivo(factura.numero || factura.id)}.pdf`, content: pdf, contentType: 'application/pdf'
+  }];
+  if (factura.fiscal) adjuntos.push(...await adjuntosFiscales(factura.fiscal));
+  await despachar({ para, asunto, mensaje, adjuntos });
   return { para, numero: factura.numero, aceptado: true };
 }
 
@@ -134,4 +167,7 @@ async function entregarFacturaElectronica(id) {
   }
 }
 
-module.exports = { datosCorreoFactura, enviarFacturaPorCorreo, entregarFacturaElectronica };
+module.exports = {
+  datosCorreoFactura, enviarFacturaPorCorreo, entregarFacturaElectronica,
+  correoDeFicha, adjuntosFiscales, exigirCorreoConfigurado, despachar, paraArchivo
+};

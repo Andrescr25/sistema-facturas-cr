@@ -70,7 +70,7 @@ function Dato({ etiqueta, children }) {
 
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
-  onVolver, onPdf, onAnular, onNotaCredito, onEditar, onEnviar, onCorreo, cargandoCorreo,
+  onVolver, onPdf, onPdfNota, onAnular, onNotaCredito, onEditar, onEnviar, onCorreo, cargandoCorreo,
   onGuardar, onCancelarEdicion, abriendoPdf, onFiscalCambio, onAnularCobro
 }) {
   const f = factura
@@ -196,7 +196,9 @@ export default function VistaFactura({
 
       {/* Las notas de crédito van ARRIBA del documento: dicen qué le pasó a
           la factura, y abajo —donde estaban— nadie las veía. */}
-      {!editando && <NotasCreditoFactura factura={f} onCambio={onFiscalCambio} />}
+      {!editando && (
+        <NotasCreditoFactura factura={f} onCambio={onFiscalCambio} onPdf={onPdfNota} abriendoPdf={abriendoPdf} />
+      )}
 
       {/* ---------- El documento ---------- */}
       <div className={`card overflow-hidden rounded-2xl ${editando ? 'ring-2 ring-primario-200' : ''}`}>

@@ -182,16 +182,21 @@ export function useFacturasEmitidas({ activa }) {
     return r
   }
 
-  const verPdf = async (id) => {
-    setAbriendoPdf(id)
+  // `clave` es lo que queda girando mientras abre: el id de la factura, o
+  // `nota-<id>` para una nota de crédito.
+  const abrirPdf = async (clave, id, opciones) => {
+    setAbriendoPdf(clave)
     try {
-      await abrirPdfFacturaPropia(api, id)
+      await abrirPdfFacturaPropia(api, id, opciones)
     } catch {
       setError('No se pudo abrir el PDF.')
     } finally {
       setAbriendoPdf(null)
     }
   }
+  const verPdf = (id) => abrirPdf(id, id)
+  /** El papel de una nota de crédito: el mismo que se le manda al cliente. */
+  const verPdfNota = (id) => abrirPdf(`nota-${id}`, id, { ruta: `/facturacion/notas-credito/${id}/pdf` })
 
   const abrirCorreo = async (factura) => {
     const mia = ++peticionCorreo.current
@@ -263,7 +268,7 @@ export function useFacturasEmitidas({ activa }) {
     volver: () => { cerrarCorreo(); setDetalleId(null); setDetalle(null); setEditando(false) },
     editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion, anularCobro,
     productos, clientes,
-    abriendoPdf, verPdf, anular, crearNota,
+    abriendoPdf, verPdf, verPdfNota, anular, crearNota,
     enviando, abrirEnvio, cerrarEnvio: () => setEnviando(null), enviarPorWhatsApp,
     correoAbierto, cargandoCorreo, abrirCorreo, cerrarCorreo, enviarPorCorreo,
     mensaje, setMensaje,

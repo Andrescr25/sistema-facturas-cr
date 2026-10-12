@@ -62,6 +62,10 @@ export async function emitirNota(id, datos = {}) {
 export async function reenviarCorreo(id) {
   return (await api.post(`/facturacion/hacienda/facturas/${id}/correo`)).data.data;
 }
+/** Lo mismo para una nota de crédito aceptada. */
+export async function reenviarCorreoNota(id) {
+  return (await api.post(`/facturacion/hacienda/notas-credito/${id}/correo`)).data.data;
+}
 export async function operar(comprobante, accion) {
   return (
     await api.post(

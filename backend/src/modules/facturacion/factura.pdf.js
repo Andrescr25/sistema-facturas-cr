@@ -34,6 +34,11 @@
  *
  *   · Solo una respuesta fiscal aceptada muestra título y consecutivo
  *     electrónicos. La foto del emisor procede del XML firmado.
+ *
+ * LA NOTA DE CRÉDITO SE DIBUJA CON ESTE MISMO ARCHIVO (2026-10-11): mismo
+ * emisor, misma tabla, mismo desglose del impuesto. Lo que cada papel dice
+ * distinto viene en `papel` (ver `papelDeFactura`); el de la nota se arma en
+ * notaCredito.pdf.js.
  */
 
 const fs = require('fs');
@@ -134,13 +139,62 @@ function datosEmisor(empresa) {
 }
 
 /**
+ * LO QUE CAMBIA DE UN PAPEL A OTRO: el título, los datos de arriba a la
+ * derecha, las condiciones junto al cliente y la nota del pie. Todo lo demás
+ * —emisor, tabla, totales— se dibuja igual para una factura, un tiquete o
+ * una nota de crédito.
+ *
+ *   fiscal        el comprobante aceptado por Hacienda, o null
+ *   titulo        qué documento es
+ *   numeroPropio  cómo se llama el número interno cuando arriba va el fiscal
+ *   datos         [etiqueta, valor] bajo el número
+ *   condiciones   [etiqueta, valor] junto al cliente (sin valor, no sale)
+ *   observacion   { titulo, texto } a la izquierda de los totales, o null
+ *   terminos      si lleva las cuentas por donde se paga
+ */
+function papelDeFactura(f) {
+  const fiscal = (f.electronica && f.haciendaEstado === 'aceptada' && f.fiscal) || null;
+  return {
+    fiscal,
+    titulo: fiscal
+      ? (fiscal.tipo === '04' ? 'TIQUETE ELECTRÓNICO' : 'FACTURA ELECTRÓNICA')
+      : f.tipoDocumento === 'tiquete' ? 'TIQUETE' : 'FACTURA DE VENTA',
+    numeroPropio: 'Venta:',
+    datos: [
+      ['Fecha de creación:', fechaLarga(f.fecha)],
+      ...(f.fechaVencimiento ? [['Fecha de vencimiento:', fechaLarga(f.fechaVencimiento)]] : [])
+    ],
+    condiciones: [
+      ['Condición:', f.condicionVenta === 'credito' ? (f.plazo || 'Crédito') : 'Contado'],
+      ['Moneda:', f.moneda || 'CRC'],
+      ['Medio de pago:', medioDePago(f.metodoPago)]
+    ],
+    observacion: f.observaciones ? { titulo: 'NOTA', texto: f.observaciones } : null,
+    terminos: true
+  };
+}
+
+/**
+ * La letra chica del pie. Un comprobante aceptado NO puede decir que "no
+ * constituye un comprobante electrónico": lo decía, porque la frase se
+ * escribió cuando todo era factura de venta y nadie la volvió a mirar.
+ */
+function leyenda(papel, emisor) {
+  return papel.fiscal
+    ? 'Representación impresa de un comprobante electrónico aceptado por el Ministerio de Hacienda. ' +
+      'El comprobante con validez fiscal es el XML firmado, que se identifica con la clave de arriba.'
+    : `Documento emitido por ${emisor.nombre}. No constituye un comprobante electrónico ` +
+      'autorizado por el Ministerio de Hacienda. Consérvelo para cualquier reclamo.';
+}
+
+/**
  * El encabezado: quién emite a la izquierda, qué documento es a la derecha.
  *
  * Los datos del emisor van COMPLETOS arriba y no escondidos en el pie: el
  * nombre, la cédula, la dirección, el contacto y la actividad económica son
  * parte de lo que hace válida una factura, no una firma decorativa.
  */
-function encabezado(doc, f, ancho, F, emisor) {
+function encabezado(doc, f, ancho, F, emisor, papel) {
   let cursor = M;
   const anchoIzq = ancho - 250;
 
@@ -178,14 +232,17 @@ function encabezado(doc, f, ancho, F, emisor) {
 
   // ---- Derecha: qué documento es ----
   const anulada = f.estado === 'anulada';
-  const fiscal=f.electronica&&f.haciendaEstado==='aceptada'&&f.fiscal;
-  const titulo = fiscal ? (f.fiscal.tipo==='04'?'TIQUETE ELECTRÓNICO':'FACTURA ELECTRÓNICA') : f.tipoDocumento === 'tiquete' ? 'TIQUETE' : 'FACTURA DE VENTA';
+  const { fiscal } = papel;
   const xDer = doc.page.width - M - 240;
 
-  doc.font(F.negrita).fontSize(16).fillColor(anulada ? MARCA.grisSuave : MARCA.tinta)
-    .text(titulo, xDer, M, { width: 240, align: 'right' });
+  // El título se achica hasta caber en un renglón: "NOTA DE CRÉDITO
+  // ELECTRÓNICA" no entra a 16 puntos, y partido en dos pisaba el número.
+  doc.font(F.negrita).fontSize(16);
+  const cuerpoTitulo = Math.min(16, Math.floor(160 * 240 / doc.widthOfString(papel.titulo)) / 10);
+  doc.fontSize(cuerpoTitulo).fillColor(anulada ? MARCA.grisSuave : MARCA.tinta)
+    .text(papel.titulo, xDer, M + (16 - cuerpoTitulo), { width: 240, align: 'right', lineBreak: false });
   doc.font(F.negrita).fontSize(13).fillColor(anulada ? MARCA.grisSuave : MARCA.naranja)
-    .text(fiscal?f.fiscal.consecutivo:f.numero, xDer, M + 21, { width: 240, align: 'right' });
+    .text(fiscal ? fiscal.consecutivo : f.numero, xDer, M + 21, { width: 240, align: 'right' });
 
   let yDer = M + 40;
   // Etiqueta y valor se colocan MIDIENDO, no con `continued` + `align:right`:
@@ -199,14 +256,14 @@ function encabezado(doc, f, ancho, F, emisor) {
       .text(etiqueta, xDer, yDer, { width: 240 - anchoValor - 4, align: 'right', lineBreak: false });
     yDer += 12;
   };
-  if(fiscal) {
-    doc.font(F.normal).fontSize(7).fillColor(MARCA.gris).text('Clave: '+f.fiscal.clave,xDer,yDer,{width:240,align:'right'});
-    yDer+=24;
-    dato('Fecha fiscal:',String(f.fiscal.fecha));
-    dato('Venta:',f.numero);
+  if (fiscal) {
+    doc.font(F.normal).fontSize(7).fillColor(MARCA.gris)
+      .text('Clave: ' + fiscal.clave, xDer, yDer, { width: 240, align: 'right' });
+    yDer += 24;
+    dato('Fecha fiscal:', String(fiscal.fecha));
+    dato(papel.numeroPropio, f.numero);
   }
-  dato('Fecha de creación:', fechaLarga(f.fecha));
-  if (f.fechaVencimiento) dato('Fecha de vencimiento:', fechaLarga(f.fechaVencimiento));
+  for (const [etiqueta, valor] of papel.datos) dato(etiqueta, valor);
 
   if (anulada) {
     doc.font(F.negrita).fontSize(9).fillColor(MARCA.naranjaOscuro)
@@ -249,7 +306,7 @@ function medioDePago(valor) {
   return String(valor).charAt(0).toUpperCase() + String(valor).slice(1).toLowerCase();
 }
 
-function bloqueCliente(doc, f, ancho, y, F) {
+function bloqueCliente(doc, f, ancho, y, F, papel) {
   const anchoIzq = ancho * 0.62;
   const xDer = M + anchoIzq + 14;
   const anchoDer = ancho - anchoIzq - 14;
@@ -276,7 +333,8 @@ function bloqueCliente(doc, f, ancho, y, F) {
     yIzq += doc.heightOfString(linea, { width: anchoIzq });
   }
 
-  // ---- Derecha: condición, moneda y medio de pago ----
+  // ---- Derecha: las condiciones del papel (en la factura: condición,
+  // moneda y medio de pago) ----
   let yDer = y + 2;
   const par = (etiqueta, valor) => {
     if (!valor) return;
@@ -290,9 +348,7 @@ function bloqueCliente(doc, f, ancho, y, F) {
       .text(etiqueta, xDer, yDer, { width: anchoDer - anchoValor - 4, align: 'right', lineBreak: false });
     yDer += 13;
   };
-  par('Condición:', f.condicionVenta === 'credito' ? (f.plazo || 'Crédito') : 'Contado');
-  par('Moneda:', f.moneda || 'CRC');
-  par('Medio de pago:', medioDePago(f.metodoPago));
+  for (const [etiqueta, valor] of papel.condiciones) par(etiqueta, valor);
 
   return Math.max(yIzq, yDer) + 12;
 }
@@ -405,7 +461,7 @@ function impuestoPorTarifa(lineas) {
     .sort((a, b) => a[0] - b[0]);
 }
 
-function totales(doc, f, ancho, y, F, emisor) {
+function totales(doc, f, ancho, y, F, observacion) {
   const desglose = impuestoPorTarifa(f.lineas);
   const conPagos = num(f.cobrado) > 0 || num(f.acreditado) > 0;
   const alto = 120 + desglose.length * 15 + (conPagos ? 34 : 0);
@@ -422,8 +478,22 @@ function totales(doc, f, ancho, y, F, emisor) {
   // EL MONTO EN LETRAS, a la izquierda y a la altura de los totales. Es lo
   // que impide que alguien retoque la cifra con un lapicero: "₡15.899" se
   // altera, "quince mil ochocientos noventa y nueve colones" no.
-  doc.font(F.normal).fontSize(8).fillColor(MARCA.gris)
-    .text(montoEnLetras(f.total, f.moneda), M, yy + 2, { width: ancho - anchoCaja - 24 });
+  const anchoIzq = ancho - anchoCaja - 24;
+  const letras = montoEnLetras(f.total, f.moneda);
+  doc.font(F.normal).fontSize(8).fillColor(MARCA.gris).text(letras, M, yy + 2, { width: anchoIzq });
+  let yIzq = yy + 2 + doc.heightOfString(letras, { width: anchoIzq });
+
+  // LA OBSERVACIÓN VA DEBAJO DEL MONTO EN LETRAS, y se dibuja acá, no antes:
+  // estaba a su misma altura y las dos se escribían una encima de la otra;
+  // y si los totales saltan de página, tiene que saltar con ellos.
+  if (observacion) {
+    yIzq += 10;
+    doc.font(F.negrita).fontSize(7.5).fillColor(MARCA.grisSuave)
+      .text(observacion.titulo, M, yIzq, { characterSpacing: 1 });
+    doc.font(F.normal).fontSize(8.5).fillColor(MARCA.gris)
+      .text(observacion.texto, M, yIzq + 12, { width: anchoIzq });
+    yIzq += 12 + doc.heightOfString(observacion.texto, { width: anchoIzq });
+  }
 
   const renglon = (etiqueta, valor, color = MARCA.gris) => {
     doc.font(F.normal).fontSize(9).fillColor(color)
@@ -488,7 +558,8 @@ function totales(doc, f, ancho, y, F, emisor) {
     yy += 16;
   }
 
-  return yy;
+  // Lo que venga después arranca debajo de las DOS columnas.
+  return Math.max(yy, yIzq);
 }
 
 /** El sello de anulada, en diagonal, en cada página. */
@@ -528,12 +599,14 @@ function pie(doc, f, ancho, F, emisor = NEGOCIO) {
  * Arma el PDF y devuelve su contenido.
  *
  * @param {object} f lo que devuelve facturaConsulta.obtenerFactura()
+ * @param {object} papel lo que este papel dice distinto (ver papelDeFactura)
  * @returns {Promise<Buffer>}
  */
-function generarPdfFactura(f, empresa = null) {
+function generarPdfFactura(f, empresa = null, papel = null) {
   if (!f || !Array.isArray(f.lineas)) {
-    throw new Error('No se puede armar el PDF: la factura viene sin líneas.');
+    throw new Error('No se puede armar el PDF: el documento viene sin líneas.');
   }
+  papel = papel || papelDeFactura(f);
 
   // Los datos del emisor salen de la CONFIGURACIÓN, no del código: la cédula,
   // la dirección, la actividad económica y las cuentas de pago cambian, y
@@ -552,27 +625,20 @@ function generarPdfFactura(f, empresa = null) {
   const conDescuento = f.lineas.some(l => num(l.descuentoPorcentaje) > 0 || num(l.descuentoMonto) > 0);
   const col = columnas(ancho, conDescuento);
 
-  let y = encabezado(doc, f, ancho, F, emisor);
-  y = bloqueCliente(doc, f, ancho, y, F);
+  let y = encabezado(doc, f, ancho, F, emisor, papel);
+  y = bloqueCliente(doc, f, ancho, y, F, papel);
   y = cabeceraTabla(doc, col, ancho, y, F);
   const yTrasFilas = filas(doc, f, col, ancho, y, F);
 
-  // La observación va a la IZQUIERDA, a la altura de los totales: son las dos
-  // cosas que se leen al final y compiten por el mismo espacio.
-  if (f.observaciones) {
-    doc.font(F.negrita).fontSize(7.5).fillColor(MARCA.grisSuave)
-      .text('NOTA', M, yTrasFilas + 18, { characterSpacing: 1 });
-    doc.font(F.normal).fontSize(8.5).fillColor(MARCA.gris)
-      .text(f.observaciones, M, yTrasFilas + 30, { width: ancho - 260 });
-  }
-
-  const yFinal = totales(doc, f, ancho, yTrasFilas, F, emisor);
+  // La observación va a la IZQUIERDA de los totales, bajo el monto en letras:
+  // son las cosas que se leen al final y comparten ese espacio.
+  const yFinal = totales(doc, f, ancho, yTrasFilas, F, papel.observacion);
 
   // POR DÓNDE PAGA EL CLIENTE. Sin esto el papel no sirve para cobrar: son
   // las cuentas de SINPE y de banco, y viven en la configuración porque un
   // número de cuenta cambia y nadie debería tocar código para eso.
   let yPie = yFinal + 18;
-  if (emisor.terminos) {
+  if (papel.terminos && emisor.terminos) {
     doc.font(F.negrita).fontSize(7.5).fillColor(MARCA.gris)
       .text('TÉRMINOS Y CONDICIONES', M, yPie, { characterSpacing: 0.8 });
     doc.font(F.normal).fontSize(8).fillColor(MARCA.gris)
@@ -583,9 +649,7 @@ function generarPdfFactura(f, empresa = null) {
   // La letra chica va DEBAJO de los totales, no anclada al borde inferior:
   // escribir por debajo del margen le agrega a pdfkit una página en blanco.
   doc.font(F.normal).fontSize(7).fillColor(MARCA.grisSuave)
-    .text(`Documento emitido por ${emisor.nombre}. No constituye un comprobante electrónico ` +
-      'autorizado por el Ministerio de Hacienda. Consérvelo para cualquier reclamo.',
-      M, yPie + 8, { width: ancho * 0.62 });
+    .text(leyenda(papel, emisor), M, yPie + 8, { width: ancho * 0.62 });
 
   pie(doc, f, ancho, F, emisor);
   doc.end();
@@ -593,6 +657,6 @@ function generarPdfFactura(f, empresa = null) {
 }
 
 module.exports = {
-  generarPdfFactura, datosEmisor, medioDePago, impuestoPorTarifa, importeLinea, tarifaTexto, columnas,
-  detalleLinea, subtotalMostrado
+  generarPdfFactura, papelDeFactura, leyenda, datosEmisor, medioDePago, impuestoPorTarifa, importeLinea,
+  tarifaTexto, columnas, detalleLinea, subtotalMostrado
 };

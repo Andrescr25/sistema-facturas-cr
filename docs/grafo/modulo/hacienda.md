@@ -248,8 +248,9 @@ mismos. Lo nuevo es quién decide y quién los encadena:
   esa variable nadie consulta: el panel no promete nada y pide tocar
   «Consultar a Hacienda», y el correo al cliente espera a ese toque. Tiene
   que estar encendida en producción.
-- **El correo sale solo al aceptarse**, una vez, y solo para una FACTURA en
-  PRODUCCIÓN (`entregar`, dentro de `consultar`): lo dispara la consulta que
+- **El correo sale solo al aceptarse**, una vez, y solo en PRODUCCIÓN, para
+  una FACTURA y —desde esa misma noche— para una NOTA DE CRÉDITO (`entregar`,
+  dentro de `consultar`): lo dispara la consulta que
   HACE el cambio a aceptada —la de la persona o la del seguimiento—, fuera de
   la transacción. Si falla, la factura queda aceptada igual. El resultado se
   anota en `bitacora_cambio` (`accion='correo'` sobre el comprobante) y es lo
@@ -257,7 +258,8 @@ mismos. Lo nuevo es quién decide y quién los encadena:
   solo; "Enviar al cliente" lo repite a pedido
   (`POST …/facturas/:id/correo`). El envío mismo está en
   [[modulo/correo-facturas]], enchufado en `rutas.js`
-  (`ganchos.alAceptarFactura`): este módulo sigue sin importar correo.
+  (`ganchos.alAceptarFactura` y `ganchos.alAceptarNota`): este módulo sigue
+  sin importar correo.
 - **Cuándo el clic NO emite sin preguntar** (`datosPendientes`): una línea
   con descuento necesita su motivo —Hacienda lo exige y una regalía no es un
   descuento comercial— y un medicamento, su registro y forma farmacéutica si
@@ -378,7 +380,13 @@ tarjeta de la nota.
 - **El medio de pago es el de su factura**: sale del XML que ya se declaró
   (`medioDePago`, paso 3), así que no se pregunta dos veces ni puede decir
   otra cosa.
-- Tres pasos, no cuatro: la nota no tiene entrega automática por correo.
+- **Cuatro pasos, igual que la factura**: aceptada en producción, la nota se
+  le entrega sola al cliente con su PDF y sus dos XML, y queda «Enviar al
+  cliente» para repetirlo (`POST …/notas-credito/:id/correo`,
+  `reenviarCorreoNota`). Nació con tres pasos y sin correo; el usuario lo
+  notó revisando Facturación esa misma noche: «en nota de crédito está
+  faltando enviar la nota de crédito por correo al cliente, el pdf con sus
+  xml». El PDF de la nota no existía: ver [[modulo/correo-facturas]].
 - Rechazada: «Volver a emitir» prepara otra y vuelve a preguntar qué hace.
 
 `DocumentoFiscal.jsx` (el modal) queda solo para responder comprobantes de

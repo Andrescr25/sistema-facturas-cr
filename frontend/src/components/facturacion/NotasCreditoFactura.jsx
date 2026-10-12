@@ -1,4 +1,4 @@
-import { Undo2 } from 'lucide-react'
+import { Undo2, FileText, Loader2 } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import { colones } from '../../utils/colones'
 import { fechaCorta } from '../../utils/fechaCR'
@@ -21,8 +21,11 @@ import PanelEmisionFactura from './PanelEmisionFactura'
  *
  * Cada tarjeta contesta eso en tres recuadros —qué hizo, a qué documento se
  * aplicó, cómo va ante Hacienda— y, si la factura es electrónica, emite la
- * nota con el mismo botón de un clic y los mismos pasos que la factura.
+ * nota con el mismo botón de un clic y los mismos pasos que la factura,
+ * incluido el correo al cliente con el PDF y los dos XML.
  * Los textos se deciden en utils/notaCreditoTexto.js.
+ *
+ * «Ver PDF» abre el papel de la nota: el mismo que recibe el cliente.
  */
 
 const TONO = {
@@ -44,7 +47,7 @@ function Recuadro({ etiqueta, tono = 'neutro', titulo, detalle, children, dato }
   )
 }
 
-function TarjetaNota({ nota: n, factura: f, onCambio }) {
+function TarjetaNota({ nota: n, factura: f, onCambio, onPdf, abriendoPdf }) {
   // Una nota anulada o hecha en Alegra no se emite desde acá: no se le
   // pregunta nada al servidor.
   const emision = useEmisionFactura(n.id, {
@@ -79,6 +82,18 @@ function TarjetaNota({ nota: n, factura: f, onCambio }) {
               ? <Insignia tono="peligro">Anulada</Insignia>
               : <Insignia tono="nota">Aplicada</Insignia>}
           </div>
+          {onPdf && (
+            <button
+              type="button"
+              data-pdf-nota={n.id}
+              disabled={abriendoPdf === `nota-${n.id}`}
+              onClick={() => onPdf(n.id)}
+              className="btn btn-outline btn-sm mt-2 inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {abriendoPdf === `nota-${n.id}` ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Ver PDF
+            </button>
+          )}
         </div>
       </div>
 
@@ -108,12 +123,12 @@ function TarjetaNota({ nota: n, factura: f, onCambio }) {
   )
 }
 
-export default function NotasCreditoFactura({ factura, onCambio }) {
+export default function NotasCreditoFactura({ factura, onCambio, onPdf, abriendoPdf }) {
   if (!factura.notasCredito?.length) return null
   return (
     <section data-notas-credito className="flex flex-col gap-3">
       {factura.notasCredito.map(n => (
-        <TarjetaNota key={n.id} nota={n} factura={factura} onCambio={onCambio} />
+        <TarjetaNota key={n.id} nota={n} factura={factura} onCambio={onCambio} onPdf={onPdf} abriendoPdf={abriendoPdf} />
       ))}
     </section>
   )

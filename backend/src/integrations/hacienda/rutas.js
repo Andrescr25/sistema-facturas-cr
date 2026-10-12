@@ -9,12 +9,15 @@ const numeracion = require("./numeracion");
 const { enTransaccion } = require("../../utils/transaccion");
 const { error } = require("./errores");
 // EL CORREO SE ENCHUFA ACÁ, no dentro del servicio fiscal: el módulo de
-// Hacienda no importa correo. Cuándo se entrega (solo una factura aceptada en
-// producción) lo decide el servicio; acá solo se dice CON QUÉ. El `require`
-// va adentro porque el servicio de correo importa a su vez este módulo.
+// Hacienda no importa correo. Cuándo se entrega (una factura o una nota de
+// crédito aceptada en producción) lo decide el servicio; acá solo se dice CON
+// QUÉ. El `require` va adentro porque el servicio de correo importa a su vez
+// este módulo.
 const servicio = crearServicio(pool, undefined, {
     alAceptarFactura: (facturaId) =>
       require("../../modules/facturacion/facturaCorreo.service").entregarFacturaElectronica(facturaId),
+    alAceptarNota: (notaId) =>
+      require("../../modules/facturacion/notaCreditoCorreo.service").entregarNotaElectronica(notaId),
   }),
   cliente = crearCliente();
 const configuracion = express.Router(),
@@ -211,6 +214,12 @@ ventas.post(
   "/facturas/:id/correo",
   envolver(async (req, res) =>
     res.json({ success: true, data: await servicio.reenviarCorreo(req.params.id, req.usuario?.id) }),
+  ),
+);
+ventas.post(
+  "/notas-credito/:id/correo",
+  envolver(async (req, res) =>
+    res.json({ success: true, data: await servicio.reenviarCorreoNota(req.params.id, req.usuario?.id) }),
   ),
 );
 compras.get(

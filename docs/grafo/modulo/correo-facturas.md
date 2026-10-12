@@ -8,6 +8,12 @@ archivos:
   - backend/src/modules/facturacion/facturaPropia.controller.js
   - backend/src/modules/facturacion/facturacion.routes.js
   - backend/src/modules/facturacion/factura.pdf.js
+  - backend/src/modules/facturacion/notaCreditoCorreo.service.js
+  - backend/src/modules/facturacion/notaCreditoConsulta.service.js
+  - backend/src/modules/facturacion/notaCredito.pdf.js
+  - backend/tests/notaCreditoCorreo.test.js
+  - backend/tests/notaCreditoPdf.test.js
+  - backend/tests/notaCreditoConsulta.test.js
   - backend/services/mailer.js
   - backend/config/aislado.js
   - backend/tests/facturaCorreo.test.js
@@ -94,3 +100,49 @@ nuevas en `facturaCorreo.test.js`, con nodemailer sustituido.
 Pendiente del usuario: ver llegar el primer correo real. En el servidor tiene
 que estar configurada la cuenta del buzón; si no, el panel de la factura dice
 «El envío de correo todavía no está configurado» y la factura queda aceptada.
+
+LA NOTA DE CRÉDITO TAMBIÉN SE ENTREGA, Y AHORA TIENE PAPEL (2026-10-11,
+noche). El usuario revisó Facturación en producción y avisó: «en nota de
+crédito está faltando enviar la nota de crédito por correo al cliente, el pdf
+con sus xml». Faltaban dos cosas, no una: el envío y el PDF, porque la nota
+nunca tuvo papel propio.
+
+- **El PDF** (`notaCredito.pdf.js`) se dibuja con el código de la factura:
+  `generarPdfFactura(documento, empresa, papel)` recibe en `papel` lo que cada
+  papel dice distinto (título, datos de arriba, condiciones junto al cliente,
+  observación y si lleva las cuentas para pagar). El de la factura lo arma
+  `papelDeFactura`; el de la nota, `papelDeNota`: «NOTA DE CRÉDITO
+  ELECTRÓNICA» con su consecutivo si Hacienda la aceptó, **a qué factura se
+  aplica** (sale de la clave que la nota FIRMÓ; si no es electrónica, del
+  número de la factura), el motivo, y sin términos de pago: una nota le
+  devuelve al cliente, no le cobra.
+- **La nota entera** la arma `notaCreditoConsulta.obtenerNota`, con la misma
+  forma que `obtenerFactura`. Teléfono, dirección y correo del cliente salen
+  de la copia fija de su factura (la nota guarda solo nombre y cédula).
+  `lectura.service.notaAceptada` lee su comprobante por la nota, porque la
+  nota no guarda el id.
+- **El envío** (`notaCreditoCorreo.entregarNotaElectronica`) sigue las reglas
+  de la factura y usa sus piezas, que quedaron como funciones de
+  `facturaCorreo.service.js` (`correoDeFicha`, `adjuntosFiscales`,
+  `exigirCorreoConfigurado`, `despachar`): correo de la ficha, solo una nota
+  emitida y aceptada, PDF + los DOS XML de la nota, no lanza y no reintenta.
+- **Se puede ver**: `GET /api/facturacion/notas-credito/:id/pdf`, botón «Ver
+  PDF» en la tarjeta de cada nota (electrónica o no).
+
+DOS DEFECTOS DEL PDF QUE APARECIERON AL MIRARLO, y que también tenía la
+factura. (1) La letra chica decía «No constituye un comprobante electrónico
+autorizado por el Ministerio de Hacienda» en TODOS los papeles, incluida una
+factura electrónica aceptada: la frase es de cuando todo era factura de
+venta. Ahora un comprobante aceptado dice que es su representación impresa y
+que lo válido es el XML firmado (`leyenda`). No se cita ninguna resolución:
+no se pudo confirmar el texto oficial, y una cita equivocada en un papel que
+va al cliente es peor que ninguna; si el contador la pide, es una línea.
+(2) La observación se escribía a la misma altura que el monto en letras y
+quedaban encimadas; ahora va debajo, la dibuja `totales` y salta de página
+con ellos. El título, además, se achica hasta caber en un renglón.
+
+Pruebas: `notaCreditoPdf.test.js`, `notaCreditoCorreo.test.js` (nodemailer
+sustituido), `notaCreditoConsulta.test.js` (base de mentira) y tres casos
+nuevos en `haciendaUnClicPg.test.js`. Chromium real con Hacienda y correo
+simulados: nota aceptada con su correo, sin correo en la ficha, correo que
+falla, y nota sobre una factura de venta común; el PDF se abrió y se miró.

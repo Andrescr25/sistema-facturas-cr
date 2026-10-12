@@ -228,11 +228,32 @@ describe('emitirla pregunta qué hace la nota', () => {
     assert.deepEqual(pasos.respuestaDe({ pendientes: [], faltaMedioPago: false }, { codigoReferencia: '06' }), {});
   });
 
-  test('la nota tiene tres pasos: no hay un renglón de correo que nunca se llena', () => {
-    const tres = pasos.pasosDe({ comprobante: { consecutivo: 'x', estado: 'aceptada', ambiente: 'produccion' }, conCorreo: false });
-    assert.deepEqual(tres.map(p => `${p.clave}=${p.estado}`), ['firma=hecho', 'envio=hecho', 'respuesta=hecho']);
-    assert.equal(pasos.pasosDe({}).length, 4);
+  // 2026-10-11: «en nota de crédito está faltando enviar la nota de crédito
+  // por correo al cliente, el pdf con sus xml». Antes la nota tenía tres
+  // pasos y ningún correo.
+  test('la nota tiene los mismos cuatro pasos que la factura: también se le entrega al cliente', () => {
+    const aceptada = { consecutivo: 'x', estado: 'aceptada', ambiente: 'produccion' };
+    const de = (correo) => pasos.pasosDe({ comprobante: aceptada, correo, origen: 'nota_credito' });
+    assert.deepEqual(de({ estado: 'enviado', para: 'c@x.cr' }).map(p => `${p.clave}=${p.estado}`),
+      ['firma=hecho', 'envio=hecho', 'respuesta=hecho', 'correo=hecho']);
+    assert.match(de({ estado: 'enviado', para: 'c@x.cr' })[3].titulo, /c@x\.cr/);
+    assert.equal(de(null)[3].estado, 'aviso', 'aceptada y sin correo anotado tiene que avisar, no callar');
+    assert.equal(de({ estado: 'error', motivo: 'x' })[3].estado, 'fallo');
     assert.equal(pasos.nombreDeTipo('03'), 'Nota de crédito electrónica');
+  });
+
+  test('sin correo en la ficha, la nota no manda a un botón que solo tiene la factura', () => {
+    const aceptada = { consecutivo: 'x', estado: 'aceptada', ambiente: 'produccion' };
+    const sinCorreo = (origen) => pasos.pasosDe({ comprobante: aceptada, correo: { estado: 'sin_correo' }, origen })[3];
+    assert.equal(sinCorreo('nota_credito').estado, 'aviso');
+    assert.doesNotMatch(sinCorreo('nota_credito').detalle, /botón Correo/);
+    assert.match(sinCorreo('nota_credito').detalle, /Enviar al cliente/);
+    assert.match(sinCorreo('factura').detalle, /botón Correo/);
+  });
+
+  test('una nota de pruebas no se le manda a nadie', () => {
+    const p = pasos.pasosDe({ comprobante: { consecutivo: 'x', estado: 'aceptada', ambiente: 'pruebas' }, origen: 'nota_credito' });
+    assert.equal(p[3].estado, 'omitido');
   });
 });
 
@@ -241,7 +262,7 @@ describe('cómo quedó conectada la pantalla', () => {
   const tarjetas = codigo('components', 'facturacion', 'NotasCreditoFactura.jsx');
 
   test('las notas van ARRIBA del documento, no en un renglón al pie', () => {
-    assert.match(vista, /\{!editando && <NotasCreditoFactura factura=\{f\} onCambio=\{onFiscalCambio\} \/>\}/);
+    assert.match(vista, /\{!editando && \(\s*<NotasCreditoFactura factura=\{f\} onCambio=\{onFiscalCambio\}/);
     assert.ok(vista.indexOf('<NotasCreditoFactura') < vista.indexOf('rounded-2xl ${editando'), 'las notas quedaron debajo del documento');
     assert.doesNotMatch(vista, /f\.notasCredito\.map/, 'volvió la lista vieja al pie de la factura');
   });
@@ -258,7 +279,17 @@ describe('cómo quedó conectada la pantalla', () => {
     assert.match(tarjetas, /<PanelEmisionFactura emision=\{emision\} incrustado \/>/);
     assert.doesNotMatch(tarjetas, /DocumentoFiscal|Modal/);
     const gancho = codigo('hooks', 'useEmisionFactura.js');
-    assert.match(gancho, /nota_credito: \{ estado: estadoNota, emitir: emitirNota \}/);
+    assert.match(gancho, /nota_credito: \{ estado: estadoNota, emitir: emitirNota, correo: reenviarCorreoNota \}/);
+  });
+
+  test('la nota aceptada se le puede mandar al cliente y se le puede ver el PDF', () => {
+    const panel = codigo('components', 'facturacion', 'PanelEmisionFactura.jsx');
+    // El botón y el cuarto paso ya no excluyen a la nota.
+    assert.doesNotMatch(panel, /esNota|conCorreo/);
+    assert.match(panel, /origen: emision\.origen/);
+    assert.match(codigo('hooks', 'useEmisionFactura.js'), /await servidor\.correo\(id\)/);
+    assert.match(tarjetas, /data-pdf-nota=\{n\.id\}/);
+    assert.match(codigo('hooks', 'useFacturasEmitidas.js'), /\/facturacion\/notas-credito\/\$\{id\}\/pdf/);
   });
 
   test('la etiqueta de estado es la misma regla en la factura y en la lista', () => {
@@ -277,6 +308,10 @@ describe('cómo quedó conectada la pantalla', () => {
     const rutas = fs.readFileSync(path.join(__dirname, '..', 'src', 'integrations', 'hacienda', 'rutas.js'), 'utf8');
     assert.match(rutas, /"\/notas-credito\/:id\/estado"/);
     assert.match(rutas, /"\/notas-credito\/:id\/emitir"/);
+    assert.match(rutas, /"\/notas-credito\/:id\/correo"/);
+    // El correo se enchufa en las rutas: el módulo fiscal no importa correo.
+    assert.match(rutas, /alAceptarNota: \(notaId\) =>/);
+    assert.match(rutas, /entregarNotaElectronica\(notaId\)/);
     const consulta = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'facturacion', 'facturaConsulta.service.js'), 'utf8');
     for (const campo of ['unidades:', 'electronica:', 'haciendaEstado:', 'fiscal:']) {
       assert.ok(consulta.slice(consulta.indexOf('notasCredito:')).includes(campo), `la factura no devuelve ${campo} de sus notas`);

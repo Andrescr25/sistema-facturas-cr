@@ -4,6 +4,7 @@ const { Client } = require("pg");
 const { crearServicio } = require("../src/integrations/hacienda/emision.service");
 const config = require("../src/integrations/hacienda/configuracion.service");
 const { firmar } = require("../src/integrations/hacienda/firma/xades");
+const lectura = require("../src/integrations/hacienda/lectura.service");
 const { certificado, emisor } = require("./helpers/hacienda");
 
 /**
@@ -89,11 +90,17 @@ test(
             };
 
     // El correo de mentira: anota a qué factura lo llamaron y contesta `correo`.
-    const entregas = [];
+    const entregas = [],
+      entregasNota = [];
     let correo = { estado: "enviado", para: "zz-cliente@example.invalid" };
     const s = crearServicio(pool, transporte, {
       alAceptarFactura: async (facturaId) => {
         entregas.push(facturaId);
+        if (correo instanceof Error) throw correo;
+        return correo;
+      },
+      alAceptarNota: async (notaId) => {
+        entregasNota.push(notaId);
         if (correo instanceof Error) throw correo;
         return correo;
       },
@@ -526,7 +533,8 @@ test(
 
         totales.set(p.clave, "113");
         await s.enviar(p.id);
-        const antes = entregas.length;
+        const antes = entregas.length,
+          antesNota = entregasNota.length;
         const r = await s.consultar(p.id);
         assert.equal(r.estado, "aceptada");
         assert.equal(entregas.length, antes, "la nota disparó el correo de la factura");
@@ -535,6 +543,76 @@ test(
         const final = await s.estadoDeNota(nc);
         assert.equal(final.comprobante.estado, "aceptada");
         assert.equal(final.motivoNoEmitible, null);
+
+        // 2026-10-11: «en nota de crédito está faltando enviar la nota de
+        // crédito por correo al cliente, el pdf con sus xml». Sale sola al
+        // aceptarse, una vez, y queda anotada igual que la de la factura.
+        assert.deepEqual(entregasNota.slice(antesNota), [nc], "la nota aceptada no se le entregó al cliente");
+        assert.deepEqual(r.correo, correo);
+        assert.deepEqual(final.correo, correo, "la tarjeta de la nota no sabe que el correo salió");
+        assert.equal((await anotados(p.id)).length, 1);
+        await s.consultar(p.id);
+        assert.equal(entregasNota.length, antesNota + 1, "consultar otra vez le mandó dos correos al cliente");
+
+        // «Enviar al cliente», a mano: sale otro, anotado con quién lo pidió.
+        assert.deepEqual(await s.reenviarCorreoNota(nc, usuarioId), correo);
+        assert.equal(entregasNota.length, antesNota + 2);
+        const notas2 = await anotados(p.id);
+        assert.equal(notas2.length, 2);
+        assert.equal(notas2[1].usuario_id, usuarioId);
+        await assert.rejects(sinCorreo.reenviarCorreoNota(nc), (x) => x.code === "CORREO_NO_DISPONIBLE" && x.status === 503);
+
+        // Lo que el PDF de la nota lee del XML firmado: su consecutivo y la
+        // clave de la factura sobre la que actúa.
+        const leida = await lectura.notaAceptada(pool, nc);
+        assert.equal(leida.consecutivo, p.consecutivo);
+        assert.equal(leida.tipo, "03");
+        assert.deepEqual(leida.referencia, { tipo: "01", clave: pf.clave });
+        assert.equal(leida.empresa.nombre, "ZZ emisor");
+        // Y la de la factura sigue leyéndose como antes, sin referencia.
+        const facturaLeida = await lectura.aceptada(pool, pf.id);
+        assert.equal(facturaLeida.consecutivo, pf.consecutivo);
+        assert.equal("referencia" in facturaLeida, false);
+        assert.equal(await lectura.aceptada(pool, p.id), null, "una nota se leyó como si fuera una factura");
+      });
+
+      await t.test("un correo que falla no deshace la aceptación de la nota, y queda anotado", async () => {
+        const f = await crear();
+        await clic(f);
+        const nc = await acreditar(f);
+        const p = await s.emitirNota(nc, { codigoReferencia: "01" });
+        totales.set(p.clave, "113");
+        await s.enviar(p.id);
+        const bueno = correo;
+        correo = new Error("smtp caído con usuario y clave adentro");
+        try {
+          const r = await s.consultar(p.id);
+          assert.equal(r.estado, "aceptada");
+          assert.equal(r.correo.estado, "error");
+          assert.doesNotMatch(JSON.stringify(r.correo), /smtp|clave adentro/);
+        } finally {
+          correo = bueno;
+        }
+        assert.equal((await s.estadoDeNota(nc)).correo.estado, "error");
+        assert.equal((await db.query("SELECT electronica FROM nota_credito WHERE id=$1", [nc])).rows[0].electronica, true);
+      });
+
+      await t.test("una nota que no está aceptada no se le manda a nadie", async () => {
+        const f = await crear();
+        await clic(f);
+        const nc = await acreditar(f);
+        // Ni siquiera se emitió.
+        await assert.rejects(s.reenviarCorreoNota(nc), (x) => x.code === "SIN_ACEPTAR" && /nota de crédito/.test(x.message));
+        modo = "procesando";
+        const p = await s.emitirNota(nc, { codigoReferencia: "01" });
+        totales.set(p.clave, "113");
+        await s.enviar(p.id);
+        const antes = entregasNota.length;
+        assert.notEqual((await s.consultar(p.id)).estado, "aceptada");
+        modo = "aceptada";
+        assert.equal(entregasNota.length, antes);
+        assert.equal((await s.estadoDeNota(nc)).correo, null);
+        await assert.rejects(s.reenviarCorreoNota(nc), (x) => x.code === "SIN_ACEPTAR" && x.status === 409);
       });
 
       await t.test("«Otro» lleva su descripción al XML, y una nota anulada no se emite", async () => {

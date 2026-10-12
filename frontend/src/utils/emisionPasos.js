@@ -66,9 +66,11 @@ export const nombreDeTipo = (tipo) => NOMBRE_TIPO[tipo] || 'Comprobante electró
  * Los cuatro renglones que ve quien factura. Cada uno:
  *   estado: 'hecho' | 'activo' | 'pendiente' | 'fallo' | 'aviso' | 'omitido'
  * `seguimiento` es si el servidor consulta solo a Hacienda cada minuto.
- * `conCorreo: false` (nota de crédito) deja los tres primeros.
+ * `origen` es 'factura' o 'nota_credito': los cuatro pasos son los mismos
+ * (la nota también se le entrega al cliente desde el 2026-10-11); solo
+ * cambia a dónde se manda a quien le falta el correo.
  */
-export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento, conCorreo = true }) {
+export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento, origen = 'factura' }) {
   const estado = c?.estado
   const enviada = [...EN_HACIENDA, ...FINALES].includes(estado)
 
@@ -104,16 +106,19 @@ export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento, c
   else if ((c.ambiente || ambiente) !== 'produccion') {
     entrega = { estado: 'omitido', titulo: 'No se le envía al cliente', detalle: 'Es una prueba: este comprobante no tiene validez fiscal.' }
   } else if (correo?.estado === 'enviado') entrega = { estado: 'hecho', titulo: `Enviado al cliente: ${correo.para}`, detalle: 'PDF, comprobante XML y respuesta de Hacienda.' }
-  else if (correo?.estado === 'sin_correo') entrega = { estado: 'aviso', titulo: 'El cliente no tiene correo', detalle: 'Agregalo en su ficha y tocá «Enviar al cliente», o mandalo con el botón Correo.' }
+  else if (correo?.estado === 'sin_correo') {
+    entrega = {
+      estado: 'aviso', titulo: 'El cliente no tiene correo',
+      // El botón Correo (elegir a mano el destinatario) es de la factura.
+      detalle: `Agregalo en su ficha y tocá «Enviar al cliente»${origen === 'factura' ? ', o mandalo con el botón Correo' : ''}.`
+    }
+  }
   else if (correo?.estado === 'error') entrega = { estado: 'fallo', titulo: 'No se pudo enviar el correo', detalle: correo.motivo || 'Revisá la dirección del cliente.' }
   else entrega = { estado: 'aviso', titulo: 'Todavía no se le envió al cliente', detalle: 'Tocá «Enviar al cliente».' }
 
   return [
     { clave: 'firma', ...firma }, { clave: 'envio', ...envio },
-    { clave: 'respuesta', ...respuesta },
-    // La nota de crédito no tiene entrega automática por correo: no se
-    // muestra un renglón que nunca se va a llenar.
-    ...(conCorreo ? [{ clave: 'correo', ...entrega }] : [])
+    { clave: 'respuesta', ...respuesta }, { clave: 'correo', ...entrega }
   ]
 }
 

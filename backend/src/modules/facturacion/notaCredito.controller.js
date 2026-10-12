@@ -7,6 +7,9 @@
  */
 
 const servicio = require('./notaCredito.service');
+const { obtenerNota } = require('./notaCreditoConsulta.service');
+const { generarPdfNotaCredito } = require('./notaCredito.pdf');
+const { pool } = require('../../../config/database');
 
 function fallo(res, error, contexto) {
   const s = error.status || 500;
@@ -32,6 +35,23 @@ module.exports = {
       res.json({ success: true, data: nota });
     } catch (error) {
       fallo(res, error, 'anular');
+    }
+  },
+
+  /**
+   * GET /facturacion/notas-credito/:id/pdf — el papel de la nota: el mismo
+   * que le llega al cliente por correo cuando Hacienda la acepta.
+   */
+  pdf: async (req, res) => {
+    try {
+      const nota = await obtenerNota(req.params.id);
+      const { rows } = await pool.query('SELECT * FROM empresa WHERE id = 1');
+      const archivo = await generarPdfNotaCredito(nota, rows[0] || null);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="nota-credito-${nota.numero}.pdf"`);
+      return res.send(archivo);
+    } catch (error) {
+      fallo(res, error, 'pdf');
     }
   },
 

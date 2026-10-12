@@ -48,7 +48,7 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
   const tx = (fn) => enTransaccion(pool, fn);
   // Lo que el botón de un clic decide solo, y el correo al cliente, viven en
   // unClic.service.js. Este servicio le presta `preparar` y le pide dos
-  // cosas: el medio de pago al armar el XML y entregar la factura al aceptarse.
+  // cosas: el medio de pago al armar el XML y entregar el documento al aceptarse.
   const unClic = crearUnClic({ pool, ganchos, preparar, vista, id });
   // El número lo da numeracion.js: manda el numerador y se saltan los ya
   // usados (decisión del usuario del 2026-10-11, explicada ahí).
@@ -758,11 +758,7 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
     datosDocumento,
     compraDeBuzon,
     subirOriginal,
-    estadoDeFactura: unClic.estadoDeFactura,
-    emitirFactura: unClic.emitirFactura,
-    reenviarCorreo: unClic.reenviarCorreo,
-    estadoDeNota: unClic.estadoDeNota,
-    emitirNota: unClic.emitirNota,
+    ...unClic.publico,
   };
 }
 module.exports = { crearServicio, vista, id };

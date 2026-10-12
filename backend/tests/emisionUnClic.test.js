@@ -476,7 +476,7 @@ describe('cómo quedó conectada la pantalla', () => {
   test('el gancho encadena con los pasos de siempre del servidor', () => {
     assert.match(gancho, /emitirPasoAPaso\(/);
     assert.match(gancho, /firmar: \(\) => servidor\.emitir\(id, \{ sustituir: rechazado, \.\.\.respuesta \}\)/);
-    assert.match(gancho, /factura: \{ estado: estadoFactura, emitir: emitirFactura \}/);
+    assert.match(gancho, /factura: \{ estado: estadoFactura, emitir: emitirFactura, correo: reenviarCorreo \}/);
     assert.match(gancho, /enviar: \(c\) => operar\(c, 'enviar'\)/);
     assert.match(gancho, /consultar: \(c\) => operar\(c, 'consultar'\)/);
   });

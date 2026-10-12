@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  estadoFactura, emitirFactura, estadoNota, emitirNota, reenviarCorreo, operar, descargar, mensajeError
+  estadoFactura, emitirFactura, reenviarCorreo, estadoNota, emitirNota, reenviarCorreoNota,
+  operar, descargar, mensajeError
 } from '../integrations/hacienda/api'
 import { emitirPasoAPaso, FINALES, pideDatos } from '../utils/emisionPasos'
 
@@ -16,17 +17,17 @@ import { emitirPasoAPaso, FINALES, pideDatos } from '../utils/emisionPasos'
  * (histórica de Alegra, anulada, o mientras se edita).
  *
  * `origen: 'nota_credito'` hace lo mismo para una nota de crédito: mismos
- * pasos y mismo panel, con sus dos llamadas al servidor.
+ * pasos y mismo panel, con sus tres llamadas al servidor.
  */
 const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 /** Cada cuánto se relee mientras Hacienda no contesta y nadie toca nada. */
 const RELEER_MS = 15000
 
-/** Las dos llamadas que cambian según el documento; lo demás es igual. */
+/** Las tres llamadas que cambian según el documento; lo demás es igual. */
 const SERVIDOR = {
-  factura: { estado: estadoFactura, emitir: emitirFactura },
-  nota_credito: { estado: estadoNota, emitir: emitirNota }
+  factura: { estado: estadoFactura, emitir: emitirFactura, correo: reenviarCorreo },
+  nota_credito: { estado: estadoNota, emitir: emitirNota, correo: reenviarCorreoNota }
 }
 
 export default function useEmisionFactura(facturaId, { activo = true, onCambio, origen = 'factura' } = {}) {
@@ -138,7 +139,7 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio, 
     setEnviandoCorreo(true)
     setError('')
     try {
-      const correo = await reenviarCorreo(id)
+      const correo = await servidor.correo(id)
       if (actual.current === id) setEstado(e => ({ ...e, correo }))
     } catch (e) {
       if (actual.current === id) setError(mensajeError(e))

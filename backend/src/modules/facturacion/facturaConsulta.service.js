@@ -36,6 +36,31 @@ function normalizar(s) {
 const numero = (v) => (v === null || v === undefined ? null : Number(v));
 
 /**
+ * Una línea de venta, como la leen la pantalla y el PDF. `factura_linea` y
+ * `nota_credito_linea` tienen las mismas columnas: la nota de crédito
+ * (notaCreditoConsulta.service.js) usa estas dos cosas tal cual.
+ */
+const COLUMNAS_LINEA = `numero_linea, producto_id, nombre, referencia, descripcion, cabys, unidad,
+              cantidad, precio_unitario, descuento_porcentaje, descuento_monto,
+              tarifa, impuesto_monto, total`;
+const lineaAVista = (l) => ({
+  numeroLinea: l.numero_linea,
+  productoId: l.producto_id,
+  nombre: l.nombre,
+  referencia: l.referencia,
+  descripcion: l.descripcion,
+  cabys: l.cabys,
+  unidad: l.unidad,
+  cantidad: numero(l.cantidad),
+  precioUnitario: numero(l.precio_unitario),
+  descuentoPorcentaje: numero(l.descuento_porcentaje),
+  descuentoMonto: numero(l.descuento_monto),
+  tarifa: numero(l.tarifa),
+  impuestoMonto: numero(l.impuesto_monto),
+  total: numero(l.total)
+});
+
+/**
  * El saldo real de cada factura: total, menos los cobros VIGENTES, menos lo
  * acreditado por notas de crédito. Se calcula, no se guarda: un cobro que se
  * anula tiene que devolver el saldo solo.
@@ -183,9 +208,7 @@ async function obtenerFactura(id) {
 
   const [lineas, cobros, notas] = await Promise.all([
     pool.query(
-      `SELECT numero_linea, producto_id, nombre, referencia, descripcion, cabys, unidad,
-              cantidad, precio_unitario, descuento_porcentaje, descuento_monto,
-              tarifa, impuesto_monto, total
+      `SELECT ${COLUMNAS_LINEA}
          FROM factura_linea WHERE factura_id = $1 ORDER BY numero_linea`,
       [n]
     ),
@@ -220,22 +243,7 @@ async function obtenerFactura(id) {
 
   return {
     ...aVista(rows[0]),
-    lineas: lineas.rows.map(l => ({
-      numeroLinea: l.numero_linea,
-      productoId: l.producto_id,
-      nombre: l.nombre,
-      referencia: l.referencia,
-      descripcion: l.descripcion,
-      cabys: l.cabys,
-      unidad: l.unidad,
-      cantidad: numero(l.cantidad),
-      precioUnitario: numero(l.precio_unitario),
-      descuentoPorcentaje: numero(l.descuento_porcentaje),
-      descuentoMonto: numero(l.descuento_monto),
-      tarifa: numero(l.tarifa),
-      impuestoMonto: numero(l.impuesto_monto),
-      total: numero(l.total)
-    })),
+    lineas: lineas.rows.map(lineaAVista),
     // Los anulados van, marcados: esconderlos haría que el cliente pregunte
     // por un cobro que sí existió y nadie encuentre el rastro.
     cobros: cobros.rows.map(c => ({
@@ -255,4 +263,4 @@ async function obtenerFactura(id) {
   };
 }
 
-module.exports = { listarFacturas, obtenerFactura, COBRADO, ACREDITADO };
+module.exports = { listarFacturas, obtenerFactura, COBRADO, ACREDITADO, COLUMNAS_LINEA, lineaAVista, numero };

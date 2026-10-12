@@ -6,7 +6,9 @@ import DatosPendientesEmision from './DatosPendientesEmision'
 import { pasosDe, resumenDe, nombreDeTipo } from '../../utils/emisionPasos'
 
 /**
- * Cómo va la factura electrónica, DENTRO de la factura.
+ * Cómo va la factura electrónica, DENTRO de la factura. La nota de crédito
+ * usa este mismo panel, con los mismos cuatro pasos (`incrustado`, dentro de
+ * su tarjeta).
  *
  * QUÉ SE PIDIÓ (2026-10-11): «que en la misma factura, cuando le doy al
  * botón, me indique qué va pasando, si se envió, o si la aceptó Hacienda», y
@@ -51,9 +53,8 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
   if (!emision.activo || !(c || fase || error || pidiendoDatos)) return null
 
   const ambiente = c?.ambiente || estado?.ambiente
-  const esNota = emision.origen === 'nota_credito'
   const pasos = pasosDe({
-    comprobante: c, correo: estado?.correo, fase, ambiente, seguimiento: estado?.seguimiento, conCorreo: !esNota
+    comprobante: c, correo: estado?.correo, fase, ambiente, seguimiento: estado?.seguimiento, origen: emision.origen
   })
   const resumen = resumenDe({ comprobante: c, fase })
   const enProduccion = ambiente === 'produccion'
@@ -77,7 +78,7 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
       </div>
 
       {(c || fase) && (
-        <ol className={`mt-4 grid gap-3 ${esNota ? 'sm:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4'}`}>
+        <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {pasos.map(p => <Paso key={p.clave} paso={p} />)}
         </ol>
       )}
@@ -116,7 +117,7 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
                 <Download size={14} /> Respuesta de Hacienda
               </button>
             )}
-            {c.estado === 'aceptada' && enProduccion && !esNota && (
+            {c.estado === 'aceptada' && enProduccion && (
               <button
                 type="button"
                 data-enviar-cliente

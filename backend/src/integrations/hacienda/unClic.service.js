@@ -13,7 +13,7 @@
  *   · qué dato falta antes de emitir (descuento, medicamento, medio de pago,
  *     qué hace una nota de crédito);
  *   · cómo va la emisión de una factura o de una nota, para pintarla;
- *   · entregarle al cliente su factura aceptada.
+ *   · entregarle al cliente su factura o su nota de crédito aceptada.
  *
  * No prepara, firma ni envía nada: para eso llama a `preparar`, que le pasa
  * el servicio de emisión al armarlo (ver `crearUnClic`).
@@ -113,7 +113,8 @@ const REFERENCIAS_DE_NOTA = Object.freeze(["01", "02", "04", "06", "09", "12", "
 /**
  * @param {object} d
  * @param {object} d.pool      el pool de la base (o su doble en pruebas)
- * @param {object} d.ganchos   `alAceptarFactura(facturaId)`: quién manda el correo
+ * @param {object} d.ganchos   `alAceptarFactura(facturaId)` y `alAceptarNota(notaId)`:
+ *                             quién le manda el correo al cliente
  * @param {Function} d.preparar  del servicio de emisión: reserva número, firma y guarda
  * @param {Function} d.vista   fila de comprobante → lo que ve la pantalla
  * @param {Function} d.id      valida un identificador
@@ -190,26 +191,30 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
     ).rows;
   }
 
+  /** Quién entrega cada documento: el nombre de su gancho. */
+  const GANCHO = { factura: "alAceptarFactura", nota_credito: "alAceptarNota" };
+
   /**
-   * Entregarle al cliente su factura aceptada: el PDF con los dos XML.
+   * Entregarle al cliente su comprobante aceptado: el PDF con los dos XML.
    *
-   * SOLO una FACTURA aceptada en PRODUCCIÓN. Un comprobante de pruebas no
-   * tiene validez y no se le manda a nadie; una nota de crédito o la
-   * respuesta a una compra no son de este camino.
+   * Una FACTURA o una NOTA DE CRÉDITO aceptada en PRODUCCIÓN. Un comprobante
+   * de pruebas no tiene validez y no se le manda a nadie; la respuesta a una
+   * compra no es de este camino. La nota se sumó el 2026-10-11: el usuario
+   * notó que «está faltando enviar la nota de crédito por correo al cliente».
    *
-   * El envío lo hace quien armó el servicio (`ganchos.alAceptarFactura`, que
-   * recibe el id de la factura): este módulo no importa correo. El resultado
-   * se anota SIEMPRE en la bitácora del comprobante —enviado, sin correo en
-   * la ficha, o por qué falló— porque es lo que después dice la pantalla, y
-   * nunca tumba la consulta: la factura ya está aceptada aunque el correo no
-   * salga. No se reintenta solo.
+   * El envío lo hace quien armó el servicio (`ganchos.alAceptarFactura` o
+   * `ganchos.alAceptarNota`, que reciben el id del documento): este módulo no
+   * importa correo. El resultado se anota SIEMPRE en la bitácora del
+   * comprobante —enviado, sin correo en la ficha, o por qué falló— porque es
+   * lo que después dice la pantalla, y nunca tumba la consulta: el documento
+   * ya está aceptado aunque el correo no salga. No se reintenta solo.
    */
   async function entregar(comprobante, usuarioId) {
-    if (typeof ganchos.alAceptarFactura !== "function") return null;
-    if (comprobante.ambiente !== "produccion" || comprobante.origen !== "factura") return null;
+    const gancho = ganchos[GANCHO[comprobante.origen]];
+    if (typeof gancho !== "function" || comprobante.ambiente !== "produccion") return null;
     let correo;
     try {
-      correo = await ganchos.alAceptarFactura(comprobante.origenId);
+      correo = await gancho(comprobante.origenId);
     } catch {
       correo = { estado: "error", motivo: "No se pudo enviar el correo al cliente." };
     }
@@ -420,7 +425,7 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
       faltaReferencia: !enCurso && !motivoNoEmitible,
       motivoNoEmitible,
       comprobante: vista(c),
-      correo: null,
+      correo: c ? await ultimoCorreo(c.id) : null,
     };
   }
 
@@ -475,27 +480,27 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
   }
 
   /** Volver a mandarle el comprobante al cliente, a pedido de una persona. */
-  async function reenviarCorreo(n, usuarioId) {
-    const e = await estadoDeFactura(n);
+  async function reenviar(e, documento, usuarioId) {
     if (e.comprobante?.estado !== "aceptada" || e.comprobante.ambiente !== "produccion")
       throw error(
         "SIN_ACEPTAR",
-        "Solo se le manda al cliente una factura aceptada por Hacienda en producción.",
+        `Solo se le manda al cliente una ${documento} aceptada por Hacienda en producción.`,
         409,
       );
     const correo = await entregar(e.comprobante, usuarioId);
     if (!correo) throw error("CORREO_NO_DISPONIBLE", "El envío de correo no está disponible en este servidor.", 503);
     return correo;
   }
+  const reenviarCorreo = async (n, usuarioId) => reenviar(await estadoDeFactura(n), "factura", usuarioId);
+  const reenviarCorreoNota = async (n, usuarioId) =>
+    reenviar(await estadoDeNota(n), "nota de crédito", usuarioId);
 
   return {
+    // Lo que usa el camino fiscal (emision.service.js) por dentro…
     medioDePago,
     entregar,
-    estadoDeFactura,
-    emitirFactura,
-    estadoDeNota,
-    emitirNota,
-    reenviarCorreo,
+    // …y lo que el servicio de emisión expone tal cual a las rutas.
+    publico: { estadoDeFactura, emitirFactura, reenviarCorreo, estadoDeNota, emitirNota, reenviarCorreoNota },
   };
 }
 
