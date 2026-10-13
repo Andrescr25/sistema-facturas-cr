@@ -68,6 +68,31 @@ function base({ cliente = PULPERIA, plazoActivo = true } = {}) {
 }
 
 describe('crear cliente', () => {
+  test('la actividad con punto se guarda y se edita sin perder el separador', async () => {
+    const { servicio } = montar(base());
+    const creada = await servicio.crearCliente({ ...VALIDO, actividad_economica: ' 4752.1 ' }, 4);
+    assert.equal(creada.actividad_economica, '4752.1');
+    const editada = await servicio.editarCliente(creada.id, { actividad_economica: '4711.1' }, 4);
+    assert.equal(editada.actividad_economica, '4711.1');
+  });
+
+  test('los códigos numéricos anteriores y la actividad vacía siguen permitidos', async () => {
+    const { servicio } = montar(base());
+    for (const actividad of ['523402', '47521', null, '']) {
+      const creada = await servicio.crearCliente({ ...VALIDO, actividad_economica: actividad }, 4);
+      assert.equal(creada.actividad_economica, actividad || null);
+    }
+  });
+
+  test('letras, puntos sueltos o repetidos y códigos demasiado largos se rechazan antes de escribir', async () => {
+    const { servicio, log } = montar(base());
+    for (const actividad of ['4752.a', '.', '.47521', '47521.', '4752..1', '4752,1', '12345678901']) {
+      await assert.rejects(servicio.crearCliente({ ...VALIDO, actividad_economica: actividad }, 4),
+        e => e.status === 400 && /Actividad económica/.test(e.message));
+    }
+    assert.equal(log.length, 0);
+  });
+
   test('sin nombre no llega a la base', async () => {
     const { servicio, log } = montar(base());
     await assert.rejects(servicio.crearCliente({ celular: '8827 2453' }, 4), e => e.status === 400 && /Nombre/.test(e.message));

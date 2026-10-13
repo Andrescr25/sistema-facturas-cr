@@ -16,7 +16,7 @@
 
 const { pool } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
-const { httpError, texto, numero, booleano, opcion, soloDigitos, correo, lista, objeto, validar, idValido } = require('../../utils/validacion');
+const { httpError, texto, numero, booleano, opcion, correo, lista, objeto, validar, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 const { TIPOS, limpiar, motivoQueNoCalza } = require('./identificacion');
@@ -58,7 +58,11 @@ const CAMPOS = {
   distrito: { etiqueta: 'Distrito', validar: texto(60) },
   barrio: { etiqueta: 'Barrio', validar: texto(80) },
   otras_senas: { etiqueta: 'Otras señas', validar: texto(2000) },
-  actividad_economica: { etiqueta: 'Actividad económica', validar: soloDigitos(10) },
+  // Es un código, no una cantidad: 4752.1 conserva el punto. Los códigos
+  // numéricos anteriores siguen admitidos; Hacienda valida el formato fiscal.
+  actividad_economica: { etiqueta: 'Actividad económica', validar: texto(10, {
+    patron: /^\d+(?:\.\d+)?$/, mensajePatron: 'use números o un código con punto, por ejemplo 4752.1'
+  }) },
   plazo_credito_id: { etiqueta: 'Plazo de crédito', validar: entero },
   limite_credito: { etiqueta: 'Límite de crédito', validar: numero({ min: 0, max: 1e10 }) },
   exoneracion: { etiqueta: 'Exoneración', validar: objeto({ maxBytes: 8000 }) },

@@ -269,7 +269,8 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
           </div>
           <div>
             <Etiqueta htmlFor="cliente-actividad_economica">Actividad económica</Etiqueta>
-            <input id="cliente-actividad_economica" className={CLASE_CAMPO} inputMode="numeric" value={valores.actividad_economica} onChange={cambiar('actividad_economica')} maxLength={10} placeholder="523402" />
+            <input id="cliente-actividad_economica" className={CLASE_CAMPO} type="text" value={valores.actividad_economica} onChange={cambiar('actividad_economica')} maxLength={10} placeholder="4752.1 o 523402" aria-describedby="cliente-actividad-ayuda" />
+            <p id="cliente-actividad-ayuda" className="mt-1 text-xs text-neutro-500">Conservá el punto si el código lo incluye. Es opcional.</p>
           </div>
 
           {hacienda && (

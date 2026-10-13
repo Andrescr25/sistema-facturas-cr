@@ -93,6 +93,10 @@ recuperación ni cambia96/3.
 
 - [x] CLI-01 — Reorganizar lista y ficha para que las funciones no se mezclen.
 - [x] CLI-02 — Separar información general y contacto.
+- [x] Corrección de Clientes 2026-10-13 — Aceptar y conservar el punto de
+  actividad económica al crear/editar; campo apto para escribirlo en móvil.
+  Mantiene códigos numéricos y actividad opcional. Sin migración.
+  [Pruebas](informes/actividad-economica-cliente-2026-10-13.md).
 - [x] CLI-03 — Mostrar ruta, orden de visita y ubicación como sección propia.
 - [x] CLI-04 — Separar historial de pedidos y pedidos en línea.
 - [x] CLI-05 — Mostrar facturas pendientes, notas y estado del cliente en

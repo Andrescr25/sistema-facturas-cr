@@ -27,10 +27,13 @@ archivos:
   - frontend/src/hooks/useRutas.js
   - frontend/src/hooks/useClientes.js
   - backend/tests/rutasCiclos.test.js
+  - backend/tests/clientesServicio.test.js
+  - backend/tests/actividadEconomicaClienteLocal.test.js
+  - docs/informes/actividad-economica-cliente-2026-10-13.md
 aristas:
   relacionado: [modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-11
+medido: 2026-10-13
 ---
 
 Primera parte implementada y aplicada solo en la copia local. Rutas y ciclos
@@ -42,6 +45,16 @@ anteriores quedan Sin ruta, sin asignaciones inventadas. La copia inspeccionada
 no tiene enlaces Maps en campos/textos anteriores: no conectar a producción
 para recuperarlos; revisar procedencia de las ubicaciones reales con el usuario.
 Direcciones y notas se conservan. Rutas inactivas conservan miembros/historia.
+
+ACTIVIDAD CON PUNTO (2026-10-13). La ficha rechazaba `4752.1` por validar
+solo dígitos, aunque la integración de Hacienda ya lo admite. Crear/editar
+conserva ahora el punto, acepta los códigos numéricos anteriores y vacío,
+y rechaza letras y puntos sueltos/repetidos. El campo usa teclado de texto y
+ejemplos con ambas formas; el número no se interpreta como cantidad.
+Se conserva el límite de diez caracteres del maestro y la validación fiscal
+propia del XML. No cambia identificaciones, teléfonos ni su limpieza.
+Pruebas del servicio, PostgreSQL desechable y formulario en navegador; sin SQL
+nueva. [Evidencia](../../informes/actividad-economica-cliente-2026-10-13.md).
 
 La asignación y el orden comparten bloqueo transaccional `44005,1` ANTES de
 bloquear clientes. Cambiar ruta compacta ambos recorridos. Ordenar exige lista
