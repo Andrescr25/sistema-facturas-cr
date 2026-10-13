@@ -4,6 +4,7 @@ import HojaModal from '../pagos/HojaModal'
 import { clientesService } from '../../services/clientesService'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
+import CampoRotacion from './CampoRotacion'
 
 /**
  * Crear o editar la ficha de un cliente.
@@ -25,9 +26,9 @@ const CAMPOS = [
   'telefono', 'telefono_secundario', 'celular',
   'provincia', 'canton', 'distrito', 'barrio', 'otras_senas',
   'actividad_economica', 'plazo_credito_id', 'limite_credito', 'observaciones',
-  'ruta_id', 'orden_ruta', 'ubicacion_maps', 'dia_visita', 'dia_entrega'
+  'ruta_id', 'orden_ruta', 'ubicacion_maps', 'dia_visita', 'dia_entrega', 'rotacion_dias'
 ]
-const NUMERICOS = new Set(['plazo_credito_id', 'limite_credito', 'ruta_id', 'orden_ruta', 'dia_visita', 'dia_entrega'])
+const NUMERICOS = new Set(['plazo_credito_id', 'limite_credito', 'ruta_id', 'orden_ruta', 'dia_visita', 'dia_entrega', 'rotacion_dias'])
 const CLASE_CAMPO = 'input min-h-12 w-full rounded-xl border border-neutro-300 text-base'
 
 // Las mismas reglas que `backend/src/modules/clientes/identificacion.js`. No se
@@ -338,6 +339,7 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
             <select id={`cliente-${campo}`} className={CLASE_CAMPO} value={valores[campo]} onChange={cambiar(campo)}><option value="">Sin definir</option>
               {['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map((dia, i) => <option key={dia} value={i + 1}>{dia}</option>)}
             </select></div>)}
+          <CampoRotacion valor={valores.rotacion_dias} claseCampo={CLASE_CAMPO} onCambiar={dias => setValores(v => ({ ...v, rotacion_dias: dias }))} />
           <div className="sm:col-span-2"><Etiqueta htmlFor="cliente-ubicacion_maps">Ubicación de Google Maps</Etiqueta>
             <input id="cliente-ubicacion_maps" type="url" className={CLASE_CAMPO} value={valores.ubicacion_maps} onChange={cambiar('ubicacion_maps')} maxLength={2000} placeholder="https://maps.app.goo.gl/..." />
             <p className="text-xs text-neutro-500 mt-1">Pegá el enlace que comparte Google Maps.</p></div>

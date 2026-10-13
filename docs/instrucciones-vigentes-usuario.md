@@ -551,3 +551,77 @@ cambiar el cliente me sale este error» (500, «Invalid time value»).
 vencimiento del cliente nuevo. Corregido y probado contra la base real.
 Detalle en [facturacion](grafo/modulo/facturacion.md).
 
+## 2026-10-13 — Rotación por cliente: se quitan los ciclos, poco a poco
+
+Textual, completo:
+
+> Quiero corregir y simplificar completamente la lógica de **rotación de
+> clientes**.
+>
+> Actualmente el sistema trabaja con una lógica basada en **ciclos**, pero
+> quiero eliminar ese concepto porque genera confusión.
+>
+> **Nueva lógica de rotación.** Cada cliente debe tener configurada su
+> **propia frecuencia de visita o rotación**, independientemente de los demás
+> clientes. Por ejemplo, un cliente puede tener una frecuencia de: cada 7
+> días, cada 15 días, cada 22 días, cada 30 días. La frecuencia debe ser
+> configurable individualmente dentro de la información de cada cliente.
+>
+> **Funcionamiento esperado.** Cuando se facture a un cliente, el sistema debe
+> tomar automáticamente la fecha de esa factura como la última atención o
+> visita del cliente. A partir de esa fecha debe calcular la próxima fecha en
+> la que corresponde atenderlo nuevamente, utilizando la frecuencia
+> configurada para ese cliente. Ejemplo: Cliente A, rotación 22 días, última
+> factura 10 de octubre → próxima visita 1 de noviembre. De esta manera, ya
+> no existirán ciclos globales. Cada cliente tendrá su propio calendario de
+> rotación.
+>
+> **Rutas.** Las **rutas deben mantenerse**. Cada cliente debe seguir teniendo
+> asignada una ruta determinada. La ruta y la rotación son conceptos
+> diferentes: **Ruta**: indica a qué recorrido comercial pertenece el
+> cliente. **Rotación**: indica cada cuántos días debe volver a ser atendido.
+> Por ejemplo, varios clientes pueden pertenecer a la Ruta 1, pero uno puede
+> tener rotación de 7 días, otro de 15 días y otro de 22 días.
+>
+> **Reporte de clientes.** En el módulo de **Reporte de clientes**, quiero
+> simplificar los filtros. El filtro principal debe ser únicamente por
+> **ruta**. Al seleccionar una ruta, el sistema debe mostrar los clientes
+> correspondientes cuya próxima fecha de atención indique que deben ser
+> visitados o gestionados. El orden ideal sería por **próxima fecha de
+> visita**, mostrando primero los clientes que deben atenderse antes. También
+> debería ser posible identificar claramente: clientes que corresponden
+> atender hoy; clientes próximos a atender; clientes atrasados cuya fecha de
+> atención ya pasó.
+>
+> (con esto puedes crear un nuevo módulo que se llame Preventa)
+>
+> también corrige el módulo de Carga y entrega
+>
+> **Clientes enviados a impresión.** Cuando un cliente sea enviado a impresión
+> desde el reporte, debe mantenerse temporalmente en la sección de clientes
+> impresos durante **24 horas**. Después de cumplir esas 24 horas, debe
+> moverse automáticamente al **historial**. La idea es evitar que los
+> clientes impresos se acumulen permanentemente en el reporte operativo. El
+> historial debe conservar información como: cliente, ruta, fecha y hora de
+> impresión, fecha en que fue enviado al historial, próxima fecha de visita,
+> estado correspondiente.
+>
+> **Objetivo general.** Quiero eliminar completamente la dependencia de ciclos
+> y pasar a un sistema de **rotación individual por cliente**. La lógica
+> principal debe ser: **Factura realizada → actualizar última atención →
+> sumar los días de rotación configurados → calcular próxima visita.** Las
+> rutas se mantienen únicamente como una forma de organizar geográficamente o
+> comercialmente a los clientes. La solución debe ser sencilla de entender,
+> automática y preparada para que diferentes clientes tengan distintas
+> frecuencias de visita sin depender de ciclos globales.
+
+Y enseguida: «guarda todo esto en memoria para ir haciéndolo poco a poco».
+
+**Reemplaza** lo decidido el 2026-10-05 sobre ciclos de ruta fechados (ver
+más arriba en este archivo): las rutas quedan, los ciclos se van. **Se hace
+por partes**, no de una vez. El plan, qué parte va y qué falta decidir:
+[rotación por cliente](grafo/decision/rotacion-por-cliente-sin-ciclos.md).
+
+**Hecho (parte 1)**: la frecuencia en la ficha de cada cliente y el cálculo
+de última atención y próxima visita. Espera la migración 056 en producción.
+

@@ -51,7 +51,7 @@ describe('cada cosa en su carpeta', () => {
 
   test('las reglas puras de utils no importan React ni el servidor', () => {
     // Lo que una prueba importa "tal cual" tiene que seguir pudiéndose importar.
-    for (const util of ['emisionPasos.js', 'numeracionTexto.js', 'notaCreditoTexto.js', 'facturaVista.js', 'asignacionRuta.js', 'aceptacionCompraTexto.js', 'catalogoAlDia.js']) {
+    for (const util of ['emisionPasos.js', 'numeracionTexto.js', 'notaCreditoTexto.js', 'facturaVista.js', 'asignacionRuta.js', 'aceptacionCompraTexto.js', 'catalogoAlDia.js', 'rotacionTexto.js']) {
       const fuente = sinComentarios(fs.readFileSync(path.join(FRONT, 'utils', util), 'utf8'));
       assert.doesNotMatch(fuente, /^\s*import /m, `utils/${util} dejó de ser puro: ya no se puede probar sin navegador`);
     }
@@ -141,7 +141,7 @@ describe('ningún archivo crece sin que alguien lo decida', () => {
   };
   const DEUDA_BACK = {
     'modules/reporte-contador/reporte-contador.service.js': 964, 'modules/orders-whatsapp/orders-whatsapp.service.js': 844,
-    'modules/facturacion/facturaPropia.service.js': 835, 'modules/productos-revision/productos-revision.service.js': 831,
+    'modules/facturacion/facturaPropia.service.js': 827, 'modules/productos-revision/productos-revision.service.js': 831,
     'modules/pagos-recurrentes/pagos-recurrentes.service.js': 767
   };
 

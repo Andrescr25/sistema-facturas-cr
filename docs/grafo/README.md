@@ -110,7 +110,8 @@ carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 
 ## Decisiones
 
-- [El ciclo conserva recorrido/documentos, órdenes, envío y recepción](decision/ciclo-de-ruta-como-contexto.md)
+- [Rotación por cliente — cada uno con su frecuencia; los ciclos se retiran por partes](decision/rotacion-por-cliente-sin-ciclos.md)
+- [El ciclo conserva recorrido/documentos, órdenes, envío y recepción](decision/ciclo-de-ruta-como-contexto.md) · *en retiro desde el 2026-10-13*
 - [Archivo individual 24 h y retiro de limpieza semanal](modulo/archivo-ordenes-compra.md)
 - [Orden enviada inmutable y archivo individual tras recepción](decision/orden-enviada-y-archivo-por-recepcion.md)
 - [El buzón y la compra son tablas distintas, a propósito](decision/el-buzon-no-es-la-compra.md)

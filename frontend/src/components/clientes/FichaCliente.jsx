@@ -5,6 +5,7 @@ import { colones } from '../../utils/colones'
 import Insignia from '../ui/Insignia'
 import Boton from '../ui/Boton'
 import UbicacionCliente from './UbicacionCliente'
+import RotacionCliente from './RotacionCliente'
 import ContextoCicloDocumento from '../ContextoCicloDocumento'
 
 /**
@@ -80,7 +81,7 @@ export default function FichaCliente({ clienteId, revision, onVolver, onEditar, 
   if (error) return <div className="space-y-4">{volver}<div className="rounded-2xl border border-peligro-200 bg-white p-8" role="alert"><p className="text-base font-semibold text-peligro-700">{error}</p><Boton variante="secundario" className="mt-4" onClick={() => setIntento(n => n + 1)}><RefreshCw size={17} />Reintentar</Boton></div></div>
   if (!datos) return null
 
-  const { cliente, saldo, compras, facturas, abonos, productos, pedidos, facturasPendientes = [] } = datos
+  const { cliente, saldo, compras, facturas, abonos, productos, pedidos, facturasPendientes = [], rotacion } = datos
   const dias = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
   const sobregirado = saldo.disponible !== null && saldo.disponible < 0
 
@@ -143,6 +144,7 @@ export default function FichaCliente({ clienteId, revision, onVolver, onEditar, 
             <p className="mt-3 font-bold">{cliente.ruta_nombre || 'Sin ruta'}{cliente.orden_ruta && ` · visita ${cliente.orden_ruta}`}</p>
             <p className="mt-2 text-sm text-neutro-500">Visita: {dias[cliente.dia_visita - 1] || 'Sin día definido'}</p>
             <p className="text-sm text-neutro-500">Entrega: {dias[cliente.dia_entrega - 1] || 'Sin día definido'}</p>
+            <RotacionCliente rotacion={rotacion} />
           </Bloque>
           <Bloque titulo="Ubicación">
             <p className="text-base">{[cliente.provincia, cliente.canton, cliente.distrito, cliente.barrio].filter(Boolean).join(', ') || 'Sin dirección'}</p>

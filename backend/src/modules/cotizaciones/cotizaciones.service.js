@@ -26,13 +26,13 @@ const { pool } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
-const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const { hoyEnCostaRica, sumarDias } = require('../../utils/fechaCR');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 const { NEGOCIO } = require('../../utils/marcaPdf');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
 const { clientesParaOperar } = require('../clientes/clientes.service');
-const { armarLineas, sumarDias, crearFacturaEnTransaccion } = require('../facturacion/facturaPropia.service');
+const { armarLineas, crearFacturaEnTransaccion } = require('../facturacion/facturaPropia.service');
 const { generarPdfCotizacion } = require('./cotizacion.pdf');
 const { leerToken, enlaceDe } = require('./enlacePublico');
 

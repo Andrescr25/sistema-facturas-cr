@@ -67,6 +67,23 @@ function diaDeBase(valor) {
   return SOLO_DIA.test(texto) ? texto : null;
 }
 
+/**
+ * Suma días a un día de calendario ("AAAA-MM-DD") y devuelve otro día.
+ * Trabaja en UTC de punta a punta: así no arrastra husos ni cambios de hora.
+ */
+function sumarDias(dia, dias) {
+  const [a, m, d] = String(dia).split('-').map(Number);
+  const base = new Date(Date.UTC(a, m - 1, d));
+  base.setUTCDate(base.getUTCDate() + Number(dias || 0));
+  return base.toISOString().slice(0, 10);
+}
+
+/** Cuántos días van de un día de calendario a otro (negativo si ya pasó). */
+function diasEntre(desde, hasta) {
+  const aUtc = (dia) => { const [a, m, d] = String(dia).split('-').map(Number); return Date.UTC(a, m - 1, d); };
+  return Math.round((aUtc(hasta) - aUtc(desde)) / 86400000);
+}
+
 /** Hoy en Costa Rica ("AAAA-MM-DD"). */
 function hoyEnCostaRica(momento = new Date()) {
   return diaEnCostaRica(momento);
@@ -86,4 +103,4 @@ function hoyEnCostaRica(momento = new Date()) {
  */
 const AHORA_CR_SQL = "(now() AT TIME ZONE 'America/Costa_Rica')";
 
-module.exports = { hoyEnCostaRica, diaEnCostaRica, diaDeBase, AHORA_CR_SQL };
+module.exports = { hoyEnCostaRica, diaEnCostaRica, diaDeBase, sumarDias, diasEntre, AHORA_CR_SQL };

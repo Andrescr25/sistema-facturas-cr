@@ -22,6 +22,7 @@ const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 const { TIPOS, limpiar, motivoQueNoCalza } = require('./identificacion');
 const { ubicacionMaps } = require('../rutas/rutas.validacion');
 const { bloquearRutasEn, prepararAsignacionEn, registrarAsignacionEn } = require('../rutas/rutas.service');
+const { ROTACION_MAXIMA } = require('./rotacion');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const LIMITE_MAXIMO = 100;
@@ -71,7 +72,9 @@ const CAMPOS = {
   orden_ruta: { etiqueta: 'Orden en ruta', validar: entero },
   ubicacion_maps: { etiqueta: 'Ubicación Maps', validar: ubicacionMaps },
   dia_visita: { etiqueta: 'Día de visita', validar: numero({ min: 1, max: 7, entero: true }) },
-  dia_entrega: { etiqueta: 'Día de entrega', validar: numero({ min: 1, max: 7, entero: true }) }
+  dia_entrega: { etiqueta: 'Día de entrega', validar: numero({ min: 1, max: 7, entero: true }) },
+  // Cada cuántos días se le visita. Vacío = sin definir: no se inventa una.
+  rotacion_dias: { etiqueta: 'Rotación', validar: numero({ min: 1, max: ROTACION_MAXIMA, entero: true }) }
 };
 
 // ─── Utilidades ────────────────────────────────────────────────────────────

@@ -30,8 +30,14 @@ archivos:
   - backend/tests/clientesServicio.test.js
   - backend/tests/actividadEconomicaClienteLocal.test.js
   - docs/informes/actividad-economica-cliente-2026-10-13.md
+  - backend/migrations/independencia/056_rotacion_por_cliente.sql
+  - backend/src/modules/clientes/rotacion.js
+  - frontend/src/utils/rotacionTexto.js
+  - frontend/src/components/clientes/CampoRotacion.jsx
+  - frontend/src/components/clientes/RotacionCliente.jsx
+  - backend/tests/rotacionCliente.test.js
 aristas:
-  relacionado: [modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, decision/rotacion-por-cliente-sin-ciclos, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-13
 ---
@@ -193,3 +199,28 @@ Comprobado en Chromium a 1440, 820 y 390 px sobre una base desechable:
 buscar un lugar, marcar todos, desmarcar uno, guardar, quitar, traer de otra
 ruta con su confirmación y salir sin guardar; después de cada paso se leyó
 la base. La ficha del cliente sigue pudiendo cambiar ruta y puesto.
+
+## Rotación por cliente — 2026-10-13
+
+El usuario retira los ciclos: [[decision/rotacion-por-cliente-sin-ciclos]].
+Primera parte, en la ficha. La sección «Ruta y visitas» del formulario tiene
+«Rotación: cada cuántos días se le visita» (`CampoRotacion`: 7/15/22/30 a un
+toque, o cualquier número de 1 a 365; tocar el elegido lo deja en blanco).
+Se guarda en `cliente.rotacion_dias` (migración 056) por el mismo
+`PUT /clientes/:id`, con su renglón en la bitácora.
+
+La ficha (`RotacionCliente`, dentro del bloque «Ruta y visitas») muestra la
+rotación, la última atención y la próxima visita con su estado —Próximo, Le
+toca hoy, Atrasado, Sin facturas, Sin rotación—. Llegan calculadas en
+`rotacion` de `GET /clientes/:id/resumen`: la última atención es la última
+factura EMITIDA de TODA su historia (no de los doce meses de «compras»: a
+quien no compra hace un año es a quien más toca visitar).
+
+Ruta y rotación son dos cosas: cambiar una no toca la otra (hay prueba). Los
+campos «Día habitual de visita/entrega» siguen como estaban; en producción
+los tienen 2 clientes.
+
+Comprobado: 22 pruebas (`rotacionCliente.test.js`, 8 contra PostgreSQL real)
+y Chromium a 1440 y 390 px sobre una copia desechable con la 056: poner 22
+días con un toque, ver el 1 de noviembre para una factura del 10 de octubre,
+el aviso de 400 días, quitarla, y crear un cliente con 15 días.

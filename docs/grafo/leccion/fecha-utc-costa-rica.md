@@ -8,8 +8,8 @@ archivos:
   - backend/tests/fechaCR.test.js
   - backend/tests/horaEnvioImpresion.test.js
 aristas:
-  relacionado: [leccion/la-db-local-es-produccion]
-medido: 2026-10-01
+  relacionado: [leccion/la-db-local-es-produccion, decision/rotacion-por-cliente-sin-ciclos]
+medido: 2026-10-13
 ---
 
 `new Date().toISOString().slice(0, 10)` da el día en UTC. Costa Rica es
@@ -43,4 +43,12 @@ parámetro sí llega bien. EN ESTA RAMA ya lo usan la cola de impresión, el
 despacho de Bodega, los faltantes y sus ajustes (sección 11); quedan otras
 columnas escritas con `CURRENT_TIMESTAMP` (bitácoras, compras, cobros): mismo
 riesgo el día del corte, cuando la rama corra sobre ese pooler.
+
+2026-10-13. `utils/fechaCR.js` tiene además `diaDeBase` (leer una columna
+DATE tal como la entrega el driver: un Date a la medianoche local, que no es
+ni un texto ni un instante), `sumarDias` y `diasEntre`: sumar y restar días
+de calendario trabajando en UTC de punta a punta. `sumarDias` estaba dentro
+de `facturaPropia.service.js`; se mudó acá para que el vencimiento de una
+factura y la próxima visita de un cliente
+([[decision/rotacion-por-cliente-sin-ciclos]]) usen la misma cuenta.
 

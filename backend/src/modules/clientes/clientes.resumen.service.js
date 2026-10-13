@@ -20,6 +20,7 @@ const { idValido, httpError } = require('../../utils/validacion');
 const { COBRADO, ACREDITADO } = require('../facturacion/facturaConsulta.service');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const ciclos = require('../rutas/documentosCiclo.service');
+const { ULTIMA_ATENCION_SQL, rotacionDe } = require('./rotacion');
 
 const ULTIMAS = 10;
 const MESES_HISTORIAL = 12;
@@ -35,7 +36,8 @@ async function resumenDeCliente(id) {
   const hoy = hoyEnCostaRica();
 
   const { rows: ficha } = await pool.query(
-    `SELECT c.*, p.nombre AS plazo, p.dias AS plazo_dias, r.nombre AS ruta_nombre
+    `SELECT c.*, p.nombre AS plazo, p.dias AS plazo_dias, r.nombre AS ruta_nombre,
+            ${ULTIMA_ATENCION_SQL('c.id')} AS ultima_factura
        FROM cliente c LEFT JOIN plazo_credito p ON p.id = c.plazo_credito_id
        LEFT JOIN ruta_cliente r ON r.id = c.ruta_id
       WHERE c.id = $1`, [cliente]);
@@ -125,12 +127,17 @@ async function resumenDeCliente(id) {
   const c = compras.rows[0];
   const facturadas = c.facturas || 0;
 
+  const { ultima_factura: ultimaFactura, ...datosFicha } = ficha[0];
+
   return {
     cliente: {
-      ...ficha[0],
+      ...datosFicha,
       limite_credito: n(ficha[0].limite_credito),
       correos_adicionales: ficha[0].correos_adicionales || []
     },
+    // De TODAS sus facturas emitidas, no de los últimos doce meses como
+    // «compras»: a quien no compra hace un año es a quien más toca visitar.
+    rotacion: rotacionDe({ rotacionDias: ficha[0].rotacion_dias, ultimaFactura, hoy }),
     saldo: {
       facturas: s.facturas,
       total: redondear(s.total),

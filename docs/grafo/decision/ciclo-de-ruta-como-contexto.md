@@ -8,9 +8,17 @@ archivos:
   - docs/checklist-rutas-ciclos-operativos.md
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
-  relacionado: [modulo/auditoria-operacion-local, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
-medido: 2026-10-07
+  relacionado: [decision/rotacion-por-cliente-sin-ciclos, modulo/auditoria-operacion-local, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturas-bodega, modulo/faltantes, modulo/compras, decision/orden-enviada-y-archivo-por-recepcion]
+medido: 2026-10-13
 ---
+
+**EN RETIRO DESDE EL 2026-10-13.** El usuario decidió quitar los ciclos y
+pasar a rotación individual por cliente:
+[[decision/rotacion-por-cliente-sin-ciclos]]. Este nodo sigue «vigente»
+porque el código de esta rama TODAVÍA usa ciclos en Facturación, pedidos,
+Reporte de Clientes/Proveedores y Carga y entrega; se retira por partes y
+ese nodo dice en cuál va. No construir nada nuevo sobre ciclos. Las rutas
+(recorrido, orden, Maps) se mantienen.
 
 **Decisión del usuario. Rutas/ciclos, pedidos/facturas, bodega/reportes y borradores de compra por ciclo implementados; envío y recepción física implementados; archivo implementado y consulta de carga/entregas disponible; registro físico implementado y verificado en copia local.** La ruta define el
 recorrido; el ciclo identifica una ejecución concreta, por ejemplo Ruta 1 /

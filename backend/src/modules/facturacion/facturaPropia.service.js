@@ -41,7 +41,7 @@ const { httpError, texto, numero, validar, idValido } = require('../../utils/val
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 // Un solo lugar sabe qué día es: Costa Rica es UTC−6 y después de las 6 de
 // la tarde `toISOString()` ya devuelve mañana.
-const { hoyEnCostaRica, diaDeBase } = require('../../utils/fechaCR');
+const { hoyEnCostaRica, diaDeBase, sumarDias } = require('../../utils/fechaCR');
 const { tomarConsecutivo } = require('./consecutivo');
 const idempotencia = require('./idempotencia');
 
@@ -315,14 +315,6 @@ function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set
     impuesto: dinero(impuestoTotal),
     total: dinero(subtotal + impuestoTotal)
   };
-}
-
-/** Suma días a una fecha AAAA-MM-DD sin arrastrar husos horarios. */
-function sumarDias(fecha, dias) {
-  const [a, m, d] = String(fecha).split('-').map(Number);
-  const base = new Date(Date.UTC(a, m - 1, d));
-  base.setUTCDate(base.getUTCDate() + Number(dias || 0));
-  return base.toISOString().slice(0, 10);
 }
 
 async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuarioId, contexto }) {
@@ -832,4 +824,4 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
 
 module.exports = {
   hoyEnCostaRica, registrarCobro, crearFactura, crearFacturaEnTransaccion, editarFactura, editarFacturaEn, anularFactura,
-  armarLineas, sumarDias };
+  armarLineas };
