@@ -6,6 +6,7 @@ estado: vigente
 archivos:
   - backend/migrations/independencia/044_rutas_y_ciclos.sql
   - backend/src/modules/rutas/rutas.service.js
+  - backend/src/modules/rutas/rutaActual.service.js
   - backend/src/modules/rutas/rutas.validacion.js
   - backend/src/modules/rutas/rutas.routes.js
   - backend/src/modules/clientes/clientes.service.js
@@ -37,7 +38,7 @@ archivos:
   - frontend/src/components/clientes/RotacionCliente.jsx
   - backend/tests/rotacionCliente.test.js
 aristas:
-  relacionado: [modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, decision/rotacion-por-cliente-sin-ciclos, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/preventa-agenda, modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, decision/rotacion-por-cliente-sin-ciclos, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-13
 ---
@@ -230,3 +231,10 @@ Comprobado: 22 pruebas (`rotacionCliente.test.js`, 8 contra PostgreSQL real)
 y Chromium a 1440 y 390 px sobre una copia desechable con la 056: poner 22
 días con un toque, ver el 1 de noviembre para una factura del 10 de octubre,
 el aviso de 400 días, quitarla, y crear un cliente con 15 días.
+
+## ROT-04: lectura de la ruta actual sin semanas
+
+[Preventa](preventa-agenda.md) incluye toda ficha activa por `cliente.ruta_id`,
+incluso si no hay factura ni faltante. `rutaActual.service.js` comparte el
+filtro parametrizado y el selector mínimo con Reporte Clientes; consulta
+rutas sin ciclos e inactivas asignadas. No se cambian recorridos históricos.

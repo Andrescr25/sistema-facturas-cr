@@ -22,7 +22,7 @@ archivos:
   - backend/tests/dobles/sinComentarios.js
   - backend/tests/permisosPrestados.test.js
 aristas:
-  relacionado: [modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
+  relacionado: [modulo/preventa-agenda, modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-06
 ---
 
@@ -206,3 +206,12 @@ estado vigente en informe necesidades-cobertura-2026-10-06.
 la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
 se distingue de demanda/cobertura por semana. Informe validacion-cadena-
 2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.
+
+## 2026-10-13: permiso de la agenda Preventa
+
+`preventa` es dueño de `/api/preventa`, con pantalla `/preventa` en Ventas y
+permiso otorgable en Usuarios; administrador entra por su rol. No se presta
+a Clientes/Reporte Clientes ni usa sus endpoints. Lee contacto, dirección y
+rotación sin saldo/historia fiscal. No se mezcla con `/portal/preventa` ni
+con el catálogo por enlace. `agendaPreventa.test.js` comprueba HTTP con
+usuarios reales locales, 401/403/200, mayúsculas/barra final y token ajeno.

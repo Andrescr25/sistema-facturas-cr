@@ -28,6 +28,7 @@ carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 ## Módulos
 
 - [Reporte de clientes — ruta actual, próxima visita y revisión de faltantes](modulo/reporte-clientes.md)
+- [Preventa — agenda de todos los clientes por ruta y próxima visita](modulo/preventa-agenda.md)
 
 - [Reporte de Proveedores — compras por proveedor, órdenes separadas y fichas](modulo/reporte-proveedores.md)
 

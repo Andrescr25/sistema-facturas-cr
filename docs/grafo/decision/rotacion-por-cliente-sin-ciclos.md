@@ -21,7 +21,7 @@ archivos:
   - docs/informes/rotacion-clientes-relevo-2026-10-13.md
 aristas:
   reemplaza: [decision/ciclo-de-ruta-como-contexto]
-  relacionado: [modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/registro-carga-entrega, modulo/pedidos-por-ciclo, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/faltantes, modulo/facturacion, modulo/facturas-bodega, modulo/reporte-proveedores, modulo/preventa-por-enlace]
+  relacionado: [modulo/preventa-agenda, modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/registro-carga-entrega, modulo/pedidos-por-ciclo, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/faltantes, modulo/facturacion, modulo/facturas-bodega, modulo/reporte-proveedores, modulo/preventa-por-enlace]
 medido: 2026-10-13
 ---
 
@@ -86,24 +86,28 @@ Estados: `sin_rotacion` (no se le definió: no se inventa una), `sin_facturas`
   Consultar no guarda asignaciones. Historia, ajustes y cola conservados.
   [Implementación y límites](../modulo/reporte-clientes.md). Entrega en
   `developer`, continuación autorizada del relevo de Claude; sin SQL nueva.
-- [ ] **ROT-04 — módulo «Preventa».** La agenda: se elige una ruta y salen sus
+- [x] **ROT-04 — módulo «Preventa».** La agenda: se elige una ruta y salen sus
   clientes ordenados por próxima visita, separados en ATRASADOS, HOY y
   PRÓXIMOS (más «sin rotación» y «sin facturas», para que nadie desaparezca).
+  Implementado y probado en `developer`: [agenda](../modulo/preventa-agenda.md).
   Ojo con los nombres que ya existen y son otra cosa: `preventa-por-enlace`
   (el catálogo que se le manda al cliente), `usePreventaCliente`,
   `ModalPreventa` y la columna `preventa_anticipada`.
 - [ ] **ROT-05 — Carga y entrega sin ciclos.** `entregas.service.js` exige
   `cicloId`, y `entrega_evento.recorrido_id` es NOT NULL hacia
-  `ciclo_ruta_cliente`, con un trigger que pide el ciclo en estado `entrega`
-  (migración 051). Necesita migración y que el usuario diga qué facturas
-  forman «la carga» de una ruta cuando ya no hay semana que las agrupe.
-- [ ] **ROT-06 / ROT-07 — impresos 24 horas y después al historial.** Lo que se
-  manda a Impresión desde el reporte deja una fila en `facturas_reimpresion`
-  (`fecha_creacion` = cuándo se mandó). Hoy nada lo saca de «listos» (lo hacía
-  la limpieza semanal, que no se corre nunca). La propuesta es la misma idea
-  de la regla: pasadas 24 horas de esa hora, el reporte deja de mostrarlo y lo
-  muestra el historial, sin trabajo de fondo. Falta decidir si la «próxima
-  visita» del historial es una foto del momento o la de hoy.
+  `ciclo_ruta_cliente`, con trigger de estado `entrega` (migración 051).
+  Necesita migración. **Decidido por el usuario al continuar ROT-04:** la
+  carga incluye automáticamente todas las facturas pendientes de la ruta.
+  Falta implementar la selección operativa y el registro sin semana, con
+  historial intacto y sin repetir una factura en salidas activas.
+- [ ] **ROT-06 / ROT-07 — impresos 24 horas sin movimiento e historial.**
+  **Aclaración del usuario al continuar ROT-04:** después de enviar una
+  factura del Reporte Clientes a Impresión, pasa al historial cuando lleva
+  24 horas **sin movimiento**, para que no se acumule en la vista activa.
+  No basta contar desde `fecha_creacion` si se vuelve a gestionar. Leer no
+  reinicia el plazo; las modificaciones/gestiones sí. Nunca correr limpieza
+  semanal: lectura por antigüedad e historial conservado. Falta implementar
+  qué gestiones actualizan el último movimiento y cómo mostrar la historia.
 - [ ] **ROT-08 — lo que quede.** Facturación (`SelectorCiclo`,
   `clientesParaOperar` manda `ciclos`, `documentosCiclo.validarEn`, y
   `facturaPropia.service` no deja cambiar el cliente de una factura con
@@ -129,12 +133,15 @@ factura desde abril, mediana entre facturas): ~7 días 13 clientes, ~15 días
 ficha empieza vacía: no se inventa; si el usuario quiere, esa mediana se le
 puede proponer cliente por cliente para que la apruebe.
 
-## Lo que decide el usuario cuando se llegue a cada parte
+## Decisiones para continuar
 
-1. Si las 250 fichas empiezan sin frecuencia y se van llenando, o si quiere
-   la propuesta por su ritmo real para aprobarla en lote.
-2. Qué entra en la carga de una ruta sin semanas (ROT-05).
-3. Historial de impresos: foto del momento o cálculo (ROT-07).
+Las fichas empiezan sin frecuencia; se configuran individualmente, sin
+inventar plazos. Carga: **todas las facturas pendientes de la ruta**, decidido.
+Historial: **24 horas sin movimiento desde que se mandó a Impresión**,
+aclarado; no se retira a las 24 horas de envío si hubo una gestión posterior.
+La pregunta de foto/cálculo de próxima visita recibió esta aclaración del
+objetivo, no una elección expresa; no inferir que el usuario aprobó una
+foto persistida ni una migración por esa pregunta.
 
 ## Coordinación
 

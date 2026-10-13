@@ -59,6 +59,14 @@ const MODULOS = [
     rutasApi: ['/portal-clientes', '/clientes']
   },
   {
+    clave: 'preventa',
+    nombre: 'Preventa',
+    grupo: 'Ventas',
+    ruta: '/preventa',
+    // Agenda interna; separada del catálogo por enlace y del portal.
+    rutasApi: ['/preventa']
+  },
+  {
     clave: 'entregas',
     nombre: 'Carga y Entregas',
     grupo: 'Ventas',

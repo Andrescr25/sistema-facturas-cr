@@ -26,6 +26,7 @@ import PortalActivar from './pages/portal/PortalActivar'
 import PortalPedidos from './pages/portal/PortalPedidos'
 import PortalFacturas from './pages/portal/PortalFacturas'
 import Clientes from './pages/Clientes'
+import Preventa from './pages/Preventa'
 import Entregas from './pages/Entregas'
 import Ingresar from './pages/Ingresar'
 import RequiereSesion from './components/RequiereSesion'
@@ -133,6 +134,7 @@ function App() {
               <Route path="/reporte-contador" element={<ReporteContador />} />
               <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
               <Route path="/clientes" element={<Clientes />} />
+              <Route path="/preventa" element={<Preventa />} />
               <Route path="/entregas" element={<Entregas />} />
               <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
               <Route path="/configuracion" element={<Configuracion />} />

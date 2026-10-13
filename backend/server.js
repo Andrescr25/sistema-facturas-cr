@@ -242,6 +242,7 @@ app.use('/api/envios-whatsapp', enviosWhatsAppModule.routes);
 
 // Módulos nuevos (arquitectura modular)
 app.use('/api/bodega', warehouseModule.routes);
+app.use('/api/preventa', require('./src/modules/preventa/preventa.routes'));
 app.use('/api/entregas', require('./src/modules/entregas/entregas.routes'));
 app.use('/api/reimpresion', reprintingModule.routes);
 app.use('/api/admin', adminModule.routes);

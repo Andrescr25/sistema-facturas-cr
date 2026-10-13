@@ -7,35 +7,15 @@ const { COLUMNAS_CICLO, JOIN_CICLO, contextoDocumento } = require('../rutas/oper
 const { ULTIMA_ATENCION_SQL, rotacionDe, ordenPorProximaVisita } = require('../clientes/rotacion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { httpError } = require('../../utils/validacion');
-
-function filtroRuta({ rutaId, cicloId }, params) {
-  if (cicloId != null && cicloId !== '') throw httpError(400, 'El Reporte de clientes ahora se filtra solo por ruta. Recargá la pantalla.');
-  if (rutaId == null || rutaId === '') return '';
-  if (rutaId === 'sin-ruta') return 'AND c.ruta_id IS NULL';
-  if (!((typeof rutaId === 'string' && /^[1-9]\d*$/.test(rutaId)) ||
-    (typeof rutaId === 'number' && Number.isSafeInteger(rutaId) && rutaId > 0)) || Number(rutaId) > 2147483647) {
-    throw httpError(400, 'Ruta inválida.');
-  }
-  params.push(Number(rutaId));
-  return `AND c.ruta_id=$${params.length}`;
-}
-
-/** Metadatos mínimos bajo permiso Reporte Clientes, sin pedir permiso Clientes.
- * Una ruta sin ciclos también se puede elegir. Las inactivas asignadas se
- * conservan para que sus clientes con trabajo pendiente no desaparezcan.
- */
-async function listarRutas() {
-  return (await query(`SELECT r.id, r.nombre, r.activo FROM ruta_cliente r
-    WHERE r.activo OR EXISTS(SELECT 1 FROM cliente c WHERE c.ruta_id=r.id)
-    ORDER BY lower(r.nombre), r.id`)).rows;
-}
+const { filtroRutaActual, listarRutasActuales: listarRutas } = require('../rutas/rutaActual.service');
 
 async function getMissingItemsByClient({ rutaId, cicloId } = {}) {
   try {
     console.log('📋 Generando reporte de faltantes por la ruta del cliente...');
 
     const params = [];
-    const whereRuta = filtroRuta({ rutaId, cicloId }, params);
+    if (cicloId != null && cicloId !== '') throw httpError(400, 'El Reporte de clientes ahora se filtra solo por ruta. Recargá la pantalla.');
+    const whereRuta = filtroRutaActual(rutaId, params);
     const hoy = hoyEnCostaRica();
     const result = await query(`
       SELECT

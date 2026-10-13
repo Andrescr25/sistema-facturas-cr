@@ -5,6 +5,7 @@ titulo: Reporte de clientes — faltantes por ruta actual y próxima visita
 estado: vigente
 archivos:
   - backend/src/modules/reports/reporteClientes.service.js
+  - backend/src/modules/rutas/rutaActual.service.js
   - backend/src/modules/reports/report.service.js
   - backend/src/modules/reports/report.controller.js
   - backend/src/modules/reports/report.routes.js
@@ -23,14 +24,14 @@ archivos:
   - backend/tests/validacionPermisosCadena.test.js
   - docs/informes/reporte-clientes-por-ruta-2026-10-13.md
 aristas:
-  relacionado: [decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica]
+  relacionado: [modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica]
 medido: 2026-10-13
 ---
 
 ROT-03 del pedido del usuario: rutas se mantienen, rotación individual,
 retiro de ciclos por partes. Este reporte conserva su trabajo de revisión de
-faltantes e impresión. La agenda de TODOS los clientes vive en ROT-04,
-pendiente; no se inventan faltantes para hacer que una ficha aparezca acá.
+faltantes e impresión. La agenda de TODOS los clientes vive en
+[Preventa (ROT-04)](preventa-agenda.md); no se inventan faltantes para hacer que una ficha aparezca acá.
 
 ## Ruta e identidad
 

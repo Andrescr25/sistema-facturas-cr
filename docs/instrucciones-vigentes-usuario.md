@@ -644,3 +644,22 @@ la revisión de faltantes e impresión, y separa homónimos por id propio.
 Sin SQL nueva; publicación en `developer` y vista local 5173/3000.
 La agenda Preventa para todos los clientes es la parte siguiente (ROT-04).
 
+
+## 2026-10-13 — Continuación ROT-04 y aclaraciones para las partes siguientes
+
+Textual: «perfecto, continua y dime que falta». Codex implementa
+[Preventa (ROT-04)](grafo/modulo/preventa-agenda.md): agenda de todos los
+clientes activos por ruta y próxima visita. Publicación solo `developer`,
+como el relevo ya autorizado; `main` se conserva.
+
+Al preguntar cómo formar la carga sin semanas, el usuario elige:
+«Incluir automáticamente todas las facturas pendientes de la ruta.»
+La decisión queda guardada para ROT-05, **todavía sin implementar**.
+
+Sobre el historial aclara, textual: «ok, con esto me refiero a que las
+facturas de reporte clientes, una vez se hayan enviado a impresion y no
+tenga moviemiento en 24 horas entonces que se vayan a un historial para
+que no queden ahí». ROT-06/07 cuentan **24 horas sin movimiento**, no solo
+desde el envío inicial. Consultar no es un movimiento; las gestiones sí.
+Decisión guardada, **todavía sin implementar**. No respondió expresamente
+a foto/cálculo de próxima visita: esa elección no se acredita por la pregunta.

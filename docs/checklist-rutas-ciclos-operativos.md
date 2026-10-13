@@ -17,11 +17,20 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   separados por id, ruta sin ciclos elegible, consulta sin asignaciones.
   PostgreSQL local y navegador; sin migración nueva. Entrega en developer.
   [Evidencia](informes/reporte-clientes-por-ruta-2026-10-13.md).
-- [ ] ROT-04 — Agenda Preventa por próxima visita: atrasados/hoy/próximos.
-- [ ] ROT-05 — Carga/entrega sin ciclos; decidir qué facturas forman la carga.
-- [ ] ROT-06 — Impresos activos 24 horas, luego historial sin limpieza semanal.
-- [ ] ROT-07 — Historial de impresos con fechas, ruta y próxima visita.
-- [ ] ROT-08 — Retirar dependencia operativa restante conservando historia.
+- [x] ROT-04 — Preventa: todos los clientes activos por ruta actual, incluso
+  sin faltantes; grupos atrasados/hoy/próximos/sin rotación/sin facturas,
+  búsqueda, tarjetas y detalle por id, permiso propio. Entrega solo
+  `developer`; [evidencia](informes/preventa-agenda-2026-10-13.md).
+- [ ] ROT-05 — Carga/entrega por ruta, sin requerir ciclo: necesita migración
+  para `entrega_evento`. Usuario eligió **incluir automáticamente todas las
+  facturas pendientes de la ruta**; queda implementar y verificar.
+- [ ] ROT-06 — Impresos en la vista activa hasta cumplir **24 horas sin
+  movimiento** después de enviarse a Impresión (aclaración del usuario).
+  Una gestión nueva reinicia el plazo; una lectura no. Sin limpieza semanal.
+- [ ] ROT-07 — Historial que conserva esos impresos y sus movimientos;
+  presentación de próxima visita pendiente, sin elección expresa de foto.
+- [ ] ROT-08 — Retirar ciclos de Facturación, pedidos, proveedores, rutas,
+  Bodega y exportaciones, conservando historia, tablas y FK existentes.
 
 ## Antecedente: implementación por ciclos
 
