@@ -27,7 +27,8 @@ const { calcularCostoUnitarioPropio } = require('../src/modules/precios/costo');
  *   nunca un id
  * @returns {Promise<Object>} { success, proveedor, precio }
  */
-async function asignarProveedorAutomatico(faltanteId, productoId, productoReferencia) {
+async function asignarProveedorAutomatico(faltanteId, productoId, productoReferencia, db = null) {
+  const consultar = db ? (sql, params) => db.query(sql, params) : query;
   try {
     const idProducto = Number.isInteger(Number(productoId)) && Number(productoId) > 0 ? Number(productoId) : null;
     const referencia = String(productoReferencia || '').trim();
@@ -46,10 +47,10 @@ async function asignarProveedorAutomatico(faltanteId, productoId, productoRefere
     const ORDEN = 'ORDER BY last_used_date DESC NULLS LAST';
 
     let mappings = idProducto
-      ? await query(`SELECT ${COLUMNAS_MAPEO} FROM supplier_product_mapping WHERE producto_id = $1 ${ORDEN}`, [idProducto])
+      ? await consultar(`SELECT ${COLUMNAS_MAPEO} FROM supplier_product_mapping WHERE producto_id = $1 ${ORDEN}`, [idProducto])
       : { rows: [] };
     if (mappings.rows.length === 0 && referencia) {
-      mappings = await query(`SELECT ${COLUMNAS_MAPEO} FROM supplier_product_mapping WHERE alegra_reference = $1 ${ORDEN}`, [referencia]);
+      mappings = await consultar(`SELECT ${COLUMNAS_MAPEO} FROM supplier_product_mapping WHERE alegra_reference = $1 ${ORDEN}`, [referencia]);
     }
     const productoCodigo = referencia || idProducto;
 
@@ -74,7 +75,10 @@ async function asignarProveedorAutomatico(faltanteId, productoId, productoRefere
 
     for (const mapping of mappings.rows) {
       try {
-        const productoFactura = await prisma.productoFactura.findFirst({
+        const productoFactura = db ? (await db.query(`
+          SELECT l.precio_unitario AS "precioUnitario", l.descuento, l.cantidad, l.impuesto, l.total_linea AS "totalLinea"
+          FROM productos_factura_proveedor l JOIN facturas_proveedores f ON f.id=l.factura_id
+          WHERE l.mapeo_id=$1 ORDER BY f.fecha_emision DESC,l.id DESC LIMIT 1`, [mapping.id])).rows[0] : await prisma.productoFactura.findFirst({
           where: {
             mapeoId: mapping.id
           },
@@ -116,6 +120,7 @@ async function asignarProveedorAutomatico(faltanteId, productoId, productoRefere
 
         console.log(`   - ${mapping.supplierName}: ${precio ? `₡${precio.toFixed(2)}` : 'Sin precio'}`);
       } catch (error) {
+        if (db) throw error;
         console.warn(`   ⚠️ Error obteniendo precio para ${mapping.supplierName}:`, error.message);
         const registroProveedor = {
           mappingId: mapping.id,
@@ -186,7 +191,7 @@ async function asignarProveedorAutomatico(faltanteId, productoId, productoRefere
     //
     // Esto hace que el reporte sea RÁPIDO (no recalcula cada vez)
     // ─────────────────────────────────────────────────────────────────────────
-    await query(`
+    await consultar(`
       UPDATE faltantes
       SET 
         proveedor_asignado = $1,
@@ -211,6 +216,7 @@ async function asignarProveedorAutomatico(faltanteId, productoId, productoRefere
     };
 
   } catch (error) {
+    if (db) throw error; // Una falla SQL debe revertir también el faltante y su orden.
     console.error(`❌ Error asignando proveedor automático:`, error);
     return {
       success: false,

@@ -113,17 +113,11 @@ async function sugerir(filtros) {
     return {proveedor:{id:p.id,nombre:p.nombre,cedula:p.identificacion},ciclo:c?{id:c.id,rutaNombre:c.ruta_nombre,semana:c.semana}:null,
       productos:agrupar(await necesidadesEn(db,p,cicloId))};});
 }
-async function reemplazarLineasEn(db,o,lineas,p) {
-  const productos=agrupar(await necesidadesEn(db,p,o.ciclo_id,o.id,{bloquear:true}));
-  const previas=new Map(o.lineas?.map(l=>[l.producto_id,l])||[]);
-  await db.query('DELETE FROM orden_compra_ciclo_origen WHERE linea_id IN (SELECT id FROM orden_compra_ciclo_linea WHERE orden_id=$1)',[o.id]);
-  await db.query('DELETE FROM orden_compra_ciclo_linea WHERE orden_id=$1',[o.id]);
-  for (const l of lineas) {
-    const producto=productos.find(p=>p.productoId===l.productoId);
+async function reemplazarLineaEn(db,o,l,producto,previa) {
     if (!producto || producto.disponible<=0) throw httpError(409,'Un producto ya no tiene faltantes libres en este ciclo. Revisá la sugerencia.');
     // Al editar, conservar la conversión y los códigos que la persona revisó.
     // Un cambio posterior del maestro/mapeo no modifica la orden guardada.
-    const previa=previas.get(l.productoId),factor=previa?.factor_conversion??producto.factorConversion;
+    const factor=previa?.factor_conversion??producto.factorConversion;
     if (!Number.isFinite(factor)||factor<0.000001||factor>1000000) throw httpError(409,'Corregí la conversión del producto antes de preparar su orden.');
     const {rows:[n]}=await db.query(`INSERT INTO orden_compra_ciclo_linea(orden_id,producto_id,producto_nombre,codigo_interno,codigo_proveedor,nombre_proveedor,mapping_id,factor_conversion,cantidad_proveedor)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id,cantidad_propia`,[o.id,l.productoId,previa?.producto_nombre??producto.nombre,
@@ -137,7 +131,13 @@ async function reemplazarLineasEn(db,o,lineas,p) {
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[n.id,f.faltanteId,f.facturaId,f.numero,f.cliente_id,f.cliente_nombre,f.orden,f.preventa_anticipada,cantidadDe(cantidad)]);
       disponible-=cantidad;
     }
-  }
+}
+async function reemplazarLineasEn(db,o,lineas,p) {
+  const productos=agrupar(await necesidadesEn(db,p,o.ciclo_id,o.id,{bloquear:true}));
+  const previas=new Map(o.lineas?.map(l=>[l.producto_id,l])||[]);
+  await db.query('DELETE FROM orden_compra_ciclo_origen WHERE linea_id IN (SELECT id FROM orden_compra_ciclo_linea WHERE orden_id=$1)',[o.id]);
+  await db.query('DELETE FROM orden_compra_ciclo_linea WHERE orden_id=$1',[o.id]);
+  for (const l of lineas) await reemplazarLineaEn(db,o,l,productos.find(p=>p.productoId===l.productoId),previas.get(l.productoId));
 }
 async function crear(datos,usuarioId) {
   const cicloId=cicloValido(datos?.cicloId),proveedorId=entero(datos?.proveedorId),lineas=lineasValidas(datos?.lineas),clave=datos?.clave;
@@ -213,4 +213,4 @@ async function listarEn(db,{rutaId,cicloId,proveedorId,vista='activas'}={}, {det
 }
 const listar=f=>listarEn(pool,f);
 module.exports={sugerir,crear,editar,cambiarEstado,listar,obtener:id=>enTransaccion(pool,db=>obtenerEn(db,id)),
-  interno:{entero,enOrden,obtenerEn,revision,validarPendienteEn,listarEn}};
+  interno:{entero,cicloValido,enOrden,obtenerEn,revision,validarPendienteEn,listarEn,contextoEn,proveedorEn,necesidadesEn,agrupar,micros,cantidadDe,reemplazarLineaEn}};

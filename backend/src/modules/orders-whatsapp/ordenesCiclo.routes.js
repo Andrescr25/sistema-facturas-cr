@@ -1,5 +1,6 @@
 const router=require('express').Router();
 const s=require('./ordenesCiclo.service');
+const compras=require('./comprasProveedores.controller');
 const {enviarExcel}=require('../../utils/exportarExcel');
 const exportar=(req,res)=>require('./ordenesCiclo.excel').exportar({...req.query,...(req.params.id?{ordenId:req.params.id}:{})}).then(r=>enviarExcel(res,r)).catch(e=>res.status(e.status||500).json({success:false,message:e.status?e.message:'No se pudieron exportar las órdenes.'}));
 const envios=require('./ordenesCicloEnvio.service');
@@ -11,6 +12,8 @@ const subirPdf=require('multer')({storage:require('multer').memoryStorage(),limi
 // no asigna proveedores ni transforma el borrador GLOBAL anterior.
 const responder=(res,p,status=200)=>p.then(data=>res.status(status).json({success:true,data}))
   .catch(e=>res.status(e.status||500).json({success:false,message:e.status?e.message:'No se pudo consultar o guardar la orden.'}));
+router.get('/resumen',compras.resumen);
+router.post('/sincronizar',compras.preparar);
 router.get('/sugerencia',(req,res)=>responder(res,s.sugerir(req.query)));
 router.get('/',(req,res)=>responder(res,s.listar(req.query)));
 router.post('/',(req,res)=>responder(res,s.crear(req.body,req.usuario?.id),201));

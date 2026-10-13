@@ -4,6 +4,14 @@ tipo: modulo
 titulo: Órdenes por ciclo — PDF revisado, envío inmutable y cobertura; recepción física separada
 estado: vigente
 archivos:
+  - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
+  - backend/src/modules/orders-whatsapp/comprasProveedores.service.js
+  - backend/src/modules/orders-whatsapp/comprasProveedores.controller.js
+  - backend/tests/ordenesAutomaticas.test.js
+  - backend/tests/ordenCompraTexto.test.js
+  - frontend/src/hooks/useOrdenesCompraCiclo.js
+  - frontend/src/utils/ordenCompraTexto.js
+  - docs/informes/ordenes-automaticas-proveedores-2026-10-13.md
   - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/migrations/independencia/046_ordenes_compra_por_ciclo.sql
   - backend/migrations/independencia/047_envio_orden_compra_ciclo.sql
@@ -26,7 +34,7 @@ aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
   relacionado: [modulo/reporte-proveedores, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-07
+medido: 2026-10-13
 ---
 
 ENVÍO IMPLEMENTADO, código local a929ca9; validación histórica de 047 abajo.
@@ -162,3 +170,28 @@ los paneles permanecen montados al ocultarlos para conservar PDF y formularios
 sin guardar. Se conserva el bloqueo tras envío y los componentes de cada paso.
 Ver [[modulo/reporte-proveedores]]: 28 escenarios visuales1440/390, sin escribir
 ni enviar; no sustituye la validación de negocio de los párrafos anteriores.
+
+## Acumulación automática vigente — 2026-10-13
+
+Bodega guarda el faltante, asigna el proveedor conocido y prepara la compra en
+la misma transacción. Asignar un proveedor manualmente también prepara lo libre.
+Buscar por proveedor propio y ciclo fijo (incluido Sin ciclo), únicamente
+borrador/pendiente sin intento de envío. Acumular nuevos productos y el aumento
+real de cantidades; enviada/parcial/recibida/cerrada e intento incierto quedan
+fuera. El caso A10/B5 enviado seguido de C8/A3 genera una orden independiente.
+
+Pendiente vuelve internamente a borrador y recupera pendiente dentro del mismo
+COMMIT; cambia su revisión, invalida el PDF anterior sin borrar sus bytes y exige
+preparar/revisar otra copia. Repetir un faltante no cambia cantidades ni revisión.
+Conservar ajustes manuales y snapshots de conversión; aprovechar excedente de
+caja solo antes de enviar. El excedente enviado no compra un faltante posterior.
+Advisory46005/1 antes de factura/faltantes evita reservas duplicadas y órdenes
+dobles. Sin proveedor inequívoco/activo o conversión válida, conservar necesidad
+visible sin inventar una orden. Un ciclo cerrado no admite compras nuevas.
+
+GET/resumen es READ ONLY/REPEATABLE READ y separa sin orden, por enviar, por
+verificar, por recibir y recibido. POST/sincronizar prepara explícitamente
+faltantes anteriores o liberados; nunca se invoca en segundo plano al consultar.
+Cancelar sin enviar conserva el estado histórico cerrada y se rotula Cancelada;
+cerrar enviada sigue su revisión comercial. Sin cambio de esquema ni mensajes
+reales en pruebas. Ver el informe de 2026-10-13; etapas anteriores históricas.

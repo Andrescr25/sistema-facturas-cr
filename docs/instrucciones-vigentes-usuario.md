@@ -68,6 +68,14 @@ siguen en [checklist de independencia](checklist-independencia-alegra.md).
 
 ## Prioridad actual — 2026-10-07
 
+**Solicitud 2026-10-13 — Reporte Proveedores:** simplificar faltantes y órdenes.
+Buscar una orden abierta del proveedor; acumular solo en borrador/pendiente.
+Enviada es una fotografía inmutable; un faltante posterior crea otra orden.
+Mostrar por proveedor faltantes/cantidades actuales, pendientes/enviadas, fecha
+y estado. Implementación y comprobaciones locales en
+[informe de órdenes automáticas](informes/ordenes-automaticas-proveedores-2026-10-13.md).
+Conservar contexto fijo de ruta/semana, revisión del PDF y protecciones de envío.
+
 **Corrección solicitada 2026-10-12:** una factura anulada en Facturación
 seguía pendiente en Facturas en Bodega. Se corrige la vigencia por nota de
 crédito completa, las aperturas cacheadas y las escrituras de despacho.

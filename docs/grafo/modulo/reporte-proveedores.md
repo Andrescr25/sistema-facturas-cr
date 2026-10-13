@@ -1,9 +1,14 @@
 ---
 id: modulo/reporte-proveedores
 tipo: modulo
-titulo: Reporte de Proveedores — áreas claras, compras por secciones y fichas
+titulo: Reporte de Proveedores — compras por proveedor, órdenes separadas y fichas
 estado: vigente
 archivos:
+  - frontend/src/components/reporte-proveedores/ComprasPorProveedor.jsx
+  - frontend/src/hooks/useComprasProveedores.js
+  - frontend/src/hooks/useOrdenesCompraCiclo.js
+  - backend/src/modules/orders-whatsapp/comprasProveedores.service.js
+  - docs/informes/ordenes-automaticas-proveedores-2026-10-13.md
   - frontend/src/pages/ReporteProveedores.jsx
   - frontend/src/components/ui/NavegacionSecciones.jsx
   - frontend/src/components/ui/PanelSeccion.jsx
@@ -22,7 +27,7 @@ archivos:
 aristas:
   depende_de: [modulo/necesidades-por-ciclo, modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/permisos]
   relacionado: [modulo/rutas-clientes, modulo/facturas-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, decision/ciclo-de-ruta-como-contexto]
-medido: 2026-10-07
+medido: 2026-10-13
 ---
 
 Entrada de UI para mantener el reporte: Necesidades, Faltantes, Órdenes y
@@ -59,3 +64,19 @@ se interceptan en el navegador, no se crean demos. Auditoría106 tablas/80
 secuencias idénticas, stock0; sin backend/SQL. Ver informe para evidencia y límites.
 Operativo96/3 e independencia133/14: revisiones humanas y fuente LOCAL Maps abiertas.
 Migración/corte siguen aplazados; no se acredita aceptación fiscal real.
+
+## Entrada vigente — 2026-10-13
+
+La pantalla abre en Compras por proveedor: tarjetas → proveedor → faltantes
+actuales y órdenes independientes. Cantidad necesaria descuenta lo recibido;
+lo apartado por un intento incierto se rotula por verificar. Pendientes de envío
+y enviadas tienen listas separadas con referencia, estado, creación y fecha
+de envío. Abrir una orden usa el mismo detalle de productos/PDF/factura/recepción.
+Necesidades y administración/asignación conservan sus accesos y permisos.
+
+La consulta no crea órdenes ni repone cantidades excluidas manualmente. Bodega y
+asignación sí preparan automáticamente. Preparar faltantes sin orden es una acción
+explícita para pendientes anteriores/liberados. Estado y llamadas del detalle
+se extraen a useOrdenesCompraCiclo; el componente deja de importar services/api
+(deuda de estructura reducida). Fechas timestamptz usan hora de Costa Rica.
+Informe: docs/informes/ordenes-automaticas-proveedores-2026-10-13.md.

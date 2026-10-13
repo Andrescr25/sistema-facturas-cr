@@ -67,7 +67,7 @@ describe('los componentes dibujan; con el servidor habla un gancho o un servicio
     'components/cuentas-por-cobrar/ClienteDetalle.jsx', 'components/entregas/RegistroFisico.jsx',
     'components/relacionar-productos/ModalCrearProducto.jsx', 'components/reporte-proveedores/CierreOrdenCiclo.jsx',
     'components/reporte-proveedores/EnvioOrdenCiclo.jsx', 'components/reporte-proveedores/FacturaOrdenCiclo.jsx',
-    'components/reporte-proveedores/OrdenesCompraCiclo.jsx', 'components/reporte-proveedores/RecepcionOrdenCiclo.jsx',
+    'components/reporte-proveedores/RecepcionOrdenCiclo.jsx',
     'components/whatsapp/ModalEnviarWhatsApp.jsx', 'pages/Clientes.jsx', 'pages/CotizacionPublica.jsx',
     'pages/Cotizaciones.jsx', 'pages/Dashboard.jsx'
   ];

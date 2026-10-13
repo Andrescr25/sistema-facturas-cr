@@ -17,6 +17,13 @@
   [informe de envío](informes/envio-ordenes-ciclo-2026-10-06.md); no altera el
   conteo de independencia ni acredita recepción física/archivo.
 
+**Mantenimiento posterior al corte, 2026-10-13:** Reporte Proveedores prepara
+órdenes automáticamente por proveedor/ciclo al registrar o asignar faltantes.
+Borrador/pendiente acumulan; enviada/incierta conserva su snapshot y los nuevos
+productos van a otra orden. Entrada Compras muestra faltantes, fechas y estados
+sin mezclar órdenes. Sin SQL nuevo ni dependencia externa añadida.
+[Verificación](informes/ordenes-automaticas-proveedores-2026-10-13.md).
+
 Cada sección dice qué depende hoy de Alegra y cuándo se da por lista. Se
 marca `- [x]` al terminar.
 

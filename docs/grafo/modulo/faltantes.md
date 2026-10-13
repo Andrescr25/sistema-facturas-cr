@@ -4,6 +4,8 @@ tipo: modulo
 titulo: Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios
 estado: vigente
 archivos:
+  - backend/tests/ordenesAutomaticas.test.js
+  - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
   - backend/src/modules/rutas/operacionCiclo.service.js
   - backend/tests/operacionCiclos.test.js
   - frontend/src/components/FiltroCicloOperacion.jsx
@@ -51,7 +53,7 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-11
+medido: 2026-10-13
 ---
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
@@ -358,3 +360,13 @@ Consulta general conserva edición/selección/procedencia con controles móviles
 preparación de orden sigue por semana o Sin ciclo. Área inactiva/error no se
 interpretan como proveedor desaparecido. Pruebas visuales interceptan incluso
 el GET general que puede asignar proveedores; no se insertan demos en la base.
+
+## Preparación automática de compras — 2026-10-13
+
+Bodega transmite solo el incremento nuevo a compras dentro de su transacción;
+la asignación manual prepara la necesidad libre del proveedor. Precio/asignación
+automática admite la conexión recibida y lee el buzón por SQL en ella: una
+conexión Prisma separada no ve un faltante sin COMMIT. Las consultas filtradas
+siguen sin asignar/preparar. Guardar de nuevo no repone exclusiones manuales.
+Órdenes enviadas e inciertas preservan cantidades, PDF y cobertura. Las nuevas
+necesidades usan un borrador independiente. Ver [[modulo/ordenes-compra-por-ciclo]].

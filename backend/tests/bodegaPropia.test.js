@@ -123,7 +123,8 @@ describe('despachar', () => {
     assert.equal(r.faltantes_registrados, 1);
     assert.equal(guardadas[0].enTransaccion, true);
     assert.deepEqual(transacciones, ['BEGIN', 'COMMIT']);
-    assert.match(consultas[0].t, /FROM factura WHERE id = \$1 FOR UPDATE/);
+    assert.match(consultas[0].t, /pg_advisory_xact_lock/);
+    assert.match(consultas[1].t, /FROM factura WHERE id = \$1 FOR UPDATE/);
     assert.ok(!consultas.some((c) => /FROM facturas WHERE|INTO facturas/.test(c.t)), 'no toca la tabla vieja');
   });
 

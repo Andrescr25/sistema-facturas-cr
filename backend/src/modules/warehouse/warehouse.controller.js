@@ -31,7 +31,7 @@ const getEstadosFacturaPropia = (req, res) =>
 
 /** POST /bodega/facturas-propias/:facturaId/faltantes { faltantes, registrado_por } */
 const registrarFaltantesFacturaPropia = (req, res) =>
-  responderPropia(res, bodegaPropia.registrarFaltantes(req.params.facturaId, req.body?.faltantes, req.body?.registrado_por || 'Bodega'), 'Error registrando faltantes de la factura:');
+  responderPropia(res, bodegaPropia.registrarFaltantes(req.params.facturaId, req.body?.faltantes, req.body?.registrado_por || 'Bodega', req.usuario?.id), 'Error registrando faltantes de la factura:');
 
 /** POST /bodega/facturas-propias/:facturaId/estado { estado, observaciones, enviar_a_impresion } */
 const updateEstadoFacturaPropia = (req, res) =>

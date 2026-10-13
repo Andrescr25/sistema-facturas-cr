@@ -9,7 +9,7 @@ archivos:
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
   relacionado: [modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
-medido: 2026-10-06
+medido: 2026-10-13
 ---
 
 **Solicitud y aclaración del usuario. Borradores, envío inmutable y cobertura
@@ -61,3 +61,10 @@ anteriores conservadas sin doble entrada. Cierre de enviada pendiente; archivo i
 El evento conserva la cobertura recibida y libera únicamente pendiente.
 Cerrada va inmediatamente a Historial; no es recibida ni inicia archivo24h.
 Ver [[modulo/cierre-ordenes-compra]]; las restricciones anteriores son históricas.
+
+2026-10-13: pedido reiterado para simplificar Reporte Proveedores. Se automatiza
+la acumulación en borrador/pendiente del mismo proveedor y ciclo. Una enviada
+o con intento incierto queda cerrada para agregar; los faltantes nuevos crean
+otra. Cambiar una pendiente invalida su PDF preparado y requiere nueva revisión.
+Cancelar sin envío conserva cerrada en la base y muestra Cancelada en pantalla.
+Consultar no ejecuta esta preparación. Ver [[modulo/ordenes-compra-por-ciclo]].

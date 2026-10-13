@@ -27,7 +27,7 @@ carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 
 ## Módulos
 
-- [Reporte de Proveedores — áreas claras, compras por secciones y fichas](modulo/reporte-proveedores.md)
+- [Reporte de Proveedores — compras por proveedor, órdenes separadas y fichas](modulo/reporte-proveedores.md)
 
 - [Auditoría global local — migraciones, historia y cero provisional](modulo/auditoria-operacion-local.md)
 

@@ -28,3 +28,10 @@ export function fechaCorta(f, vacio = '—') {
   return f ? String(f).slice(0, 10).split('-').reverse().join('/') : vacio
 }
 
+
+/** Instantes del servidor con zona (timestamptz), a la hora de Costa Rica. */
+export function fechaHoraEnCostaRica(valor) {
+  if (!valor) return '—'
+  const fecha = new Date(valor)
+  return Number.isNaN(fecha.getTime()) ? '—' : fecha.toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' })
+}

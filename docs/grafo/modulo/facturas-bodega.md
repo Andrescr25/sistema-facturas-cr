@@ -4,6 +4,8 @@ tipo: modulo
 titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra
 estado: vigente
 archivos:
+  - backend/tests/ordenesAutomaticas.test.js
+  - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
   - backend/src/modules/rutas/operacionCiclo.service.js
   - backend/tests/operacionCiclos.test.js
   - frontend/src/components/FiltroCicloOperacion.jsx
@@ -28,7 +30,7 @@ archivos:
   - backend/src/modules/reprinting/colaImpresion.js
 aristas:
   relacionado: [modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-12
+medido: 2026-10-13
 ---
 
 SOBRE LA FACTURA PROPIA (sección 11 del checklist, terminada el
@@ -134,3 +136,13 @@ respuestas tardías descartadas, notas por semana y contexto original en la
 ficha. Los párrafos anteriores son avances históricos, incluidos sus pendientes.
 RUT-08/FIL-11 y validación integral se conservan abiertos; no cerrar por probar
 una sola consulta, exportación o cambio de maestro. No hay nueva SQL.
+
+## Faltante → compra automática — 2026-10-13
+
+Registrar una cantidad nueva o su aumento guarda faltante, asignación conocida y
+orden en una transacción. Primero advisory46005/1, después la vigencia/bloqueo
+de factura. Guardar otra vez la misma cantidad no repone exclusiones manuales.
+Proveedor/ciclo abiertos acumulan; envío confirmado o incierto conserva el
+snapshot y reserva, y los faltantes nuevos preparan otra orden. Sin ficha o
+conversión válida se guarda el faltante para revisión. No se envía WhatsApp
+al registrar faltantes. Ver [[modulo/ordenes-compra-por-ciclo]].

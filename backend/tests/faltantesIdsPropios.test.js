@@ -126,6 +126,8 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
        WHERE f.estado = 'emitida' AND NOT f.electronica
          AND NOT EXISTS (SELECT 1 FROM pago_factura pf WHERE pf.factura_id = f.id)
          AND NOT EXISTS (SELECT 1 FROM nota_credito_factura nf WHERE nf.factura_id = f.id)
+         -- Una procedencia de compra es historia: no borrarla para preparar fixtures.
+         AND NOT EXISTS (SELECT 1 FROM faltantes ft JOIN orden_compra_ciclo_origen oc ON oc.faltante_id=ft.id WHERE ft.factura_propia_id=f.id)
          AND (SELECT COUNT(DISTINCT l.producto_id) FROM factura_linea l
                WHERE l.factura_id = f.id AND l.producto_id IS NOT NULL) >= 2
        ORDER BY f.id DESC LIMIT 2

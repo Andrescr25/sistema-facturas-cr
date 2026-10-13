@@ -37,6 +37,7 @@ async function asignarProveedorAProducto({ productoId, proveedorId, cicloId } = 
   const { where } = filtrosOperacion({ cicloId }, [], params);
 
   return enTransaccion(pool, async (db) => {
+    await db.query('SELECT pg_advisory_xact_lock(46005,1)');
     if (cicloId !== undefined && cicloId !== 'sin-ciclo') {
       const existe = await db.query('SELECT id FROM ciclo_ruta WHERE id=$1', [Number(cicloId)]);
       if (!existe.rowCount) throw httpError(404, 'Ese ciclo no existe.');
@@ -67,6 +68,7 @@ async function asignarProveedorAProducto({ productoId, proveedorId, cicloId } = 
            WHERE ${where.join(' AND ').replace(/\$(\d+)/g, (_, n) => '$' + (Number(n) + 4))})` : ''}`,
       [proveedor.nombre.trim(), proveedor.identificacion || null, mapeo?.id || null, idProducto, ...params]);
 
+    await require('../orders-whatsapp/ordenesAutomaticas.service').sincronizarEn(db, { proveedorId: idProveedor, cicloId });
     return { proveedor: proveedor.nombre.trim(), faltantesActualizados: rowCount, mappingId: mapeo?.id || null };
   });
 }

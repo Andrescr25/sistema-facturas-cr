@@ -312,11 +312,19 @@ no cerrar las casillas del usuario por tener esta vista.
 - [x] OC-05 — Facilitar envío por WhatsApp y guardar exactamente lo enviado.
 - [x] OC-06 — Bloquear cambios de productos/cantidades tras enviar, también
   desde API; nuevas necesidades no se agregan automáticamente.
-- [x] OC-07 — Proponer/crear orden nueva para faltantes posteriores.
+- [x] OC-07 — Acumular faltantes nuevos en borrador/pendiente; después del envío
+  crear automáticamente otra orden independiente del mismo proveedor/ciclo.
 - [x] OC-08 — Mostrar cantidades pendientes sin volver a comprarlas.
 - [x] OC-09 — Manejar concurrencia, reintentos y envío incierto sin duplicar
   solicitudes ni afirmar que el proveedor recibió un mensaje no confirmado.
 - [x] OC-10 — Mantener correspondencia entre documento WhatsApp y orden guardada.
+
+**Actualización 2026-10-13:** acumulación automática desde Bodega/asignación,
+pendiente con revisión/PDF nuevo, enviada/incierta inmutable y vista por proveedor
+con faltantes y órdenes separadas. Cancelación sin envío conserva historia.
+Sin SQL nuevo; pruebas en copia desechable, consulta de solo lectura y navegador.
+[Resultado y validación](informes/ordenes-automaticas-proveedores-2026-10-13.md).
+Los párrafos siguientes describen las etapas históricas.
 
 Primera parte de órdenes (`004ba50`, 046): OC-01/02/04/07 implementados. Proveedor propio,
 semana fija o Sin ciclo, líneas por producto propio y origen por factura.

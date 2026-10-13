@@ -1,10 +1,11 @@
+import ComprasPorProveedor from '../components/reporte-proveedores/ComprasPorProveedor'
 import NavegacionSecciones from '../components/ui/NavegacionSecciones'
 import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
 import FaltantesPorCiclo from '../components/reporte-proveedores/FaltantesPorCiclo'
 import OrdenesCompraCiclo from '../components/reporte-proveedores/OrdenesCompraCiclo'
 import NecesidadesPorCiclo from '../components/reporte-proveedores/NecesidadesPorCiclo'
 import { useState, useEffect } from 'react'
-import { AlertCircle, Package, ClipboardList, Contact, ShoppingCart } from 'lucide-react'
+import { AlertCircle, Package, ClipboardList, Contact, ShoppingCart, Truck } from 'lucide-react'
 import { useReporteProveedores } from '../hooks/useReporteProveedores'
 import { useFichasProveedor } from '../hooks/useFichasProveedor'
 import { useDialog } from '../hooks/useDialog'
@@ -20,7 +21,7 @@ import ToastContainer from '../components/ToastContainer'
 import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteProveedores() {
-  const [vista, setVista] = useState('necesidades')
+  const [vista, setVista] = useState('compras')
   const {
     filtroCiclo, consultaCiclo,
     proveedores,
@@ -94,6 +95,7 @@ export default function ReporteProveedores() {
   // El proveedor elegido lleva su identidad a la revisión de la orden;
   // las fichas conservan su administración fuera del trabajo por semana.
   const [proveedorOrden, setProveedorOrden] = useState(null)
+  const [ordenInicial, setOrdenInicial] = useState(null)
   // Diálogo propio: el del reporte lo maneja useReporteProveedores por dentro
   // y no expone `confirm`.
   const { confirm: confirmarFicha, dialogProps: dialogFichas } = useDialog()
@@ -148,7 +150,8 @@ export default function ReporteProveedores() {
       </div>
 
       <NavegacionSecciones verticalEnMovil etiqueta="Áreas de Reporte de Proveedores" seleccion={vista}
-        onCambiar={id => { setProveedorOrden(null); setVista(id) }} secciones={[
+        onCambiar={id => { setProveedorOrden(null); setOrdenInicial(null); setVista(id) }} secciones={[
+          { id: 'compras', titulo: 'Compras', detalle: 'Faltantes y órdenes por proveedor', icono: Truck },
           { id: 'necesidades', titulo: 'Necesidades', detalle: 'Demanda y cobertura', icono: Package },
           { id: 'faltantes', titulo: 'Faltantes', detalle: 'Productos por proveedor', icono: ClipboardList },
           { id: 'ordenes', titulo: 'Órdenes', detalle: 'Compra y recepción', icono: ShoppingCart },
@@ -165,7 +168,8 @@ export default function ReporteProveedores() {
       )}
 
       {/* Manejo de Vistas (Fichas · Listado de faltantes vs Panel Detalle) */}
-      {vista === 'necesidades' ? <NecesidadesPorCiclo filtro={filtroCiclo} /> : vista === 'ordenes' ? <OrdenesCompraCiclo filtro={filtroCiclo} proveedorInicial={proveedorOrden} /> : vista === 'fichas' ? (
+      {vista === 'compras' ? <ComprasPorProveedor filtro={filtroCiclo} onAsignar={() => setVista('faltantes')}
+        onAbrirOrden={id => { setOrdenInicial(id); setProveedorOrden(null); setVista('ordenes') }} /> : vista === 'necesidades' ? <NecesidadesPorCiclo filtro={filtroCiclo} /> : vista === 'ordenes' ? <OrdenesCompraCiclo filtro={filtroCiclo} proveedorInicial={proveedorOrden} ordenInicial={ordenInicial} /> : vista === 'fichas' ? (
         <ListaFichasProveedor
           proveedores={fichas.proveedores}
           cargando={fichas.cargando}

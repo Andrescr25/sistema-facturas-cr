@@ -5,112 +5,22 @@ import NavegacionSecciones from '../ui/NavegacionSecciones'
 import { ArrowLeft, ShoppingCart } from 'lucide-react'
 import BotonExportarExcel from '../ui/BotonExportarExcel'
 import CierreOrdenCiclo from './CierreOrdenCiclo'
-import { useEffect, useRef, useState } from 'react'
-import api from '../../services/api'
+import { useOrdenesCompraCiclo } from '../../hooks/useOrdenesCompraCiclo'
+import { estadoOrdenCompra } from '../../utils/ordenCompraTexto'
+import { fechaHoraEnCostaRica } from '../../utils/fechaCR'
 import { textoCiclo } from '../SelectorCiclo'
-import { useDialog } from '../../hooks/useDialog'
 import ConfirmModal from '../ConfirmModal'
 import EnvioOrdenCiclo from './EnvioOrdenCiclo'
 import FacturaOrdenCiclo from './FacturaOrdenCiclo'
 import RecepcionOrdenCiclo from './RecepcionOrdenCiclo'
 
 const BASE='/orden-compra/por-ciclo'
-const ESTADOS={borrador:'Borrador',pendiente_enviar:'Pendiente de enviar',enviada:'Enviada · recepción pendiente',parcialmente_recibida:'Parcialmente recibida',recibida:'Recibida · recepción final registrada',cerrada:'Cerrada'}
 const numero=n=>Number(n).toLocaleString('es-CR',{maximumFractionDigits:6})
-const fecha=v=>new Date(v).toLocaleString('es-CR',{timeZone:'America/Costa_Rica'})
+const fecha=fechaHoraEnCostaRica
 
 /** Las cantidades de este flujo son propias; no leer el borrador global. */
-export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
-  const [lista,setLista]=useState([]),[vista,setVista]=useState('activas')
-  const [seccion,setSeccion]=useState('productos')
-  const [orden,setOrden]=useState(null),[sugerencia,setSugerencia]=useState(null)
-  useEffect(()=>setSeccion('productos'),[orden?.id])
-  const [cantidades,setCantidades]=useState({}),[error,setError]=useState(''),[mensaje,setMensaje]=useState('')
-  const [cargando,setCargando]=useState(false),[ocupado,setOcupado]=useState(false),[revision,setRevision]=useState(0)
-  const { prompt,dialogProps }=useDialog()
-  const solicitud=useRef(null),lectura=useRef(0),proveedorConsumido=useRef(null)
-  const ambito=`${filtro.rutaId}|${filtro.cicloId}`,actual=useRef(ambito);actual.current=ambito
-  const fallo=e=>e.response?.data?.message||'No se pudo consultar o guardar la orden.'
-  useEffect(()=>{
-    let vivo=true;setLista([]);setCargando(true);setError('')
-    api.get(BASE,{params:{...filtro.params,vista}}).then(({data})=>{if(vivo)setLista(data.data||[])})
-      .catch(e=>{if(vivo)setError(fallo(e))}).finally(()=>{if(vivo)setCargando(false)})
-    return()=>{vivo=false}
-  },[filtro.params,vista,revision])
-  useEffect(()=>{
-    if(orden||sugerencia||ocupado||cargando)return
-    // Programar la próxima consulta con la diferencia de horas DEL SERVIDOR;
-    // el reloj del celular no decide qué se archiva. Consultar al recuperar
-    // foco cubre una pestaña suspendida. No reemplazar formularios abiertos.
-    const pendientes=lista.filter(o=>o.archivo_programado_en&&!o.archivada)
-      .map(o=>new Date(o.archivo_programado_en)-new Date(o.consultada_en)).filter(Number.isFinite)
-    const refrescar=()=>setRevision(r=>r+1)
-    const timer=pendientes.length?setTimeout(refrescar,Math.min(2147483647,Math.max(1000,Math.min(...pendientes)+1000))):null
-    window.addEventListener('focus',refrescar)
-    return()=>{clearTimeout(timer);window.removeEventListener('focus',refrescar)}
-  },[lista,orden,sugerencia,ocupado,cargando])
-  useEffect(()=>{lectura.current++;setOrden(null);setSugerencia(null);setMensaje('');solicitud.current=null},[ambito])
-  useEffect(()=>{
-    // El botón de Faltantes inicia UNA revisión. Cambiar luego el filtro en
-    // la lista/historial no debe abrir otra creación por el proveedor anterior.
-    if (!proveedorInicial || !filtro.cicloId || proveedorConsumido.current===proveedorInicial) return
-    let vivo=true;const n=++lectura.current;setOrden(null);setSugerencia(null);setCargando(true)
-    api.get(BASE+'/sugerencia',{params:{...proveedorInicial,cicloId:filtro.cicloId}}).then(({data})=>{
-      if(!vivo||n!==lectura.current)return
-      proveedorConsumido.current=proveedorInicial
-      setSugerencia(data.data);solicitud.current=null
-      setCantidades(Object.fromEntries(data.data.productos.filter(p=>p.disponible>0&&p.factorValido).map(p=>[p.productoId,String(p.cantidadSugerida)])))
-    }).catch(e=>{if(vivo){proveedorConsumido.current=proveedorInicial;setError(fallo(e))}}).finally(()=>{if(vivo)setCargando(false)})
-    return()=>{vivo=false}
-  },[proveedorInicial,filtro.cicloId])
-  const abrir=async id=>{
-    const n=++lectura.current;setError('');setMensaje('');setSugerencia(null);setCargando(true)
-    try{const {data}=await api.get(BASE+'/'+id);if(n!==lectura.current)return
-      setOrden(data.data);setCantidades(Object.fromEntries(data.data.lineas.map(l=>[l.producto_id,String(l.cantidad_proveedor)])))
-    }catch(e){if(n===lectura.current)setError(fallo(e))}finally{if(n===lectura.current)setCargando(false)}
-  }
-  const ejecutar=async trabajo=>{
-    const contexto=actual.current;setOcupado(true);setError('');setMensaje('')
-    try{const nueva=await trabajo();if(contexto!==actual.current)return
-      setOrden(nueva);setSugerencia(null);setCantidades(Object.fromEntries(nueva.lineas.map(l=>[l.producto_id,String(l.cantidad_proveedor)])))
-      setMensaje('Orden guardada.');setRevision(r=>r+1)
-    }catch(e){if(contexto===actual.current)setError(fallo(e))}finally{setOcupado(false)}
-  }
-  const lineas=()=>Object.entries(cantidades).filter(([,q])=>q!=='').map(([id,q])=>({productoId:Number(id),cantidadProveedor:Number(q)}))
-  const validas=()=>lineas().length>0&&lineas().every(l=>Number.isInteger(l.cantidadProveedor)&&l.cantidadProveedor>0&&l.cantidadProveedor<=1000000)
-  const guardar=()=>ejecutar(async()=>{
-    const productos=lineas()
-    if(orden)return (await api.put(BASE+'/'+orden.id,{version:orden.version,lineas:productos})).data.data
-    const cuerpo={proveedorId:sugerencia.proveedor.id,cicloId:filtro.cicloId,lineas:productos}
-    const firma=JSON.stringify(cuerpo)
-    // Reintentar una respuesta perdida conserva clave y cuerpo; otra revisión
-    // usa otra clave. El servidor además impide reservar dos veces el faltante.
-    if(solicitud.current?.firma!==firma)solicitud.current={firma,clave:crypto.randomUUID()}
-    return (await api.post(BASE,{...cuerpo,clave:solicitud.current.clave})).data.data
-  })
-  const estado=async valor=>{
-    let motivo
-    if(valor==='cerrada'){
-      motivo=await prompt('La orden se conservará en el historial y liberará sus reservas. Indicá el motivo.',{title:'Cerrar orden sin enviar',inputPlaceholder:'Motivo del cierre',confirmLabel:'Cerrar orden'})
-      if(!motivo)return
-    }
-    ejecutar(async()=>(await api.patch(BASE+'/'+orden.id+'/estado',{version:orden.version,estado:valor,motivo})).data.data)
-  }
-  // Consultar adiciones no es un guardado: no reemplazar el formulario con
-  // una respuesta vacía ni borrar cantidades que la persona aún no guardó.
-  const consultarAdiciones=async()=>{
-    setOcupado(true);setError('');const contexto=actual.current
-    try{const {data}=await api.get(BASE+'/sugerencia',{params:{proveedorId:orden.proveedor_id,cicloId:orden.ciclo_id||'sin-ciclo'}})
-      if(contexto!==actual.current)return
-      const nuevas=data.data.productos.filter(p=>p.disponible>0&&p.factorValido&&!orden.lineas.some(l=>l.producto_id===p.productoId))
-      setSugerencia({...data.data,productos:nuevas,adiciones:true});setMensaje(nuevas.length?'Seleccioná los productos y guardá la revisión.':'No hay productos nuevos con faltantes libres en este ciclo.')
-    }catch(e){if(contexto===actual.current)setError(fallo(e))}finally{setOcupado(false)}
-  }
-  const volver=()=>{lectura.current++;setOrden(null);setSugerencia(null);setError('');setMensaje('');setRevision(r=>r+1)}
-  const editar=orden?.estado==='borrador'||(!orden&&Boolean(sugerencia))
-  const cambio=orden&&JSON.stringify(lineas().sort((a,b)=>a.productoId-b.productoId))!==JSON.stringify(orden.lineas.map(l=>({productoId:l.producto_id,cantidadProveedor:l.cantidad_proveedor})).sort((a,b)=>a.productoId-b.productoId))
-  const productos=orden?orden.lineas.map(l=>({productoId:l.producto_id,nombre:l.producto_nombre,codigo:l.codigo_interno,codigoProveedor:l.codigo_proveedor,
-    nombreProveedor:l.nombre_proveedor,factorConversion:l.factor_conversion,origenes:l.origenes,reservada:l.origenes.reduce((s,o)=>s+Number(o.cantidad),0)})):sugerencia?.productos.filter(p=>p.disponible>0)||[]
+export default function OrdenesCompraCiclo({ filtro, proveedorInicial, ordenInicial }) {
+  const { lista,vista,setVista,seccion,setSeccion,orden,sugerencia,cantidades,setCantidades,error,mensaje,cargando,ocupado,setOcupado,abrir,guardar,estado,consultarAdiciones,volver,editar,cambio,productos,validas,actual,ambito,setOrden,setRevision,prompt,dialogProps,prepararFaltantes }=useOrdenesCompraCiclo({filtro,proveedorInicial,ordenInicial})
   return <div className="space-y-4">
     {error&&<p role="alert" className="rounded-lg bg-peligro-50 p-4 text-peligro-800">{error}</p>}
     {mensaje&&<p role="status" className="rounded-lg bg-exito-50 p-3 text-exito-800">{mensaje}</p>}
@@ -123,7 +33,8 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
       <div className="rounded-2xl border border-neutro-200 bg-white p-5 sm:p-6 space-y-3">
         <h2 className="break-words text-xl font-bold">{orden?orden.referencia:'Nueva orden'} · {orden?.proveedor_nombre||sugerencia?.proveedor.nombre}</h2>
         <p className="break-words font-semibold">{textoCiclo(orden?.ciclo||sugerencia?.ciclo)}</p>
-        {orden ? <Insignia className="whitespace-normal" tono={orden.estado==='recibida'?'exito':orden.estado==='cerrada'?'neutro':orden.enviada_en?'activo':'alerta'}>{ESTADOS[orden.estado].split(' · ')[0]}</Insignia> : <p>Revisá los productos y cantidades antes de guardar.</p>}
+        {orden ? <Insignia className="whitespace-normal" tono={orden.estado==='recibida'?'exito':orden.estado==='cerrada'?'neutro':orden.enviada_en?'activo':'alerta'}>{estadoOrdenCompra(orden)}</Insignia> : <p>Revisá los productos y cantidades antes de guardar.</p>}
+        {orden&&<p className="text-sm text-neutro-600">Creada el {fecha(orden.creado_en)}{orden.enviada_en?` · Enviada el ${fecha(orden.enviada_en)}`:''}</p>}
         {orden?.archivada&&<p className="font-semibold">Archivada · disponible en Historial desde {fecha(orden.archivada_en)}</p>}
         {orden?.archivo_programado_en&&!orden.archivada&&<p className="text-sm">Pasará al historial el {fecha(orden.archivo_programado_en)}, 24 horas después de la recepción final.</p>}
         {orden?.motivo_cierre&&<p>Motivo: {orden.motivo_cierre}</p>}
@@ -168,12 +79,13 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
       </div>)}
       <div className="flex flex-wrap gap-2">
         {editar&&<button type="button" className="btn btn-primary" disabled={ocupado||!validas()} onClick={guardar}>{orden?'Guardar revisión':'Guardar borrador'}</button>}
+        {orden?.enviada_en&&<Boton variante="secundario" disabled={ocupado} onClick={prepararFaltantes}>Preparar faltantes en otra orden</Boton>}
         {orden?.estado==='borrador'&&<>
           <button type="button" className="btn btn-outline" disabled={ocupado} onClick={consultarAdiciones}>Agregar faltantes del mismo ciclo</button>
           <button type="button" className="btn btn-outline" disabled={ocupado||cambio} onClick={()=>estado('pendiente_enviar')}>Marcar pendiente de enviar</button>
         </>}
         {orden?.estado==='pendiente_enviar'&&!orden.envio_id&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('borrador')}>Volver a borrador</button>}
-        {orden&&['borrador','pendiente_enviar'].includes(orden.estado)&&!orden.envio_id&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('cerrada')}>Cerrar sin enviar</button>}
+        {orden&&['borrador','pendiente_enviar'].includes(orden.estado)&&!orden.envio_id&&<button type="button" className="btn btn-outline" disabled={ocupado} onClick={()=>estado('cerrada')}>Cancelar orden</button>}
       </div>
       {cambio&&<p className="text-sm text-nota-800">Guardá la revisión antes de marcar la orden pendiente de enviar.</p>}
       </div>
@@ -208,7 +120,8 @@ export default function OrdenesCompraCiclo({ filtro, proveedorInicial }) {
           <div className="flex items-start gap-3"><span className="rounded-xl bg-primario-50 p-3 text-primario-800"><ShoppingCart size={24}/></span>
             <div className="min-w-0"><p className="text-sm font-semibold text-neutro-500">{o.referencia}</p><h3 className="mt-1 break-words text-lg font-bold text-neutro-900">{o.proveedor_nombre}</h3></div></div>
           <p className="mt-4 break-words text-sm text-neutro-600">{textoCiclo(o.ciclo)}</p>
-          <div className="mt-4"><Insignia className="whitespace-normal" tono={o.estado==='recibida'?'exito':o.estado==='cerrada'?'neutro':o.enviada_en?'activo':'alerta'}>{o.archivada?'Archivada':ESTADOS[o.estado].split(' · ')[0]}</Insignia></div>
+          <div className="mt-4"><Insignia className="whitespace-normal" tono={o.estado==='recibida'?'exito':o.estado==='cerrada'?'neutro':o.enviada_en?'activo':'alerta'}>{o.archivada?'Archivada':estadoOrdenCompra(o)}</Insignia></div>
+          <p className="mt-3 text-sm text-neutro-500">Creada el {fecha(o.creado_en)}</p>
           <p className="mt-4 border-t border-neutro-100 pt-4 text-sm text-neutro-600">{o.productos} productos <span className="float-right font-bold text-primario-700">Ver orden →</span></p>
         </button>)}
       </div>

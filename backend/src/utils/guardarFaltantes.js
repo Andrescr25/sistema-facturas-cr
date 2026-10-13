@@ -53,7 +53,7 @@ async function productoPropioDe(faltante, db = { query }) {
   return null;
 }
 
-async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario', db = { query }) {
+async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario', db = { query }, detectados = []) {
   let guardados = 0;
   for (const faltante of faltantes) {
     const productoId = await productoPropioDe(faltante, db);
@@ -65,11 +65,13 @@ async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario',
     }
 
     const existente = await db.query(`
-      SELECT id FROM faltantes
+      SELECT id,cantidad_faltante,tipo_faltante FROM faltantes
       WHERE factura_propia_id = $1 AND producto_propio_id = $2
       LIMIT 1
     `, [facturaId, productoId]);
 
+    let faltanteId = existente.rows[0]?.id;
+    const anterior = existente.rows[0]?.tipo_faltante === 'completo' ? 0 : existente.rows[0]?.cantidad_faltante || 0;
     if (existente.rows.length > 0) {
       await db.query(`
         UPDATE faltantes
@@ -87,12 +89,12 @@ async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario',
         existente.rows[0].id
       ]);
     } else {
-      await db.query(`
+      const { rows: [nuevo] } = await db.query(`
         INSERT INTO faltantes (
           factura_propia_id, producto_propio_id, cantidad_faltante, tipo_faltante,
           observaciones, registrado_por, estado, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', ${AHORA_CR_SQL}, ${AHORA_CR_SQL})
+        VALUES ($1, $2, $3, $4, $5, $6, 'pendiente', ${AHORA_CR_SQL}, ${AHORA_CR_SQL}) RETURNING id
       `, [
         facturaId,
         productoId,
@@ -101,7 +103,9 @@ async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario',
         faltante.observaciones || '',
         registradoPor
       ]);
+      faltanteId = nuevo.id;
     }
+    detectados.push({ id: faltanteId, productoId, anterior, cantidad: faltante.tipo_faltante === 'completo' ? 0 : faltante.cantidad_faltante });
     guardados++;
   }
   return guardados;

@@ -177,12 +177,30 @@ async function estados(facturaIdCrudo) {
 }
 
 /** POST /bodega/facturas-propias/:facturaId/faltantes — lo que se registró al despachar. */
-async function registrarFaltantes(facturaIdCrudo, faltantes, registradoPor = 'Bodega') {
+async function registrarFaltantes(facturaIdCrudo, faltantes, registradoPor = 'Bodega', usuarioId = null) {
   const facturaId = idDeFactura(facturaIdCrudo);
   if (!Array.isArray(faltantes)) throw httpError(400, 'No vino la lista de productos.');
   const guardados = await enTransaccion(async (c) => {
+    // Mismo orden de bloqueos que compras: primero la reserva, luego factura/faltantes.
+    await c.query('SELECT pg_advisory_xact_lock(46005,1)');
     await asegurarFacturaVigente(facturaId, c, { bloquear: true });
-    return guardarFaltantes(facturaId, faltantes, registradoPor, c);
+    const detectados = [];
+    const cantidad = await guardarFaltantes(facturaId, faltantes, registradoPor, c, detectados);
+    const { micros } = require('../orders-whatsapp/ordenesCiclo.service').interno;
+    const incrementos = new Map();
+    const porId = new Map();
+    for (const f of detectados) porId.set(f.id, { ...f, anterior: porId.get(f.id)?.anterior ?? f.anterior });
+    for (const f of porId.values()) {
+      const aumento = micros(f.cantidad) - micros(f.anterior);
+      if (aumento <= 0n) continue;
+      incrementos.set(f.id, aumento);
+      const { rows: [asignado] } = await c.query('SELECT f.proveedor_asignado,p.referencia FROM faltantes f JOIN producto p ON p.id=f.producto_propio_id WHERE f.id=$1', [f.id]);
+      if (!asignado?.proveedor_asignado) {
+        await require('../../../services/proveedorAsignacionService').asignarProveedorAutomatico(f.id, f.productoId, asignado?.referencia || '', c);
+      }
+    }
+    if (incrementos.size) await require('../orders-whatsapp/ordenesAutomaticas.service').sincronizarEn(c, { facturaId }, usuarioId, incrementos);
+    return cantidad;
   });
   return { factura_id: facturaId, faltantes_registrados: guardados };
 }
