@@ -83,8 +83,11 @@ module.exports = {
   editarCategoria: (req, res) => responder(res, servicio.editarCategoria(req.params.id, req.body, usuario(req)), 'editar categoría'),
   cambiarActivoCategoria: (req, res) => responder(res, servicio.cambiarActivoCategoria(req.params.id, req.body?.activo, usuario(req)), 'activo categoría'),
 
-  /** GET /catalogos/productos — para vender: activo y visible. */
+  /** GET /catalogos/productos — para vender: todo lo activo, oculto o no. */
   paraOperar: (req, res) => servicio.productosParaOperar(req.query)
     .then(r => res.json({ success: true, ...r }))
-    .catch(error => res.status(error.status || 500).json({ success: false, message: error.message, error: error.message }))
+    .catch(error => res.status(error.status || 500).json({ success: false, message: error.message, error: error.message })),
+
+  /** GET /catalogos/productos/huella — ¿cambió lo vendible desde la última vez? */
+  huellaParaOperar: (req, res) => responder(res, servicio.huellaParaOperar(), 'huella del catálogo')
 };

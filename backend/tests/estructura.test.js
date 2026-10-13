@@ -51,7 +51,7 @@ describe('cada cosa en su carpeta', () => {
 
   test('las reglas puras de utils no importan React ni el servidor', () => {
     // Lo que una prueba importa "tal cual" tiene que seguir pudiéndose importar.
-    for (const util of ['emisionPasos.js', 'numeracionTexto.js', 'notaCreditoTexto.js', 'facturaVista.js', 'asignacionRuta.js']) {
+    for (const util of ['emisionPasos.js', 'numeracionTexto.js', 'notaCreditoTexto.js', 'facturaVista.js', 'asignacionRuta.js', 'aceptacionCompraTexto.js', 'catalogoAlDia.js']) {
       const fuente = sinComentarios(fs.readFileSync(path.join(FRONT, 'utils', util), 'utf8'));
       assert.doesNotMatch(fuente, /^\s*import /m, `utils/${util} dejó de ser puro: ya no se puede probar sin navegador`);
     }

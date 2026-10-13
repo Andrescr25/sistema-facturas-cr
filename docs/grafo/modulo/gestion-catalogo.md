@@ -146,3 +146,12 @@ redirección hacia la red interna; antes se bajaba con axios a secas.
 
 Con esto el catálogo del agente dejó de pedirle las categorías a Alegra en
 vivo: ver [[tabla/categoria-config]].
+
+ACTIVO Y OCULTO SON DOS COSAS (2026-10-13). «Desactivar» saca un producto de
+la venta; «Ocultar» lo saca solo de los catálogos que ven los clientes y el
+agente, y se puede seguir facturando. Reactivar uno que además estaba oculto
+lo deja «Activo · Oculto en los catálogos»: desde esa fecha aparece en
+Facturación igual (antes no, ver [[modulo/facturacion-offline]], "LA COPIA DEL
+CATÁLOGO SE RENUEVA SOLA"), y para que vuelva a los catálogos hay que tocar
+«Mostrar».
+

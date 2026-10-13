@@ -51,6 +51,9 @@ const CAMPOS_CATEGORIA = {
 
 // ─── Utilidades ────────────────────────────────────────────────────────────
 
+/** Lo que se puede vender: lo activo. Oculto o no, eso es de los catálogos. */
+const VENDIBLE = 'p.activo = TRUE';
+
 const SELECT_VISTA = `
   SELECT p.*, c.nombre AS categoria, i.nombre AS impuesto, i.tarifa AS tarifa
   FROM producto p
@@ -131,7 +134,9 @@ function normalizarFila(fila) {
 
 /**
  * @param {object} filtros
- * @param {'activos'|'ocultos'|'inactivos'|'todos'} filtros.estado
+ * @param {'activos'|'ocultos'|'inactivos'|'vendibles'|'todos'} filtros.estado
+ *   `activos` es lo que muestran los catálogos (activo y sin ocultar);
+ *   `vendibles` es todo lo que se puede facturar: activo, oculto o no.
  */
 async function listarProductos({ buscar = '', categoriaId, proveedor = '', sinImagen = false, estado = 'activos', pagina = 1, limite = 30 } = {}) {
   const where = [];
@@ -142,8 +147,9 @@ async function listarProductos({ buscar = '', categoriaId, proveedor = '', sinIm
     case 'activos': where.push('p.activo = TRUE AND p.oculto = FALSE'); break;
     case 'ocultos': where.push('p.activo = TRUE AND p.oculto = TRUE'); break;
     case 'inactivos': where.push('p.activo = FALSE'); break;
+    case 'vendibles': where.push(VENDIBLE); break;
     case 'todos': break;
-    default: throw httpError(400, 'Estado: tiene que ser activos, ocultos, inactivos o todos.');
+    default: throw httpError(400, 'Estado: tiene que ser activos, ocultos, inactivos, vendibles o todos.');
   }
 
   for (const palabra of normalizar(buscar).split(/\s+/).filter(Boolean).slice(0, 8)) {
@@ -371,9 +377,20 @@ async function siguienteReferenciaDeMarca(referenciaBase) {
   };
 }
 
-/** Lo que necesitan los demás módulos para vender: activo, visible y lo justo. */
+/**
+ * Lo que necesitan los demás módulos para VENDER: todo lo activo, y lo justo
+ * de cada producto.
+ *
+ * INCLUYE LOS OCULTOS (2026-10-13). «Oculto» saca un producto de los
+ * catálogos que ven los clientes, no de la venta: es la regla de arriba, y
+ * facturar solo rechaza los inactivos. Pero esta lista pedía además "sin
+ * ocultar", así que un producto oculto no se podía encontrar en Facturación.
+ * El usuario lo notó al reactivar dos productos que estaban inactivos Y
+ * ocultos: quedaron activos, la pantalla dijo «vuelve a la venta», y en
+ * Facturación no aparecían.
+ */
 async function productosParaOperar({ buscar = '', pagina = 1, limite = 30 } = {}) {
-  const r = await listarProductos({ buscar, pagina, limite, estado: 'activos' });
+  const r = await listarProductos({ buscar, pagina, limite, estado: 'vendibles' });
   return {
     ...r,
     data: r.data.map(p => ({
@@ -383,6 +400,33 @@ async function productosParaOperar({ buscar = '', pagina = 1, limite = 30 } = {}
       es_medicamento: p.es_medicamento
     }))
   };
+}
+
+/**
+ * La HUELLA de lo vendible: cambia cuando cambia algo de lo que Facturación
+ * guarda de cada producto, y solo entonces.
+ *
+ * Facturación trabaja con una copia del catálogo guardada en el dispositivo
+ * (así factura sin internet) y solo la renovaba al tocar «Actualizar». Con
+ * esto pregunta barato «¿cambió algo?» y la renueva sola: un producto
+ * reactivado, uno nuevo o un precio corregido aparecen sin que nadie se
+ * acuerde del botón.
+ *
+ * Entra lo que viaja a esa copia —nombre, referencia, descripción, precio,
+ * impuesto y su tarifa, categoría, CAByS, unidad— y nada más: cambiar una
+ * foto u ocultar un producto no obliga a bajar el catálogo otra vez.
+ */
+async function huellaParaOperar() {
+  const { rows } = await pool.query(`
+    SELECT COUNT(*)::int AS productos,
+           md5(COALESCE(string_agg(concat_ws('|', p.id, p.nombre, p.referencia, p.descripcion, p.precio_sin_iva,
+                                             p.impuesto_id, i.tarifa, c.nombre, p.cabys, p.unidad),
+                                   E'\n' ORDER BY p.id), '')) AS huella
+      FROM producto p
+      LEFT JOIN categoria_producto c ON c.id = p.categoria_id
+      LEFT JOIN impuesto i ON i.id = p.impuesto_id
+     WHERE ${VENDIBLE}`);
+  return rows[0];
 }
 
 /** Proveedores con productos, para el filtro (mismo criterio que el catálogo actual). */
@@ -481,7 +525,7 @@ module.exports = {
   crearProducto,
   editarProducto,
   cambiarEstadoProducto,
-  productosParaOperar, imagenesPorReferencia, siguienteReferenciaDeMarca,
+  productosParaOperar, huellaParaOperar, imagenesPorReferencia, siguienteReferenciaDeMarca,
   proveedoresConProductos,
   listarCategorias,
   crearCategoria,

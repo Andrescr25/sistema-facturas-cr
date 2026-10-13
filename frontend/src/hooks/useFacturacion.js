@@ -1332,7 +1332,7 @@ export function useFacturacion() {
     facturaEditando,
 
     // Datos
-    productos,
+    productos, setProductos,
     clientes,
     sugerencias: sugerenciasPropias,
     agregarSugerencia,

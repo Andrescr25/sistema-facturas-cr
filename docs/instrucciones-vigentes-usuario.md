@@ -522,3 +522,14 @@ compras». No se le puso un valor por omisión porque es una declaración
 fiscal. Y mirar la primera aceptación real: el mensaje nunca se había probado
 contra Hacienda.
 
+## 2026-10-13 — Un producto reactivado tiene que aparecer en Facturación
+
+Textual: «puedes revisar por qué cuando vuelvo a activar un producto en
+gestión de catálogo este producto no me aparece en facturación?».
+
+**Hecho**: eran dos causas. Los productos quedaban activos pero ocultos, y la
+lista que baja Facturación dejaba fuera los ocultos; y Facturación trabaja con
+una copia del catálogo que solo se renovaba al tocar «Actualizar». Ahora todo
+lo activo llega a Facturación y la copia se renueva sola cuando algo cambia.
+Detalle en [facturacion-offline](grafo/modulo/facturacion-offline.md).
+

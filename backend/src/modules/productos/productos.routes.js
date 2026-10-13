@@ -67,6 +67,8 @@ routes.patch('/categorias/:id/activo', controller.cambiarActivoCategoria);
 
 const rutasCompartidas = express.Router();
 rutasCompartidas.get('/productos', controller.paraOperar);
+// Para que Facturación sepa, sin bajarlo entero, si su copia quedó vieja.
+rutasCompartidas.get('/productos/huella', controller.huellaParaOperar);
 // La foto de cada referencia, para Facturas en Bodega: solo lectura.
 rutasCompartidas.get('/imagenes-por-referencia', controller.imagenesPorReferencia);
 // Fotos sugeridas: las usan Gestión de Catálogo y Relacionar Productos.

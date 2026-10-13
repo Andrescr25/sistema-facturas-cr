@@ -1,6 +1,7 @@
 import { ShoppingCart, PackageOpen } from 'lucide-react'
 import { useFacturacion } from '../hooks/useFacturacion'
 import { useFacturasEmitidas } from '../hooks/useFacturasEmitidas'
+import useCatalogoAlDia from '../hooks/useCatalogoAlDia'
 import CabeceraFacturacion from '../components/facturacion/CabeceraFacturacion'
 import PestanasFacturacion from '../components/facturacion/PestanasFacturacion'
 import AvisoFlotante from '../components/facturacion/AvisoFlotante'
@@ -53,7 +54,7 @@ export default function Facturacion() {
     metodosPago, metodoPagoId, elegirMetodoPago, referenciaPago, setReferenciaPago,
     isOnline, loading, syncingCache,
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
-    productos, sugerencias, agregarSugerencia, facturasPendientes,
+    productos, setProductos, sugerencias, agregarSugerencia, facturasPendientes,
     ciclosCliente, cicloId, setCicloId, cargandoCiclos, errorCiclos,
     clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
     codigoProducto, cantidadProducto, setCantidadProducto,
@@ -89,6 +90,11 @@ export default function Facturacion() {
   // "Rendered more hooks than during the previous render". Solo consulta
   // cuando la pestaña está abierta, que es lo que evita buscar de gusto.
   const emitidas = useFacturasEmitidas({ activa: tabActiva === 'facturas' })
+
+  // La copia del catálogo se renueva SOLA cuando algo cambió en el servidor
+  // (un producto reactivado, uno nuevo, un precio): antes solo al tocar
+  // «Actualizar». También va antes del return de carga, por lo mismo.
+  useCatalogoAlDia({ enLinea: isOnline, listo: !loading, ocupado: syncingCache, alRenovar: setProductos })
 
   if (loading && productos.length === 0) {
     return (

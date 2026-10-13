@@ -12,6 +12,9 @@ archivos:
   - frontend/src/utils/facturasLocales.js
   - frontend/src/utils/facturacionUtils.js
   - frontend/src/hooks/useFacturacion.js
+  - frontend/src/hooks/useCatalogoAlDia.js
+  - frontend/src/utils/catalogoAlDia.js
+  - backend/tests/catalogoAlDia.test.js
   - frontend/src/hooks/useFacturasEmitidas.js
   - frontend/src/components/facturacion/AvisoEdicion.jsx
   - frontend/src/components/facturacion/PanelEditarFacturas.jsx
@@ -141,3 +144,50 @@ Enter, antes de buscar el producto en IndexedDB: tecleando "64⏎10⏎" de
 corrido (o con lector) el "10" caía en la casilla del código. La búsqueda por
 código no distingue mayúsculas (662 productos tienen letras). Detalle en
 [[leccion/lo-que-mueve-plata-no-va-por-omision]].
+
+LA COPIA DEL CATÁLOGO SE RENUEVA SOLA (2026-10-13). El usuario reactivó dos
+productos en Gestión de Catálogo y preguntó: «por qué cuando vuelvo a activar
+un producto en gestión de catálogo este producto no me aparece en
+facturación». Eran dos causas, y las dos se corrigieron.
+
+1. **Estaban activos pero ocultos, y la lista para vender dejaba fuera los
+   ocultos.** Los dos venían dados de baja Y ocultos (hay 176 así); reactivar
+   no los saca de oculto. «Oculto» es de los catálogos que ven los clientes:
+   la regla del maestro dice que sigue vendible y facturar solo rechaza los
+   inactivos. Pero `/api/catalogos/productos` —lo que baja Facturación— pedía
+   "activo y sin ocultar". Ahora es todo lo activo (`estado: 'vendibles'` en
+   `productos.service.js`). Los catálogos de clientes y agente no cambian.
+2. **Facturación trabaja con una copia guardada en el dispositivo**, y solo la
+   renovaba al tocar «Actualizar» (o si estaba vacía). Un producto
+   reactivado, uno nuevo o un precio corregido no aparecían hasta eso; con
+   los precios, además, no se notaba.
+
+Cómo se renueva ahora, sin perder el trabajo sin conexión:
+- `GET /api/catalogos/productos/huella` devuelve un md5 de lo que Facturación
+  guarda de cada producto vendible (nombre, referencia, descripción, precio,
+  impuesto y tarifa, categoría, CAByS, unidad). Cambiar una foto, el costo, u
+  ocultar un producto NO la cambia: no hay que bajar nada.
+- `useCatalogoAlDia` (lo llama la página) pregunta la huella al entrar, al
+  volver a la pestaña, al recuperar conexión y cada 3 minutos, nunca más
+  seguido que cada 45 segundos. Si es distinta de la guardada en
+  `localStorage`, baja los productos (`actualizarCacheProductos`) y se los
+  pasa a la pantalla. Si es igual, es un solo pedido chico.
+- No estorba: sin conexión no hace nada; un error se calla y la copia
+  anterior sigue sirviendo; no corre durante «Actualizar», y cuando esa
+  actualización termina solo anota la huella (no baja el catálogo otra vez).
+  La venta en curso no se toca: cada línea ya tiene su copia del producto.
+- «Actualizar» sigue existiendo: además trae clientes y facturas.
+
+Queda igual que antes, a propósito: los CLIENTES nuevos o corregidos siguen
+entrando con «Actualizar»; nadie lo pidió y es la misma idea si hiciera falta.
+
+`useFacturacion.js` y `facturacionService.js` están en su tope de tamaño: el
+gancho nuevo vive aparte y la página lo conecta (`setProductos` se expone en
+el mismo renglón que `productos`).
+
+Pruebas: `catalogoAlDia.test.js` (reglas, conexión y, contra PostgreSQL local,
+la lista para vender y la huella). Chromium real: producto ZZ dado de baja y
+oculto → «Activar» en Gestión de Catálogo → aparece en Facturación sin tocar
+«Actualizar»; sin cambios no baja nada; un precio corregido llega solo; uno
+dado de baja deja de ofrecerse.
+
