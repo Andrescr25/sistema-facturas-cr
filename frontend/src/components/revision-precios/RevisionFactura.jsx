@@ -2,7 +2,7 @@ import { ArrowLeft, Loader2, RotateCcw, Send, CheckCircle2 } from 'lucide-react'
 import FilaProducto from './FilaProducto'
 import Insignia from '../ui/Insignia'
 import { formatCurrency, formatDate } from '../../utils/pagos'
-import DocumentoFiscal from '../../integrations/hacienda/DocumentoFiscal'
+import AceptacionCompra from './AceptacionCompra'
 
 /**
  * Revisar los precios de una factura.
@@ -28,6 +28,9 @@ import DocumentoFiscal from '../../integrations/hacienda/DocumentoFiscal'
  * El campo interno sigue llamándose `estado: 'ENVIADA'` en la base por
  * compatibilidad con lo que ya filtra por ese valor; acá adentro solo se lee,
  * nunca se muestra ese nombre.
+ *
+ * YA REGISTRADA también muestra cómo quedó ante Hacienda (AceptacionCompra):
+ * la aceptación sale sola al registrar, sin el formulario que había acá.
  */
 export default function RevisionFactura({
   facturaSeleccionada, productos, productosDelCatalogo, sugerenciasPrecio, preciosAjustados,
@@ -62,7 +65,6 @@ export default function RevisionFactura({
             <Insignia tono={yaRegistrada ? 'neutro' : 'exito'}>
               {yaRegistrada ? 'Ya registrada' : 'Lista para registrar'}
             </Insignia>
-            {yaRegistrada&&<DocumentoFiscal origen="compra" documento={facturaSeleccionada} desdeBuzon/>}
             {!yaRegistrada && (
               <button
                 onClick={onDevolver}
@@ -135,6 +137,10 @@ export default function RevisionFactura({
             </p>
           </div>
         </div>
+      ) : null}
+
+      {yaRegistrada ? (
+        <AceptacionCompra factura={facturaSeleccionada} />
       ) : (
         /* Barra de envío pegada abajo: con 89 productos, tenerla al final
            obligaba a recorrer la factura entera para cerrarla.

@@ -436,6 +436,32 @@ function generarVenta({
     );
   return `<?xml version="1.0" encoding="UTF-8"?><${raiz[0]} xmlns="${NS + raiz[1]}">${xml}</${raiz[0]}>`;
 }
+/**
+ * CUÁNTO IVA SE ACREDITA Y CUÁNTO ES GASTO, según la condición declarada.
+ * Es lo que deja aceptar una compra sin que una persona llene un formulario.
+ *
+ * Del anexo de Hacienda (nota 18 y sus pies; el formato del mensaje no cambió
+ * entre la 4.3 y la 4.4):
+ *   01 «Genera crédito IVA»: el IVA pagado se usa EN SU TOTALIDAD como
+ *      crédito. Se acredita todo; el gasto es el resto del comprobante.
+ *   04 «Gasto corriente no genera crédito»: el IVA no se acredita y forma
+ *      parte del gasto. Gasto = el total.
+ *   05 «Proporcionalidad»: todavía no se sabe cuánto se acredita. No lleva
+ *      montos ni código de actividad («no se debe de utilizar»).
+ * 02 (crédito parcial) y 03 (bienes de capital) dependen de cada compra: no
+ * se deducen, los tiene que dar una persona.
+ *
+ * Importes en la unidad de `decimal` (cienmilésimas). null = no va el nodo.
+ */
+function montosDeAceptacion(condicion, iva, total) {
+  if (condicion === "01") return { acreditar: iva, gasto: total - iva };
+  if (condicion === "04") return { acreditar: 0n, gasto: total };
+  if (condicion === "05") return { acreditar: null, gasto: null };
+  throw error(
+    "MENSAJE_IMPORTES_FALTANTES",
+    "Con crédito parcial o bienes de capital hay que indicar el IVA a acreditar y el gasto aplicable.",
+  );
+}
 function generarMensaje({ original, emisor, consecutivo, fecha, opciones }) {
   const doc = parsear(original),
     llave = requerido(texto(doc, "Clave"), "Clave del proveedor", /^\d{50}$/);
@@ -453,10 +479,16 @@ function generarMensaje({ original, emisor, consecutivo, fecha, opciones }) {
     );
   const proveedor = doc.getElementsByTagNameNS("*", "Emisor")[0],
     receptor = doc.getElementsByTagNameNS("*", "Receptor")[0];
-  if (texto(receptor, "Numero") !== emisor.identificacion)
+  // Se compara sin ceros a la izquierda: hay proveedores que escriben la
+  // cédula rellenada, y es la misma. Un comprobante sin receptor (un tiquete)
+  // no se puede confirmar: no dice a quién se le vendió.
+  const sinCeros = (v) => String(v ?? "").trim().replace(/^0+/, "");
+  if (!receptor || !sinCeros(emisor.identificacion) || sinCeros(texto(receptor, "Numero")) !== sinCeros(emisor.identificacion))
     throw error(
       "RECEPTOR_NO_COINCIDE",
-      "La factura del proveedor pertenece a otro receptor.",
+      receptor
+        ? "La factura del proveedor pertenece a otro receptor."
+        : "El comprobante del proveedor no trae receptor: no se puede confirmar ante Hacienda.",
     );
   const mensaje = requerido(
       opciones.mensaje,
@@ -469,10 +501,20 @@ function generarMensaje({ original, emisor, consecutivo, fecha, opciones }) {
       /^0[1-5]$/,
     );
   const iva = decimal(texto(doc, "TotalImpuesto") || "0"),
-    acreditar = decimal(opciones.impuestoAcreditar),
-    gasto = decimal(opciones.gastoAplicable),
     total = decimal(texto(doc, "TotalComprobante"));
-  if (acreditar > iva || gasto > total)
+  // Los montos: los que dio la persona, o los que se deducen de la condición
+  // cuando es una aceptación total sin formulario.
+  const dados = ["impuestoAcreditar", "gastoAplicable"].some(
+    (k) => opciones[k] !== undefined && opciones[k] !== null && opciones[k] !== "",
+  );
+  const { acreditar, gasto } =
+    dados || mensaje !== "1"
+      ? {
+          acreditar: decimal(opciones.impuestoAcreditar),
+          gasto: decimal(opciones.gastoAplicable),
+        }
+      : montosDeAceptacion(condicion, iva, total);
+  if ((acreditar ?? 0n) > iva || (gasto ?? 0n) > total)
     throw error(
       "MENSAJE_IMPORTES_INVALIDOS",
       "El crédito de IVA o gasto supera el comprobante del proveedor.",
@@ -482,27 +524,33 @@ function generarMensaje({ original, emisor, consecutivo, fecha, opciones }) {
       "MENSAJE_IMPORTES_INVALIDOS",
       "Un rechazo no puede acreditar IVA ni registrar gasto aplicable.",
     );
+  // El anexo: en una aceptación el detalle «no es necesario»; es obligatorio
+  // si se rechaza o se acepta en parte, porque hay que decir el motivo.
+  const detalle =
+    mensaje === "1"
+      ? String(opciones.detalle ?? "").trim()
+      : requerido(opciones.detalle, "Motivo de la respuesta");
   const xml =
     nodo("Clave", llave) +
     nodo("NumeroCedulaEmisor", texto(proveedor, "Numero")) +
-    nodo("FechaEmisionDoc", texto(doc, "FechaEmision")) +
+    // «Fecha y hora de emisión DE LA CONFIRMACIÓN» (anexo y XSD), no la de la
+    // factura del proveedor: una aceptación hecha hoy no puede decir que se
+    // hizo el día en que el proveedor facturó.
+    nodo("FechaEmisionDoc", requerido(fecha, "Fecha de la confirmación")) +
     nodo("Mensaje", mensaje) +
-    nodo(
-      "DetalleMensaje",
-      requerido(opciones.detalle, "Motivo de la respuesta"),
-    ) +
+    (detalle ? nodo("DetalleMensaje", detalle.slice(0, 160)) : "") +
     nodo("MontoTotalImpuesto", importe(iva)) +
-    nodo("CodigoActividad", emisor.actividad_economica) +
+    (condicion === "05" ? "" : nodo("CodigoActividad", emisor.actividad_economica)) +
     nodo("CondicionImpuesto", condicion) +
-    nodo("MontoTotalImpuestoAcreditar", importe(acreditar)) +
-    nodo("MontoTotalDeGastoAplicable", importe(gasto)) +
+    (acreditar === null ? "" : nodo("MontoTotalImpuestoAcreditar", importe(acreditar))) +
+    (gasto === null ? "" : nodo("MontoTotalDeGastoAplicable", importe(gasto))) +
     nodo("TotalFactura", importe(total)) +
     nodo("NumeroCedulaReceptor", emisor.identificacion) +
     nodo("NumeroConsecutivoReceptor", consecutivo);
   return {
     xml: `<?xml version="1.0" encoding="UTF-8"?><MensajeReceptor xmlns="${NS}mensajeReceptor">${xml}</MensajeReceptor>`,
     clave: llave,
-    fecha: texto(doc, "FechaEmision"),
+    fecha,
     emisor: identificacion(
       texto(proveedor, "Tipo"),
       texto(proveedor, "Numero"),
@@ -514,6 +562,7 @@ module.exports = {
   ACTIVIDAD,
   generarVenta,
   generarMensaje,
+  montosDeAceptacion,
   fechaCR,
   clave,
   identificacion,

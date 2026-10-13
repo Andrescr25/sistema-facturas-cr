@@ -9,10 +9,15 @@ export const raizDocumento = (origen) =>
 export async function configuracion(ambiente) {
   return (await api.get(`/configuracion/hacienda/${ambiente}`)).data.data;
 }
+/**
+ * Lo vacío no viaja —así una contraseña en blanco conserva la guardada—,
+ * salvo estos campos, donde dejarlo vacío es una decisión: «sin elegir».
+ */
+const VACIO_ES_UN_VALOR = new Set(["condicion_iva_compras"]);
 export async function guardar(ambiente, datos, archivo) {
   const form = new FormData();
   Object.entries(datos).forEach(([k, v]) => {
-    if (v !== undefined && v !== "") form.append(k, String(v));
+    if (v !== undefined && (v !== "" || VACIO_ES_UN_VALOR.has(k))) form.append(k, String(v));
   });
   if (archivo) form.append("certificado", archivo);
   return (
@@ -29,16 +34,6 @@ export async function numeracion(ambiente) {
 export async function fijarNumeracion(ambiente, tipo, siguiente) {
   return (
     await api.put(`/configuracion/hacienda/${ambiente}/numeracion`, { tipo, siguiente })
-  ).data.data;
-}
-export async function preparar(origen, id, datos) {
-  const plural = {
-    factura: "facturas",
-    nota_credito: "notas-credito",
-    compra: "compras",
-  }[origen];
-  return (
-    await api.post(`${raizDocumento(origen)}/${plural}/${id}/preparar`, datos)
   ).data.data;
 }
 // --- Un clic desde la factura (ver emisionPasos.js) ---
@@ -93,20 +88,17 @@ export async function probar(ambiente) {
   return (await api.post(`/configuracion/hacienda/${ambiente}/probar`)).data
     .data;
 }
-export async function datosDocumento(origen, id, buzon = false) {
-  const plural = {
-    factura: "facturas",
-    nota_credito: "notas-credito",
-    compra: "compras",
-  }[origen];
-  return (
-    await api.get(
-      buzon
-        ? `/compras/hacienda/buzon/${id}`
-        : `${raizDocumento(origen)}/${plural}/${id}/datos`,
-    )
-  ).data.data;
+// --- La compra se acepta sola (ver hooks/useAceptacionCompra.js) ---
+// `id` es el de la factura del buzón, que es el que tiene Revisión de Precios.
+/** Cómo va la aceptación de esa compra ante Hacienda. */
+export async function estadoCompra(id) {
+  return (await api.get(`/compras/hacienda/compras/${id}/estado`)).data.data;
 }
+/** Prepara y firma la aceptación total, sin preguntar nada. */
+export async function aceptarCompra(id, datos = {}) {
+  return (await api.post(`/compras/hacienda/compras/${id}/aceptar`, datos)).data.data;
+}
+/** Conservar el XML del proveedor de una compra que no lo tiene. */
 export async function subirOriginal(id, archivo) {
   const form = new FormData();
   form.append("xml", archivo);

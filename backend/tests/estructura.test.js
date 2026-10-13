@@ -142,9 +142,7 @@ describe('ningún archivo crece sin que alguien lo decida', () => {
   const DEUDA_BACK = {
     'modules/reporte-contador/reporte-contador.service.js': 975, 'modules/orders-whatsapp/orders-whatsapp.service.js': 844,
     'modules/facturacion/facturaPropia.service.js': 835, 'modules/productos-revision/productos-revision.service.js': 831,
-    // El camino fiscal: preparar, enviar y consultar. Lo que el botón de un
-    // clic decide solo vive aparte, en unClic.service.js.
-    'integrations/hacienda/emision.service.js': 764, 'modules/pagos-recurrentes/pagos-recurrentes.service.js': 767
+    'modules/pagos-recurrentes/pagos-recurrentes.service.js': 767
   };
 
   const pasados = (base, filtro, tope, deuda) => archivos(base, filtro)

@@ -56,7 +56,7 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
   const pasos = pasosDe({
     comprobante: c, correo: estado?.correo, fase, ambiente, seguimiento: estado?.seguimiento, origen: emision.origen
   })
-  const resumen = resumenDe({ comprobante: c, fase })
+  const resumen = resumenDe({ comprobante: c, fase, origen: emision.origen })
   const enProduccion = ambiente === 'produccion'
   const yaEnviado = estado?.correo?.estado === 'enviado'
 
@@ -78,7 +78,7 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
       </div>
 
       {(c || fase) && (
-        <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <ol className={`mt-4 grid gap-3 ${pasos.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4'}`}>
           {pasos.map(p => <Paso key={p.clave} paso={p} />)}
         </ol>
       )}
@@ -88,7 +88,9 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
           <p className="font-semibold text-peligro-700">Lo que respondió Hacienda</p>
           <p className="mt-1 whitespace-pre-wrap break-words text-neutro-800">{c.mensaje || 'Hacienda no dio el motivo.'}</p>
           <p className="mt-2 text-xs text-neutro-600">
-            Corregí lo que indica y tocá «Volver a emitir»: se prepara un comprobante nuevo que hace referencia al rechazado.
+            {emision.origen === 'compra'
+              ? 'Corregí lo que indica y tocá «Volver a enviar la aceptación»: sale una nueva, con otro número.'
+              : 'Corregí lo que indica y tocá «Volver a emitir»: se prepara un comprobante nuevo que hace referencia al rechazado.'}
           </p>
         </div>
       )}
@@ -117,7 +119,7 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
                 <Download size={14} /> Respuesta de Hacienda
               </button>
             )}
-            {c.estado === 'aceptada' && enProduccion && (
+            {c.estado === 'aceptada' && enProduccion && emision.enviarAlCliente && (
               <button
                 type="button"
                 data-enviar-cliente

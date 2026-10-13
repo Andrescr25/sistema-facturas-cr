@@ -183,7 +183,8 @@ test(
         const antes = (await de("produccion")).proximo;
         for (const siguiente of ["", "0", "abc", "2.481", "99999999999", null])
           await assert.rejects(fijar("produccion", siguiente), (e) => e.code === "NUMERO_INVALIDO", String(siguiente));
-        await assert.rejects(fijar("produccion", "500000", "05"), (e) => e.code === "TIPO_INVALIDO");
+        // 06 y 07 (aceptación parcial y rechazo) no se numeran desde la pantalla.
+        await assert.rejects(fijar("produccion", "500000", "07"), (e) => e.code === "TIPO_INVALIDO");
         await assert.rejects(fijar("otro", "500000"), (e) => e.code === "AMBIENTE_INVALIDO");
         assert.equal((await de("produccion")).proximo, antes);
       });
@@ -206,6 +207,7 @@ test(
           ["01", "Factura electrónica"],
           ["04", "Tiquete electrónico"],
           ["03", "Nota de crédito"],
+          ["05", "Aceptación de compra"],
         ]);
         await fijar("produccion", "1970", "04");
         const sinCedula = await propia();

@@ -33,11 +33,17 @@
 const { error } = require("./errores");
 const { registrarCambio } = require("../../utils/bitacora");
 
-/** Los comprobantes que numera este sistema para sus ventas. */
+/**
+ * Los comprobantes que numera este sistema, en el orden en que se muestran.
+ * El 05 es la aceptación de una compra (mensaje receptor): tiene su propia
+ * numeración, y si antes se aceptaban compras desde otro sistema, acá se le
+ * dice desde qué número seguir.
+ */
 const TIPOS = Object.freeze({
   "01": "Factura electrónica",
   "04": "Tiquete electrónico",
   "03": "Nota de crédito",
+  "05": "Aceptación de compra",
 });
 /** El último número que cabe en diez dígitos queda de tope, sin usar. */
 const TOPE = 9999999998n;
@@ -188,13 +194,13 @@ async function estadoDe(db, c, tipo) {
   };
 }
 
-/** La numeración de las ventas en ese ambiente, para mostrarla en Configuración. */
+/** La numeración de ese ambiente, tipo por tipo, para mostrarla en Configuración. */
 async function ver(db, ambiente) {
   const c = await ambienteParaNumerar(db, ambiente);
   const tipos = [];
+  // En el orden de TIPOS: factura, tiquete, nota y aceptación de compra.
   for (const tipo of Object.keys(TIPOS)) tipos.push(await estadoDe(db, c, tipo));
-  // Factura, tiquete, nota: el orden en que se usan.
-  return tipos.sort((a, b) => ["01", "04", "03"].indexOf(a.tipo) - ["01", "04", "03"].indexOf(b.tipo));
+  return tipos;
 }
 
 /**
@@ -205,7 +211,7 @@ async function ver(db, ambiente) {
 async function fijar(db, ambiente, datos = {}, usuarioId) {
   const c = await ambienteParaNumerar(db, ambiente);
   const tipo = String(datos.tipo || "");
-  if (!TIPOS[tipo]) throw error("TIPO_INVALIDO", "Elegí factura, tiquete o nota de crédito.");
+  if (!TIPOS[tipo]) throw error("TIPO_INVALIDO", "Elegí un tipo de comprobante de la lista.");
   const numero = numeroValido(datos.siguiente);
   const s = serieDe(c, tipo);
   const llave = [s.ambiente, s.sucursal, s.terminal, tipo];

@@ -465,11 +465,14 @@ test(
           assert.equal(m.tipo, "05");
           await s.enviar(m.id);
           assert.equal(enviados.at(-1).consecutivoReceptor, m.consecutivo);
-          assert.equal(enviados.at(-1).fecha, d.fecha);
+          // La fecha del sobre es la de la CONFIRMACIÓN (anexo de Hacienda),
+          // no la de la factura del proveedor, que es de otro momento.
+          assert.notEqual(enviados.at(-1).fecha, d.fecha);
+          assert.ok(Math.abs(Date.now() - new Date(enviados.at(-1).fecha).getTime()) < 5 * 60 * 1000);
           assert.equal((await s.consultar(m.id)).estado, "aceptada");
           assert.deepEqual(await inventario(), antes);
           await assert.rejects(
-            s.compraDeBuzon("123"),
+            s.estadoDeCompra("abc"),
             (e) => e.code === "ID_INVALIDO",
           );
         },

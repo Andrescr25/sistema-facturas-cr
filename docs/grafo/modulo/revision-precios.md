@@ -15,6 +15,8 @@ archivos:
   - backend/tests/revisionPreciosRedondeo.test.js
   - backend/tests/registrarCompra.test.js
   - frontend/src/hooks/useRevisionPrecios.js
+  - frontend/src/components/revision-precios/RevisionFactura.jsx
+  - frontend/src/components/revision-precios/TarjetaFactura.jsx
   - frontend/src/utils/revisionPreciosUtils.js
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
@@ -112,3 +114,13 @@ llamara: `/productos-pendientes` (sugerencias desde la caché),
 Alegra), `/estadisticas`, y `/actualizar-precio`, que además reescribía el
 precio de la línea de la factura RECIBIDA. También el botón "Sincronizar",
 que traía de Alegra los costos y precios.
+
+AL REGISTRAR, LA COMPRA SE ACEPTA SOLA ANTE HACIENDA (2026-10-12). El botón
+«Respuesta a Hacienda» y su formulario se fueron: el servidor prepara y envía
+la aceptación total apenas la compra queda registrada, el aviso dice cómo
+salió, la compra ya registrada muestra el avance y la lista de Registradas
+lo resume en una etiqueta («Aceptada en Hacienda», «Aceptación en camino»,
+«Falta aceptarla en Hacienda», «Hacienda la rechazó»; las anteriores al corte
+siguen diciendo «Registrada»). Todo el detalle en [[modulo/hacienda]], "LA
+COMPRA SE ACEPTA SOLA".
+

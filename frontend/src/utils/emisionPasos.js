@@ -59,7 +59,10 @@ export async function emitirPasoAPaso({
   return c
 }
 
-const NOMBRE_TIPO = { '01': 'Factura electrónica', '04': 'Tiquete electrónico', '03': 'Nota de crédito electrónica' }
+const NOMBRE_TIPO = {
+  '01': 'Factura electrónica', '04': 'Tiquete electrónico', '03': 'Nota de crédito electrónica',
+  '05': 'Aceptación de la compra ante Hacienda'
+}
 export const nombreDeTipo = (tipo) => NOMBRE_TIPO[tipo] || 'Comprobante electrónico'
 
 /**
@@ -69,6 +72,8 @@ export const nombreDeTipo = (tipo) => NOMBRE_TIPO[tipo] || 'Comprobante electró
  * `origen` es 'factura' o 'nota_credito': los cuatro pasos son los mismos
  * (la nota también se le entrega al cliente desde el 2026-10-11); solo
  * cambia a dónde se manda a quien le falta el correo.
+ * Con `origen: 'compra'` —la aceptación de una compra— son los tres
+ * primeros: no hay un cliente a quien mandarle nada.
  */
 export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento, origen = 'factura' }) {
   const estado = c?.estado
@@ -118,15 +123,16 @@ export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento, o
 
   return [
     { clave: 'firma', ...firma }, { clave: 'envio', ...envio },
-    { clave: 'respuesta', ...respuesta }, { clave: 'correo', ...entrega }
+    { clave: 'respuesta', ...respuesta },
+    ...(origen === 'compra' ? [] : [{ clave: 'correo', ...entrega }])
   ]
 }
 
 /** La etiqueta de arriba del panel: en una palabra, cómo va. */
-export function resumenDe({ comprobante: c, fase }) {
+export function resumenDe({ comprobante: c, fase, origen = 'factura' }) {
   if (c?.estado === 'aceptada') return { tono: 'exito', texto: 'Aceptada' }
   if (c?.estado === 'rechazada') return { tono: 'peligro', texto: 'Rechazada' }
-  if (fase) return { tono: 'activo', texto: 'Emitiendo' }
+  if (fase) return { tono: 'activo', texto: origen === 'compra' ? 'Enviando' : 'Emitiendo' }
   if (c?.estado === 'error') return { tono: 'peligro', texto: 'Sin enviar' }
   if (c?.estado === 'preparada') return { tono: 'alerta', texto: 'Sin enviar' }
   if (c) return { tono: 'alerta', texto: 'Esperando a Hacienda' }
@@ -139,17 +145,21 @@ export function resumenDe({ comprobante: c, fase }) {
  *
  * Con un comprobante a medias el botón CONTINÚA ese mismo (misma clave, mismo
  * número); solo un rechazo prepara uno nuevo que referencia al rechazado.
+ *
+ * Una compra no se "emite": lo que sale es su aceptación (`origen: 'compra'`).
  */
-export function botonDe({ estado: e, fase }) {
-  if (fase) return { texto: 'Emitiendo…', ocupado: true }
-  if (!e) return { texto: 'Emitir electrónicamente', ocupado: true }
+export function botonDe({ estado: e, fase, origen = 'factura' }) {
+  const compra = origen === 'compra'
+  const emitir = compra ? 'Aceptar ante Hacienda' : 'Emitir electrónicamente'
+  if (fase) return { texto: compra ? 'Enviando…' : 'Emitiendo…', ocupado: true }
+  if (!e) return { texto: emitir, ocupado: true }
   const c = e.comprobante
   if (c?.estado === 'aceptada') return null
-  if (c?.estado === 'rechazada') return { texto: 'Volver a emitir', sustituir: true }
+  if (c?.estado === 'rechazada') return { texto: compra ? 'Volver a enviar la aceptación' : 'Volver a emitir', sustituir: true }
   if (c?.estado === 'preparada') return { texto: 'Enviar a Hacienda', continuar: true }
   if (c?.estado === 'error') return { texto: 'Volver a enviar', continuar: true }
   if (c) return { texto: 'Consultar a Hacienda', continuar: true }
-  return { texto: 'Emitir electrónicamente' }
+  return { texto: emitir }
 }
 
 // --- El dato que a veces falta (descuentos y medicamentos) ---

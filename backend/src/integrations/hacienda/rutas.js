@@ -134,35 +134,6 @@ configuracion.get(
     }),
   ),
 );
-for (const [router, origen, ruta] of [
-  [ventas, "factura", "facturas"],
-  [ventas, "nota_credito", "notas-credito"],
-  [compras, "compra", "compras"],
-]) {
-  router.get(
-    `/${ruta}/:id/datos`,
-    envolver(async (req, res) =>
-      res.json({
-        success: true,
-        data: await servicio.datosDocumento(origen, req.params.id),
-      }),
-    ),
-  );
-  router.post(
-    `/${ruta}/:id/preparar`,
-    envolver(async (req, res) =>
-      res.json({
-        success: true,
-        data: await servicio.preparar(
-          origen,
-          req.params.id,
-          req.body || {},
-          req.usuario?.id,
-        ),
-      }),
-    ),
-  );
-}
 // Un clic desde la factura: el estado para pintar el avance, emitir sin
 // preguntar ambiente ni tipo, y volver a mandarle el comprobante al cliente.
 ventas.get(
@@ -222,12 +193,27 @@ ventas.post(
     res.json({ success: true, data: await servicio.reenviarCorreoNota(req.params.id, req.usuario?.id) }),
   ),
 );
+// LA COMPRA SE ACEPTA SOLA (ver aceptacionCompra.service.js): cómo va y el
+// botón para cuando no salió al registrarla. `:id` es el de la compra o el
+// de la factura del buzón de la que nació, que es el que tiene la pantalla.
 compras.get(
-  "/buzon/:id",
+  "/compras/:id/estado",
   envolver(async (req, res) =>
     res.json({
       success: true,
-      data: await servicio.compraDeBuzon(req.params.id),
+      data: {
+        ...(await servicio.estadoDeCompra(req.params.id)),
+        seguimiento: process.env.HACIENDA_TRABAJADOR === "true",
+      },
+    }),
+  ),
+);
+compras.post(
+  "/compras/:id/aceptar",
+  envolver(async (req, res) =>
+    res.json({
+      success: true,
+      data: await servicio.aceptarCompra(req.params.id, req.body || {}, req.usuario?.id),
     }),
   ),
 );
@@ -321,4 +307,6 @@ module.exports = {
   ventas,
   compras,
   iniciarSeguimiento: () => require("./trabajador").iniciar(servicio),
+  // Para el módulo de Compras: aceptar la compra recién registrada.
+  alRegistrarCompra: (compraId, usuarioId) => servicio.alRegistrarCompra(compraId, usuarioId),
 };

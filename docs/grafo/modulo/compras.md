@@ -6,6 +6,7 @@ estado: vigente
 archivos:
   - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/src/modules/compras/compras.service.js
+  - backend/src/modules/compras/compras.controller.js
   - backend/src/modules/compras/liberarCuentaPorPagar.js
   - backend/src/modules/pagos-recurrentes/scrapers/facturas-recibidas.adapter.js
   - backend/src/modules/revision-precios/revision-precios.service.js
@@ -85,8 +86,10 @@ QUÉ FALTA
 Inventario propio se mueve desde la 042, en esta misma transacción; apertura
 provisional en cero autorizada por el usuario, ver
 [[bloqueo/conteo-fisico]]—, aunque `compra_linea.cantidad_propia` ya está
-lista para cuando exista. Falta el estado de aceptación de cada compra,
-junto con el mensaje receptor de Hacienda. Las órdenes de compra por
+lista para cuando exista. Desde el 2026-10-12 la compra se acepta sola ante
+Hacienda al registrarla (mensaje receptor, aceptación total, en producción)
+y cada compra muestra cómo quedó: ver [[modulo/hacienda]], "LA COMPRA SE
+ACEPTA SOLA". Las órdenes de compra por
 WhatsApp ya usan `producto.id` (2026-10-03, sección 8); la asignación del
 proveedor desde el reporte también usa la ficha propia (sección 13).
 

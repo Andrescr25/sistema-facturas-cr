@@ -15,6 +15,8 @@ const { abrir } = require("../src/integrations/hacienda/firma/certificado");
 const {
   generarVenta,
   generarMensaje,
+  montosDeAceptacion,
+  decimal,
   fechaCR,
   clave,
   identificacion,
@@ -191,9 +193,11 @@ test("ninguna pantalla pide ni exige la actividad del receptor", () => {
   const leer = (...partes) =>
     require("node:fs").readFileSync(path.join(__dirname, "..", "..", "frontend", "src", ...partes), "utf8");
   const sinComentarios = (t) => t.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
-  const modal = sinComentarios(leer("integrations", "hacienda", "DocumentoFiscal.jsx"));
-  assert.doesNotMatch(modal, /actividadReceptor/);
-  assert.doesNotMatch(modal, /Actividad del receptor/);
+  // El modal que la pedía ya no existe: ni la factura ni la compra abren uno.
+  assert.equal(
+    require("node:fs").existsSync(path.join(__dirname, "..", "..", "frontend", "src", "integrations", "hacienda", "DocumentoFiscal.jsx")),
+    false,
+  );
   // La ficha del cliente conserva el dato, pero ya no dice que sin él no se puede facturar.
   const ficha = sinComentarios(leer("components", "clientes", "ModalCliente.jsx"));
   assert.match(ficha, /cliente-actividad_economica/);
@@ -256,6 +260,111 @@ test("mensajes receptor: clave del proveedor, receptor real y crédito explícit
       }),
     (e) => e.code === "RECEPTOR_NO_COINCIDE",
   );
+});
+// LA COMPRA SE ACEPTA SOLA (2026-10-12). El usuario pidió que el formulario
+// de la respuesta al proveedor «se haga solo» al registrar la compra. Lo que
+// antes escribía una persona ahora lo deduce el mensaje; las reglas son las
+// del anexo de Hacienda (formato del mensaje receptor y su nota 18).
+test("aceptación sin formulario: los montos de IVA salen de la condición", () => {
+  const iva = decimal("13"),
+    total = decimal("113");
+  // 01: todo el IVA es crédito; el gasto es el resto del comprobante.
+  assert.deepEqual(montosDeAceptacion("01", iva, total), { acreditar: iva, gasto: decimal("100") });
+  // 04: el IVA no se acredita y forma parte del gasto.
+  assert.deepEqual(montosDeAceptacion("04", iva, total), { acreditar: 0n, gasto: total });
+  // 05: todavía no se sabe; no van montos.
+  assert.deepEqual(montosDeAceptacion("05", iva, total), { acreditar: null, gasto: null });
+  // Una factura del proveedor sin impuesto: nada que acreditar, todo es gasto.
+  assert.deepEqual(montosDeAceptacion("01", 0n, total), { acreditar: 0n, gasto: total });
+  // Crédito parcial y bienes de capital dependen de cada compra: no se deducen.
+  for (const condicion of ["02", "03"])
+    assert.throws(() => montosDeAceptacion(condicion, iva, total), (e) => e.code === "MENSAJE_IMPORTES_FALTANTES");
+});
+test("aceptación sin formulario: XML válido, con la fecha de la CONFIRMACIÓN y sin detalle", async () => {
+  const d = venta(),
+    c = certificado(),
+    original = firmar(generarVenta(d), c.p12, c.pin),
+    confirmada = "2026-10-12T18:30:00-06:00";
+  assert.notEqual(confirmada, d.fecha, "la prueba necesita dos fechas distintas");
+  const aceptar = (condicionImpuesto, extra = {}) =>
+    generarMensaje({
+      original,
+      emisor: d.emisor,
+      consecutivo: "00100001050000000001",
+      fecha: confirmada,
+      opciones: { mensaje: "1", condicionImpuesto, ...extra },
+    });
+  const nodo = (xml, n) => new RegExp(`<${n}>([^<]*)</${n}>`).exec(xml)?.[1];
+
+  const m = aceptar("01");
+  await validarXml(firmar(m.xml, c.p12, c.pin), "05");
+  // El anexo: «Fecha y hora de emisión de la confirmación». Salía la fecha
+  // de la factura del proveedor: una aceptación de hoy decía ser de ese día.
+  assert.equal(nodo(m.xml, "FechaEmisionDoc"), confirmada);
+  assert.equal(m.fecha, confirmada, "el sobre del envío tiene que llevar la misma fecha que el XML");
+  assert.equal(m.clave, d.clave, "la aceptación no cita la clave de la factura del proveedor");
+  assert.equal(nodo(m.xml, "Mensaje"), "1");
+  // «En los casos que la factura es aceptada no es necesario su uso».
+  assert.doesNotMatch(m.xml, /DetalleMensaje/);
+  assert.equal(nodo(m.xml, "CondicionImpuesto"), "01");
+  assert.equal(nodo(m.xml, "MontoTotalImpuesto"), "13.00000");
+  assert.equal(nodo(m.xml, "MontoTotalImpuestoAcreditar"), "13.00000");
+  assert.equal(nodo(m.xml, "MontoTotalDeGastoAplicable"), "100.00000");
+  assert.equal(nodo(m.xml, "TotalFactura"), "113.00000");
+  assert.equal(nodo(m.xml, "CodigoActividad"), d.emisor.actividad_economica);
+
+  const gasto = aceptar("04");
+  await validarXml(firmar(gasto.xml, c.p12, c.pin), "05");
+  assert.equal(nodo(gasto.xml, "MontoTotalImpuestoAcreditar"), "0.00000");
+  assert.equal(nodo(gasto.xml, "MontoTotalDeGastoAplicable"), "113.00000");
+
+  // Proporcionalidad: «no se debe de utilizar» el código de actividad, y los
+  // montos no hacen falta.
+  const proporcional = aceptar("05");
+  await validarXml(firmar(proporcional.xml, c.p12, c.pin), "05");
+  assert.doesNotMatch(proporcional.xml, /CodigoActividad|MontoTotalImpuestoAcreditar|MontoTotalDeGastoAplicable/);
+  assert.equal(nodo(proporcional.xml, "CondicionImpuesto"), "05");
+
+  // Lo que escribe una persona sigue mandando sobre lo deducido.
+  const aMano = aceptar("02", { impuestoAcreditar: "4", gastoAplicable: "109", detalle: "ZZ crédito parcial" });
+  await validarXml(firmar(aMano.xml, c.p12, c.pin), "05");
+  assert.equal(nodo(aMano.xml, "MontoTotalImpuestoAcreditar"), "4.00000");
+  assert.equal(nodo(aMano.xml, "DetalleMensaje"), "ZZ crédito parcial");
+  // Y sin esos montos, una condición que los necesita no se inventa.
+  assert.throws(() => aceptar("02"), (e) => e.code === "MENSAJE_IMPORTES_FALTANTES");
+  assert.throws(() => aceptar(""), (e) => e.code === "DATO_FISCAL_FALTANTE");
+  // El proveedor puede escribir nuestra cédula rellenada con ceros: es la misma.
+  const rellenada = generarMensaje({
+    original: firmar(generarVenta({ ...d, documento: { ...d.documento, cliente_identificacion: "123456789" } }), c.p12, c.pin)
+      .replace(/(<Receptor>[\s\S]*?<Numero>)123456789(<\/Numero>)/, "$1000123456789$2"),
+    emisor: d.emisor,
+    consecutivo: "00100001050000000001",
+    fecha: confirmada,
+    opciones: { mensaje: "1", condicionImpuesto: "01" },
+  });
+  assert.equal(nodo(rellenada.xml, "NumeroCedulaReceptor"), d.emisor.identificacion);
+  // Un comprobante del proveedor sin receptor no se confirma: se dice por qué.
+  assert.throws(
+    () =>
+      generarMensaje({
+        original: original.replace(/<Receptor>[\s\S]*?<\/Receptor>/, ""),
+        emisor: d.emisor,
+        consecutivo: "00100001050000000001",
+        fecha: confirmada,
+        opciones: { mensaje: "1", condicionImpuesto: "01" },
+      }),
+    (e) => e.code === "RECEPTOR_NO_COINCIDE" && /no trae receptor/.test(e.message),
+  );
+  // Rechazar o aceptar en parte sí exige decir el motivo.
+  for (const mensaje of ["2", "3"])
+    assert.throws(
+      () =>
+        generarMensaje({
+          original, emisor: d.emisor, consecutivo: "00100001050000000001", fecha: confirmada,
+          opciones: { mensaje, condicionImpuesto: "01", impuestoAcreditar: "0", gastoAplicable: "0" },
+        }),
+      (e) => e.code === "DATO_FISCAL_FALTANTE",
+    );
 });
 test("XML no procesa entidades externas ni documentos enormes", () => {
   assert.throws(() => parsear('<!DOCTYPE x SYSTEM "file:///etc/passwd"><x/>'));

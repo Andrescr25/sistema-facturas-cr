@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { redondearPrecio, calcularFactorConversion, inferirCantidadesDesdeFactor } from '../utils/revisionPreciosUtils'
+import { avisoDeAceptacion } from '../utils/aceptacionCompraTexto'
 import { useDialog } from './useDialog'
 
 /**
@@ -288,6 +289,7 @@ export function useRevisionPrecios() {
         // Remover toast de "registrando"
         setToasts(prev => prev.filter(t => t.type !== 'loading'))
 
+        const aceptacion = avisoDeAceptacion(resultado.hacienda)
         showToast(
           `✅ Compra de la factura ${facturaNumero} registrada\n` +
           `📦 ${resultado.lineas} líneas\n` +
@@ -295,9 +297,11 @@ export function useRevisionPrecios() {
           `🔄 Precios ajustados: ${resultado.preciosActualizados}` +
           (resultado.sinProductoPropio ? `\n⚠️ ${resultado.sinProductoPropio} línea(s) sin producto propio, sin actualizar` : '') +
           (resultado.cuentaLiberada ? `\n💳 Cuenta por pagar liberada` : '') +
-          (resultado.cuentaDeContado ? `\n💵 De contado: quedó pendiente en Pagos a Proveedores para anotar cómo se pagó` : ''),
-          'success',
-          8000
+          (resultado.cuentaDeContado ? `\n💵 De contado: quedó pendiente en Pagos a Proveedores para anotar cómo se pagó` : '') +
+          // La aceptación ante Hacienda sale sola al registrar: se dice cómo quedó.
+          (aceptacion ? `\n${aceptacion}` : ''),
+          resultado.hacienda?.estado === 'pendiente' ? 'warning' : 'success',
+          resultado.hacienda?.estado === 'pendiente' ? 15000 : 8000
         )
 
         // Recargar la lista para actualizar estados

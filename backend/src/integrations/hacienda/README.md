@@ -124,7 +124,10 @@ subida coteja clave, proveedor, receptor, total y XSD antes de conservarlo.
 
 Emisión inicial: FE 01, TE 04, NC 03 en CRC, con IVA por línea, descuentos
 explícitos, registro/forma de medicamentos y referencia a una sola factura
-en NC. Mensajes receptor 05/06/07 con crédito y gasto elegidos por la persona.
+en NC. Mensaje receptor 05 (aceptación total) automático al registrar la
+compra, con el crédito y el gasto deducidos de la condición de IVA elegida en
+Configuración (`aceptacionCompra.service.js`); 06/07 quedan en el generador,
+sin pantalla.
 Los XSD de ND, exportación, compra electrónica y REP se conservan como fuentes,
 pero esos emisores no están implementados: requieren sus reglas y adaptadores.
 Exoneraciones, cálculo especial de IVA, impuestos distintos del IVA, moneda

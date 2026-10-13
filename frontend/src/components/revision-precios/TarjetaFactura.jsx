@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/pagos'
 import Insignia from '../ui/Insignia'
+import { etiquetaDeAceptacion } from '../../utils/aceptacionCompraTexto'
 
 /**
  * Una factura de proveedor en la lista.
@@ -27,7 +28,8 @@ export default function TarjetaFactura({ factura, paso, onAbrir }) {
       }
     : paso === 'LISTAS_REVISION'
       ? { tono: 'exito', texto: 'Lista para revisar' }
-      : { tono: 'neutro', texto: 'Registrada' }
+      // Ya registrada: cómo quedó ante Hacienda (la aceptación sale sola).
+      : etiquetaDeAceptacion(factura.aceptacionHacienda)
 
   return (
     <button

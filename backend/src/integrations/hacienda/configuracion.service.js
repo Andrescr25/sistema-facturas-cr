@@ -13,6 +13,21 @@ const CAMPOS = [
   "sucursal",
   "terminal",
 ];
+/**
+ * CON QUÉ CONDICIÓN DE IVA SE ACEPTAN SOLAS LAS COMPRAS (2026-10-12).
+ *
+ * Al registrar una compra, el sistema le confirma a Hacienda el comprobante
+ * del proveedor sin mostrar un formulario (ver aceptacionCompra.service.js).
+ * Lo único de ese formulario que no se puede deducir es qué se hace con el
+ * IVA pagado, y eso es una declaración fiscal: SE ELIGE ACÁ UNA VEZ, NO HAY
+ * VALOR POR OMISIÓN. Sin elegirla, las compras quedan registradas y sin
+ * aceptar, y la pantalla dice por qué.
+ *
+ * Solo las tres que se pueden declarar sin una persona (xml/v4.4.js,
+ * `montosDeAceptacion`): crédito parcial y bienes de capital piden montos
+ * propios de cada compra.
+ */
+const CONDICIONES_IVA_COMPRAS = Object.freeze(["01", "04", "05"]);
 /** Cómo termina el usuario del API en cada ambiente, tal como lo entrega Hacienda. */
 const USUARIO_API = Object.freeze({
   pruebas: /^[^@\s]+@stag\.comprobanteselectronicos\.go\.cr$/i,
@@ -148,6 +163,12 @@ async function guardar(db, a, datos, archivo, usuarioId) {
         throw error("DATO_INVALIDO", "Dato fiscal inválido.");
       nuevos[campo] = datos[campo].trim();
     }
+  if (Object.hasOwn(datos, "condicion_iva_compras")) {
+    const condicion = String(datos.condicion_iva_compras ?? "").trim();
+    if (condicion && !CONDICIONES_IVA_COMPRAS.includes(condicion))
+      throw error("DATO_INVALIDO", "Elegí una condición de IVA de la lista para aceptar las compras.");
+    nuevos.condicion_iva_compras = condicion;
+  }
   for (const campo of ["usuario", "clave", "pin"])
     if (datos[campo]) {
       if (typeof datos[campo] !== "string" || datos[campo].length > 300)
@@ -200,4 +221,13 @@ async function guardar(db, a, datos, archivo, usuarioId) {
   });
   return publica(fila);
 }
-module.exports = { ambiente, publica, obtener, privada, revisar, guardar, USUARIO_API };
+module.exports = {
+  ambiente,
+  publica,
+  obtener,
+  privada,
+  revisar,
+  guardar,
+  USUARIO_API,
+  CONDICIONES_IVA_COMPRAS,
+};

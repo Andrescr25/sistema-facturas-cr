@@ -62,8 +62,11 @@ describe('lo que se puede escribir como número', () => {
     }
   });
 
-  test('solo se numeran desde acá factura, tiquete y nota de crédito', () => {
-    assert.deepEqual(Object.keys(TIPOS).sort(), ['01', '03', '04']);
+  test('se numeran desde acá factura, tiquete, nota de crédito y aceptación de compra, en ese orden', () => {
+    // El 05 (2026-10-12): las compras se aceptan solas y su numeración es
+    // propia. Si antes se aceptaban desde otro sistema, acá se dice dónde seguir.
+    assert.deepEqual(Object.keys(TIPOS), ['01', '04', '03', '05']);
+    assert.equal(TIPOS['05'], 'Aceptación de compra');
     assert.ok(USADOS_TOLERADOS >= 3, 'los tres sueltos de producción (4902, 4946, 4947) tienen que poder saltarse');
   });
 });

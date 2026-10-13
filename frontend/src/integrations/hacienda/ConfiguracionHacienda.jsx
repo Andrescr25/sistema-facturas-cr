@@ -10,6 +10,7 @@ import {
   mensajeError,
 } from "./api";
 import NumeracionHacienda from "../../components/configuracion/NumeracionHacienda";
+import { CONDICIONES_IVA_COMPRAS } from "../../utils/aceptacionCompraTexto";
 
 const CAMPOS = [
   [
@@ -160,6 +161,45 @@ export default function ConfiguracionHacienda() {
                   </label>
                 ))}
               </fieldset>
+              {/* Al registrar una compra, el sistema la acepta ante Hacienda
+                  sin formulario. Lo único que no puede deducir es qué se
+                  hace con el IVA: se elige acá, una vez, y no hay valor por
+                  omisión. Solo en producción: una aceptación de prueba no
+                  existe para Hacienda. */}
+              {ambiente === "produccion" && (
+                <fieldset disabled={ocupado}>
+                  <legend className="mb-3 font-semibold">
+                    Aceptación de las compras
+                  </legend>
+                  <label className="block text-sm">
+                    Condición del IVA con que se acepta cada compra al
+                    registrarla
+                    <select
+                      data-condicion-iva-compras
+                      className={INPUT}
+                      value={datos.condicion_iva_compras || ""}
+                      onChange={(e) =>
+                        cambiar("condicion_iva_compras", e.target.value)
+                      }
+                    >
+                      <option value="">
+                        Sin elegir: las compras no se aceptan solas
+                      </option>
+                      {CONDICIONES_IVA_COMPRAS.map(([codigo, nombre]) => (
+                        <option key={codigo} value={codigo}>
+                          {codigo} · {nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="mt-2 text-sm text-neutro-600">
+                    {CONDICIONES_IVA_COMPRAS.find(
+                      ([codigo]) => codigo === datos.condicion_iva_compras,
+                    )?.[2] ||
+                      "Es una declaración fiscal: confirmala con tu contador. Mientras no se elija, cada compra queda registrada y sin aceptar ante Hacienda."}
+                  </p>
+                </fieldset>
+              )}
               <fieldset
                 disabled={ocupado}
                 className="grid gap-4 sm:grid-cols-2"
@@ -290,8 +330,8 @@ export default function ConfiguracionHacienda() {
           </button>
         </div>
         <p className="mt-2 text-sm text-neutro-600">
-          Prepará las ventas desde su factura y las respuestas a proveedores
-          desde Compras. Recibido significa que Hacienda lo recibió; la
+          Las ventas se emiten desde su factura y las compras se aceptan solas
+          al registrarlas. Recibido significa que Hacienda lo recibió; la
           aceptación se confirma con su respuesta.
         </p>
         {!comprobantes.length && (
@@ -306,7 +346,7 @@ export default function ConfiguracionHacienda() {
           >
             <p className="font-semibold">
               {c.origen === "compra"
-                ? "Respuesta al proveedor"
+                ? "Aceptación de compra"
                 : c.origen === "nota_credito"
                   ? "Nota de crédito"
                   : "Venta"}{" "}

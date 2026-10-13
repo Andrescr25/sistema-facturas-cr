@@ -161,6 +161,33 @@ describe('Revisión de Precios desde el maestro propio — contra PostgreSQL loc
     // Al producto del mapeo, que no es el de la línea, no se le toca nada.
     assert.deepEqual(await de(exento), { precio: 1000, costo: 800 });
   });
+
+  // 2026-10-12: la compra se acepta sola ante Hacienda al registrarla. La
+  // lista de Registradas dice cómo quedó, para que una aceptación que no
+  // salió no dependa de abrir esa compra para enterarse.
+  test('la lista de registradas dice cómo quedó cada compra ante Hacienda', async () => {
+    const mia = async () => (await servicio.getFacturas('ENVIADA')).facturas.find(f => f.id === facturaId);
+    const compra = (await conexion.query('SELECT id FROM compra WHERE factura_proveedor_id = $1', [facturaId])).rows[0].id;
+    // Sin el XML del proveedor (como las anteriores al corte) no se marca
+    // como pendiente: no se aceptó desde acá y no hay con qué.
+    assert.equal((await mia()).aceptacionHacienda, null);
+    await conexion.query("UPDATE compra SET xml_ruta = 'compras-proveedor/zz.xml' WHERE id = $1", [compra]);
+    assert.equal((await mia()).aceptacionHacienda, 'sin_enviar');
+    const comprobante = (estado, revision, ambiente = 'produccion') => conexion.query(
+      `INSERT INTO hacienda_comprobante(ambiente,origen,origen_id,tipo,clave,consecutivo,fecha,xml_ruta,xml_sha256,sobre,estado,revision_documento)
+       VALUES($1,'compra',$2,'05',$3,$4,now(),'zz','zz','{}',$5,$6)`,
+      [ambiente, compra, '7'.repeat(50), '0010000105' + String(9900000000 + revision), estado, revision]);
+    // Una de pruebas no cuenta: para Hacienda no existe.
+    await comprobante('aceptada', 1, 'pruebas');
+    assert.equal((await mia()).aceptacionHacienda, 'sin_enviar');
+    await comprobante('rechazada', 1);
+    assert.equal((await mia()).aceptacionHacienda, 'rechazada');
+    // Manda la última: la que se volvió a enviar.
+    await comprobante('aceptada', 2);
+    assert.equal((await mia()).aceptacionHacienda, 'aceptada');
+    // Las que todavía no se registraron no llevan el dato.
+    assert.equal('aceptacionHacienda' in ((await servicio.getFacturas('PROCESADA')).facturas[0] || {}), false);
+  });
 });
 
 describe('lo que Revisión de Precios ya no tiene', () => {

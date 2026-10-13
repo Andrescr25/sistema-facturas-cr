@@ -15,6 +15,7 @@ const { parsear, texto } = require("./xml/util");
 const { crearCliente } = require("./transporte/cliente");
 const numeracion = require("./numeracion");
 const { crearUnClic } = require("./unClic.service");
+const { crearAceptacion } = require("./aceptacionCompra.service");
 const { enTransaccion } = require("../../utils/transaccion");
 const { registrarCambio } = require("../../utils/bitacora");
 const { error } = require("./errores");
@@ -50,6 +51,8 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
   // unClic.service.js. Este servicio le presta `preparar` y le pide dos
   // cosas: el medio de pago al armar el XML y entregar el documento al aceptarse.
   const unClic = crearUnClic({ pool, ganchos, preparar, vista, id });
+  // Aceptar sola la compra recién registrada: aceptacionCompra.service.js.
+  const aceptacion = crearAceptacion({ pool, tx, preparar, enviar, vista, id });
   // El número lo da numeracion.js: manda el numerador y se saltan los ya
   // usados (decisión del usuario del 2026-10-11, explicada ahí).
   const numerar = (db, c, tipo) => numeracion.reservar(db, c, tipo);
@@ -354,7 +357,10 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
         rechazado: "rechazada",
         error: "error",
       }[d?.["ind-estado"]];
-    if (!estado || d.clave !== r.clave)
+    // Una aceptación de compra se consulta por "clave-consecutivo", y la
+    // respuesta puede traerla escrita así. Las dos formas son ESTE mensaje.
+    const claves = r.origen === "compra" ? [r.clave, `${r.clave}-${r.consecutivo}`] : [r.clave];
+    if (!estado || !claves.includes(d?.clave))
       throw error(
         "RESPUESTA_INVALIDA",
         "La respuesta de Hacienda no corresponde a la clave consultada.",
@@ -589,136 +595,6 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
       )
     ).rows.map(vista);
   }
-  async function datosDocumento(origen, n) {
-    if (!["factura", "nota_credito", "compra"].includes(origen))
-      throw error("ORIGEN_INVALIDO", "Origen inválido.");
-    const d = (await pool.query(`SELECT * FROM ${origen} WHERE id=$1`, [id(n)]))
-      .rows[0];
-    if (!d) throw error("NO_EXISTE", "Documento no encontrado.", 404);
-    const lineas =
-      origen === "compra"
-        ? []
-        : (
-            await pool.query(
-              `SELECT l.numero_linea,l.nombre,l.descuento_monto,p.es_medicamento,p.registro_sanitario FROM ${origen}_linea l LEFT JOIN producto p ON p.id=l.producto_id WHERE l.${origen}_id=$1 ORDER BY l.numero_linea`,
-              [id(n)],
-            )
-          ).rows;
-    return {
-      id: d.id,
-      numero: d.numero || d.numero_consecutivo,
-      actividadEconomica: d.actividad_economica,
-      necesitaXml: origen === "compra" && !d.xml_ruta,
-      lineas: lineas.map((l) => ({
-        numeroLinea: l.numero_linea,
-        nombre: l.nombre,
-        descuentoMonto: l.descuento_monto,
-        esMedicamento: l.es_medicamento,
-        registroSanitario: l.registro_sanitario,
-      })),
-    };
-  }
-  async function compraDeBuzon(n) {
-    if (
-      !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
-        String(n),
-      )
-    )
-      throw error("ID_INVALIDO", "Identificador de buzón inválido.");
-    const d = (
-      await pool.query("SELECT id FROM compra WHERE factura_proveedor_id=$1", [
-        n,
-      ])
-    ).rows[0];
-    if (!d)
-      throw error(
-        "COMPRA_NO_REGISTRADA",
-        "Registre la compra antes de responder a Hacienda.",
-      );
-    return datosDocumento("compra", d.id);
-  }
-  async function subirOriginal(n, buffer, usuarioId) {
-    const { guardarArchivo } = require("../almacenamiento");
-    const doc = parsear(buffer.toString("utf8"));
-    return tx(async (db) => {
-      const d = (
-        await db.query("SELECT * FROM compra WHERE id=$1 FOR UPDATE", [id(n)])
-      ).rows[0];
-      if (!d) throw error("NO_EXISTE", "Compra no encontrada.", 404);
-      if (d.xml_ruta)
-        throw error(
-          "XML_YA_EXISTE",
-          "Esta compra ya conserva su XML original. No se reemplaza.",
-          409,
-        );
-      if (
-        (
-          await db.query(
-            "SELECT 1 FROM hacienda_comprobante WHERE origen='compra' AND origen_id=$1",
-            [d.id],
-          )
-        ).rows.length
-      )
-        throw error(
-          "DOCUMENTO_RESERVADO",
-          "Esta compra ya tiene una respuesta fiscal preparada.",
-          409,
-        );
-      const emisor = doc.getElementsByTagNameNS("*", "Emisor")[0],
-        receptor = doc.getElementsByTagNameNS("*", "Receptor")[0];
-      const empresa = (
-          await db.query("SELECT identificacion FROM empresa WHERE id=1")
-        ).rows[0],
-        proveedor = (
-          await db.query("SELECT identificacion FROM proveedor WHERE id=$1", [
-            d.proveedor_id,
-          ])
-        ).rows[0];
-      if (
-        texto(doc, "Clave") !== d.clave ||
-        texto(emisor, "Numero") !== proveedor?.identificacion ||
-        texto(receptor, "Numero") !== empresa?.identificacion
-      )
-        throw error(
-          "XML_OTRO_DOCUMENTO",
-          "El XML no corresponde a la clave, proveedor y receptor de esta compra.",
-        );
-      const { decimal } = require("./xml/v4.4");
-      if (decimal(texto(doc, "TotalComprobante")) !== decimal(d.total))
-        throw error(
-          "XML_OTRO_DOCUMENTO",
-          "El total del XML no coincide con la compra.",
-        );
-      const tipo = { FacturaElectronica: "01", NotaCreditoElectronica: "03" }[
-        doc.documentElement.localName
-      ];
-      if (!tipo)
-        throw error(
-          "XML_INVALIDO",
-          "Suba la factura electrónica original del proveedor.",
-        );
-      await validarXml(buffer.toString("utf8"), tipo);
-      const archivo = await guardarArchivo({
-        carpeta: "compras-proveedor",
-        prefijo: "xml",
-        extension: "xml",
-        buffer,
-        maximoBytes: 2 * 1024 * 1024,
-      });
-      await db.query("UPDATE compra SET xml_ruta=$2 WHERE id=$1", [
-        d.id,
-        archivo.ruta,
-      ]);
-      await registrarCambio(db, {
-        entidad: "compra",
-        entidadId: d.id,
-        accion: "cargar_xml_original",
-        despues: { xmlConservado: true },
-        usuarioId,
-      });
-      return { xmlConservado: true };
-    });
-  }
   async function archivo(n, respuesta = false) {
     const r = await fila(n),
       p = respuesta ? r.respuesta_ruta : r.xml_ruta;
@@ -730,15 +606,33 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
       );
     return almacen.leerXml(p, respuesta ? r.respuesta_sha256 : r.xml_sha256);
   }
+  /**
+   * Lo que el seguimiento hace cada minuto: consultar lo que Hacienda todavía
+   * no contestó y —solo para las ACEPTACIONES DE COMPRA de producción— volver
+   * a intentar el envío de las que quedaron sin salir. Nacen solas al
+   * registrar la compra y nadie las está mirando: si Hacienda no atendió en
+   * ese momento, no puede depender de que alguien se acuerde. Hasta cinco
+   * intentos y tres días; `enviar` consulta antes de reenviar los mismos
+   * bytes, así que no gasta otro número. Las ventas no se reenvían solas: las
+   * sigue quien factura, desde la factura.
+   */
   async function pendientes() {
     const rs = (
       await pool.query(
-        "SELECT id FROM hacienda_comprobante WHERE estado IN ('enviando','incierta','recibida','procesando') AND proxima_consulta<=now() ORDER BY proxima_consulta LIMIT 10",
+        `SELECT id, (origen='compra' AND ambiente='produccion' AND intentos<5
+                     AND estado IN ('preparada','enviando','incierta','error')) AS sin_salir
+           FROM hacienda_comprobante
+          WHERE proxima_consulta<=now()
+            AND (estado IN ('enviando','incierta','recibida','procesando')
+                 OR (origen='compra' AND ambiente='produccion' AND estado IN ('preparada','error')
+                     AND intentos<5 AND actualizado_en < now()-interval '2 minutes'
+                     AND creado_en > now()-interval '3 days'))
+          ORDER BY proxima_consulta LIMIT 10`,
       )
     ).rows;
     for (const r of rs) {
       try {
-        await consultar(r.id);
+        await (r.sin_salir ? enviar(r.id) : consultar(r.id));
       } catch {
         await pool.query(
           "UPDATE hacienda_comprobante SET proxima_consulta=now()+interval '5 minutes' WHERE id=$1",
@@ -755,10 +649,9 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
     listar,
     archivo,
     pendientes,
-    datosDocumento,
-    compraDeBuzon,
-    subirOriginal,
+    alRegistrarCompra: aceptacion.alRegistrar,
     ...unClic.publico,
+    ...aceptacion.publico,
   };
 }
 module.exports = { crearServicio, vista, id };

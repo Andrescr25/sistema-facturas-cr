@@ -498,3 +498,27 @@ se hizo, con el mismo diseño de la factura. Detalle en
 cambio) con «Enviar al cliente» si quiere que el cliente la reciba; y
 decidir si el pie de los PDF electrónicos debe citar la resolución de
 Hacienda (hoy no cita ninguna).
+
+## 2026-10-12 — La compra se acepta sola ante Hacienda
+
+Textual: «revisa que cuando uno termina de registrar una compra en revisión
+de precios esta se envíe a Hacienda, investiga bien esto, porque mis
+proveedores me envían todo con factura electrónica y esto ya sale en Hacienda
+como que yo compré, entonces al momento de yo registrar la compra, esta NO se
+duplique, sino que salga que yo le hice recepción o algo similar», «que no me
+salga esto [el formulario "Responder comprobante del proveedor"]», «que una
+vez termine de revisar precio y la registre, ese formulario se haga solo» y
+«que siempre salga como totalmente aceptada y ya en producción».
+
+**Hecho**: al registrar una compra el sistema le confirma a Hacienda la
+factura del proveedor (aceptación total, en producción), sin formulario. No
+duplica nada: es una confirmación sobre la factura que el proveedor ya
+emitió. Detalle y hallazgos en
+[hacienda](grafo/modulo/hacienda.md), "LA COMPRA SE ACEPTA SOLA".
+
+**Queda para el usuario, y sin eso no arranca**: elegir UNA vez la condición
+del IVA en Configuración → Hacienda → Producción → «Aceptación de las
+compras». No se le puso un valor por omisión porque es una declaración
+fiscal. Y mirar la primera aceptación real: el mensaje nunca se había probado
+contra Hacienda.
+

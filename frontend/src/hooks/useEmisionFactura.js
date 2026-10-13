@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   estadoFactura, emitirFactura, reenviarCorreo, estadoNota, emitirNota, reenviarCorreoNota,
-  operar, descargar, mensajeError
+  estadoCompra, aceptarCompra, operar, descargar, mensajeError
 } from '../integrations/hacienda/api'
 import { emitirPasoAPaso, FINALES, pideDatos } from '../utils/emisionPasos'
 
@@ -18,6 +18,10 @@ import { emitirPasoAPaso, FINALES, pideDatos } from '../utils/emisionPasos'
  *
  * `origen: 'nota_credito'` hace lo mismo para una nota de crédito: mismos
  * pasos y mismo panel, con sus tres llamadas al servidor.
+ *
+ * `origen: 'compra'` es la aceptación de una compra ante Hacienda. Sale sola
+ * al registrar la compra; acá se sigue cómo va y se termina si quedó a
+ * medias. No tiene correo: no hay un cliente a quien entregarle nada.
  */
 const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -27,7 +31,8 @@ const RELEER_MS = 15000
 /** Las tres llamadas que cambian según el documento; lo demás es igual. */
 const SERVIDOR = {
   factura: { estado: estadoFactura, emitir: emitirFactura, correo: reenviarCorreo },
-  nota_credito: { estado: estadoNota, emitir: emitirNota, correo: reenviarCorreoNota }
+  nota_credito: { estado: estadoNota, emitir: emitirNota, correo: reenviarCorreoNota },
+  compra: { estado: estadoCompra, emitir: aceptarCompra }
 }
 
 export default function useEmisionFactura(facturaId, { activo = true, onCambio, origen = 'factura' } = {}) {
@@ -165,8 +170,11 @@ export default function useEmisionFactura(facturaId, { activo = true, onCambio, 
 
   return {
     activo, origen, estado, fase, error, emitir,
+    // Volver a preguntarle al servidor cómo va (p. ej. tras subir un XML).
+    releer: () => leer(facturaId).catch(e => setError(mensajeError(e))),
     bajar, bajando, errorDescarga,
     pidiendoDatos, cerrarDatos: () => setPidiendoDatos(false),
-    enviarAlCliente, enviandoCorreo
+    // null = este documento no se le manda a nadie (una compra).
+    enviarAlCliente: servidor.correo ? enviarAlCliente : null, enviandoCorreo
   }
 }

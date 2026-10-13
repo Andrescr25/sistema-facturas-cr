@@ -75,7 +75,8 @@ LO QUE SE HIZO ESE DÍA, sin cambiar comportamiento:
   originales, con un único formato.
 - "Asignar clientes" y la numeración de Hacienda tienen su gancho; sus
   componentes ya no llaman al servidor.
-- `DocumentoFiscal.jsx` quedó con lo de compras, que es lo único que lo usa.
+- `DocumentoFiscal.jsx` quedó con lo de compras, que era lo único que lo
+  usaba; se borró el 2026-10-12, cuando la compra pasó a aceptarse sola.
 - `fechaCorta()` en `utils/fechaCR.js`; se quitaron las cinco copias.
 
 Al mover las cuentas a un archivo puro aparecieron pruebas de verdad

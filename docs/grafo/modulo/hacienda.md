@@ -24,7 +24,12 @@ archivos:
   - backend/src/integrations/hacienda/esquemas/v4.4/fuentes.json
   - backend/migrations/independencia/043_hacienda.sql
   - frontend/src/integrations/hacienda/ConfiguracionHacienda.jsx
-  - frontend/src/integrations/hacienda/DocumentoFiscal.jsx
+  - backend/src/integrations/hacienda/aceptacionCompra.service.js
+  - backend/tests/aceptacionCompra.test.js
+  - backend/tests/aceptacionCompraPg.test.js
+  - frontend/src/components/revision-precios/AceptacionCompra.jsx
+  - frontend/src/hooks/useAceptacionCompra.js
+  - frontend/src/utils/aceptacionCompraTexto.js
   - frontend/src/components/facturacion/BotonEmitirFactura.jsx
   - frontend/src/components/facturacion/PanelEmisionFactura.jsx
   - frontend/src/components/facturacion/DatosPendientesEmision.jsx
@@ -49,7 +54,7 @@ archivos:
   - docs/informes/hacienda-2026-10-05.md
 aristas:
   relacionado: [modulo/facturacion, leccion/la-estructura-se-cuida-con-una-prueba, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera]
-medido: 2026-10-11
+medido: 2026-10-12
 ---
 
 El usuario autorizó desarrollar Hacienda sin pedir nuevas confirmaciones,
@@ -267,8 +272,10 @@ mismos. Lo nuevo es quién decide y quién los encadena:
   una de las últimas mil facturas tenía descuento, diez productos de dos mil
   son medicamentos.
 
-`DocumentoFiscal.jsx` (el modal) queda para lo que sí necesita elegir algo:
-la nota de crédito (código de referencia) y la respuesta a una compra.
+`DocumentoFiscal.jsx` (el modal) quedó entonces para la nota de crédito y la
+respuesta a una compra; las dos se le fueron después (ver "LA NOTA DE
+CRÉDITO, DE UN CLIC" y "LA COMPRA SE ACEPTA SOLA") y el archivo se borró el
+2026-10-12.
 
 En pruebas el botón lleva la marca "Pruebas" antes de tocarlo y el panel dice
 "sin validez fiscal": una aceptación de pruebas no vuelve electrónica la
@@ -389,8 +396,8 @@ tarjeta de la nota.
   xml». El PDF de la nota no existía: ver [[modulo/correo-facturas]].
 - Rechazada: «Volver a emitir» prepara otra y vuelve a preguntar qué hace.
 
-`DocumentoFiscal.jsx` (el modal) queda solo para responder comprobantes de
-compra.
+`DocumentoFiscal.jsx` (el modal) quedó solo para responder comprobantes de
+compra, hasta el 2026-10-12 (ver "LA COMPRA SE ACEPTA SOLA").
 
 Pruebas: cuatro casos en `haciendaUnClicPg.test.js` (no electrónica; pide el
 código y no reserva número sin él; XML con la clave y el medio de su factura;
@@ -408,8 +415,8 @@ nombran los archivos donde nacieron; quedaron así:
   pendientes, medio de pago, estado de factura y de nota, correo al cliente—
   está en `unClic.service.js`, que recibe `preparar` del servicio de emisión.
 - En el frontend, `integrations/hacienda/` conserva el cliente de la API
-  (`api.js`), la pantalla de configuración y el modal de compras
-  (`DocumentoFiscal.jsx`, ya sin las partes de ventas). El resto sigue el
+  (`api.js`) y la pantalla de configuración (el modal de compras,
+  `DocumentoFiscal.jsx`, se borró el 2026-10-12). El resto sigue el
   molde del proyecto: `hooks/useEmisionFactura.js` y
   `hooks/useNumeracionHacienda.js`; `components/facturacion/BotonEmitirFactura.jsx`,
   `PanelEmisionFactura.jsx` y `DatosPendientesEmision.jsx`;
@@ -417,3 +424,88 @@ nombran los archivos donde nacieron; quedaron así:
   `utils/emisionPasos.js` y `utils/numeracionTexto.js`.
 - Ningún componente llama al servidor: bajar los XML también pasa por el
   gancho.
+
+LA COMPRA SE ACEPTA SOLA (2026-10-12). El usuario registró una compra en
+Revisión de Precios y encontró un formulario —«Responder comprobante del
+proveedor»: ambiente (en pruebas por omisión), respuesta, detalle, condición
+del IVA, IVA a acreditar, gasto aplicable, y tres botones en orden—. Pidió,
+textual: «que una vez termine de revisar precio y la registre, ese formulario
+se haga solo», «que siempre salga como totalmente aceptada y ya en
+producción», y que la compra «NO se duplique, sino que salga que yo le hice
+recepción». También: «investiga bien esto».
+
+QUÉ ES, Y POR QUÉ NO DUPLICA. La factura del proveedor ya está en Hacienda:
+la emitió él. Lo que sale de este sistema no es otra compra sino un MENSAJE
+RECEPTOR (tipo 05, aceptación total): una confirmación firmada que cita la
+clave de esa factura. Hacienda la une a la factura que ya tiene. De este lado
+hay una por compra (`preparar` devuelve la que exista) y una compra por
+factura del buzón (`compras.service.js`).
+
+LO QUE SE ENCONTRÓ AL INVESTIGAR (leído en producción ese día, sin tocar):
+- Nunca había salido una aceptación desde este sistema: cero comprobantes de
+  compra. El mensaje receptor jamás se probó contra Hacienda de verdad, ni en
+  su ambiente de pruebas (allá no existe la factura real del proveedor). **La
+  primera aceptación real es la primera prueba real.**
+- Solo las facturas que entran al buzón desde el corte (2026-10-10) conservan
+  el XML del proveedor: 1 de 936. Sin ese archivo no hay nada que aceptar
+  (la clave, el total y el impuesto se leen de él). Las anteriores no se
+  marcan como pendientes; si hiciera falta, se sube el XML desde la compra.
+- El mensaje llevaba como fecha la de la factura del proveedor. El anexo de
+  Hacienda dice que `FechaEmisionDoc` es la «fecha y hora de emisión de la
+  confirmación». Corregido, en el XML y en el sobre del envío.
+- El anexo también dice que en una aceptación el detalle «no es necesario»
+  (obligatorio solo si se rechaza o se acepta en parte), que con
+  proporcionalidad «no se debe de utilizar» el código de actividad, y define
+  cada condición del IVA (nota 18). De ahí salen las reglas de abajo.
+
+CÓMO QUEDÓ.
+- `compras.controller.js`, DESPUÉS de registrar la compra, llama a
+  `alRegistrarCompra` (`aceptacionCompra.service.js`): prepara la aceptación y
+  la envía. No lanza nunca: la compra queda registrada aunque Hacienda no
+  atienda, y la respuesta dice qué pasó (el aviso de la pantalla lo cuenta).
+- Se decide solo: PRODUCCIÓN siempre (una aceptación de prueba no existe para
+  Hacienda), ACEPTACIÓN TOTAL siempre (una compra registrada es una compra
+  aceptada; rechazar o aceptar en parte ya no sale de la pantalla), sin
+  detalle, y los montos de IVA según la condición (`montosDeAceptacion` en
+  `xml/v4.4.js`): 01 acredita todo el IVA y el gasto es el resto; 04 no
+  acredita y todo es gasto; 05 no lleva montos ni código de actividad.
+- **Lo único que NO se decide solo es la condición del IVA**: es una
+  declaración fiscal. Se elige una vez en Configuración → Hacienda →
+  Producción → «Aceptación de las compras» (`datos.condicion_iva_compras`,
+  sin migración), SIN VALOR POR OMISIÓN. Mientras no se elija, la compra se
+  registra y queda sin aceptar, diciendo por qué. 02 y 03 no se ofrecen:
+  piden montos propios de cada compra.
+- La compra registrada muestra el bloque `AceptacionCompra`: cómo quedó, lo
+  que se declaró (leído del XML firmado) y los tres pasos de la emisión
+  (mismo gancho y panel que la factura, `origen: 'compra'`, sin correo). Con
+  un clic se termina la que no salió; si falta el XML del proveedor, se sube
+  ahí. La lista de Registradas dice lo mismo en una etiqueta.
+- El seguimiento (`pendientes`) además de consultar, REENVÍA las aceptaciones
+  de compra de producción que quedaron sin salir —hasta cinco intentos y tres
+  días—: nacen solas y nadie las está mirando. Las ventas no se reenvían
+  solas. Depende de `HACIENDA_TRABAJADOR=true` en el servidor.
+- La numeración de las aceptaciones (tipo 05) se ve y se cambia en
+  Configuración → Hacienda → Numeración: si antes se aceptaban compras desde
+  otro sistema, ahí se le dice desde qué número seguir. Arranca en 1.
+- Se quitó lo que solo usaba el formulario: `DocumentoFiscal.jsx`, las rutas
+  `…/datos`, `…/preparar` y `/buzon/:id`, y `datosDocumento`/`compraDeBuzon`.
+  `emision.service.js` bajó a 657 líneas y salió de la lista de deuda de
+  tamaño. Rutas nuevas: `GET /api/compras/hacienda/compras/:id/estado` y
+  `POST …/aceptar` (`:id` es el de la compra o el de la factura del buzón).
+
+LO QUE QUEDA SIN SABER HASTA LA PRIMERA REAL: si Hacienda acepta el mensaje
+tal cual, cómo devuelve la clave al consultarlo (se aceptan las dos formas:
+la clave sola o «clave-consecutivo») y si choca el consecutivo con uno usado
+antes desde Alegra. Un rechazo no es grave: se ve en la compra con el motivo
+y «Volver a enviar la aceptación» saca otra con otro número.
+
+No cubre: los gastos recurrentes (otro camino, no pasan por Revisión de
+Precios), las notas de crédito de proveedor, ni recuperar del correo el XML
+de las compras anteriores al corte.
+
+Pruebas: `haciendaFiscal.test.js` (el XML, contra el XSD, para cada
+condición), `aceptacionCompra.test.js`, `aceptacionCompraPg.test.js` (base
+desechable) y un caso en `revisionPreciosPropia.test.js`. Chromium real con
+Hacienda simulada: sin condición elegida, elegirla en Configuración, aceptar
+con un clic, registrar y que salga sola, sin XML y subirlo, rechazo y
+reenvío, y la lista de Registradas.

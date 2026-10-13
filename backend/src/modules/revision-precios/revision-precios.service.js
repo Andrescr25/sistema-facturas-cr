@@ -41,6 +41,33 @@ function httpError(status, message) {
 }
 
 /**
+ * Cómo quedó cada compra ya registrada ante Hacienda, para la lista de
+ * Registradas: `aceptacionHacienda` es el estado de su aceptación de
+ * producción, 'sin_enviar' si conserva el XML del proveedor y todavía no
+ * salió, o null si no hay nada que decir (las anteriores al 2026-10-10 no
+ * tienen el XML: no se aceptaron desde acá y no se marcan como pendientes).
+ *
+ * Sin esto, una aceptación que no salió al registrar la compra solo se veía
+ * abriendo esa compra.
+ */
+async function conAceptacion(facturas) {
+  if (!facturas.length) return facturas;
+  const { rows } = await query(
+    `SELECT c.factura_proveedor_id AS id,
+            COALESCE(h.estado, CASE WHEN c.xml_ruta IS NOT NULL AND c.estado = 'registrada' THEN 'sin_enviar' END) AS estado
+       FROM compra c
+       LEFT JOIN LATERAL (
+         SELECT estado FROM hacienda_comprobante
+          WHERE origen = 'compra' AND ambiente = 'produccion' AND origen_id = c.id
+          ORDER BY revision_documento DESC LIMIT 1) h ON TRUE
+      WHERE c.factura_proveedor_id = ANY($1::uuid[])`,
+    [facturas.map(f => f.id)]
+  );
+  const porFactura = new Map(rows.map(r => [r.id, r.estado]));
+  return facturas.map(f => ({ ...f, aceptacionHacienda: porFactura.get(f.id) || null }));
+}
+
+/**
  * Obtener facturas por estado
  */
 async function getFacturas(estado) {
@@ -61,7 +88,8 @@ async function getFacturas(estado) {
     take: 50
   });
 
-  return { facturas: await conProductoPropio(facturas), total: facturas.length };
+  const lista = await conProductoPropio(facturas);
+  return { facturas: estado === 'ENVIADA' ? await conAceptacion(lista) : lista, total: facturas.length };
 }
 
 /**
