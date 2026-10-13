@@ -62,9 +62,14 @@ test(
       caida = false,
       eco = (clave) => clave;
     const enviados = [];
+    // LA RESPUESTA ES COMO LA REAL. Así contestó Hacienda a la primera
+    // aceptación de verdad (2026-10-12): nombres en blanco, tipo del emisor
+    // «01» aunque el proveedor era jurídico (02), los NÚMEROS de las dos
+    // partes, «.» de detalle y el total con cinco decimales.
+    const proveedorDe = new Map();
     const respuesta = (clave, aceptada) =>
       firmar(
-        `<?xml version="1.0"?><MensajeHacienda xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/mensajeHacienda"><Clave>${clave}</Clave><NombreEmisor>ZZ</NombreEmisor><TipoIdentificacionEmisor>01</TipoIdentificacionEmisor><NumeroCedulaEmisor>123456789</NumeroCedulaEmisor><Mensaje>${aceptada ? 1 : 3}</Mensaje><EstadoMensaje>${aceptada ? "Aceptado" : "Rechazado"}</EstadoMensaje><DetalleMensaje>${aceptada ? "ZZ aceptado" : "ZZ rechazo de prueba"}</DetalleMensaje><MontoTotalImpuesto>13</MontoTotalImpuesto><TotalFactura>113</TotalFactura></MensajeHacienda>`,
+        `<?xml version="1.0"?><MensajeHacienda xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/mensajeHacienda"><Clave>${clave}</Clave><NombreEmisor> </NombreEmisor><TipoIdentificacionEmisor>01</TipoIdentificacionEmisor><NumeroCedulaEmisor>${proveedorDe.get(clave) || "123456789"}</NumeroCedulaEmisor><NombreReceptor> </NombreReceptor><TipoIdentificacionReceptor>01</TipoIdentificacionReceptor><NumeroCedulaReceptor>123456789</NumeroCedulaReceptor><Mensaje>${aceptada ? 1 : 3}</Mensaje><EstadoMensaje>${aceptada ? "Aceptado" : "Rechazado"}</EstadoMensaje><DetalleMensaje>${aceptada ? "." : "ZZ rechazo de prueba"}</DetalleMensaje><MontoTotalImpuesto>13.00000</MontoTotalImpuesto><TotalFactura>113.00000</TotalFactura></MensajeHacienda>`,
         c.p12,
         c.pin,
       );
@@ -122,10 +127,13 @@ test(
       ).rows[0].id;
       let n = 0;
       /** Una compra ZZ registrada, con (o sin) el XML de su proveedor. Total 113, IVA 13. */
-      const comprar = async ({ conXml = true } = {}) => {
+      const comprar = async ({ conXml = true, juridico = false } = {}) => {
         const d = venta();
         // Cada factura del proveedor tiene su propia clave.
         d.clave = d.clave.slice(0, 41 - String(++n).length) + String(n) + d.clave.slice(41);
+        // La mayoría de los proveedores son sociedades: cédula jurídica (02).
+        if (juridico) d.emisor = { ...d.emisor, tipo_identificacion: "CJ", identificacion: "3101123456" };
+        proveedorDe.set(d.clave, d.emisor.identificacion);
         const xml = firmar(generarVenta(d), c.p12, c.pin);
         const a = conXml
           ? await guardarArchivo({ carpeta: "zz-pruebas", prefijo: "xml", extension: "xml", buffer: Buffer.from(xml), maximoBytes: 2 * 1024 * 1024 })
@@ -229,6 +237,34 @@ test(
         await condicion("");
         assert.equal((await s.estadoDeCompra(primera.id)).motivoNoEmitible, null);
         await condicion("01");
+      });
+
+      // LA PRIMERA ACEPTACIÓN REAL (2026-10-12): Hacienda la aceptó y este
+      // sistema no lo anotó —«Los datos de la respuesta fiscal no corresponden
+      // al comprobante»— porque exigía que el tipo de identificación del
+      // emisor fuera el del proveedor (02) y Hacienda responde 01.
+      await t.test("un proveedor con cédula jurídica: la respuesta real de Hacienda se reconoce como aceptada", async () => {
+        const compra = await comprar({ juridico: true });
+        const r = await s.alRegistrarCompra(compra.id, usuarioId);
+        assert.equal(r.estado, "enviada");
+        assert.deepEqual(enviados.at(-1).emisor, { tipoIdentificacion: "02", numeroIdentificacion: "3101123456" });
+        // Como la devuelve Hacienda: la clave con el consecutivo pegado.
+        eco = (clave, consecutivo) => `${clave}-${consecutivo}`;
+        try {
+          assert.equal((await s.consultar(r.comprobante.id)).estado, "aceptada");
+        } finally {
+          eco = (clave) => clave;
+        }
+        const e = await s.estadoDeCompra(compra.id);
+        assert.equal(e.comprobante.estado, "aceptada");
+        assert.equal(e.comprobante.tieneRespuesta, true, "no se guardó la respuesta de Hacienda");
+        // El NÚMERO del emisor sí se compara: la respuesta de otro proveedor no pasa.
+        const otra = await comprar({ juridico: true });
+        const r2 = await s.alRegistrarCompra(otra.id, usuarioId);
+        proveedorDe.set(otra.clave, "3101999999");
+        await assert.rejects(s.consultar(r2.comprobante.id), (x) => x.code === "RESPUESTA_INVALIDA");
+        proveedorDe.set(otra.clave, "3101123456");
+        assert.equal((await s.consultar(r2.comprobante.id)).estado, "aceptada");
       });
 
       await t.test("Hacienda puede devolver la clave como «clave-consecutivo»: es el mismo mensaje", async () => {

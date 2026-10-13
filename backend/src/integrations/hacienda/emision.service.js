@@ -393,10 +393,18 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
         original,
         r.origen === "compra" ? "TotalFactura" : "TotalComprobante",
       );
+      // EN LA RESPUESTA A UNA ACEPTACIÓN DE COMPRA EL TIPO DEL EMISOR NO SE
+      // COMPARA. Medido con la primera real (2026-10-12): el proveedor era
+      // jurídico (02) y Hacienda respondió «01», con los nombres en blanco;
+      // el mensaje receptor no lleva tipos y Hacienda no los repone. Sí
+      // devuelve los NÚMEROS de las dos partes, la clave y el total, que se
+      // siguen comparando abajo. Exigir el tipo dejó aceptada en Hacienda y
+      // «sin respuesta» acá la primera compra.
       if (
         decimal(texto(doc, "TotalFactura")) !== decimal(totalOriginal) ||
-        texto(doc, "TipoIdentificacionEmisor") !==
-          r.sobre.emisor.tipoIdentificacion ||
+        (r.origen !== "compra" &&
+          texto(doc, "TipoIdentificacionEmisor") !==
+            r.sobre.emisor.tipoIdentificacion) ||
         (texto(doc, "NumeroCedulaReceptor") &&
           r.sobre.receptor &&
           texto(doc, "NumeroCedulaReceptor").replace(/^0+/, "") !==

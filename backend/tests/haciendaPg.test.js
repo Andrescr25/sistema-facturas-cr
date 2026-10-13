@@ -49,7 +49,7 @@ test(
     const enviados = [];
     const respuesta = (clave) =>
       firmar(
-        `<?xml version="1.0"?><MensajeHacienda xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/mensajeHacienda"><Clave>${clave}</Clave><NombreEmisor>ZZ</NombreEmisor><TipoIdentificacionEmisor>01</TipoIdentificacionEmisor><NumeroCedulaEmisor>123456789</NumeroCedulaEmisor><Mensaje>${modo === "rechazada" ? "3" : "1"}</Mensaje><EstadoMensaje>${modo === "rechazada" ? "Rechazado" : "Aceptado"}</EstadoMensaje><DetalleMensaje>ZZ respuesta simulada</DetalleMensaje><MontoTotalImpuesto>13</MontoTotalImpuesto><TotalFactura>${modo === "total" ? "114" : "113"}</TotalFactura></MensajeHacienda>`,
+        `<?xml version="1.0"?><MensajeHacienda xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/mensajeHacienda"><Clave>${clave}</Clave><NombreEmisor>ZZ</NombreEmisor><TipoIdentificacionEmisor>${modo === "otroTipo" ? "02" : "01"}</TipoIdentificacionEmisor><NumeroCedulaEmisor>123456789</NumeroCedulaEmisor><Mensaje>${modo === "rechazada" ? "3" : "1"}</Mensaje><EstadoMensaje>${modo === "rechazada" ? "Rechazado" : "Aceptado"}</EstadoMensaje><DetalleMensaje>ZZ respuesta simulada</DetalleMensaje><MontoTotalImpuesto>13</MontoTotalImpuesto><TotalFactura>${modo === "total" ? "114" : "113"}</TotalFactura></MensajeHacienda>`,
         c.p12,
         c.pin,
       );
@@ -175,6 +175,15 @@ test(
           await s.enviar(p.id);
           assert.equal(posts, cuenta);
           modo = "incorrecta";
+          await assert.rejects(
+            s.consultar(p.id),
+            (e) => e.code === "RESPUESTA_INVALIDA",
+          );
+          assert.equal((await s.obtener(p.id)).estado, "recibida");
+          // En una VENTA el tipo de identificación del emisor tiene que ser
+          // el nuestro; solo la respuesta a una aceptación de compra se
+          // exceptúa (ver aceptacionCompraPg.test.js).
+          modo = "otroTipo";
           await assert.rejects(
             s.consultar(p.id),
             (e) => e.code === "RESPUESTA_INVALIDA",

@@ -493,11 +493,25 @@ CÓMO QUEDÓ.
   tamaño. Rutas nuevas: `GET /api/compras/hacienda/compras/:id/estado` y
   `POST …/aceptar` (`:id` es el de la compra o el de la factura del buzón).
 
-LO QUE QUEDA SIN SABER HASTA LA PRIMERA REAL: si Hacienda acepta el mensaje
-tal cual, cómo devuelve la clave al consultarlo (se aceptan las dos formas:
-la clave sola o «clave-consecutivo») y si choca el consecutivo con uno usado
-antes desde Alegra. Un rechazo no es grave: se ve en la compra con el motivo
-y «Volver a enviar la aceptación» saca otra con otro número.
+LA PRIMERA REAL (2026-10-12, 21:36, compra de un proveedor jurídico).
+Hacienda la ACEPTÓ a los cinco segundos, con el consecutivo 1. Lo que se
+aprendió de su respuesta, leyéndola directo de Hacienda:
+- al consultar devuelve la clave como «clave-consecutivo» (ya se aceptaban
+  las dos formas);
+- en el `MensajeHacienda` deja los NOMBRES en blanco y pone el TIPO de
+  identificación del emisor en «01» aunque el proveedor sea jurídico (02): el
+  mensaje receptor no lleva tipos y Hacienda no los repone. Sí devuelve los
+  números de las dos partes, la clave y el total con cinco decimales;
+- `consultar` exigía que ese tipo coincidiera con el del proveedor, y por eso
+  la compra quedó aceptada en Hacienda y «sin respuesta» acá, con el aviso
+  «Los datos de la respuesta fiscal no corresponden al comprobante».
+  Corregido: en la respuesta a una aceptación de compra el tipo del emisor no
+  se compara (los números sí). En las ventas se sigue comparando.
+- el seguimiento sí corre en producción (el comprobante quedó con la próxima
+  consulta a cinco minutos, que solo pone `pendientes`).
+
+Un rechazo no es grave: se ve en la compra con el motivo y «Volver a enviar
+la aceptación» saca otra con otro número.
 
 No cubre: los gastos recurrentes (otro camino, no pasan por Revisión de
 Precios), las notas de crédito de proveedor, ni recuperar del correo el XML
