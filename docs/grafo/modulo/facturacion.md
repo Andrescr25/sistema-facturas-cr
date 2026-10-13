@@ -34,6 +34,8 @@ archivos:
   - backend/src/modules/facturacion/notaCredito.controller.js
   - backend/tests/notaCreditoSeguimiento.test.js
   - backend/tests/facturaConsulta.test.js
+  - backend/tests/facturaCambioCliente.test.js
+  - backend/src/utils/fechaCR.js
   - frontend/src/hooks/useFacturasEmitidas.js
   - frontend/src/components/facturacion/PanelFacturasEmitidas.jsx
   - frontend/src/components/facturacion/SelectorPago.jsx
@@ -250,3 +252,26 @@ viven acá, en `components/facturacion/`. El porqué y la prueba que lo cuida:
 
 De paso se corrigió un fallo viejo: la segunda corrección seguida de una
 misma factura encontraba «Guardar cambios» apagado.
+
+CAMBIAR EL CLIENTE DE UNA FACTURA DABA 500 (2026-10-13). El usuario, editando
+una factura de venta: al elegir otro cliente y guardar, «Invalid time value».
+Al cambiar el cliente se recalcula el vencimiento con el plazo del cliente
+nuevo, sumando días a la fecha de la factura, y esa fecha se leía con
+`String(factura.fecha).slice(0, 10)`. La base no entrega un DATE como texto:
+el driver devuelve un objeto Date, y eso da "Mon Oct 12". Con un cliente a
+crédito reventaba al sumar; con uno de contado habría guardado esa cadena
+como fecha (la base la rechaza).
+
+- Ahora se lee con `diaDeBase` (`utils/fechaCR.js`): las partes locales del
+  Date, que es como el driver lo armó. Ni `String().slice`, ni
+  `diaEnCostaRica` (en un servidor en UTC la medianoche es el día anterior).
+- Había dos copias sueltas de esa misma lectura (`fechaLarga` en
+  `marcaPdf.js` y `fechaIsoLocal` en el reporte del contador): usan el mismo
+  ayudante.
+- Por qué no se vio antes: la prueba con dobles tenía la fecha escrita como
+  texto. `facturaCambioCliente.test.js` lo prueba contra la base local, que es
+  la única que devuelve lo que rompía; sin el arreglo da el mismo error.
+
+Chromium real: editar una factura ZZ, cambiarla a un cliente con crédito
+(vence a los días de su plazo) y a uno de contado (vence el mismo día).
+

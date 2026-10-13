@@ -414,6 +414,32 @@ describe('editar una factura emitida', () => {
     assert.ok(update.params.includes('30 días'));
   });
 
+  // 2026-10-13, en producción: «Invalid time value» al cambiar el cliente.
+  // La base no entrega la fecha como texto sino como un Date; la prueba de
+  // arriba usa un texto y por eso nunca lo vio. `String(unDate).slice(0, 10)`
+  // es "Sat Sep 12", y sumarle los días del plazo reventaba.
+  test('cambiar el cliente con la fecha COMO LA ENTREGA LA BASE: el vencimiento se recalcula bien', async () => {
+    const delDriver = { ...EMITIDA, fecha: new Date(2026, 8, 12) };   // DATE → Date a la medianoche local
+    const aCredito = montarEmitida({
+      factura: delDriver,
+      clienteNuevo: { id: 9, activo: true, nombre: 'FERRETERÍA EL CLAVO', plazo_credito_id: 3, plazo_dias: 30, plazo_nombre: '30 días' }
+    });
+    await aCredito.servicio.editarFactura(500, { clienteId: 9, items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4);
+    const conPlazo = aCredito.log.find(l => /^UPDATE factura/.test(l.sql));
+    assert.ok(conPlazo.params.includes('2026-10-12'), `el vencimiento a 30 días salió mal: ${JSON.stringify(conPlazo.params.filter(p => /\d{4}-|Sep|Invalid/.test(String(p))))}`);
+
+    const deContado = montarEmitida({
+      factura: delDriver,
+      clienteNuevo: { id: 9, activo: true, nombre: 'FERRETERÍA EL CLAVO', plazo_credito_id: null, plazo_dias: null, plazo_nombre: null }
+    });
+    await deContado.servicio.editarFactura(500, { clienteId: 9, items: [{ id: '1183', quantity: 1, price: 1000 }] }, 4);
+    const sinPlazo = deContado.log.find(l => /^UPDATE factura/.test(l.sql));
+    assert.ok(sinPlazo.params.includes('2026-09-12'), 'de contado, vence el mismo día de la factura');
+    assert.ok(sinPlazo.params.includes('contado'));
+    for (const update of [conPlazo, sinPlazo])
+      assert.equal(update.params.some(p => /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d/.test(String(p))), false, 'se guardó una fecha con forma de "Sat Sep 12"');
+  });
+
   test('un producto desactivado DESPUÉS de facturarlo se conserva al editar; uno nuevo inactivo no entra', async () => {
     // Impresión edita la factura para reimprimirla (rebaja faltantes, pone
     // precios del catálogo): si un producto de la factura se desactivó

@@ -41,7 +41,7 @@ const { httpError, texto, numero, validar, idValido } = require('../../utils/val
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 // Un solo lugar sabe qué día es: Costa Rica es UTC−6 y después de las 6 de
 // la tarde `toISOString()` ya devuelve mañana.
-const { hoyEnCostaRica } = require('../../utils/fechaCR');
+const { hoyEnCostaRica, diaDeBase } = require('../../utils/fechaCR');
 const { tomarConsecutivo } = require('./consecutivo');
 const idempotencia = require('./idempotencia');
 
@@ -767,7 +767,7 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
         condicion_venta: aCredito ? 'credito' : 'contado',
         plazo_credito_id: aCredito ? nuevo.plazo_credito_id : null,
         plazo_texto: aCredito ? nuevo.plazo_nombre : 'De contado',
-        fecha_vencimiento: aCredito ? sumarDias(String(factura.fecha).slice(0, 10), dias) : String(factura.fecha).slice(0, 10)
+        fecha_vencimiento: aCredito ? sumarDias(diaDeBase(factura.fecha), dias) : diaDeBase(factura.fecha)
       };
     }
 

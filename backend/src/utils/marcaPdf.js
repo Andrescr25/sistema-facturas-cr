@@ -10,6 +10,7 @@
  */
 
 const path = require('path');
+const { diaDeBase } = require('./fechaCR');
 
 const MARCA = {
   naranja: '#E9501C',
@@ -86,11 +87,10 @@ function colonesExacto(n) {
  */
 const fechaLarga = (f) => {
   if (!f) return '';
-  // De un Date se leen sus partes LOCALES. Pasar por toISOString lo corre a
-  // UTC y en Costa Rica (−6) una fecha guardada a medianoche cambia de día.
-  const iso = f instanceof Date
-    ? `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`
-    : String(f).slice(0, 10);
+  // De un Date se leen sus partes LOCALES (diaDeBase): pasar por toISOString
+  // lo corre a UTC y en Costa Rica (−6) una fecha a medianoche cambia de día.
+  const iso = diaDeBase(f);
+  if (!iso) return String(f);
   const d = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(d.getTime())) return String(f);
   return d.toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' });

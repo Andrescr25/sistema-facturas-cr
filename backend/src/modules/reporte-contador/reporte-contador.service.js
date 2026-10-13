@@ -25,6 +25,7 @@
 
 const XLSX = require('xlsx');
 const { query } = require('../../../config/database');
+const { diaDeBase } = require('../../utils/fechaCR');
 const { traerDelSistema } = require('./desdeElSistema');
 const { enviarCorreo, estaConfigurado } = require('../../../services/mailer');
 
@@ -80,7 +81,7 @@ function nombreImpuestoPorTarifa(tipoTarifa) {
  * sea un día menos al abrir el archivo.
  */
 function serialExcel(fecha) {
-  const iso = fechaIsoLocal(fecha);
+  const iso = diaDeBase(fecha);
   if (!iso) return '';
   const [anio, mes, dia] = iso.split('-').map(Number);
   return Date.UTC(anio, mes - 1, dia) / 86400000 + 25569;
@@ -101,22 +102,10 @@ function formatearColumnaFecha(hoja, encabezado) {
   }
 }
 
-/**
- * Fecha en 'YYYY-MM-DD' leyendo los componentes LOCALES.
- *
- * Sin esto la fecha se guardaba un día antes: Alegra devuelve '2026-08-11',
- * `new Date()` lo interpreta como medianoche UTC, y el driver de Postgres lo
- * escribe en hora local (UTC-6) — con lo que la columna DATE truncaba a
- * 2026-08-10. Pasando la fecha ya formateada no hay conversión de zona.
- */
-function fechaIsoLocal(valor) {
-  if (!valor) return null;
-  if (typeof valor === 'string') return valor.slice(0, 10);
-  if (!(valor instanceof Date) || Number.isNaN(valor.getTime())) return null;
-  const mes = String(valor.getMonth() + 1).padStart(2, '0');
-  const dia = String(valor.getDate()).padStart(2, '0');
-  return `${valor.getFullYear()}-${mes}-${dia}`;
-}
+// La fecha va como 'AAAA-MM-DD' leída de sus partes LOCALES (`diaDeBase`, en
+// utils/fechaCR.js). Sin eso se guardaba un día antes: `new Date('2026-08-11')`
+// es medianoche UTC y el driver lo escribe en hora local (UTC−6), con lo que
+// la columna DATE truncaba a 2026-08-10.
 
 function httpError(status, message) {
   const error = new Error(message);
@@ -150,7 +139,7 @@ async function insertarLotesLineas(periodoId, lineas) {
       .join(', ');
 
     const valores = lote.flatMap((l, idx) => [
-      periodoId, i + idx, l.tipoDocumento, fechaIsoLocal(l.fecha), l.numero, l.documentoAsociado || null,
+      periodoId, i + idx, l.tipoDocumento, diaDeBase(l.fecha), l.numero, l.documentoAsociado || null,
       l.esEmitida, l.contraparte,
       l.actividadEconomica, l.concepto, l.cantidad, l.precioUnitario, l.precioTotal, l.descuento,
       l.nombreImpuesto, l.tipoImpuesto, l.tarifa, l.tipoTarifa, l.acreditable, l.baseGravable, l.impuesto,

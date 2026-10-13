@@ -533,3 +533,13 @@ una copia del catálogo que solo se renovaba al tocar «Actualizar». Ahora todo
 lo activo llega a Facturación y la copia se renueva sola cuando algo cambia.
 Detalle en [facturacion-offline](grafo/modulo/facturacion-offline.md).
 
+## 2026-10-13 — «Vamos a ir corrigiendo errores y ajustando»
+
+Textual: «ok, vamos a ir corrigiendo errores y ajustando». Primer error de la
+tanda: «cuando estoy dentro de una factura de venta editándola y quiero
+cambiar el cliente me sale este error» (500, «Invalid time value»).
+
+**Hecho**: el servidor leía mal la fecha de la factura al recalcular el
+vencimiento del cliente nuevo. Corregido y probado contra la base real.
+Detalle en [facturacion](grafo/modulo/facturacion.md).
+

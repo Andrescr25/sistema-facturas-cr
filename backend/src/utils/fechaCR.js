@@ -43,6 +43,30 @@ function diaEnCostaRica(momento) {
   return FORMATO.format(d);
 }
 
+/**
+ * El día de una columna DATE tal como la entrega la base ("AAAA-MM-DD"), o
+ * null si no es una fecha.
+ *
+ * El driver de Postgres devuelve un DATE como un objeto Date puesto a la
+ * medianoche LOCAL del servidor, no como texto. Dos formas de leerlo mal:
+ *  - `String(fecha).slice(0, 10)` da "Mon Oct 12". El 2026-10-13 eso tumbó
+ *    el cambio de cliente de una factura: al sumarle los días del plazo salía
+ *    «Invalid time value»; las pruebas usaban una fecha de texto y pasaban.
+ *  - `diaEnCostaRica(fecha)` lo trata como un instante: en un servidor en UTC
+ *    la medianoche es todavía el día anterior en Costa Rica.
+ * Lo correcto es leer sus partes locales, que es como el driver lo armó. Un
+ * texto que ya es un día (con o sin hora detrás) se devuelve recortado.
+ */
+function diaDeBase(valor) {
+  if (valor instanceof Date) {
+    if (Number.isNaN(valor.getTime())) return null;
+    const dos = (n) => String(n).padStart(2, '0');
+    return `${valor.getFullYear()}-${dos(valor.getMonth() + 1)}-${dos(valor.getDate())}`;
+  }
+  const texto = String(valor ?? '').trim().slice(0, 10);
+  return SOLO_DIA.test(texto) ? texto : null;
+}
+
 /** Hoy en Costa Rica ("AAAA-MM-DD"). */
 function hoyEnCostaRica(momento = new Date()) {
   return diaEnCostaRica(momento);
@@ -62,4 +86,4 @@ function hoyEnCostaRica(momento = new Date()) {
  */
 const AHORA_CR_SQL = "(now() AT TIME ZONE 'America/Costa_Rica')";
 
-module.exports = { hoyEnCostaRica, diaEnCostaRica, AHORA_CR_SQL };
+module.exports = { hoyEnCostaRica, diaEnCostaRica, diaDeBase, AHORA_CR_SQL };

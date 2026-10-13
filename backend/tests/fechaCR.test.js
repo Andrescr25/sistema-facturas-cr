@@ -97,3 +97,24 @@ describe('un día de calendario ya escrito', () => {
     assert.equal(diaEnCostaRica('2026-09-13T01:21:00Z'), '2026-09-12');
   });
 });
+
+// `diaDeBase`: una columna DATE llega del driver como Date a la medianoche
+// LOCAL, no como texto. Leerla mal tumbó el cambio de cliente de una factura
+// el 2026-10-13 («Invalid time value»).
+test('el día de una columna DATE se lee de sus partes locales, venga como venga', () => {
+  const { diaDeBase } = require('../src/utils/fechaCR');
+  // Como lo arma el driver: año, mes y día en la hora del servidor.
+  assert.equal(diaDeBase(new Date(2026, 9, 12)), '2026-10-12');
+  assert.equal(diaDeBase(new Date(2026, 0, 1)), '2026-01-01');
+  assert.equal(diaDeBase(new Date(2026, 11, 31)), '2026-12-31');
+  // Lo que salía antes: nunca más.
+  assert.notEqual(String(new Date(2026, 9, 12)).slice(0, 10), '2026-10-12');
+  // Un texto que ya es un día, con o sin hora detrás.
+  assert.equal(diaDeBase('2026-10-12'), '2026-10-12');
+  assert.equal(diaDeBase('2026-10-12T05:00:00.000Z'), '2026-10-12');
+  assert.equal(diaDeBase(' 2026-10-12 '), '2026-10-12');
+  // Lo que no es una fecha no se disfraza de una.
+  for (const malo of [null, undefined, '', 'Mon Oct 12', 'ayer', new Date('nada'), 20261012])
+    assert.equal(diaDeBase(malo), null, String(malo));
+});
+
