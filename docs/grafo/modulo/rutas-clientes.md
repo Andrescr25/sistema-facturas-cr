@@ -216,6 +216,12 @@ toca hoy, Atrasado, Sin facturas, Sin rotación—. Llegan calculadas en
 factura EMITIDA de TODA su historia (no de los doce meses de «compras»: a
 quien no compra hace un año es a quien más toca visitar).
 
+Relevo Codex: se excluye también la anulación con notas completas (el estado
+de la factura sigue emitida). Comparte el criterio SQL de Facturación/Bodega;
+una parcial o un cobro no borran la atención. Integrado sobre `e5b1cd2` y
+publicado solo en `developer`, conforme al pedido más reciente.
+[Verificación y pendiente](../../informes/rotacion-clientes-relevo-2026-10-13.md).
+
 Ruta y rotación son dos cosas: cambiar una no toca la otra (hay prueba). Los
 campos «Día habitual de visita/entrega» siguen como estaban; en producción
 los tienen 2 clientes.

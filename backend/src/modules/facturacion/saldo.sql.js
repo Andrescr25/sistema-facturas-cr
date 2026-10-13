@@ -15,4 +15,9 @@ const ACREDITADO = `
               JOIN nota_credito nc ON nc.id = nf.nota_credito_id
              WHERE nf.factura_id = f.id AND nc.estado <> 'anulada'), 0)`;
 
-module.exports = { COBRADO, ACREDITADO };
+// Facturación conserva emitida la factura anulada mediante notas. La misma
+// tolerancia de medio colón sirve para despacho y para última atención; un
+// cobro completo o una factura gratis sin créditos siguen siendo ventas.
+const SIN_CREDITO_TOTAL = `NOT (${ACREDITADO} > 0 AND ${ACREDITADO} >= f.total - 0.5)`;
+
+module.exports = { COBRADO, ACREDITADO, SIN_CREDITO_TOTAL };

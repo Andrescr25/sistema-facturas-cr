@@ -1,5 +1,26 @@
 # Checklist: clientes, rutas y ciclos operativos
 
+## Decisión vigente: rotación individual, 2026-10-13
+
+El usuario retira los ciclos por partes; las rutas se mantienen. Las casillas
+anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
+[rotación por cliente](grafo/decision/rotacion-por-cliente-sin-ciclos.md).
+
+- [x] ROT-01 — Frecuencia editable por cliente, de 1 a 365 días; vacía sin
+  suponer un plazo. Claude `479ffb2`, integrado por Codex en `201d07b`.
+- [x] ROT-02 — Última factura vigente + frecuencia; recalcula al facturar,
+  editar o anular, incluida una nota completa. Suite 2.761, 41 pruebas
+  específicas con PostgreSQL y navegador 390/700/1440. Publicado únicamente
+  en `developer`; [evidencia y límites](informes/rotacion-clientes-relevo-2026-10-13.md).
+- [ ] ROT-03 — Reporte de clientes por ruta de la ficha, sin semana.
+- [ ] ROT-04 — Agenda Preventa por próxima visita: atrasados/hoy/próximos.
+- [ ] ROT-05 — Carga/entrega sin ciclos; decidir qué facturas forman la carga.
+- [ ] ROT-06 — Impresos activos 24 horas, luego historial sin limpieza semanal.
+- [ ] ROT-07 — Historial de impresos con fechas, ruta y próxima visita.
+- [ ] ROT-08 — Retirar dependencia operativa restante conservando historia.
+
+## Antecedente: implementación por ciclos
+
 Solicitud y aclaración del usuario: **2026-10-05**.
 Estado: rutas/ciclos, ficha, pedidos/facturas y PDF terminados; filtros de
 bodega/reportes, procedencia y órdenes con PDF revisado, envío inmutable y

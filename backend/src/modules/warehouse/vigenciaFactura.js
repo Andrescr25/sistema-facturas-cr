@@ -1,11 +1,9 @@
-const { ACREDITADO } = require('../facturacion/saldo.sql');
+const { ACREDITADO, SIN_CREDITO_TOTAL } = require('../facturacion/saldo.sql');
 const { httpError } = require('../../utils/validacion');
 
 // Facturación conserva la factura emitida cuando una nota la anula. Bodega
 // debe mirar también las notas vigentes, con la tolerancia de medio colón
 // que usa estadoDeFactura; cobrarla por completo NO cancela su despacho.
-const SIN_CREDITO_TOTAL = `NOT (${ACREDITADO} > 0 AND ${ACREDITADO} >= f.total - 0.5)`;
-
 async function asegurarFacturaVigente(facturaId, db, { bloquear = false } = {}) {
   // Primero se espera el bloqueo y DESPUÉS se leen los créditos: una nota
   // confirmada mientras esperábamos debe verse en esta nueva consulta.

@@ -16,6 +16,7 @@
  */
 
 const { diaDeBase, sumarDias, diasEntre } = require('../../utils/fechaCR');
+const { SIN_CREDITO_TOTAL } = require('../facturacion/saldo.sql');
 
 const ROTACION_MAXIMA = 365;
 
@@ -31,13 +32,14 @@ const ESTADO = {
 
 /**
  * La última atención de un cliente, en SQL: el día de su última factura
- * EMITIDA. Un borrador no es una venta y una anulada no es una visita.
+ * EMITIDA y vigente. La nota completa también anula una venta aunque su
+ * estado siga siendo emitida; se usa la misma regla que en Bodega.
  * Una sola definición para la ficha, Preventa y los reportes.
  *
  * @param {string} cliente  la expresión SQL del id del cliente (`c.id`, `$1`)
  */
 const ULTIMA_ATENCION_SQL = (cliente) =>
-  `(SELECT MAX(fu.fecha) FROM factura fu WHERE fu.cliente_id = ${cliente} AND fu.estado = 'emitida')`;
+  `(SELECT MAX(f.fecha) FROM factura f WHERE f.cliente_id = ${cliente} AND f.estado = 'emitida' AND ${SIN_CREDITO_TOTAL})`;
 
 /**
  * @param {object} datos

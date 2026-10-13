@@ -50,6 +50,12 @@ ignora anuladas y respeta la misma tolerancia de medio colón. Una nota parcial
 o un cobro completo no retiran el pedido; anular una nota vuelve a habilitarlo
 si deja de estar acreditado por completo. No se borran registros históricos.
 
+2026-10-13: el predicado `SIN_CREDITO_TOTAL` se centraliza en
+`facturacion/saldo.sql.js` para que rotación de clientes y Bodega reconozcan
+la misma anulación. La función de Bodega lo sigue exportando a sus lectores;
+no cambia el despacho ni su validación al guardar. Regresión local en el
+[relevo de rotación](../../informes/rotacion-clientes-relevo-2026-10-13.md).
+
 EL DESPACHO ABIERTO TAMBIÉN SE VALIDA. Abrir cualquier factura pide sus estados
 al servidor; al volver a la pestaña o al refresco, valida la abierta sin
 reemplazar lo marcado. `FACTURA_NO_VIGENTE` la cierra, la retira de la lista y

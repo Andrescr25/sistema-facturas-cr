@@ -9,6 +9,8 @@ archivos:
   - backend/src/modules/clientes/rotacion.js
   - backend/src/modules/clientes/clientes.service.js
   - backend/src/modules/clientes/clientes.resumen.service.js
+  - backend/src/modules/facturacion/saldo.sql.js
+  - backend/src/modules/warehouse/vigenciaFactura.js
   - backend/src/utils/fechaCR.js
   - frontend/src/utils/rotacionTexto.js
   - frontend/src/components/clientes/CampoRotacion.jsx
@@ -16,9 +18,10 @@ archivos:
   - frontend/src/components/clientes/ModalCliente.jsx
   - frontend/src/components/clientes/FichaCliente.jsx
   - backend/tests/rotacionCliente.test.js
+  - docs/informes/rotacion-clientes-relevo-2026-10-13.md
 aristas:
   reemplaza: [decision/ciclo-de-ruta-como-contexto]
-  relacionado: [modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/registro-carga-entrega, modulo/pedidos-por-ciclo, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/faltantes, modulo/facturacion, modulo/reporte-proveedores, modulo/preventa-por-enlace]
+  relacionado: [modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/registro-carga-entrega, modulo/pedidos-por-ciclo, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/faltantes, modulo/facturacion, modulo/facturas-bodega, modulo/reporte-proveedores, modulo/preventa-por-enlace]
 medido: 2026-10-13
 ---
 
@@ -36,8 +39,12 @@ partes**; este nodo es el plan y dice en cuál va.
 
 - **Rotación**: cada cuántos días se vuelve a atender a ESE cliente (7, 15,
   22, 30 o lo que sea). Vive en su ficha: `cliente.rotacion_dias`.
-- **Última atención**: la fecha de su última factura EMITIDA. Un borrador no
-  es una venta y una anulada no es una visita.
+- **Última atención**: la fecha de su última factura EMITIDA y vigente. Un
+  borrador no es una venta y una anulada no es una visita. Una nota completa
+  también la retira aunque la factura conserve `estado = 'emitida'`; una
+  nota parcial o un cobro completo no la retiran. Bodega y rotación usan
+  `SIN_CREDITO_TOTAL` de `facturacion/saldo.sql.js`, con la tolerancia de
+  medio colón de Facturación. Anular esa nota restaura la atención.
 - **Próxima visita**: última atención + rotación. 22 días desde el 10 de
   octubre → 1 de noviembre (el ejemplo del usuario; es una prueba).
 - **Ruta**: a qué recorrido pertenece. NO dice cuándo le toca. Las rutas se
@@ -57,13 +64,20 @@ Estados: `sin_rotacion` (no se le definió: no se inventa una), `sin_facturas`
 
 ## Las partes
 
-- [x] **ROT-01 / ROT-02 — frecuencia en la ficha y cálculo.** Hecho en la rama
-  `tmp/claude-rotacion-20261013`. Migración 056 (una columna). El formulario
+- [x] **ROT-01 / ROT-02 — frecuencia en la ficha y cálculo.** Claude lo hizo
+  en `479ffb2`; Codex lo integró sobre las órdenes automáticas en `201d07b`
+  y cerró la revisión/publicación en `developer`. Migración 056 (una columna). El formulario
   del cliente tiene «Rotación: cada cuántos días se le visita», con 7/15/22/30
   a un toque y campo libre de 1 a 365; la ficha muestra rotación, última
   atención, próxima visita y su estado. `GET /clientes/:id/resumen` devuelve
-  `rotacion`. **No sube a `developer` ni a `main` hasta que la 056 esté
-  aplicada en producción**: crear un cliente inserta la columna y fallaría.
+  `rotacion`. **La 056 quedó aplicada en producción el 2026-10-13 a las
+  12:37** por Claude, con la autorización del usuario («ok, sí tienes permiso
+  para correr esa migración»): una transacción con `lock_timeout`, los 250
+  clientes con la misma huella antes y después, y el estado previo guardado
+  fuera del repositorio. Codex conservó ese registro de Claude sin volver a
+  conectar con producción. **La entrega es solo a `developer`**, conforme
+  al último pedido guardado; `main` conserva `e5b1cd2`. Pruebas y límites en
+  [el informe del relevo](../../informes/rotacion-clientes-relevo-2026-10-13.md).
 - [ ] **ROT-03 — Reporte de clientes solo por ruta.** Hoy
   (`reports/report.service.js`, `useFiltroCicloOperacion`,
   `FiltroCicloOperacion`) filtra por ruta Y semana, y la ruta sale del ciclo
@@ -122,6 +136,8 @@ puede proponer cliente por cliente para que la apruebe.
 
 ## Coordinación
 
-Codex abrió el 2026-10-13 `tmp/codex-ordenes-proveedor-20261013` (órdenes al
-proveedor, que hoy cuelgan de ciclos). Antes de tocar Reporte de Proveedores
-u órdenes: mirar `git worktree list` y su nota.
+Órdenes automáticas de Codex (`e5b1cd2`) ya están en `developer` y `main`:
+se acumulan faltantes solo en borrador/pendiente sin envío. La integración de
+la rotación parte de ese commit. Se conserva el contexto histórico opcional
+de ciclo mientras llega ROT-08. Antes de tocar Reporte de Proveedores u
+órdenes: mirar `git worktree list` y su nodo.

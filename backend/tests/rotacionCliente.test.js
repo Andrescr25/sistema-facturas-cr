@@ -133,22 +133,22 @@ describe('cómo quedó conectado', () => {
     assert.match(sql, /ALTER TABLE cliente ADD COLUMN IF NOT EXISTS rotacion_dias SMALLINT/);
     assert.equal((sql.match(/ADD COLUMN/g) || []).length, 1, 'ni la última atención ni la próxima visita son columnas: se calculan');
     // Una sola definición de "última atención": la última factura EMITIDA.
-    assert.match(back('modules', 'clientes', 'rotacion.js'), /MAX\(fu\.fecha\) FROM factura fu WHERE fu\.cliente_id = \$\{cliente\} AND fu\.estado = 'emitida'/);
+    assert.match(back('modules', 'clientes', 'rotacion.js'), /MAX\(f\.fecha\) FROM factura f WHERE f\.cliente_id = \$\{cliente\} AND f\.estado = 'emitida'/);
     assert.match(back('modules', 'clientes', 'clientes.resumen.service.js'), /\$\{ULTIMA_ATENCION_SQL\('c\.id'\)\} AS ultima_factura/);
   });
 });
 
 describe('la rotación de un cliente — contra la base local', { skip: process.env.DATABASE_URL ? false : 'sin DATABASE_URL' }, () => {
-  let pool; let conexion; let clientes; let resumen; let facturas;
+  let pool; let conexion; let clientes; let resumen; let facturas; let notas;
   let cliente; let producto; let usuarioId;
   const hoy = hoyEnCostaRica();
 
   const rotacion = async () => (await resumen.resumenDeCliente(cliente.id)).rotacion;
   /** Una factura emitida de ese cliente, puesta en el día que se pida. */
-  const facturar = async (dia) => {
+  const facturar = async (dia, cantidad = 1) => {
     const f = await facturas.crearFactura({
       clienteId: cliente.id, clienteNombre: cliente.nombre,
-      items: [{ productoId: producto.id, reference: producto.referencia, name: producto.nombre, quantity: 1, price: 1000 }]
+      items: [{ productoId: producto.id, reference: producto.referencia, name: producto.nombre, quantity: cantidad, price: 1000 }]
     }, usuarioId);
     await conexion.query('UPDATE factura SET fecha = $2::date, fecha_vencimiento = $2::date WHERE id = $1', [f.id, dia]);
     return f.id;
@@ -171,6 +171,7 @@ describe('la rotación de un cliente — contra la base local', { skip: process.
     clientes = require('../src/modules/clientes/clientes.service');
     resumen = require('../src/modules/clientes/clientes.resumen.service');
     facturas = require('../src/modules/facturacion/facturaPropia.service');
+    notas = require('../src/modules/facturacion/notaCredito.service');
 
     producto = (await conexion.query(
       `SELECT id, nombre, referencia FROM producto WHERE activo AND coalesce(trim(referencia), '') <> '' AND impuesto_id IS NOT NULL ORDER BY id LIMIT 1`)).rows[0];
@@ -210,6 +211,32 @@ describe('la rotación de un cliente — contra la base local', { skip: process.
 
     await conexion.query("UPDATE factura SET estado = 'anulada' WHERE id = $1", [nueva]);
     assert.deepEqual([(await rotacion()).ultimaAtencion, (await rotacion()).proximaVisita], ['2026-10-10', '2026-11-01'], 'anular la última devuelve la fecha a la anterior');
+  });
+
+  test('una nota completa devuelve la atención anterior; una parcial no, y anular la nota la restaura', async () => {
+    const id = await facturar('2026-10-21', 2);
+    const nota = () => notas.crearNotaCredito({ facturaId: id, motivo: 'anulacion',
+      motivoTexto: 'ZZ rotación con crédito', lineas: [{ numeroLinea: 1, cantidad: 1 }] }, usuarioId);
+    await nota();
+    assert.equal((await rotacion()).ultimaAtencion, '2026-10-21', 'la nota parcial conserva la atención');
+    const segunda = await nota();
+    assert.equal((await conexion.query('SELECT estado FROM factura WHERE id=$1', [id])).rows[0].estado, 'emitida');
+    assert.deepEqual([(await rotacion()).ultimaAtencion, (await rotacion()).proximaVisita], ['2026-10-10', '2026-11-01']);
+    await notas.anularNotaCredito(segunda.id, { motivo: 'ZZ reversión del crédito' }, usuarioId);
+    assert.equal((await rotacion()).ultimaAtencion, '2026-10-21');
+    await conexion.query("UPDATE factura SET estado='anulada' WHERE id=$1", [id]);
+  });
+
+  test('una factura pagada sigue siendo atención y una factura gratuita sin notas también', async () => {
+    const id = await facturar('2026-10-22');
+    const { rows: [f] } = await conexion.query('SELECT total FROM factura WHERE id=$1', [id]);
+    const { rows: [pago] } = await conexion.query(`INSERT INTO pago(numero,fecha,cliente_nombre,monto,anulado)
+      VALUES($1,'2026-10-22','ZZ Rotación',$2,FALSE) RETURNING id`, [`ZZ-ROT-PAGO-${id}`, f.total]);
+    await conexion.query('INSERT INTO pago_factura(pago_id,factura_id,monto) VALUES($1,$2,$3)', [pago.id, id, f.total]);
+    assert.equal((await rotacion()).ultimaAtencion, '2026-10-22');
+    await conexion.query('UPDATE factura SET total=0 WHERE id=$1', [id]);
+    assert.equal((await rotacion()).ultimaAtencion, '2026-10-22');
+    await conexion.query("UPDATE factura SET estado='anulada' WHERE id=$1", [id]);
   });
 
   test('cambiarle la frecuencia recalcula desde la misma factura, y queda en la bitácora', async () => {

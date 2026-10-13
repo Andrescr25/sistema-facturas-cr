@@ -623,5 +623,17 @@ por partes**, no de una vez. El plan, qué parte va y qué falta decidir:
 [rotación por cliente](grafo/decision/rotacion-por-cliente-sin-ciclos.md).
 
 **Hecho (parte 1)**: la frecuencia en la ficha de cada cliente y el cálculo
-de última atención y próxima visita. Espera la migración 056 en producción.
+de última atención y próxima visita.
+
+El mismo día, sobre la migración que eso necesitaba: «ok, sí tienes permiso
+para correr esa migración. Sube esto a developer y me das lo que está
+pendiente». Claude dejó registrado que aplicó la 056 en producción (12:37).
+Al tomar el relevo, la publicación seguía pendiente: GitHub conservaba
+`e5b1cd2` en ambas ramas. Codex cerró la integración y publicación de la
+parte 1 en `developer`; `main` se conserva: pidió `developer`.
+
+Después: «perfecto, continua en lo quedo claude se termino el uso de claude
+entondes quedo a medias». La revisión del relevo también corrige la última
+atención ante una anulación con nota de crédito completa; pruebas en copia
+local y [estado pendiente](grafo/decision/rotacion-por-cliente-sin-ciclos.md).
 
