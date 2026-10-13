@@ -637,3 +637,10 @@ entondes quedo a medias». La revisión del relevo también corrige la última
 atención ante una anulación con nota de crédito completa; pruebas en copia
 local y [estado pendiente](grafo/decision/rotacion-por-cliente-sin-ciclos.md).
 
+Continuación autorizada: «ok, continua». Segunda entrega (ROT-03): el
+Reporte de clientes toma la ruta de la ficha actual, elimina la selección de
+semana, ordena por próxima visita y muestra atrasados/hoy/próximos. Mantiene
+la revisión de faltantes e impresión, y separa homónimos por id propio.
+Sin SQL nueva; publicación en `developer` y vista local 5173/3000.
+La agenda Preventa para todos los clientes es la parte siguiente (ROT-04).
+

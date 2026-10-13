@@ -68,7 +68,12 @@ async function crear(db, { factor = 1, prepararFisico = true } = {}) {
     for (const [cicloId, cantidad] of [[actual.id, 10], [proximo.id, 4], ['sin-ciclo', 2]]) {
       // La demanda/físico usan unidades propias; las cajas del proveedor son
       // enteras. El excedente redondeado no se asigna a otra semana.
-      let o = await s.ordenes.crear({ proveedorId: proveedor.id, cicloId, clave: randomUUID(), lineas: [{ productoId: producto, cantidadProveedor: Math.ceil(cantidad / factor) }] }, actor);
+      // Bodega ya creó el borrador automático. Revisar ese pedido, como hace
+      // la pantalla, conserva la cobertura; fabricar otro compraría dos veces.
+      const abiertas = await s.ordenes.listar({ proveedorId: proveedor.id, cicloId });
+      assert.equal(abiertas.length, 1, 'debe existir el borrador automático de este contexto');
+      let o = await s.ordenes.obtener(abiertas[0].id);
+      o = await s.ordenes.editar(o.id, { version: o.version, lineas: [{ productoId: producto, cantidadProveedor: Math.ceil(cantidad / factor) }] }, actor);
       o = await s.ordenes.cambiarEstado(o.id, { version: o.version, estado: 'pendiente_enviar' }, actor);
       o = await s.envio.preparar(o.id, { version: o.version, clave: randomUUID(), telefono: '88888888', mensaje: 'ZZ orden revisada ' + o.referencia }, actor);
       d.ordenes.push(await s.envio.enviar(o.id, o.envios[0].id, { confirmar: true }, actor));

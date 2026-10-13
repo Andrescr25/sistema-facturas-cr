@@ -78,12 +78,14 @@ Estados: `sin_rotacion` (no se le definió: no se inventa una), `sin_facturas`
   conectar con producción. **La entrega es solo a `developer`**, conforme
   al último pedido guardado; `main` conserva `e5b1cd2`. Pruebas y límites en
   [el informe del relevo](../../informes/rotacion-clientes-relevo-2026-10-13.md).
-- [ ] **ROT-03 — Reporte de clientes solo por ruta.** Hoy
-  (`reports/report.service.js`, `useFiltroCicloOperacion`,
-  `FiltroCicloOperacion`) filtra por ruta Y semana, y la ruta sale del ciclo
-  del documento: como casi ninguna factura tiene ciclo, elegir una ruta deja
-  el reporte vacío. Pasa a filtrar por la ruta de la FICHA del cliente
-  (`factura.cliente_id → cliente.ruta_id`) y se va el selector de semana.
+- [x] **ROT-03 — Reporte de clientes solo por ruta.** Filtro por ruta de la
+  ficha (`factura.cliente_id → cliente.ruta_id`), sin selector de semana;
+  incluye rutas sin ciclos y sin ruta. Próxima visita calculada, estados
+  atrasado/hoy/próximo y sin frecuencia; orden por próxima visita. Fichas
+  homónimas separadas por id propio, selección/Excel del detalle exactos.
+  Consultar no guarda asignaciones. Historia, ajustes y cola conservados.
+  [Implementación y límites](../modulo/reporte-clientes.md). Entrega en
+  `developer`, continuación autorizada del relevo de Claude; sin SQL nueva.
 - [ ] **ROT-04 — módulo «Preventa».** La agenda: se elige una ruta y salen sus
   clientes ordenados por próxima visita, separados en ATRASADOS, HOY y
   PRÓXIMOS (más «sin rotación» y «sin facturas», para que nadie desaparezca).

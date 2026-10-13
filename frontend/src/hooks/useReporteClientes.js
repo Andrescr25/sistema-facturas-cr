@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useContextoConsulta } from './useContextoConsulta'
-import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
+import { useFiltroRutaReporteCliente } from './useFiltroRutaReporteCliente'
 import { alegraService } from '../services/alegraService'
 import { colaImpresionService } from '../services/colaImpresionService'
 import {
@@ -24,8 +24,8 @@ import { useToast } from './useToast'
  * <ConfirmModal {...dialogProps} /> y <ToastContainer toasts={toasts} onRemove={removeToast} />.
  */
 export function useReporteClientes() {
-  const filtroCiclo = useFiltroCicloOperacion('/reportes/faltantes/cliente/ciclos')
-  const { vigente, esActual, confirmar: confirmarLectura } = useContextoConsulta(JSON.stringify(filtroCiclo.params))
+  const filtroRuta = useFiltroRutaReporteCliente()
+  const { vigente, esActual, confirmar: confirmarLectura } = useContextoConsulta(JSON.stringify(filtroRuta.params))
   const peticion = useRef(0)
   const { confirm, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
@@ -35,7 +35,7 @@ export function useReporteClientes() {
   const [loading, setLoading] = useState(true)
   const [error, setErrorActual] = useState(null)
   const setError = useCallback(valor => { if (esActual()) setErrorActual(valor) }, [esActual])
-  // También el rollback de un ajuste pertenece a su semana. Un fallo tardío
+  // También el rollback de un ajuste pertenece a su ruta. Un fallo tardío
   // no puede reemplazar las respuestas que ya llegaron para otra selección.
   const [entregasAjustadas, setEntregasAjustadasActual] = useState(new Map())
   const entregasActuales = useRef(entregasAjustadas)
@@ -61,7 +61,7 @@ export function useReporteClientes() {
     try {
       setLoading(true)
       setError(null)
-      const result = await alegraService.getReporteFaltantesCliente(filtroCiclo.params)
+      const result = await alegraService.getReporteFaltantesCliente(filtroRuta.params)
       if (!esActual() || actual !== peticion.current) return
 
       if (result.success) {
@@ -126,7 +126,7 @@ export function useReporteClientes() {
     } finally {
       if (esActual() && actual === peticion.current) { confirmarLectura(); setLoading(false) }
     }
-  }, [filtroCiclo.params, esActual, confirmarLectura, setError, setFacturasEstado, setEntregasAjustadas, setHistorialCambios])
+  }, [filtroRuta.params, esActual, confirmarLectura, setError, setFacturasEstado, setEntregasAjustadas, setHistorialCambios])
 
   useEffect(() => {
     loadReporte()
@@ -382,7 +382,7 @@ export function useReporteClientes() {
   const contarClientesSinCaja = useCallback(() => clientes.filter(c => clienteTieneSinCaja(c, facturasEstado)).length, [clientes, facturasEstado])
 
   return {
-    filtroCiclo,
+    filtroRuta,
     clientes: vigente ? clientes : [],
     resumen: vigente ? resumen : null,
     loading: loading || !vigente,

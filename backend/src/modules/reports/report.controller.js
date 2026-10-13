@@ -19,6 +19,11 @@ class ReportController {
     catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
   };
 
+  getRutasClientes = async (req, res) => {
+    try { return res.json({ success: true, data: await require('./reporteClientes.service').listarRutas() }); }
+    catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }
+  };
+
   exportarProveedores = async (req, res) => {
     try { return enviarExcel(res, await excel.exportarProveedores(req.query)); }
     catch (error) { return ResponseHelper.error(res, error.message, error.status || 500); }

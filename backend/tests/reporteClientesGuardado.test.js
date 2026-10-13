@@ -29,7 +29,7 @@ async function montar({ inicial, guardar, eliminar = async () => {}, enviar = as
     return { vigente:true, esActual:()=>seleccion===capturada, confirmar:()=>{} };
   };
   const avisos = [];
-  const nombres = ['useState','useRef','useCallback','useEffect','useContextoConsulta','useFiltroCicloOperacion',
+  const nombres = ['useState','useRef','useCallback','useEffect','useContextoConsulta','useFiltroRutaReporteCliente',
     'useDialog','useToast','alegraService','colaImpresionService',...Object.keys(utils)];
   const valores = [useState,useRef,f => f,() => {},contexto,
     () => ({ params: {} }),() => ({ confirm: confirmar }),

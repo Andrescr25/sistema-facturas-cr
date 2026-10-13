@@ -114,8 +114,8 @@ caso('bodega filtra antes de ventana/límite y prepara por el orden fijo, no cre
 caso('misma ruta en dos semanas conserva la ruta original tras mover el cliente',async()=>{
   const r=await bodega.listar({rutaId:ruta.id});assert.equal(r.data.pendientes.length,3);
   assert.ok(r.data.pendientes.every(f=>f.ciclo.rutaId===ruta.id));
-  const r2=await reportes.getMissingItemsByClient({cicloId:actual.id,asignarProveedores:false});assert.equal(r2.success,true,r2.error);
-  assert.deepEqual(r2.data.flatMap(c=>c.facturas_con_faltantes).map(f=>f.ciclo.orden),[1,2]);
+  const r2=await reportes.getMissingItemsByClient({rutaId:ruta.id});assert.equal(r2.success,true,r2.error);
+  assert.deepEqual(r2.data.flatMap(c=>c.facturas_con_faltantes).map(f=>f.ciclo.orden),[2]);
   assert.equal(r2.data[0].facturas_con_faltantes[0].ciclo.rutaNombre,ruta.nombre);
 });
 caso('proveedor muestra 6+4 por semanas, factura/cliente/parada y origen anticipado',async()=>{
@@ -130,8 +130,8 @@ caso('Sin ciclo conserva historial y la combinación incompatible nunca ignora r
   assert.deepEqual((await supplier({cicloId:'sin-ciclo'}))[0].origenes.map(o=>o.facturaId),[docs[4].f]);
   assert.deepEqual(await supplier({rutaId:ruta.id,cicloId:'sin-ciclo'}),[]);
   assert.deepEqual((await bodega.listar({rutaId:otraRuta.id,cicloId:actual.id})).data.pendientes,[]);
-  const r=await reportes.getMissingItemsByClient({cicloId:'sin-ciclo',asignarProveedores:false});
-  assert.ok(r.data.flatMap(c=>c.facturas_con_faltantes).every(f=>f.ciclo===null));
+  const r=await reportes.getMissingItemsByClient({rutaId:otraRuta.id});
+  assert.ok(r.data.flatMap(c=>c.facturas_con_faltantes).some(f=>f.factura_id===docs[4].f), 'el reporte incluye facturas sin ciclo por la ruta actual');
 });
 caso('notas de la próxima semana no incluyen variantes pedidas esta semana',async()=>{
   const r=await notas.notasPorProducto(null,{cicloId:proximo.id});assert.deepEqual(r.porProducto[String(producto)].map(n=>n.nota),['VERDE']);
@@ -143,7 +143,7 @@ caso('Excel respeta ciclo y exporta procedencia sumable sin cambiar faltantes',a
   assert.equal(filas(rr).find(p=>p['ID producto']===producto)['Cantidad faltante'],4);
   const oo=filas(rr,'Procedencia').filter(p=>p['ID producto']===producto);assert.equal(oo.length,1);
   assert.equal(oo[0]['ID ciclo'],proximo.id);assert.equal(oo[0]['ID factura'],docs[2].f);assert.equal(oo[0]['Preventa anticipada'],'Sí');
-  const cc=filas(await excel.exportarClientes({cicloId:actual.id}));assert.deepEqual(cc.map(f=>f['Orden de entrega']),[1,2]);
+  const cc=filas(await excel.exportarClientes({rutaId:ruta.id}));assert.deepEqual(cc.map(f=>f['Orden de entrega']),[2]);
   assert.ok(cc.every(f=>f['ID ciclo']===actual.id));
   assert.equal((await c.query('SELECT md5(jsonb_agg(to_jsonb(f) ORDER BY id)::text) huella FROM faltantes f')).rows[0].huella,antes);
 });
@@ -167,7 +167,7 @@ caso('selector ofrece también ciclos históricos sin revelar recorrido o Maps',
 caso('lecturas de ciclo y Maps pertenecen a cada módulo y limpieza conserva dueño admin',()=>{
   const m=require('../src/modules/usuarios/modulos');
   assert.equal(m.moduloDeRuta('/bodega/ciclos'),'facturas-bodega');
-  assert.equal(m.moduloDeRuta('/reportes/faltantes/cliente/ciclos'),'reporte-clientes');
+  assert.equal(m.moduloDeRuta('/reportes/faltantes/cliente/rutas'),'reporte-clientes');
   assert.equal(m.moduloDeRuta('/reportes/faltantes/cliente'),'reporte-clientes');
   assert.equal(m.moduloDeRuta('/reportes/faltantes/proveedor/ciclos'),'reporte-proveedores');
   assert.equal(m.moduloDeRuta('/reportes/faltantes/proveedor/limpiar'),'configuracion');

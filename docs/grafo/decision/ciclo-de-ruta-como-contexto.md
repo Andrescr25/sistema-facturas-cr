@@ -16,9 +16,13 @@ medido: 2026-10-13
 pasar a rotación individual por cliente:
 [[decision/rotacion-por-cliente-sin-ciclos]]. Este nodo sigue «vigente»
 porque el código de esta rama TODAVÍA usa ciclos en Facturación, pedidos,
-Reporte de Clientes/Proveedores y Carga y entrega; se retira por partes y
+Reporte de Proveedores y Carga y entrega; se retira por partes y
 ese nodo dice en cuál va. No construir nada nuevo sobre ciclos. Las rutas
 (recorrido, orden, Maps) se mantienen.
+
+ROT-03 ya retiró la selección de semana del Reporte de Clientes: toma la ruta
+de la ficha actual y ordena por próxima visita. El contexto de ciclo permanece
+solo como historia del documento; [[modulo/reporte-clientes]].
 
 **Decisión del usuario. Rutas/ciclos, pedidos/facturas, bodega/reportes y borradores de compra por ciclo implementados; envío y recepción física implementados; archivo implementado y consulta de carga/entregas disponible; registro físico implementado y verificado en copia local.** La ruta define el
 recorrido; el ciclo identifica una ejecución concreta, por ejemplo Ruta 1 /

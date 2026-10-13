@@ -12,7 +12,11 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   editar o anular, incluida una nota completa. Suite 2.761, 41 pruebas
   específicas con PostgreSQL y navegador 390/700/1440. Publicado únicamente
   en `developer`; [evidencia y límites](informes/rotacion-clientes-relevo-2026-10-13.md).
-- [ ] ROT-03 — Reporte de clientes por ruta de la ficha, sin semana.
+- [x] ROT-03 — Reporte de clientes por ruta de la ficha, sin semana;
+  orden por próxima visita y estados visibles. Fichas homónimas y Excel
+  separados por id, ruta sin ciclos elegible, consulta sin asignaciones.
+  PostgreSQL local y navegador; sin migración nueva. Entrega en developer.
+  [Evidencia](informes/reporte-clientes-por-ruta-2026-10-13.md).
 - [ ] ROT-04 — Agenda Preventa por próxima visita: atrasados/hoy/próximos.
 - [ ] ROT-05 — Carga/entrega sin ciclos; decidir qué facturas forman la carga.
 - [ ] ROT-06 — Impresos activos 24 horas, luego historial sin limpieza semanal.

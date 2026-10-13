@@ -61,6 +61,12 @@ de Proveedores junta lo que hay que comprar, por proveedor → el Reporte de
 Clientes registra qué llegó después y da la factura por lista → Impresión
 ajusta la factura y la reimprime.
 
+ROT-03, 2026-10-13: [[modulo/reporte-clientes]] filtra por ruta actual de
+la ficha, ordena por próxima visita y agrupa por id propio. Consultarlo deja
+de asignar proveedores: esa escritura ocurre en Bodega o por asignación
+explícita. Los párrafos de ciclos describen la historia y el reporte del
+proveedor; no se usan para seleccionar clientes. Ajustes/cola conservados.
+
 SOBRE LO PROPIO (2026-09-30, sección 11 del checklist, pasos 2 y 3). Cada
 faltante cuelga de `factura.id` y de `producto.id`
 (`faltantes.factura_propia_id`, `faltantes.producto_propio_id`), y la cola

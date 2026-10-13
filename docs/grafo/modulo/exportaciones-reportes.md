@@ -30,7 +30,7 @@ archivos:
   - backend/tests/rentabilidad.test.js
 aristas:
   relacionado: [modulo/exportaciones-operativas-ciclo, modulo/dashboard, modulo/rentabilidad, modulo/faltantes, modulo/reporte-contador, modulo/permisos, leccion/fecha-utc-costa-rica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-06
+medido: 2026-10-13
 ---
 
 CIERRE DE §13. Inicio, Rentabilidad y los reportes de faltantes por cliente y
@@ -49,6 +49,13 @@ LAS CINCO DESCARGAS, todas GET bajo `/api`:
 | `/reportes/faltantes/proveedor/exportar` | Faltantes registrados de los proveedores que coinciden con nombre y fecha inicial. |
 
 QUÉ SIGNIFICAN LOS FILTROS
+
+2026-10-13, ROT-03: Clientes usa la ruta de la ficha vigente y ya no semana.
+El detalle descarga por `clienteId` exacto; un documento sin ficha por
+`facturaId`. No mezcla homónimos. Añade frecuencia, última atención,
+próxima visita/estado y ruta actual, distinguida del recorrido histórico.
+Pantalla y Excel comparten lectura/orden sin asignaciones;
+[[modulo/reporte-clientes]]. Proveedores conserva sus filtros anteriores.
 
 - Rentabilidad comparte `obtenerProductosFiltrados` con la lista de la
   pantalla: buscar por palabras sin tildes, categoría, clase, costo y orden.
@@ -70,12 +77,15 @@ orden conserva su PDF. Clientes incluye cantidad entregada, respuesta,
 revisado y estado de la factura, con lo guardado en la base. Ninguna
 descarga guarda cambios que estén pendientes en la pantalla.
 
-EXPORTAR NO ASIGNA PROVEEDORES. Abrir los reportes tiene un paso automático
+EXPORTAR NO ASIGNA PROVEEDORES. Abrir el reporte de Proveedores tiene un paso automático
 que guarda asignaciones faltantes. Las descargas reutilizan sus consultas y
 agrupaciones con `asignarProveedores: false`: un faltante sin asignación se
 exporta así. Es importante conservar esa opción cuando cambie el servicio:
 la prueba contra PostgreSQL rechaza cualquier SQL que no sea de lectura y
 hace fallar una llamada al asignador.
+
+El reporte de Clientes tampoco asigna al abrir, desde ROT-03. La detección en
+Bodega y la asignación explícita se encargan de los faltantes nuevos.
 
 CADA LIBRO trae Información (fecha de Costa Rica, filtros y significado de
 las cifras), encabezados aun sin resultados, anchos de columna y autofiltro.

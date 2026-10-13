@@ -1,8 +1,8 @@
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
+import VisitaCliente from './VisitaCliente'
 import { useState } from 'react'
 import { User, Package, RefreshCw, AlertTriangle, Check, ChevronDown, Search } from 'lucide-react'
 import {
-  getClienteProgreso, ordenClienteProgreso, clienteTieneSinCaja, CLIENTE_ESTADO,
+  getClienteKey, getClienteProgreso, clienteTieneSinCaja, CLIENTE_ESTADO,
   FILTROS_VACIOS, hayFiltros, filtrarClientes, productosQueCoinciden
 } from '../../utils/reporteClientesUtils'
 
@@ -45,8 +45,8 @@ const ESTILO_SIN_CAJA = {
  * vista: se desmonta al entrar a un cliente, y con el estado acá adentro
  * volvían vacíos al regresar a la lista (2026-10-01).
  *
- * Las cards se ordenan por urgencia (sin caja → en progreso → listo para
- * procesar → sin empezar) y las ya terminadas bajan a su propia sección.
+ * Conserva el orden por próxima visita del servidor dentro de pendientes y
+ * listos. La alerta sin caja sigue visible sin reemplazar la fecha de visita.
  */
 export default function ListaClientes({ clientes, resumen, facturasEstado, entregasAjustadas, contarAjustes, filtros, onFiltrosChange, onSelectCliente, onRefresh }) {
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false)
@@ -74,14 +74,6 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
       progreso: getClienteProgreso(cliente, facturasEstado, entregasAjustadas),
       coincidencias: productosQueCoinciden(cliente, filtros.producto)
     }))
-    .sort((a, b) => {
-      const ca = a.cliente.facturas_con_faltantes.find(f => f.ciclo)?.ciclo
-      const cb = b.cliente.facturas_con_faltantes.find(f => f.ciclo)?.ciclo
-      if (ca || cb) return String(ca?.semana || '9999').localeCompare(cb?.semana || '9999') ||
-        (ca?.id || Infinity) - (cb?.id || Infinity) || (ca?.orden || Infinity) - (cb?.orden || Infinity) || a.cliente.nombre.localeCompare(b.cliente.nombre)
-      const orden = ordenClienteProgreso(a.progreso) - ordenClienteProgreso(b.progreso)
-      return orden !== 0 ? orden : a.cliente.nombre.localeCompare(b.cliente.nombre)
-    })
 
   const clientesPendientes = clientesFiltrados.filter(({ progreso }) => progreso.estado !== CLIENTE_ESTADO.LISTA)
   const clientesListos = clientesFiltrados.filter(({ progreso }) => progreso.estado === CLIENTE_ESTADO.LISTA)
@@ -193,7 +185,7 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {clientesPendientes.map(({ cliente, progreso, coincidencias }) => (
               <ClienteCard
-                key={cliente.nombre}
+                key={getClienteKey(cliente)}
                 cliente={cliente}
                 progreso={progreso}
                 coincidencias={coincidencias}
@@ -215,7 +207,7 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {clientesListos.map(({ cliente, progreso, coincidencias }) => (
                   <ClienteCard
-                    key={cliente.nombre}
+                    key={getClienteKey(cliente)}
                     cliente={cliente}
                     progreso={progreso}
                     coincidencias={coincidencias}
@@ -254,9 +246,9 @@ function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente })
   const esLista = progreso.estado === CLIENTE_ESTADO.LISTA
 
   return (
-    <div
-      onClick={() => onSelectCliente(cliente.nombre)}
-      className={`group bg-white rounded-xl shadow-sm hover:shadow-lg border p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden ${estilo.card} ${esLista ? 'opacity-75 hover:opacity-100' : ''}`}
+    <button type="button" aria-label={`Ver faltantes de ${cliente.nombre}${cliente.id ? `, cliente ${cliente.id}` : ''}`}
+      onClick={() => onSelectCliente(getClienteKey(cliente))}
+      className={`group w-full text-left bg-white rounded-xl shadow-sm hover:shadow-lg border p-6 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden ${estilo.card} ${esLista ? 'opacity-75 hover:opacity-100' : ''}`}
     >
       <div className="flex items-center gap-3 mb-3">
         <div className={`p-2.5 rounded-lg ${estilo.icono}`}>
@@ -264,11 +256,11 @@ function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente })
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-bold text-neutro-900 truncate">{cliente.nombre}</h3>
-          <ContextoCicloDocumento documento={cliente.facturas_con_faltantes[0]} />
-          {new Set(cliente.facturas_con_faltantes.map(f => f.ciclo?.id || 'sin-ciclo')).size > 1 && <p className="mt-1 text-xs text-nota-700">Pedidos de varios ciclos; ver semana en cada factura</p>}
           {cliente.email && <p className="text-xs text-neutro-500 truncate">{cliente.email}</p>}
         </div>
       </div>
+
+      <VisitaCliente cliente={cliente} />
 
       {/* Estado dicho en palabras */}
       <div className="flex flex-wrap gap-1.5 mb-3">
@@ -338,6 +330,6 @@ function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente })
           <p className={`text-xl font-bold ${esLista ? 'text-exito-600' : 'text-nota-600'}`}>{cliente.total_cantidad}</p>
         </div>
       </div>
-    </div>
+    </button>
   )
 }

@@ -14,13 +14,23 @@ function filtrarClientes(clientes, filtros) {
   const exacto = texto(filtros.cliente_nombre, 'cliente_nombre');
   const palabras = normalizar(texto(filtros.producto, 'producto')).split(/\s+/).filter(Boolean);
   const proveedores = filtros.proveedores || [];
+  const ids = ['clienteId', 'facturaId'].map(nombre => {
+    const valor = filtros[nombre];
+    if (valor == null || valor === '') return null;
+    if (!((typeof valor === 'string' && /^[1-9]\d*$/.test(valor)) ||
+      (typeof valor === 'number' && Number.isSafeInteger(valor) && valor > 0)) || Number(valor) > 2147483647) {
+      throw Object.assign(new Error(`Filtro ${nombre} inválido.`), { status: 400 });
+    }
+    return Number(valor);
+  });
   if (!Array.isArray(proveedores) || proveedores.some(p => typeof p !== 'string')) {
     throw Object.assign(new Error('Filtro proveedores inválido.'), { status: 400 });
   }
   const seleccionados = new Set(proveedores);
   return clientes.filter(c => {
     const productos = c.facturas_con_faltantes.flatMap(f => f.productos_faltantes).filter(p => Number(p.cantidad_faltante) > 0);
-    return (!exacto || c.nombre === exacto) && (!cliente || normalizar(c.nombre).includes(cliente))
+    return (!ids[0] || c.id === ids[0]) && (!ids[1] || c.facturas_con_faltantes.some(f => f.factura_id === ids[1]))
+      && (!exacto || c.nombre === exacto) && (!cliente || normalizar(c.nombre).includes(cliente))
       && (!palabras.length || productos.some(p => palabras.every(w => normalizar(`${p.nombre || ''} ${p.codigo || ''}`).includes(w))))
       && (!seleccionados.size || productos.some(p => seleccionados.has(p.proveedor_asignado || p.proveedor)));
   });
@@ -74,14 +84,20 @@ async function exportarClientes(filtros = {}) {
   const clientes = filtrarClientes(datos, filtros);
   return generarExcel({
     titulo: 'Faltantes por cliente', prefijo: 'faltantes-clientes',
-    informacion: [['Ruta ID', filtros.rutaId || 'Todas'], ['Ciclo ID', filtros.cicloId || 'Todos'], ['Cliente', filtros.cliente_nombre || filtros.cliente || 'Todos'], ['Buscar producto', filtros.producto || 'Todos'],
+    informacion: [['Ruta del cliente ID', filtros.rutaId || 'Todas'], ['Cliente ID', filtros.clienteId || 'Todos'], ['Factura ID', filtros.facturaId || 'Todas'], ['Cliente', filtros.cliente_nombre || filtros.cliente || 'Todos'], ['Buscar producto', filtros.producto || 'Todos'],
       ['Proveedores', (filtros.proveedores || []).join(', ') || 'Todos'], ['Selección', 'Todos los faltantes de los clientes que coinciden con los filtros.']],
-    hojas: [{ nombre: 'Faltantes', columnas: [col('cliente', 'Cliente', 'texto', 35), col('facturaId', 'ID factura', 'numero'),
+    hojas: [{ nombre: 'Faltantes', columnas: [col('cliente', 'Cliente', 'texto', 35), col('clienteId', 'ID cliente', 'numero'),
+      col('rutaCliente', 'Ruta del cliente', 'texto', 30), col('rotacionDias', 'Rotación (días)', 'numero'),
+      col('ultimaAtencion', 'Última atención', 'fecha'), col('proximaVisita', 'Próxima visita', 'fecha'), col('visitaEstado', 'Estado de visita'),
+      col('facturaId', 'ID factura', 'numero'),
       col('factura', 'Factura'), col('fecha', 'Fecha factura', 'fecha'), col('estadoFactura', 'Estado factura'),
-      ...contexto, ...producto, col('proveedor', 'Proveedor', 'texto', 35), col('faltante', 'Cantidad faltante', 'numero'),
+      ...contexto.map(c => c.clave === 'ruta' ? { ...c, titulo: 'Ruta histórica del documento' } : c), ...producto, col('proveedor', 'Proveedor', 'texto', 35), col('faltante', 'Cantidad faltante', 'numero'),
       col('entregada', 'Cantidad entregada', 'numero'), col('respuesta', 'Respuesta de entrega'), col('revisado', 'Revisado'),
       col('observaciones', 'Observaciones', 'texto', 50)],
-    filas: clientes.flatMap(c => c.facturas_con_faltantes.flatMap(f => f.productos_faltantes.map(p => ({ cliente: c.nombre,
+    filas: clientes.flatMap(c => c.facturas_con_faltantes.flatMap(f => f.productos_faltantes.map(p => ({ cliente: c.nombre, clienteId: c.id,
+      rutaCliente: c.ruta?.nombre || 'Sin ruta asignada', rotacionDias: c.rotacion?.dias,
+      ultimaAtencion: c.rotacion?.ultimaAtencion, proximaVisita: c.rotacion?.proximaVisita,
+      visitaEstado: { atrasado: 'Atrasado', hoy: 'Le toca hoy', proximo: 'Próximo', sin_facturas: 'Sin facturas', sin_rotacion: 'Sin rotación' }[c.rotacion?.estado] || 'Sin rotación',
       ruta: f.ciclo?.rutaNombre || 'Sin ciclo', semana: f.ciclo?.semana, cicloId: f.ciclo?.id, orden: f.ciclo?.orden, anticipado: f.anticipado ? 'Sí' : 'No',
       facturaId: f.factura_id, factura: f.numero_factura, fecha: f.fecha_emision,
       estadoFactura: f.estado_procesamiento === 'procesado' ? 'Procesada' : f.en_cola_impresion ? 'En impresión' : 'Pendiente',

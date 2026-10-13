@@ -1,6 +1,11 @@
 // Funciones puras de ReporteClientes.jsx: claves, formateo de fechas y
 // lectura de estado de facturas/entregas a partir de los Maps del hook.
 
+/** La selección usa identidad propia: dos fichas pueden compartir nombre. */
+export function getClienteKey(cliente) {
+  return cliente.clave || (cliente.id ? `cliente-${cliente.id}` : `nombre-${cliente.nombre}`)
+}
+
 export function getFacturaKey(factura) {
   if (!factura) return 'factura-desconocida'
   // El id PROPIO de la factura. El reporte ya no manda el de Alegra.
@@ -144,15 +149,6 @@ export function getClienteProgreso(cliente, facturasEstado, entregasAjustadas) {
     facturasActivas: facturasActivas.length,
     facturasProcesadas: cliente.facturas_con_faltantes.length - facturasActivas.length
   }
-}
-
-// Orden en el listado: las alertas primero, lo terminado al fondo.
-export function ordenClienteProgreso(progreso) {
-  if (progreso.estado === CLIENTE_ESTADO.LISTA) return 4
-  if (progreso.esSinCaja) return 0
-  if (progreso.estado === CLIENTE_ESTADO.EN_PROGRESO) return 1
-  if (progreso.estado === CLIENTE_ESTADO.LISTO_PARA_PROCESAR) return 2
-  return 3
 }
 
 // Sin caja = TODOS los items originales de la factura son faltante total

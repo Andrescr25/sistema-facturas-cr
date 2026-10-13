@@ -1,4 +1,4 @@
-import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
+import FiltroRuta from '../components/reporte-clientes/FiltroRuta'
 import { useState, useEffect } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { useReporteClientes } from '../hooks/useReporteClientes'
@@ -6,12 +6,12 @@ import ListaClientes from '../components/reporte-clientes/ListaClientes'
 import ClienteDetalle from '../components/reporte-clientes/ClienteDetalle'
 import ConfirmModal from '../components/ConfirmModal'
 import ToastContainer from '../components/ToastContainer'
-import { FILTROS_VACIOS } from '../utils/reporteClientesUtils'
+import { FILTROS_VACIOS, getClienteKey } from '../utils/reporteClientesUtils'
 import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteClientes() {
   const {
-    filtroCiclo,
+    filtroRuta,
     clientes,
     resumen,
     loading,
@@ -36,14 +36,14 @@ export default function ReporteClientes() {
   } = useReporteClientes()
 
   // NAVEGACIÓN: lista de clientes → detalle de cliente
-  const [clienteActivoNombre, setClienteActivoNombre] = useState(null)
+  const [clienteActivoClave, setClienteActivoClave] = useState(null)
   // Los filtros de la lista viven ACÁ y no en la lista: la lista se desmonta
   // al entrar a un cliente, y al volver los filtros aparecían vacíos.
   const [filtros, setFiltros] = useState(FILTROS_VACIOS)
 
-  useEffect(() => { setClienteActivoNombre(null) }, [filtroCiclo.rutaId, filtroCiclo.cicloId])
+  useEffect(() => { setClienteActivoClave(null) }, [filtroRuta.rutaId])
 
-  const clienteActivo = clientes.find(c => c.nombre === clienteActivoNombre)
+  const clienteActivo = clientes.find(c => getClienteKey(c) === clienteActivoClave)
 
   return (
     <div className="max-w-[1400px] mx-auto pb-24">
@@ -53,12 +53,12 @@ export default function ReporteClientes() {
         <p className="text-neutro-500 mt-2 text-lg">Ajusta entregas, procesa facturas y controla el estado de los pedidos.</p>
         </div>
         <BotonExportarExcel ruta="/reportes/faltantes/cliente/exportar"
-          params={{ ...filtroCiclo.params, ...(clienteActivo ? { cliente_nombre: clienteActivo.nombre } : filtros) }}
+          params={{ ...filtroRuta.params, ...(clienteActivo ? (clienteActivo.id ? { clienteId: clienteActivo.id } : { facturaId: clienteActivo.facturas_con_faltantes[0].factura_id }) : filtros) }}
           disabled={loading || Boolean(error)} title="Descarga los faltantes y las respuestas guardadas de los clientes visibles." />
       </div>
 
-      <FiltroCicloOperacion filtro={filtroCiclo} />
-      {loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta y semana…</p>}
+      <FiltroRuta filtro={filtroRuta} />
+      {loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta…</p>}
 
       {error && (
         <div className="bg-peligro-50 border-l-4 border-peligro-500 p-4 mb-8 rounded shadow-sm">
@@ -76,7 +76,7 @@ export default function ReporteClientes() {
           contarAjustes={contarAjustes}
           filtros={filtros}
           onFiltrosChange={setFiltros}
-          onSelectCliente={setClienteActivoNombre}
+          onSelectCliente={setClienteActivoClave}
           onRefresh={loadReporte}
         />
       ) : (
@@ -84,7 +84,7 @@ export default function ReporteClientes() {
           cliente={clienteActivo}
           facturasEstado={facturasEstado}
           entregasAjustadas={entregasAjustadas}
-          onVolver={() => setClienteActivoNombre(null)}
+          onVolver={() => setClienteActivoClave(null)}
           onFacturaLista={handleFacturaLista}
           onRecuperarFactura={handleRecuperarFactura}
           onCantidadEntregadaChange={handleCantidadEntregadaChange}

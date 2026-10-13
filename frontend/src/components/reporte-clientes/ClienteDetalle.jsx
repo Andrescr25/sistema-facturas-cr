@@ -1,4 +1,5 @@
 import ContextoCicloDocumento from '../ContextoCicloDocumento'
+import VisitaCliente from './VisitaCliente'
 import { User, Mail, Clock, Check, RotateCcw, ArrowLeft, AlertTriangle } from 'lucide-react'
 import FacturaActivaCard from './FacturaActivaCard'
 import { getFacturaKey, getFacturaEstado, getClienteProgreso, clienteTieneSinCaja, formatDate, formatDateTime } from '../../utils/reporteClientesUtils'
@@ -58,6 +59,7 @@ export default function ClienteDetalle({
               {esSinCaja && <span className="text-[10px] bg-peligro-500 text-white px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">📦 Sin Caja</span>}
             </div>
             {cliente.email && <p className="text-neutro-500 flex items-center mt-1"><Mail size={14} className="mr-1.5" /> {cliente.email}</p>}
+            <VisitaCliente cliente={cliente} />
             <p className="text-xs text-neutro-400 mt-1"><Clock size={12} className="inline mr-1" /> Última actividad: {formatDateTime(cliente.ultima_actividad)}</p>
           </div>
         </div>

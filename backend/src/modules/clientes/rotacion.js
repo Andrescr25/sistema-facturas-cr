@@ -64,4 +64,12 @@ function rotacionDe({ rotacionDias, ultimaFactura, hoy }) {
   return { dias, ultimaAtencion, proximaVisita, faltan, estado };
 }
 
-module.exports = { ESTADO, ROTACION_MAXIMA, ULTIMA_ATENCION_SQL, rotacionDe };
+/** Primero las visitas vencidas, hoy y próximas; sin fecha al final.
+ * Desempata por nombre e identidad para que dos fichas iguales no se mezclen.
+ */
+function ordenPorProximaVisita(a, b) {
+  return String(a.rotacion?.proximaVisita || '9999-12-31').localeCompare(String(b.rotacion?.proximaVisita || '9999-12-31'))
+    || String(a.nombre).localeCompare(String(b.nombre), 'es') || String(a.clave || a.id).localeCompare(String(b.clave || b.id));
+}
+
+module.exports = { ESTADO, ROTACION_MAXIMA, ULTIMA_ATENCION_SQL, rotacionDe, ordenPorProximaVisita };

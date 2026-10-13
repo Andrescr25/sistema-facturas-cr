@@ -185,7 +185,7 @@ describe('el proveedor de un faltante — contra PostgreSQL local', () => {
       await assert.rejects(()=>manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorA.id,cicloId:2147483647}),e=>e.status===404);
       for (const f of d.faltantes) assert.equal((await leer(f)).proveedor_asignado,null);
     });
-    for (const ambito of ['ruta','semana','sin-ciclo']) test(`abrir ambos reportes con filtro ${ambito} no asigna ni modifica faltantes`, async () => {
+    for (const ambito of ['ruta','semana','sin-ciclo']) test(`abrir proveedor por ${ambito} y clientes por ruta no asigna ni modifica faltantes`, async () => {
       const d=await contexto(); await mapeo({productoId:d.p,proveedor:proveedorA});
       const reportes=new(require('../src/modules/reports/report.service'))();
       const filtro=ambito==='ruta'?{rutaId:d.ruta}: {cicloId:ambito==='semana'?d.ciclos[1]:'sin-ciclo'};
@@ -194,7 +194,9 @@ describe('el proveedor de un faltante — contra PostgreSQL local', () => {
       // Usar los valores por omisión reales de la pantalla: pasar false aquí
       // ocultaría la regresión en GET, aunque la exportación sí fuese segura.
       const proveedor=await reportes.getMissingItemsBySupplier(null,filtro);
-      const cliente=await reportes.getMissingItemsByClient(filtro);
+      // Clientes usa su ruta actual desde ROT-03; semana/Sin ciclo siguen
+      // siendo filtros propios del reporte histórico del proveedor.
+      const cliente=await reportes.getMissingItemsByClient({ rutaId: filtro.rutaId || '' });
       assert.equal(proveedor.success,true,proveedor.error); assert.equal(cliente.success,true,cliente.error);
       assert.equal(await huella(),antes);
       for (const f of d.faltantes) assert.equal((await leer(f)).proveedor_asignado,null);
