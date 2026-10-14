@@ -25,16 +25,16 @@ function solicitud(datos,accion){
  return{clave:datos.clave.toLowerCase(),solicitud:{accion,version:datos.version,revision:datos.revision,lineas,motivo:motivo||null}};
 }
 async function datosEn(db,facturaId,{bloquear=false}={}){
- const {rows:[f]}=await db.query(`SELECT id,ciclo_ruta_cliente_id FROM factura WHERE id=$1 ${bloquear?'FOR UPDATE':''}`,[id(facturaId)]);
+ const {rows:[f]}=await db.query(`SELECT id,cliente_id,ciclo_ruta_cliente_id FROM factura WHERE id=$1 ${bloquear?'FOR UPDATE':''}`,[id(facturaId)]);
  if(!f)throw httpError(404,'No existe esa factura.');
- if(!f.ciclo_ruta_cliente_id)throw httpError(409,'Esta factura no tiene ciclo. Los históricos se conservan sin asignarles una ruta supuesta.');
+ if(bloquear)await db.query('SELECT id FROM cliente WHERE id=$1 FOR SHARE',[f.cliente_id]);
  const {rows:[cy]}=await db.query(`SELECT c.id,c.ruta_id AS "rutaId",c.ruta_nombre AS "rutaNombre",c.semana::text,c.estado,rc.orden
-   FROM ciclo_ruta_cliente rc JOIN ciclo_ruta c ON c.id=rc.ciclo_id WHERE rc.id=$1 ${bloquear?'FOR SHARE OF c':''}`,[f.ciclo_ruta_cliente_id]);
+   FROM ciclo_ruta_cliente rc JOIN ciclo_ruta c ON c.id=rc.ciclo_id WHERE rc.id=$1`,[f.ciclo_ruta_cliente_id]);
  const {rows:historial}=await db.query(`SELECT e.*,u.nombre responsable FROM entrega_evento e JOIN usuario u ON u.id=e.usuario_id
    WHERE factura_id=$1 ORDER BY version`,[f.id]);
  const ultimo=historial.at(-1),version=ultimo?.version||0;
- const {rows:[contexto]}=await db.query(`SELECT d documento,md5(jsonb_build_object('documento',d,'version',$2::int,'cicloEstado',$3::text)::text) revision
-   FROM (SELECT entrega_documento($1) d) x`,[f.id,version,cy.estado]);
+ const {rows:[contexto]}=await db.query(`SELECT d documento,entrega_revision($1,$2::int) revision,entrega_factura_vigente($1) vigente
+   FROM (SELECT entrega_documento($1) d) x`,[f.id,version]);
  const documento=contexto.documento,registrado=ultimo?.documento||documento;
  // JSONB decide la igualdad operativa, sin depender de orden de claves o
  // precisión de fechas de JavaScript. Cambiar precios no cambia el físico.
@@ -46,13 +46,12 @@ async function datosEn(db,facturaId,{bloquear=false}={}){
  const completas=lineas.length&&lineas.every(l=>l.entregada>=Number(l.cantidad));
  const estado=cambio?'requiere_revision':completas?'entregada':lineas.some(l=>l.entregada>0)?'parcialmente_entregada':lineas.some(l=>l.enCamion>0)?'cargada':'por_cargar';
  const bloqueos=[];
- if(documento.factura.estado!=='emitida')bloqueos.push('La factura no está emitida.');
+ if(!contexto.vigente)bloqueos.push('La factura está anulada o acreditada totalmente.');
  if(documento.factura.estadoBodega!=='procesado')bloqueos.push('Bodega debe registrar primero su revisión.');
- if(['cerrado','cancelado'].includes(cy.estado))bloqueos.push('El ciclo está cerrado o cancelado.');
  if(cambio)bloqueos.push('Cambió la factura o su revisión de bodega. Un administrador debe revisar el registro físico antes de continuar.');
- return{facturaId:f.id,ciclo:cy,version,revision:contexto.revision,documento,lineas,
+ return{facturaId:f.id,ciclo:cy||null,ruta:documento.factura.ruta||null,vigente:contexto.vigente,version,revision:contexto.revision,documento,lineas,
    requiereRevision:cambio,estado,bloqueos,puedeCargar:!bloqueos.length,
-   puedeEntregar:!bloqueos.length&&cy.estado==='entrega',
+   puedeEntregar:!bloqueos.length,
    historial:historial.map(e=>({id:e.id,version:e.version,accion:e.accion,documento:e.documento,saldos:e.saldos,motivo:e.motivo,responsable:e.responsable,usuarioId:e.usuario_id,fecha:e.fecha}))};
 }
 async function consultar(facturaId){return enTransaccion(pool,async db=>{
@@ -69,10 +68,9 @@ async function guardar(facturaId,datos,usuarioId,accion){
   if(anterior){const igual=(await db.query('SELECT $1::jsonb=$2::jsonb iguales',[anterior.solicitud,pedido])).rows[0].iguales;
    if(anterior.factura_id!==facturaId||!igual)throw httpError(409,'Esa clave ya corresponde a otro registro.');return p;
   }
-  if(p.version!==pedido.version||p.revision!==pedido.revision)throw httpError(409,'Cambió la factura, bodega, ciclo o registro. Actualizá y revisá antes de guardar.');
+  if(p.version!==pedido.version||p.revision!==pedido.revision)throw httpError(409,'Cambió la factura, bodega, ruta o registro. Actualizá y revisá antes de guardar.');
   if(['carga','entrega'].includes(accion)&&p.bloqueos.length)throw httpError(409,p.bloqueos.join(' '));
-  if(accion==='entrega'&&!p.puedeEntregar)throw httpError(409,'Activá esta semana en Entrega desde Rutas antes de registrar la entrega al cliente.');
-  if(accion==='revision'&&p.documento.factura.estado!=='emitida')throw httpError(409,'No se pueden reasignar cantidades a una factura anulada. Podés descargar su carga anterior.');
+  if(accion==='revision'&&!p.vigente)throw httpError(409,'No se pueden reasignar cantidades a una factura anulada. Podés descargar su carga anterior.');
   const doc=['descarga','incidencia'].includes(accion)&&p.historial.length?p.historial.at(-1).documento:p.documento;
   let saldos;
   // SAVEPOINT traduce una validación de cantidades a 400 sin ocultar un
@@ -81,8 +79,9 @@ async function guardar(facturaId,datos,usuarioId,accion){
   try{saldos=(await db.query('SELECT entrega_calcular_saldos($1,$2,$3,$4) saldos',[doc,JSON.stringify(p.historial.at(-1)?.saldos||[]),accion,JSON.stringify(pedido.lineas)])).rows[0].saldos}
   catch(e){await db.query('ROLLBACK TO SAVEPOINT validar_fisico');if(e.code==='P0001')throw httpError(400,e.message);throw e}
   await db.query('RELEASE SAVEPOINT validar_fisico');
-  await db.query(`INSERT INTO entrega_evento(id,factura_id,recorrido_id,version,accion,solicitud,documento,saldos,motivo,usuario_id)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[clave,facturaId,p.documento.factura.recorridoId,p.version+1,accion,pedido,doc,JSON.stringify(saldos),pedido.motivo,usuarioId]);
+  try{await db.query(`INSERT INTO entrega_evento(id,factura_id,recorrido_id,version,accion,solicitud,documento,saldos,motivo,usuario_id)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[clave,facturaId,p.documento.factura.recorridoId,p.version+1,accion,pedido,doc,JSON.stringify(saldos),pedido.motivo,usuarioId]);}
+  catch(e){if(e.code==='P0001')throw httpError(409,e.message);throw e}
   await registrarCambio(db,{entidad:'entrega_evento',entidadId:clave,accion,usuarioId,motivo:pedido.motivo,
     despues:{facturaId,recorridoId:p.documento.factura.recorridoId,version:p.version+1,saldos}});
   return datosEn(db,facturaId);

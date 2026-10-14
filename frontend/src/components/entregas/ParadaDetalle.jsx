@@ -1,12 +1,12 @@
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
+import { UbicacionEntrega } from './ListaEntrega'
 import RegistroFisico from './RegistroFisico'
 const numero=n=>Number(n).toLocaleString('es-CR',{maximumFractionDigits:4})
 
 export default function ParadaDetalle({parada,onActualizar}) {
   return <section className="space-y-4" aria-label="Documentos de la parada">
     <div className="card p-5">
-      <h2 className="break-words text-2xl font-bold">{parada.ciclo?`Parada ${parada.ciclo.orden} · `:''}{parada.clienteNombre}</h2>
-      <ContextoCicloDocumento documento={parada} maps/>
+      <h2 className="break-words text-2xl font-bold">{parada.ruta?.orden?`Parada ${parada.ruta.orden} · `:''}{parada.clienteNombre}</h2>
+      <UbicacionEntrega parada={parada}/>
     </div>
     {parada.documentos.map(d=><article key={`${d.tipo}-${d.id}`} className="card p-5 space-y-3">
       <h3 className="break-words text-xl font-bold">{d.tipo==='factura'?`Factura ${d.numero}`:`Pedido #${d.id} · por facturar`}</h3>
@@ -24,7 +24,7 @@ export default function ParadaDetalle({parada,onActualizar}) {
         </li>)}
       </ul>
       {!d.lineas.length&&<p className="text-sm text-neutro-600">Este documento no tiene líneas registradas.</p>}
-      {d.tipo==='factura'&&parada.ciclo&&<RegistroFisico key={d.id} facturaId={d.id} onActualizar={onActualizar}/>}
+      {d.tipo==='factura'&&<RegistroFisico key={d.id} facturaId={d.id} onActualizar={onActualizar}/>}
     </article>)}
   </section>
 }

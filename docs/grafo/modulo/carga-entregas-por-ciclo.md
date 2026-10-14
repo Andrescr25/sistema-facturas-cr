@@ -1,10 +1,12 @@
 ---
 id: modulo/carga-entregas-por-ciclo
 tipo: modulo
-titulo: Carga y entregas — consulta del recorrido fijo y carga inversa por semana
+titulo: Carga por ciclo — consulta histórica conservada, reemplazada por operación por ruta
 estado: vigente
 archivos:
   - backend/src/modules/entregas/entregas.service.js
+  - backend/src/modules/entregas/entregasHistoricas.service.js
+  - backend/src/modules/entregas/entregasLineas.service.js
   - backend/src/modules/entregas/entregas.routes.js
   - backend/src/modules/usuarios/modulos.js
   - backend/server.js
@@ -19,9 +21,16 @@ archivos:
   - docs/informes/carga-entregas-2026-10-06.md
 aristas:
   depende_de: [modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/facturas-bodega]
-  relacionado: [modulo/exportaciones-operativas-ciclo, modulo/registro-carga-entrega, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/faltantes, modulo/archivo-ordenes-compra]
-medido: 2026-10-06
+  relacionado: [modulo/carga-entregas-por-ruta, modulo/exportaciones-operativas-ciclo, modulo/registro-carga-entrega, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/faltantes, modulo/archivo-ordenes-compra]
+medido: 2026-10-13
 ---
+
+**Vigente 2026-10-13:** [ROT-05 por ruta](carga-entregas-por-ruta.md)
+reemplaza esta operación en la pantalla. El contenido siguiente conserva la
+etapa histórica y explica sus documentos: API por `cicloId` explícito sigue
+solo como lectura histórica. Cargar/entregar ya no exige ciclo/promoción y
+las facturas sin ciclo pueden registrar físico con 057. No usar las reglas
+de bloqueo de semana de esta etapa para la operación actual.
 
 ALCANCE DE ESTA PARTE. Menú Ventas → Carga y Entregas. Solo consulta por
 ciclo explícito o Sin ciclo, nunca inferir semana activa/fecha del documento.

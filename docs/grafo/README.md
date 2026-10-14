@@ -52,7 +52,8 @@ carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 
 - [Registro físico de carga/entrega — parcial, descarga, incidencias y revisión](modulo/registro-carga-entrega.md)
 
-- [Carga y Entregas — recorrido fijo, carga inversa y Maps por semana](modulo/carga-entregas-por-ciclo.md)
+- [Carga y Entregas — facturas pendientes por ruta sin semanas](modulo/carga-entregas-por-ruta.md)
+- [Consulta histórica de Carga por ciclo](modulo/carga-entregas-por-ciclo.md)
 
 - [Recepción física — parcial/final, motivos e inventario por entrega](modulo/recepcion-ordenes-compra.md)
 

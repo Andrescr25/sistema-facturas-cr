@@ -97,9 +97,9 @@ caso('actor/fecha del cuerpo se ignoran; responsable inactivo no registra ni rei
  const p=await s.registrar(datos.f,b,datos.actor);assert.equal(p.historial[0].usuarioId,datos.actor);assert.notEqual(new Date(p.historial[0].fecha).getFullYear(),2000);
  await c.query('UPDATE usuario SET activo=FALSE WHERE id=$1',[datos.actor]);await assert.rejects(s.registrar(datos.f,b,datos.actor),e=>e.status===403);
 });
-caso('preventa permite adelantar carga, entrega exige promoción explícita; siguiente ciclo intacto',async()=>{
+caso('el físico no exige promover semanas; conserva documentos y avance de la otra factura',async()=>{
  const antes=await huellas();await registrar('carga',[{numeroLinea:1,cantidad:4}],null,datos.otra);
- await assert.rejects(registrar('entrega',[{numeroLinea:1,cantidad:1}],null,datos.otra),e=>e.status===409);
+ const p=await registrar('entrega',[{numeroLinea:1,cantidad:1}],null,datos.otra);assert.equal(p.lineas[0].entregada,1);
  assert.equal((await s.consultar(datos.f)).version,0);assert.deepEqual(await huellas(),antes);
 });
 caso('descargar conserva carga anterior aunque se cierre el ciclo o se anule factura',async()=>{

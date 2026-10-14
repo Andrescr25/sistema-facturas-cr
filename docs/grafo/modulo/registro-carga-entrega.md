@@ -5,6 +5,9 @@ titulo: Registro físico de carga y entrega — eventos inmutables por factura y
 estado: vigente
 archivos:
   - backend/migrations/independencia/051_eventos_carga_entrega.sql
+  - backend/migrations/independencia/057_entregas_por_ruta.sql
+  - frontend/src/hooks/useRegistroEntrega.js
+  - frontend/src/utils/registroEntrega.js
   - backend/src/modules/entregas/registroFisico.service.js
   - backend/src/modules/entregas/entregas.service.js
   - backend/src/modules/entregas/entregas.routes.js
@@ -17,9 +20,16 @@ archivos:
   - docs/informes/registro-entregas-2026-10-06.md
 aristas:
   depende_de: [modulo/carga-entregas-por-ciclo, modulo/facturas-bodega, modulo/pedidos-por-ciclo]
-  relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/necesidades-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/inventario, modulo/faltantes]
-medido: 2026-10-06
+  relacionado: [modulo/carga-entregas-por-ruta, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/necesidades-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/inventario, modulo/faltantes]
+medido: 2026-10-13
 ---
+
+**Vigente ROT-05 (2026-10-13):** [Carga por ruta](carga-entregas-por-ruta.md)
+retira el requisito de ciclo y su estado, también para facturas con una FK
+histórica. 057 hace nullable el recorrido del evento, captura la ruta de la
+primera gestión y conserva las fotografías previas. Mantiene cantidades,
+versión, UUID y corrección con admin. Las reglas de promoción/bloqueo de
+semana de los textos siguientes describen la etapa anterior, reemplazada.
 
 ALCANCE. Carga y Entregas muestra avance físico por factura del recorrido
 fijo. Eventos carga/entrega/descarga/incidencia y revisión explícita. No
@@ -105,3 +115,11 @@ son históricos. Permisos/concurrencia/unidades y VAL global siguen separados.
 la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
 se distingue de demanda/cobertura por semana. Informe validacion-cadena-
 2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.
+
+## 2026-10-13 — ROT-05 por ruta
+
+[Carga/entrega por ruta](carga-entregas-por-ruta.md) usa todas las facturas
+pendientes sin semana, conserva historia y exige revisión de Bodega antes
+de carga física. 057 local; pendiente de aplicar en producción antes de main.
+Historial físico de entregas es distinto del historial de impresos ROT-06/07,
+que aún falta. Permiso entregas y acción admin corregir-entrega conservados.

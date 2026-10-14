@@ -60,7 +60,7 @@ caso('mover/renombrar/Maps y promover conserva 17 tablas completas y los recorri
   assert.equal(futuro.clientes.length, 1); assert.equal(futuro.clientes[0].cliente_id, d.b.id); assert.equal(futuro.clientes[0].orden, 1);
   const despues = await d.s.fisico.consultar(d.facturas[0]);
   assert.deepEqual(despues.historial, cuerpo.historial); assert.equal(despues.requiereRevision, false);
-  assert.equal(despues.ciclo.estado, 'cerrado'); assert.equal(despues.puedeEntregar, false);
+  assert.equal(despues.ciclo.estado, 'cerrado'); assert.equal(despues.puedeEntregar, true);
 });
 caso('una recepción final después de promover acredita solo el delta en su orden original', async () => {
   const comerciales = await huellas(['orden_compra_ciclo_linea','orden_compra_ciclo_origen','orden_compra_ciclo_envio','orden_compra_ciclo_factura','orden_compra_ciclo_factura_pdf','compra','compra_linea']);
@@ -83,10 +83,8 @@ caso('cerrar enviada después del cambio conserva cuatro recibidas y libera seis
   const historial = await d.s.ordenes.listar({ cicloId: d.actual.id, vista: 'historial' }); assert.equal(historial[0].id, o.id);
   await d.s.cierre.cerrar(o.id, body, d.actor); assert.equal((await c.query('SELECT COUNT(*)::int n FROM orden_compra_ciclo_cierre WHERE orden_id=$1', [o.id])).rows[0].n, 1);
 });
-caso('carga anticipada sigue en próxima semana, entrega exige promover y no vuelve a descontar stock', async () => {
+caso('entrega no exige promover semanas; conserva contexto histórico y no descuenta stock', async () => {
   await fixture.mover(d); const antes = await stock(), guardado = await d.s.fisico.consultar(d.facturas[0]);
-  await assert.rejects(fixture.evento(d, 2, 'entrega', 1), e => e.status === 409);
-  await d.s.rutas.cambiarEstadoCiclo(d.proximo.id, { estado: 'entrega', estadoAnterior: 'preparacion' }, d.actor);
   const entregado = await fixture.evento(d, 2, 'entrega', 1);
   assert.equal(entregado.ciclo.id, d.proximo.id); assert.equal(entregado.lineas[0].entregada, 1);
   assert.equal(await stock(), antes); assert.deepEqual((await d.s.fisico.consultar(d.facturas[0])).historial, guardado.historial);
@@ -95,7 +93,7 @@ caso('carga anticipada sigue en próxima semana, entrega exige promover y no vue
 caso('respuesta perdida se reconoce tras cierre; descarga conserva fotografía y no mueve compras/stock', async () => {
   await fixture.mover(d); const antes = await huellas(['compra','compra_linea','movimiento_inventario']);
   const repetido = await d.s.fisico.registrar(d.facturas[0], d.cargaOriginal, d.actor); assert.equal(repetido.version, 2);
-  await assert.rejects(fixture.evento(d, 0, 'carga', 1), e => e.status === 409);
+  assert.equal(repetido.puedeCargar, true, 'un ciclo histórico cerrado ya no bloquea el físico');
   const r = await fixture.evento(d, 0, 'descarga', 2, 'ZZ devolución de carga de la semana cerrada');
   assert.equal(r.ciclo.id, d.actual.id); assert.equal(r.lineas[0].enCamion, 0); assert.equal(r.lineas[0].entregada, 1);
   assert.equal(r.historial[2].documento.factura.clienteNombre, d.a.nombre);
@@ -119,7 +117,7 @@ caso('histórico Sin ciclo permanece sin Maps, carga, reclasificación o eventos
   const o = await d.s.ordenes.obtener(d.ordenes[2].id); assert.equal(o.ciclo, null); assert.equal(o.lineas[0].origenes[0].factura_id, d.historico);
   const p = await d.s.entregas.parada('cl-' + d.a.id, { cicloId: 'sin-ciclo' }); assert.equal(p.ciclo, null); assert.equal(p.ubicacion_maps, null);
   assert.equal((await d.s.entregas.plan({ cicloId: 'sin-ciclo' })).carga.length, 0);
-  await assert.rejects(d.s.fisico.consultar(d.historico), e => e.status === 409);
+  const fisico=await d.s.fisico.consultar(d.historico);assert.equal(fisico.version,0);assert.equal(fisico.ciclo,null);
   assert.equal((await c.query('SELECT COUNT(*)::int n FROM entrega_evento WHERE factura_id=$1', [d.historico])).rows[0].n, 0);
 });
 caso('Excel y consultas leen contexto fijo, cobertura y avance sin alterar la cadena', async () => {

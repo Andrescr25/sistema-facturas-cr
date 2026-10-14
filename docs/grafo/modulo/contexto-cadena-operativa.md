@@ -16,8 +16,8 @@ archivos:
   - backend/src/modules/reports/necesidades.service.js
 aristas:
   depende_de: [decision/ciclo-de-ruta-como-contexto, modulo/pedidos-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
-  relacionado: [modulo/validacion-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
-medido: 2026-10-06
+  relacionado: [modulo/carga-entregas-por-ruta, modulo/validacion-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
+medido: 2026-10-13
 ---
 
 CADENA. El fixture usa los servicios reales desde cliente/ruta/ciclo, carrito/
@@ -69,3 +69,11 @@ Las cifras históricas de los nodos relacionados no son el estado vigente.
 la cadena completa en [[modulo/validacion-cadena-operativa]]. Stock general
 se distingue de demanda/cobertura por semana. Informe validacion-cadena-
 2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.
+
+## 2026-10-13 — ROT-05 por ruta
+
+[Carga/entrega por ruta](carga-entregas-por-ruta.md) usa todas las facturas
+pendientes sin semana, conserva historia y exige revisión de Bodega antes
+de carga física. 057 local; pendiente de aplicar en producción antes de main.
+Historial físico de entregas es distinto del historial de impresos ROT-06/07,
+que aún falta. Permiso entregas y acción admin corregir-entrega conservados.

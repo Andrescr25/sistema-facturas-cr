@@ -24,8 +24,8 @@ archivos:
   - docs/informes/exportaciones-ciclos-2026-10-06.md
 aristas:
   depende_de: [modulo/exportaciones-reportes, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/carga-entregas-por-ciclo]
-  relacionado: [modulo/contexto-visible-operacion, decision/ciclo-de-ruta-como-contexto, modulo/registro-carga-entrega, modulo/cierre-ordenes-compra, modulo/permisos, modulo/pedidos-por-ciclo]
-medido: 2026-10-06
+  relacionado: [modulo/carga-entregas-por-ruta, modulo/contexto-visible-operacion, decision/ciclo-de-ruta-como-contexto, modulo/registro-carga-entrega, modulo/cierre-ordenes-compra, modulo/permisos, modulo/pedidos-por-ciclo]
+medido: 2026-10-13
 ---
 
 ALCANCE. Botón Exportar Excel en Necesidades, Órdenes por ciclo y Carga y
@@ -104,3 +104,11 @@ visible y ficha histórica,89/10 operativo. Código9fc8d8e,2.213pruebas/362suite
 quincevistas/30capturas/grafo12/build y36+9huellas iguales. Exportación sigue
 con su implementación f0fd815 y evidencia original arriba; cifras/PID anteriores
 son históricos. Backend compartido seguro42974. RUT-08/FIL-11/VAL aún abiertos.
+
+## 2026-10-13 — ROT-05 por ruta
+
+[Carga/entrega por ruta](carga-entregas-por-ruta.md) usa todas las facturas
+pendientes sin semana, conserva historia y exige revisión de Bodega antes
+de carga física. 057 local; pendiente de aplicar en producción antes de main.
+Historial físico de entregas es distinto del historial de impresos ROT-06/07,
+que aún falta. Permiso entregas y acción admin corregir-entrega conservados.

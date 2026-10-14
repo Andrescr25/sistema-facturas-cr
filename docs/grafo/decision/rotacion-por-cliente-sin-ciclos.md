@@ -21,7 +21,7 @@ archivos:
   - docs/informes/rotacion-clientes-relevo-2026-10-13.md
 aristas:
   reemplaza: [decision/ciclo-de-ruta-como-contexto]
-  relacionado: [modulo/preventa-agenda, modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/registro-carga-entrega, modulo/pedidos-por-ciclo, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/faltantes, modulo/facturacion, modulo/facturas-bodega, modulo/reporte-proveedores, modulo/preventa-por-enlace]
+  relacionado: [modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/registro-carga-entrega, modulo/pedidos-por-ciclo, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/faltantes, modulo/facturacion, modulo/facturas-bodega, modulo/reporte-proveedores, modulo/preventa-por-enlace]
 medido: 2026-10-13
 ---
 
@@ -93,13 +93,13 @@ Estados: `sin_rotacion` (no se le definió: no se inventa una), `sin_facturas`
   Ojo con los nombres que ya existen y son otra cosa: `preventa-por-enlace`
   (el catálogo que se le manda al cliente), `usePreventaCliente`,
   `ModalPreventa` y la columna `preventa_anticipada`.
-- [ ] **ROT-05 — Carga y entrega sin ciclos.** `entregas.service.js` exige
-  `cicloId`, y `entrega_evento.recorrido_id` es NOT NULL hacia
-  `ciclo_ruta_cliente`, con trigger de estado `entrega` (migración 051).
-  Necesita migración. **Decidido por el usuario al continuar ROT-04:** la
-  carga incluye automáticamente todas las facturas pendientes de la ruta.
-  Falta implementar la selección operativa y el registro sin semana, con
-  historial intacto y sin repetir una factura en salidas activas.
+- [x] **ROT-05 — Carga y entrega sin ciclos.** [Implementación por ruta](../modulo/carga-entregas-por-ruta.md): incluye automáticamente todas las
+  facturas pendientes, Bodega pendiente visible pero físico bloqueado hasta
+  revisión, carga/entrega sin promoción de semana, entregada pasa al historial.
+  Carga registrada conserva ruta/Maps/orden; nueva factura entra sin modificar
+  historia. **SQL 057 local/verificada; pendiente de aplicar en producción.**
+  Publicación solo developer; main espera esa SQL. Los eventos históricos
+  no se reescriben y las cantidades/UUID/versión/admin siguen protegidos.
 - [ ] **ROT-06 / ROT-07 — impresos 24 horas sin movimiento e historial.**
   **Aclaración del usuario al continuar ROT-04:** después de enviar una
   factura del Reporte Clientes a Impresión, pasa al historial cuando lleva

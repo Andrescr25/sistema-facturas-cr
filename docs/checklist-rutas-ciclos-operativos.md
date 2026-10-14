@@ -21,9 +21,11 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   sin faltantes; grupos atrasados/hoy/próximos/sin rotación/sin facturas,
   búsqueda, tarjetas y detalle por id, permiso propio. Entrega solo
   `developer`; [evidencia](informes/preventa-agenda-2026-10-13.md).
-- [ ] ROT-05 — Carga/entrega por ruta, sin requerir ciclo: necesita migración
-  para `entrega_evento`. Usuario eligió **incluir automáticamente todas las
-  facturas pendientes de la ruta**; queda implementar y verificar.
+- [x] ROT-05 — Carga/entrega por ruta: todas las facturas pendientes, Bodega
+  pendiente visible, físico sin exigir ciclos, parciales/descarga/recarga,
+  ruta fijada al primer evento e historial conservado. SQL 057 local;
+  **producción pendiente antes de main**. Publicado solo developer.
+  [Evidencia y límites](informes/entregas-por-ruta-2026-10-13.md).
 - [ ] ROT-06 — Impresos en la vista activa hasta cumplir **24 horas sin
   movimiento** después de enviarse a Impresión (aclaración del usuario).
   Una gestión nueva reinicia el plazo; una lectura no. Sin limpieza semanal.

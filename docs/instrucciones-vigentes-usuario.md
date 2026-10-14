@@ -663,3 +663,14 @@ que no queden ahí». ROT-06/07 cuentan **24 horas sin movimiento**, no solo
 desde el envío inicial. Consultar no es un movimiento; las gestiones sí.
 Decisión guardada, **todavía sin implementar**. No respondió expresamente
 a foto/cálculo de próxima visita: esa elección no se acredita por la pregunta.
+
+## 2026-10-13 — Continuación ROT-05, Carga/entregas por ruta
+
+Textual: «ok, dale continua» y después «continua». Codex implementa la
+elección ya recibida de incluir automáticamente todas las facturas pendientes
+de la ruta, sin semanas. [Carga por ruta](grafo/modulo/carga-entregas-por-ruta.md).
+Las decisiones guardadas pasan a implementación verificada en developer;
+057 aplicada solo localmente, pendiente en producción antes de main.
+Se conservan documentos/recorridos/eventos históricos; no se inventa una
+entrega para facturas antiguas sin registro físico. Bodega procesada no la
+acredita. Historial de impresos tras 24 h SIN MOVIMIENTO sigue ROT-06/07.

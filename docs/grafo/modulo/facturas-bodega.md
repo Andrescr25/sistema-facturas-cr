@@ -29,7 +29,7 @@ archivos:
   - backend/tests/bodegaPropia.test.js
   - backend/src/modules/reprinting/colaImpresion.js
 aristas:
-  relacionado: [modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+  relacionado: [modulo/carga-entregas-por-ruta, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
 medido: 2026-10-13
 ---
 
@@ -152,3 +152,11 @@ Proveedor/ciclo abiertos acumulan; envío confirmado o incierto conserva el
 snapshot y reserva, y los faltantes nuevos preparan otra orden. Sin ficha o
 conversión válida se guarda el faltante para revisión. No se envía WhatsApp
 al registrar faltantes. Ver [[modulo/ordenes-compra-por-ciclo]].
+
+## 2026-10-13 — ROT-05 por ruta
+
+[Carga/entrega por ruta](carga-entregas-por-ruta.md) usa todas las facturas
+pendientes sin semana, conserva historia y exige revisión de Bodega antes
+de carga física. 057 local; pendiente de aplicar en producción antes de main.
+Historial físico de entregas es distinto del historial de impresos ROT-06/07,
+que aún falta. Permiso entregas y acción admin corregir-entrega conservados.
