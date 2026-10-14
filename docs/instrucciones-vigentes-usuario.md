@@ -674,3 +674,20 @@ Las decisiones guardadas pasan a implementación verificada en developer;
 Se conservan documentos/recorridos/eventos históricos; no se inventa una
 entrega para facturas antiguas sin registro físico. Bodega procesada no la
 acredita. Historial de impresos tras 24 h SIN MOVIMIENTO sigue ROT-06/07.
+
+
+## 2026-10-13 — Reporte de proveedores simplificado
+
+Textual: «aún veo muy confuso reporte proveedores, aún salen muchas cosas
+respecto a ciclos simplificalo solo quiero faltantes tal cual esta en main ahora
+pero que una vez enviado y llegue otra factura con faltante de ese proveedor,
+me genere una orden de compra nueva eso es todo lo que ocupo» y «quita todo lo
+demas deja faltantes tal cual esta en main y proveedores la ficha para ver la
+info de cada uno». Después autoriza continuar.
+
+Reemplaza la entrada Compras y las áreas/paneles extra: únicamente Faltantes y
+Proveedores. Acumulación por proveedor en borrador/pendiente; enviada/incierta
+conservada y faltante nuevo en otra orden. SQL 058 local; producción pendiente
+antes de main. [Implementación y verificación](grafo/modulo/reporte-proveedores.md).
+Publicación solo developer, como el relevo; el historial de impresión 24 h
+sin movimiento y el resto del retiro de ciclos siguen pendientes.

@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useContextoConsulta } from './useContextoConsulta'
-import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
 import { construirProductosParaOrden } from '../utils/reporteProveedoresUtils'
 import { useDialog } from './useDialog'
 import { useToast } from './useToast'
+import { useEdicionFaltantesProveedor } from './useEdicionFaltantesProveedor'
 
 /**
  * Estado y lógica de negocio del reporte de faltantes por proveedor: carga,
- * edición de cantidades a pedir, generación de PDF/envío por WhatsApp,
+ * edición de cantidades a pedir, descarga de faltantes,
  * reasignación de productos a otro proveedor, y edición manual de la orden
  * (agregar/eliminar productos). Extraído de ReporteProveedores.jsx.
  *
@@ -18,9 +18,7 @@ import { useToast } from './useToast'
  * <ConfirmModal {...dialogProps} /> y <ToastContainer toasts={toasts} onRemove={removeToast} />.
  */
 export function useReporteProveedores({activo=true}={}) {
-  const filtroCiclo = useFiltroCicloOperacion('/reportes/faltantes/proveedor/ciclos')
   const peticion = useRef(0), peticionNotas = useRef(0)
-  const consultaCiclo = Boolean(filtroCiclo.rutaId || filtroCiclo.cicloId)
   const { prompt, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
 
@@ -32,7 +30,7 @@ export function useReporteProveedores({activo=true}={}) {
   const [cantidadesModificadas, setCantidadesModificadas] = useState(new Map())
   const [cantidadesGuardadas, setCantidadesGuardadas] = useState(new Map())
   const [fechaInicio, setFechaInicio] = useState('')
-  const claveConsulta = JSON.stringify([activo, fechaInicio, filtroCiclo.params])
+  const claveConsulta = JSON.stringify([activo, fechaInicio])
   const lectura = useContextoConsulta(claveConsulta)
   const notas = useContextoConsulta(claveConsulta)
 
@@ -52,32 +50,23 @@ export function useReporteProveedores({activo=true}={}) {
   const [productosSeleccionados, setProductosSeleccionados] = useState(new Set())
   const [preferenciasDatosProveedor, setPreferenciasDatosProveedor] = useState({})
 
-  // Estados Edición Manual
-  const [productosEliminados, setProductosEliminados] = useState(new Set())
-  const [productosAgregados, setProductosAgregados] = useState(new Map())
-  const [modalAgregarProducto, setModalAgregarProducto] = useState(false)
-  const [proveedorParaAgregar, setProveedorParaAgregar] = useState(null)
-  const [busquedaProducto, setBusquedaProducto] = useState('')
-  const [productosEncontrados, setProductosEncontrados] = useState([])
-  const [loadingProductos, setLoadingProductos] = useState(false)
+  const { productosEliminados, setProductosEliminados, productosAgregados, setProductosAgregados,
+    modalAgregarProducto, setModalAgregarProducto, proveedorParaAgregar, busquedaProducto,
+    setBusquedaProducto, productosEncontrados, loadingProductos, eliminarProductoDeOrden,
+    restaurarProducto, abrirModalAgregarProducto, buscarProductos, solicitarCantidadYAgregar,
+    eliminarProductoAgregado, actualizarCantidadAgregado } = useEdicionFaltantesProveedor({ prompt, showToast })
 
-  // Estados WhatsApp
-  // A qué proveedores ya se les mandó el pedido en este período. Viene del
+  // Marca de órdenes pendientes y envíos históricos. Viene del
   // registro de envíos del servidor y no del navegador, para que la marca la
   // vea también quien abra el reporte desde otra máquina.
   const [pedidosEnviados, setPedidosEnviados] = useState(new Map())
-  const [modalWhatsAppVisible, setModalWhatsAppVisible] = useState(false)
-  const [proveedorParaWhatsApp, setProveedorParaWhatsApp] = useState(null)
-  const [telefonoProveedor, setTelefonoProveedor] = useState('')
-  const [mensajeWhatsApp, setMensajeWhatsApp] = useState('Hola buenas, adjunto el pedido\ngracias')
-
   const loadReporte = useCallback(async () => {
     if (!activo || !lectura.esActual()) return
     const actual = ++peticion.current
     try {
       setLoading(true)
       setError(null)
-      const result = await alegraService.getReporteFaltantesProveedor(fechaInicio, filtroCiclo.params)
+      const result = await alegraService.getReporteFaltantesProveedor(fechaInicio)
       if (!lectura.esActual() || actual !== peticion.current) return
 
       if (result.success) {
@@ -95,14 +84,14 @@ export function useReporteProveedores({activo=true}={}) {
     } finally {
       if (lectura.esActual() && actual === peticion.current) { lectura.confirmar(); setLoading(false) }
     }
-  }, [activo, fechaInicio, filtroCiclo.params, lectura.esActual, lectura.confirmar])
+  }, [activo, fechaInicio, lectura.esActual, lectura.confirmar])
 
   const loadNotas = useCallback(async () => {
     if (!activo || !notas.esActual()) return
     const actual = ++peticionNotas.current
     setCargandoNotas(true)
     try {
-      const r = await alegraService.getNotasDeFaltantes(fechaInicio, filtroCiclo.params)
+      const r = await alegraService.getNotasDeFaltantes(fechaInicio)
       if (!notas.esActual() || actual !== peticionNotas.current) return
       setNotasPorProducto(r?.data?.porProducto || {})
     } catch {
@@ -111,7 +100,7 @@ export function useReporteProveedores({activo=true}={}) {
     } finally {
       if (notas.esActual() && actual === peticionNotas.current) { notas.confirmar(); setCargandoNotas(false) }
     }
-  }, [activo, fechaInicio, filtroCiclo.params, notas.esActual, notas.confirmar])
+  }, [activo, fechaInicio, notas.esActual, notas.confirmar])
 
   const loadCantidadesGuardadas = useCallback(async () => {
     try {
@@ -153,22 +142,21 @@ export function useReporteProveedores({activo=true}={}) {
     }
   }, [])
 
-  /**
-   * Qué pedidos ya salieron por WhatsApp, en el mismo período del reporte.
-   *
-   * Acotado por `fechaInicio` a propósito: una orden mandada el mes pasado
-   * no dice nada sobre la de esta semana, y marcarla igual haría que la
-   * señal dejara de significar algo.
-   */
+  /** El estado sale de órdenes persistidas: una enviada antigua no oculta
+   * que este mismo proveedor ya tenga una nueva pendiente de envío. */
   const loadPedidosEnviados = useCallback(async () => {
-    const result = await alegraService.getOrdenesEnviadas(fechaInicio)
-    if (!result?.success) return
-    const mapa = new Map()
-    for (const fila of result.data || []) {
-      mapa.set(fila.proveedor, { ultimoEnvio: fila.ultimoEnvio, veces: fila.veces })
-    }
-    setPedidosEnviados(mapa)
-  }, [fechaInicio])
+    try {
+      const { data: result } = await api.get('/orden-compra/proveedor/estados')
+      if (!result?.success) return
+      const mapa = new Map()
+      for (const fila of result.data || []) {
+        const estado = { ultimoEnvio: fila.ultimoEnvio, veces: fila.veces, pendientes: fila.pendientes }
+        mapa.set(fila.proveedor, estado)
+        if (fila.cedula) mapa.set(fila.cedula, estado)
+      }
+      setPedidosEnviados(mapa)
+    } catch { setPedidosEnviados(new Map()) }
+  }, [])
 
   useEffect(() => {
     setModalAsignarVisible(false)
@@ -177,10 +165,9 @@ export function useReporteProveedores({activo=true}={}) {
     if(!activo){++peticion.current;++peticionNotas.current;return}
     loadReporte()
     loadNotas()
-    if (!consultaCiclo) { loadCantidadesGuardadas(); loadPedidosEnviados() }
-    else { setPedidosEnviados(new Map()); setProductosSeleccionados(new Set()) }
+    loadCantidadesGuardadas(); loadPedidosEnviados()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fechaInicio, filtroCiclo.params,activo])
+  }, [fechaInicio,activo])
 
   const usaDatosProveedor = useCallback((proveedorNombre) => {
     const preferencia = preferenciasDatosProveedor[proveedorNombre]
@@ -275,77 +262,6 @@ export function useReporteProveedores({activo=true}={}) {
     }
   }, [usaDatosProveedor, productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados, showToast])
 
-  const abrirModalWhatsApp = useCallback(async (proveedor) => {
-    setProveedorParaWhatsApp(proveedor)
-    setMensajeWhatsApp('Hola buenas, adjunto el pedido\ngracias')
-    setModalWhatsAppVisible(true)
-    try {
-      // El de la ficha del proveedor: el mismo en todas las computadoras.
-      const telefonoDB = await alegraService.getTelefonoProveedor(proveedor)
-      if (telefonoDB) {
-        setTelefonoProveedor(telefonoDB)
-      } else {
-        const telefonoLocal = localStorage.getItem(`whatsapp_tel_${proveedor.nombre}`)
-        setTelefonoProveedor(telefonoLocal || proveedor.telefono || '')
-      }
-    } catch (error) {
-      const telefonoLocal = localStorage.getItem(`whatsapp_tel_${proveedor.nombre}`)
-      setTelefonoProveedor(telefonoLocal || proveedor.telefono || '')
-    }
-  }, [])
-
-  const enviarWhatsApp = useCallback(async () => {
-    if (!telefonoProveedor.trim()) {
-      showToast('Ingresa el número de teléfono del proveedor', 'warning')
-      return
-    }
-
-    try {
-      setLoading(true)
-      const proveedor = proveedorParaWhatsApp
-      const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
-
-      const productosParaPDF = construirProductosParaOrden(proveedor, {
-        productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados
-      })
-
-      if (productosParaPDF.length === 0) {
-        showToast('No hay productos para enviar', 'warning')
-        return
-      }
-
-      // Guardar/Actualizar teléfono del proveedor de una vez
-      try {
-        await alegraService.guardarTelefonoProveedor(proveedor, telefonoProveedor)
-        localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
-      } catch (e) {
-        localStorage.setItem(`whatsapp_tel_${proveedor.nombre}`, telefonoProveedor)
-      }
-
-      // Enviar directamente mediante el backend + Evolution API
-      const result = await alegraService.enviarOrdenCompraWhatsApp(
-        proveedor.nombre,
-        telefonoProveedor,
-        productosParaPDF,
-        preferirDatosProveedor,
-        mensajeWhatsApp
-      )
-
-      if (result.success) {
-        showToast(`Orden de compra enviada con éxito a ${proveedor.nombre} por WhatsApp.`, 'success')
-        setModalWhatsAppVisible(false)
-        // Que la marca aparezca de una en la tarjeta, sin recargar.
-        loadPedidosEnviados()
-      } else {
-        showToast(`Error enviando por WhatsApp: ${result.message}`, 'error')
-      }
-    } catch (error) {
-      showToast(`Error: ${error.message}`, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [telefonoProveedor, proveedorParaWhatsApp, usaDatosProveedor, productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados, mensajeWhatsApp, showToast, loadPedidosEnviados])
-
   // Selección de Múltiples Productos
   const toggleProductoSeleccionado = useCallback((codigo) => {
     setProductosSeleccionados(prev => {
@@ -401,10 +317,6 @@ export function useReporteProveedores({activo=true}={}) {
 
   const asignarProveedorManual = useCallback(async (proveedorId) => {
     if (productosSeleccionados.size === 0) return
-    if (consultaCiclo && !filtroCiclo.cicloId) {
-      showToast('Seleccioná una semana concreta o Sin ciclo para asignar.', 'warning')
-      return
-    }
     try {
       setLoading(true)
       const productosAAsignar = []
@@ -424,8 +336,7 @@ export function useReporteProveedores({activo=true}={}) {
           // Los dos ids son PROPIOS: el producto del que cuelgan los faltantes
           // (migración 032) y la ficha del proveedor. Asignar y reasignar son
           // la misma operación.
-          return api.post('/proveedores/asignaciones', { productoId: producto.producto_id, proveedorId,
-            ...(consultaCiclo ? { cicloId: filtroCiclo.cicloId } : {}) })
+          return api.post('/proveedores/asignaciones', { productoId: producto.producto_id, proveedorId })
             .catch(err => ({ data: { success: false } }))
         })
         resultados.push(...(await Promise.all(promesasLote)))
@@ -443,7 +354,7 @@ export function useReporteProveedores({activo=true}={}) {
     } finally {
       setLoading(false)
     }
-  }, [productosSeleccionados, proveedores, loadReporte, showToast, consultaCiclo, filtroCiclo.cicloId])
+  }, [productosSeleccionados, proveedores, loadReporte, showToast])
 
   const crearNuevoProveedor = useCallback(async (datosProveedor) => {
     try {
@@ -468,120 +379,7 @@ export function useReporteProveedores({activo=true}={}) {
     }
   }, [asignarProveedorManual, showToast])
 
-  const eliminarProductoDeOrden = useCallback(async (proveedorNombre, productoCodigo, productoNombre, cantidadOriginal) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
-    setProductosEliminados(prev => new Set(prev).add(key))
-
-    try {
-      await api.post('/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0 })
-    } catch (error) {
-      console.error('Error:', error)
-    }
-  }, [])
-
-  const restaurarProducto = useCallback(async (proveedorNombre, productoCodigo) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
-    setProductosEliminados(prev => {
-      const nuevosEliminados = new Set(prev)
-      nuevosEliminados.delete(key)
-      return nuevosEliminados
-    })
-
-    try {
-      await api.delete('/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
-    } catch (error) {
-      console.error('No se pudo restaurar el producto:', error)
-      showToast('El producto se restauró en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
-    }
-  }, [])
-
-  const abrirModalAgregarProducto = useCallback((proveedor) => {
-    setProveedorParaAgregar(proveedor)
-    setModalAgregarProducto(true)
-    setBusquedaProducto('')
-    setProductosEncontrados([])
-  }, [])
-
-  const buscarProductos = useCallback(async (query) => {
-    if (!query || query.length < 2) { setProductosEncontrados([]); return }
-    try {
-      setLoadingProductos(true)
-      // Sin desactivados: no tiene sentido pedirle al proveedor algo que ya no se vende.
-      // Del maestro propio, solo activos (la lectura compartida de
-      // /catalogos). El modal los pinta con `name` y `reference`.
-      const res = await api.get('/catalogos/productos', { params: { buscar: query, limite: 30 } })
-      if (res.data.success) {
-        setProductosEncontrados((res.data.data || []).map(p => ({ id: p.id, name: p.nombre, reference: p.referencia || '' })))
-      }
-    } catch (e) {
-      // Búsqueda mientras se escribe: no se avisa —una petición cortada por
-      // la siguiente tecla no es un problema— pero sí queda en consola.
-      console.warn('Búsqueda de productos falló:', e.message)
-    } finally { setLoadingProductos(false) }
-  }, [])
-
-  const agregarProductoAOrden = useCallback(async (producto, cantidad) => {
-    if (!proveedorParaAgregar || cantidad <= 0) return
-    const keyProv = proveedorParaAgregar.nombre
-    const nuevosAgregados = new Map(productosAgregados)
-    const list = nuevosAgregados.get(keyProv) || []
-    list.push({ codigo: producto.reference, nombre: producto.name, cantidad: parseInt(cantidad), agregadoManual: true })
-    nuevosAgregados.set(keyProv, list)
-    setProductosAgregados(nuevosAgregados)
-
-    try {
-      await api.post('/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
-    } catch (error) {
-      console.error('No se pudo registrar el producto agregado:', error)
-      showToast('El producto se agregó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
-    }
-    setModalAgregarProducto(false)
-  }, [proveedorParaAgregar, productosAgregados])
-
-  const solicitarCantidadYAgregar = useCallback(async (producto, reference) => {
-    const q = await prompt(`${producto.name}\n¿Cantidad a añadir a la orden?`, { inputDefaultValue: '1' })
-    if (q && parseInt(q) > 0) {
-      await agregarProductoAOrden({ ...producto, reference }, q)
-    }
-  }, [prompt, agregarProductoAOrden])
-
-  const eliminarProductoAgregado = useCallback(async (proveedorNombre, index) => {
-    const nuevos = new Map(productosAgregados)
-    const list = nuevos.get(proveedorNombre) || []
-    const prod = list[index]
-    list.splice(index, 1)
-    if (list.length === 0) nuevos.delete(proveedorNombre); else nuevos.set(proveedorNombre, list)
-    setProductosAgregados(nuevos)
-
-    try {
-      await api.delete('/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
-    } catch (e) {
-      console.error('No se pudo quitar el producto agregado:', e)
-      showToast('El cambio NO se guardó. Recargue antes de enviar el pedido.', 'error')
-    }
-  }, [productosAgregados])
-
-  const actualizarCantidadAgregado = useCallback(async (proveedorNombre, index, nuevaCantidad) => {
-    const cant = parseInt(nuevaCantidad)
-    if (isNaN(cant) || cant <= 0) return
-    const nuevos = new Map(productosAgregados)
-    const list = nuevos.get(proveedorNombre) || []
-    if (list[index]) {
-      list[index] = { ...list[index], cantidad: cant }
-      nuevos.set(proveedorNombre, list)
-      setProductosAgregados(nuevos)
-
-      try {
-        await api.post('/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
-      } catch (e) {
-        console.error('No se pudo guardar la cantidad:', e)
-        showToast('La cantidad NO se guardó. Recargue antes de enviar el pedido.', 'error')
-      }
-    }
-  }, [productosAgregados])
-
   return {
-    filtroCiclo, consultaCiclo,
     notasPorProducto: notas.vigente ? notasPorProducto : {},
     cargandoNotas: activo && (cargandoNotas || !notas.vigente),
     proveedores: lectura.vigente ? proveedores : [],
@@ -591,7 +389,7 @@ export function useReporteProveedores({activo=true}={}) {
     error: lectura.vigente ? error : null,
     fechaInicio,
     setFechaInicio,
-    loadReporte,
+    loadReporte: async () => { await loadReporte(); await loadPedidosEnviados() },
 
     cantidadesModificadas,
     cantidadesGuardadas,
@@ -603,16 +401,6 @@ export function useReporteProveedores({activo=true}={}) {
     togglePreferenciaProveedor,
 
     handleGenerarPDF,
-
-    modalWhatsAppVisible,
-    setModalWhatsAppVisible,
-    proveedorParaWhatsApp,
-    telefonoProveedor,
-    setTelefonoProveedor,
-    mensajeWhatsApp,
-    setMensajeWhatsApp,
-    abrirModalWhatsApp,
-    enviarWhatsApp,
 
     productosSeleccionados,
     toggleProductoSeleccionado,

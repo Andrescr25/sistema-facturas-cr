@@ -11,16 +11,19 @@ archivos:
   - backend/src/modules/orders-whatsapp/ordenesCicloRecepcion.service.js
   - backend/src/modules/reports/necesidades.service.js
   - backend/tests/ordenesCompraCierre.test.js
-  - frontend/src/components/reporte-proveedores/CierreOrdenCiclo.jsx
-  - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
-  - frontend/src/components/reporte-proveedores/RecepcionOrdenCiclo.jsx
-  - frontend/src/components/reporte-proveedores/FacturaOrdenCiclo.jsx
   - docs/informes/cierre-ordenes-2026-10-06.md
 aristas:
   depende_de: [modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion]
   relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/necesidades-por-ciclo, modulo/facturas-ordenes-compra, modulo/archivo-ordenes-compra, modulo/permisos, modulo/faltantes]
 medido: 2026-10-06
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 CONTRATO. Reporte Proveedores → Órdenes por ciclo → orden enviada/parcial →
 Cierre de orden enviada. Revisar cobertura por producto/factura, confirmar con

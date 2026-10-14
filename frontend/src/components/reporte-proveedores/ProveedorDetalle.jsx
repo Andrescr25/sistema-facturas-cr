@@ -21,6 +21,7 @@ export default function ProveedorDetalle({
   handleGuardarCantidades,
   handleCantidadChange,
   handleGenerarPDF,
+  onVerOrdenes,
   preferenciasDatosProveedor,
   togglePreferenciaProveedor,
   productosSeleccionados,
@@ -43,6 +44,7 @@ export default function ProveedorDetalle({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <Boton variante="fantasma" icono={ArrowLeft} onClick={onVolver} className="min-h-12 self-start">Volver a proveedores</Boton>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <Boton onClick={onVerOrdenes} className="min-h-12">Revisar y enviar orden</Boton>
           <button
             onClick={handleGuardarCantidades}
             disabled={cantidadesModificadas.size === 0}
@@ -54,7 +56,7 @@ export default function ProveedorDetalle({
             onClick={() => handleGenerarPDF(proveedor)}
             className="btn btn-outline min-h-12 whitespace-nowrap"
           >
-            <Download size={16} className="mr-2" /> Generar PDF Orden
+            <Download size={16} className="mr-2" /> Descargar faltantes
           </button>
           <button
             onClick={() => onAgregarProducto(proveedor)}
@@ -65,11 +67,7 @@ export default function ProveedorDetalle({
         </div>
       </div>
 
-      <p className="mb-6 rounded-lg bg-nota-50 p-4 text-sm text-nota-800">
-        Para enviar una compra, elegí una semana o «Sin ciclo» en el filtro de arriba.
-        Desde ahí podés preparar una orden, revisar su PDF y consultar lo que sigue pendiente de recibir.
-      </p>
-
+      <p className="text-sm text-neutro-500">Las órdenes nuevas incluyen solo faltantes que aún no se solicitaron. Revisá sus cantidades desde «Revisar y enviar orden».</p>
       {/* Tarjeta Stats Proveedor */}
       <div className="rounded-2xl border border-neutro-200 bg-white p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="flex items-start gap-4 min-w-0">

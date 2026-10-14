@@ -11,8 +11,6 @@ archivos:
   - backend/src/modules/orders-whatsapp/ordenesCiclo.routes.js
   - backend/src/modules/compras/compras.service.js
   - backend/src/modules/inventario/inventario.service.js
-  - frontend/src/components/reporte-proveedores/RecepcionOrdenCiclo.jsx
-  - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
   - backend/tests/ordenesCompraRecepcion.test.js
 aristas:
   depende_de: [modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, tabla/compra, tabla/compra-linea, tabla/movimiento-inventario]
@@ -20,6 +18,13 @@ aristas:
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 ALCANCE. Reporte Proveedores → Órdenes por ciclo → enviada/parcialmente recibida
 → Recepción física. GET/POST /api/orden-compra/por-ciclo/:id/recepciones heredan

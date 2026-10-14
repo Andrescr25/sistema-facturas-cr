@@ -30,7 +30,7 @@ const BASE = path.join(__dirname, '..', 'src', 'modules', 'orders-whatsapp');
 const SERVICIO = fs.readFileSync(path.join(BASE, 'orders-whatsapp.service.js'), 'utf8');
 const RUTAS = fs.readFileSync(path.join(BASE, 'orders-whatsapp.routes.js'), 'utf8');
 const CONTROLADOR = fs.readFileSync(path.join(BASE, 'orders-whatsapp.controller.js'), 'utf8');
-const HOOK = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useReporteProveedores.js'), 'utf8');
+const HOOK = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useEdicionFaltantesProveedor.js'), 'utf8');
 
 describe('las rutas que el frontend llama existen', () => {
   // Los DELETE que hace la pantalla, tal cual.

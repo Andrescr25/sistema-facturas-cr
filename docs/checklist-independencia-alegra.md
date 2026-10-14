@@ -24,6 +24,14 @@ productos van a otra orden. Entrada Compras muestra faltantes, fechas y estados
 sin mezclar órdenes. Sin SQL nuevo ni dependencia externa añadida.
 [Verificación](informes/ordenes-automaticas-proveedores-2026-10-13.md).
 
+
+**Simplificación posterior de Proveedores, 2026-10-13:** el usuario deja solo
+Faltantes igual a main y fichas; desaparecen Compras/Necesidades/Órdenes como
+áreas y las semanas/paneles adicionales. Una abierta por proveedor sin ciclos;
+enviada/incierta inmutable, nuevo faltante en otra orden. SQL 058 local, pendiente
+producción; APIs y documentos históricos conservados. No cambia los conteos de
+independencia. [Evidencia vigente](informes/proveedores-simplificados-2026-10-13.md).
+
 Cada sección dice qué depende hoy de Alegra y cuándo se da por lista. Se
 marca `- [x]` al terminar.
 

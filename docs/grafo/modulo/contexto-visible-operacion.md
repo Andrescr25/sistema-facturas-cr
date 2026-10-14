@@ -15,7 +15,6 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
   - frontend/src/components/clientes/ListaPedidos.jsx
   - frontend/src/components/clientes/FichaCliente.jsx
-  - frontend/src/components/reporte-proveedores/FaltantesPorCiclo.jsx
   - backend/src/modules/clientes/clientes.resumen.service.js
   - backend/tests/operacionCiclos.test.js
   - backend/tests/fichaCliente.test.js
@@ -23,6 +22,13 @@ aristas:
   relacionado: [modulo/historicos-contexto-documentos, decision/ciclo-de-ruta-como-contexto, modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/preventa-por-enlace, modulo/facturas-bodega, modulo/faltantes, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
 medido: 2026-10-07
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 SELECCIÓN Y RESPUESTA. Pedidos y reportes ocultan datos de la selección
 anterior desde el render, antes de iniciar el siguiente GET. Una respuesta

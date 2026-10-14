@@ -8,7 +8,6 @@ import { useModal } from '../../hooks/useModal'
  */
 export default function ModalAsignarProveedor({
   cantidadSeleccionados,
-  soloCiclo = false,
   busquedaProveedor,
   setBusquedaProveedor,
   proveedoresDisponibles,
@@ -27,7 +26,6 @@ export default function ModalAsignarProveedor({
           <p className="text-neutro-600 mt-1">
             Asignar <span className="font-medium text-primario-600">{cantidadSeleccionados} producto{cantidadSeleccionados > 1 ? 's' : ''}</span> al proveedor seleccionado.
           </p>
-          {soloCiclo && <p className="mt-2 text-sm text-neutro-600">Solo se cambian los faltantes pendientes del ciclo seleccionado; las otras semanas y las órdenes enviadas conservan su información.</p>}
         </div>
         <div className="p-6 border-b border-neutro-200">
           <div className="flex flex-wrap gap-2">

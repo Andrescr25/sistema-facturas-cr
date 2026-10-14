@@ -68,3 +68,16 @@ o con intento incierto queda cerrada para agregar; los faltantes nuevos crean
 otra. Cambiar una pendiente invalida su PDF preparado y requiere nueva revisión.
 Cancelar sin envío conserva cerrada en la base y muestra Cancelada en pantalla.
 Consultar no ejecuta esta preparación. Ver [[modulo/ordenes-compra-por-ciclo]].
+
+
+## Aclaración posterior — Faltantes y fichas solamente, 2026-10-13
+
+El usuario rechaza la complejidad de ciclos/paneles y pide Faltantes igual a
+main, más Proveedores para información de cada ficha. Esta decisión reemplaza
+la navegación anterior: no mostrar necesidades, compras, semanas ni paneles de
+recepción/factura/cierre. Conservar sus registros y contratos históricos.
+Acumular por proveedor en borrador/pendiente, aunque el origen tenga otra semana;
+tras enviar, el nuevo faltante genera otra orden. SQL 058 elimina solo la igualdad
+de ciclo en la procedencia. Preparar/editar/enviar no depende de estado del ciclo.
+PDF y mensaje nuevos no llevan semanas; los ya guardados siguen intactos.
+Ver [[modulo/reporte-proveedores]] y [[modulo/ordenes-compra-por-ciclo]].

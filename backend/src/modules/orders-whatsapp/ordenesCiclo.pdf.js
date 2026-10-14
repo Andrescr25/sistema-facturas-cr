@@ -15,8 +15,6 @@ function generarPdfOrden(o) {
       if(fs.existsSync(LOGO))doc.image(LOGO,M,28,{width:110,height:110*LOGO_RATIO});
       texto('ORDEN DE COMPRA',300,29,274,14,true,MARCA.naranja);texto(o.referencia,300,52,274,12,true);
       y=83;texto(o.proveedor_nombre,M,y,W,11,true);y+=altura(o.proveedor_nombre,W,11,true)+8;
-      const ciclo=o.ciclo?`${o.ciclo.rutaNombre} · Semana ${o.ciclo.semana.split('-').reverse().join('/')}`:'Históricos · Sin ciclo';
-      texto(ciclo,M,y,W,9,true,MARCA.naranjaOscuro);y+=altura(ciclo,W,9,true)+8;
       texto(`Revisión ${o.version} · Preparada el ${fechaLarga(hoyEnCostaRica())}`,M,y,W,8,false,MARCA.gris);y+=23;
       doc.rect(M,y,W,24).fill(MARCA.naranjaSuave);
       texto('Código',M+6,y+7,82,8,true);texto('Producto',M+100,y+7,269,8,true);

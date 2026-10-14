@@ -6,13 +6,6 @@ export function estadoOrdenCompra(orden) {
   return ESTADOS[orden.estado]||orden.estado
 }
 
-export function grupoOrdenCompra(orden) {
-  if(orden.enviada_en)return 'enviadas'
-  if(orden.envio_id)return 'verificar'
-  if(['borrador','pendiente_enviar'].includes(orden.estado))return 'pendientes'
-  return 'historial'
-}
-
 export function lineasDeCantidades(cantidades) {
   return Object.entries(cantidades).filter(([,q])=>q!=='').map(([id,q])=>({productoId:Number(id),cantidadProveedor:Number(q)}))
 }
@@ -27,7 +20,9 @@ export function revisionOrdenCambio(orden,lineas) {
   return ordenar(lineas)!==ordenar(orden.lineas.map(l=>({productoId:l.producto_id,cantidadProveedor:l.cantidad_proveedor})))
 }
 
-export function productosParaRevisar(orden,sugerencia) {
-  return orden?orden.lineas.map(l=>({productoId:l.producto_id,nombre:l.producto_nombre,codigo:l.codigo_interno,codigoProveedor:l.codigo_proveedor,
-    nombreProveedor:l.nombre_proveedor,factorConversion:l.factor_conversion,origenes:l.origenes,reservada:l.origenes.reduce((s,o)=>s+Number(o.cantidad),0)})):sugerencia?.productos.filter(p=>p.disponible>0)||[]
+/** La copia revisada identifica el mismo destino aunque se escriba con espacios
+ * o sin prefijo de Costa Rica. La validación final la conserva el servidor. */
+export function normalizarTelefonoOrden(telefono) {
+  const numero=String(telefono).replace(/\D/g,'')
+  return numero.length===8?'506'+numero:numero
 }

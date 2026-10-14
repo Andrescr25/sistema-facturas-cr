@@ -152,13 +152,21 @@ caso('listado filtra por ruta/semana/Sin ciclo y combinaciones incompatibles',as
   assert.deepEqual(await s.listar({rutaId:ruta.id,cicloId:'sin-ciclo'}),[]);
   for(const id of ['1 OR 1=1',{},[],true])await assert.rejects(s.listar({cicloId:id}),e=>e.status===400);
 });
-caso('SQL no permite reclasificar, borrar orden o reservar origen de otra semana',async()=>{
+caso('SQL conserva identidad/capacidad y admite procedencia de otra semana sin reclasificar la orden',async()=>{
   const o=await crear();
   for(const sql of ['UPDATE orden_compra_ciclo SET ciclo_id=$2,version=version+1 WHERE id=$1','DELETE FROM orden_compra_ciclo WHERE id=$1']){
     await c.query('SAVEPOINT sql_invalido');await assert.rejects(c.query(sql,sql.includes('$2')?[o.id,proximo.id]:[o.id]));await c.query('ROLLBACK TO SAVEPOINT sql_invalido');
   }
   await c.query('SAVEPOINT sql_invalido');await assert.rejects(c.query(`INSERT INTO orden_compra_ciclo_origen(linea_id,faltante_id,factura_id,factura_numero,cliente_id,cliente_nombre,anticipado,cantidad)
-    VALUES($1,$2,$3,'ZZ inválida',$4,'ZZ',false,1)`,[o.lineas[0].id,docs[2].id,docs[2].f,cliente.id]),/procedencia/);await c.query('ROLLBACK TO SAVEPOINT sql_invalido');
+    VALUES($1,$2,$3,'ZZ inválida',$4,'ZZ',false,1)`,[o.lineas[0].id,docs[2].id,docs[2].f,cliente.id]),/procedencia supera la cantidad propia/);await c.query('ROLLBACK TO SAVEPOINT sql_invalido');
+  // La semana no es una restricción comercial; con capacidad e identidad
+  // correctas el origen nuevo entra sin cambiar la cabecera histórica.
+  await c.query('DELETE FROM orden_compra_ciclo_origen WHERE id=$1',[o.lineas[0].origenes[0].id]);
+  await c.query('SAVEPOINT sql_invalido');await assert.rejects(c.query(`INSERT INTO orden_compra_ciclo_origen(linea_id,faltante_id,factura_id,factura_numero,cliente_id,cliente_nombre,anticipado,cantidad)
+    VALUES($1,$2,$3,'ZZ identidad equivocada',$4,'ZZ',false,1)`,[o.lineas[0].id,docs[2].id,docs[0].f,cliente.id]),/producto\/factura\/cliente/);await c.query('ROLLBACK TO SAVEPOINT sql_invalido');
+  await c.query(`INSERT INTO orden_compra_ciclo_origen(linea_id,faltante_id,factura_id,factura_numero,cliente_id,cliente_nombre,anticipado,cantidad)
+    VALUES($1,$2,$3,'ZZ otra semana',$4,'ZZ',true,1)`,[o.lineas[0].id,docs[2].id,docs[2].f,cliente.id]);
+  const n=await s.obtener(o.id);assert.equal(n.ciclo.id,actual.id);assert.equal(n.lineas[0].origenes.length,2);assert.ok(n.lineas[0].origenes.some(r=>r.faltante_id===docs[2].id));
 });
 caso('fallo de una segunda línea revierte líneas, reservas y bitácora de la revisión',async()=>{
   const o=await crear(),antes=await s.obtener(o.id);

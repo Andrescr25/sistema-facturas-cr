@@ -18,8 +18,6 @@ archivos:
   - backend/src/utils/exportarExcel.js
   - backend/tests/exportacionesCiclos.test.js
   - frontend/src/components/FiltroCicloOperacion.jsx
-  - frontend/src/components/reporte-proveedores/NecesidadesPorCiclo.jsx
-  - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
   - frontend/src/pages/Entregas.jsx
   - docs/informes/exportaciones-ciclos-2026-10-06.md
 aristas:
@@ -27,6 +25,13 @@ aristas:
   relacionado: [modulo/carga-entregas-por-ruta, modulo/contexto-visible-operacion, decision/ciclo-de-ruta-como-contexto, modulo/registro-carga-entrega, modulo/cierre-ordenes-compra, modulo/permisos, modulo/pedidos-por-ciclo]
 medido: 2026-10-13
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 ALCANCE. Botón Exportar Excel en Necesidades, Órdenes por ciclo y Carga y
 Entregas. Listas exportan todos los resultados de los filtros, nunca solamente

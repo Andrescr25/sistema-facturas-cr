@@ -7,8 +7,6 @@ archivos:
   - backend/src/modules/reports/necesidades.service.js
   - backend/src/modules/reports/report.routes.js
   - backend/tests/necesidadesCiclo.test.js
-  - frontend/src/components/reporte-proveedores/NecesidadesPorCiclo.jsx
-  - frontend/src/hooks/useNecesidadesCiclo.js
   - frontend/src/hooks/useReporteProveedores.js
   - frontend/src/pages/ReporteProveedores.jsx
   - docs/informes/necesidades-cobertura-2026-10-06.md
@@ -17,6 +15,13 @@ aristas:
   relacionado: [modulo/reporte-proveedores, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
 medido: 2026-10-07
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 ALCANCE. Reporte de Proveedores abre en Necesidades y cobertura. Elegir ciclo
 explícito o Sin ciclo; producto → detalle con stock/demanda, bodega/compras,

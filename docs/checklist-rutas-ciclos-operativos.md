@@ -31,8 +31,12 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   Una gestión nueva reinicia el plazo; una lectura no. Sin limpieza semanal.
 - [ ] ROT-07 — Historial que conserva esos impresos y sus movimientos;
   presentación de próxima visita pendiente, sin elección expresa de foto.
-- [ ] ROT-08 — Retirar ciclos de Facturación, pedidos, proveedores, rutas,
+- [ ] ROT-08 — Retirar ciclos de Facturación, pedidos, rutas,
   Bodega y exportaciones, conservando historia, tablas y FK existentes.
+  **Proveedores completado por separado:** Faltantes como main y fichas,
+  sin áreas/paneles de ciclos. Una abierta por proveedor; enviada/incierta
+  inmutable y siguiente faltante crea otra orden. SQL 058 local, pendiente
+  producción. [Evidencia](informes/proveedores-simplificados-2026-10-13.md).
 
 ## Antecedente: implementación por ciclos
 
@@ -349,7 +353,7 @@ no cerrar las casillas del usuario por tener esta vista.
 - [x] OC-06 — Bloquear cambios de productos/cantidades tras enviar, también
   desde API; nuevas necesidades no se agregan automáticamente.
 - [x] OC-07 — Acumular faltantes nuevos en borrador/pendiente; después del envío
-  crear automáticamente otra orden independiente del mismo proveedor/ciclo.
+  crear automáticamente otra orden independiente del mismo proveedor, sin ciclos.
 - [x] OC-08 — Mostrar cantidades pendientes sin volver a comprarlas.
 - [x] OC-09 — Manejar concurrencia, reintentos y envío incierto sin duplicar
   solicitudes ni afirmar que el proveedor recibió un mensaje no confirmado.
@@ -360,6 +364,11 @@ pendiente con revisión/PDF nuevo, enviada/incierta inmutable y vista por provee
 con faltantes y órdenes separadas. Cancelación sin envío conserva historia.
 Sin SQL nuevo; pruebas en copia desechable, consulta de solo lectura y navegador.
 [Resultado y validación](informes/ordenes-automaticas-proveedores-2026-10-13.md).
+**Simplificación posterior solicitada:** quedan únicamente Faltantes (consulta
+igual a main) y fichas. Órdenes en modal del proveedor, sin semanas; SQL 058
+local retira la igualdad de ciclo conservando datos/guardas. Backend histórico
+conservado; frontend sobrante eliminado. Producción espera 058 antes de main.
+[Resultado vigente](informes/proveedores-simplificados-2026-10-13.md).
 Los párrafos siguientes describen las etapas históricas.
 
 Primera parte de órdenes (`004ba50`, 046): OC-01/02/04/07 implementados. Proveedor propio,

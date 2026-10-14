@@ -1,15 +1,25 @@
 ---
 id: modulo/ordenes-compra-por-ciclo
 tipo: modulo
-titulo: Órdenes por ciclo — PDF revisado, envío inmutable y cobertura; recepción física separada
+titulo: Órdenes por proveedor — envío inmutable, origen e historia conservada
 estado: vigente
 archivos:
+  - docs/informes/proveedores-simplificados-2026-10-13.md
+  - backend/migrations/independencia/058_ordenes_proveedor_sin_ciclos.sql
+  - backend/src/modules/orders-whatsapp/ordenesProveedor.service.js
+  - backend/src/modules/orders-whatsapp/ordenesProveedor.controller.js
+  - backend/src/modules/orders-whatsapp/ordenesProveedor.routes.js
+  - backend/tests/proveedoresSimple.test.js
+  - backend/tests/dobles/ordenesAutomaticas.js
+  - frontend/src/hooks/useOrdenesProveedor.js
+  - frontend/src/hooks/useEnvioOrdenProveedor.js
+  - frontend/src/components/reporte-proveedores/ModalOrdenesProveedor.jsx
+  - frontend/src/components/reporte-proveedores/EnvioOrdenProveedor.jsx
   - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
   - backend/src/modules/orders-whatsapp/comprasProveedores.service.js
   - backend/src/modules/orders-whatsapp/comprasProveedores.controller.js
   - backend/tests/ordenesAutomaticas.test.js
   - backend/tests/ordenCompraTexto.test.js
-  - frontend/src/hooks/useOrdenesCompraCiclo.js
   - frontend/src/utils/ordenCompraTexto.js
   - docs/informes/ordenes-automaticas-proveedores-2026-10-13.md
   - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
@@ -25,10 +35,7 @@ archivos:
   - backend/tests/ordenesCompraEnvio.test.js
   - backend/tests/ordenCompraEnvioGlobalRetirado.test.js
   - backend/tests/envioWhatsApp.test.js
-  - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
-  - frontend/src/components/reporte-proveedores/EnvioOrdenCiclo.jsx
   - frontend/src/components/reporte-proveedores/ProveedorDetalle.jsx
-  - frontend/src/components/reporte-proveedores/FaltantesPorCiclo.jsx
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
@@ -36,6 +43,34 @@ aristas:
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-13
 ---
+
+## Regla vigente — sin ciclos, 2026-10-13
+
+El usuario deja solo Faltantes y fichas en [[modulo/reporte-proveedores]].
+Órdenes se revisan dentro del proveedor, sin semanas ni áreas adicionales.
+Buscar cualquier orden abierta del proveedor en borrador/pendiente, sin intento
+activo; reutilizar también borradores históricos con ciclo fijo, sin cambiar
+sus metadatos. Orden nueva guarda ciclo/ruta/semana NULL. Nuevo faltante tras
+envío/incierto crea otra orden independiente. Cerrar/promover una semana no
+bloquea preparar, editar ni enviar la compra; estos guardas dejan de depender
+operativamente de ciclos. El proveedor sigue activo/inequívoco, con versión,
+identidad producto/factura/cliente y cobertura/cantidad protegidas.
+
+058 sustituye únicamente validar_reserva_orden_compra para permitir orígenes
+de distintas semanas: no cambia filas, FK, snapshots, stock ni triggers de
+inmutabilidad. Editar/revalidar trabaja con todas las necesidades del proveedor.
+Una nueva copia PDF y la propuesta de mensaje omiten ciclos; los bytes y mensajes
+ya guardados no se regeneran. /por-ciclo y tablas conservan su nombre por
+compatibilidad histórica; GET /proveedor/ordenes no escribe y POST /proveedor/preparar
+es explícito. Las recepciones/facturas/cierres existentes siguen en backend,
+retirados de la pantalla por el pedido del usuario. SQL 058 local, pendiente
+producción. Evidencia vigente: docs/informes/proveedores-simplificados-2026-10-13.md.
+
+## Etapas históricas anteriores a esta simplificación
+
+Los contratos de PDF/envío/versiones/cobertura continúan; los requisitos de
+semana y la navegación por paneles que siguen describen el sistema anterior.
+
 
 ENVÍO IMPLEMENTADO, código local a929ca9; validación histórica de 047 abajo.
 048/f41ce85 añade factura/PDF/comparación, ver [[modulo/facturas-ordenes-compra]].
@@ -162,7 +197,7 @@ se distingue de demanda/cobertura por semana. Informe validacion-cadena-
 2026-10-06 mantiene el cierre y sus límites; etapas anteriores históricas.
 
 
-## Presentación vigente — 2026-10-07
+## Presentación anterior — 2026-10-07
 
 Órdenes en tarjetas, activas/historial y detalle con navegación de secciones.
 Productos, PDF/envío, factura, recepción y cierre se muestran según estado;
@@ -171,7 +206,7 @@ sin guardar. Se conserva el bloqueo tras envío y los componentes de cada paso.
 Ver [[modulo/reporte-proveedores]]: 28 escenarios visuales1440/390, sin escribir
 ni enviar; no sustituye la validación de negocio de los párrafos anteriores.
 
-## Acumulación automática vigente — 2026-10-13
+## Primera acumulación automática — antes de simplificar la pantalla
 
 Bodega guarda el faltante, asigna el proveedor conocido y prepara la compra en
 la misma transacción. Asignar un proveedor manualmente también prepara lo libre.

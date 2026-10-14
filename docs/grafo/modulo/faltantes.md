@@ -47,7 +47,6 @@ archivos:
   - frontend/src/components/reporte-clientes/ListaClientes.jsx
   - frontend/src/components/reporte-proveedores/ListaProveedores.jsx
   - frontend/src/components/reporte-proveedores/ProveedorDetalle.jsx
-  - frontend/src/components/reporte-proveedores/FaltantesPorCiclo.jsx
   - frontend/src/components/reporte-proveedores/ModalAsignarProveedor.jsx
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
@@ -55,6 +54,13 @@ aristas:
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
 medido: 2026-10-13
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 EL RECORRIDO. Bodega despacha una factura y marca lo que faltó → el Reporte
 de Proveedores junta lo que hay que comprar, por proveedor → el Reporte de

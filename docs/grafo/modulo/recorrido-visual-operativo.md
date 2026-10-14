@@ -10,17 +10,21 @@ archivos:
   - backend/tests/operacionCiclos.test.js
   - backend/src/modules/reports/report.service.js
   - backend/src/modules/proveedores/proveedores.asignacion.service.js
-  - frontend/src/components/reporte-proveedores/FaltantesPorCiclo.jsx
   - frontend/src/components/reporte-proveedores/ListaProveedores.jsx
   - frontend/src/components/reporte-proveedores/ModalAsignarProveedor.jsx
-  - frontend/src/components/reporte-proveedores/RecepcionOrdenCiclo.jsx
-  - frontend/src/components/reporte-proveedores/FacturaOrdenCiclo.jsx
   - frontend/src/hooks/useReporteProveedores.js
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   relacionado: [modulo/faltantes, modulo/contexto-visible-operacion, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/preventa-por-enlace, modulo/recepcion-ordenes-compra, modulo/carga-entregas-por-ciclo, modulo/archivo-ordenes-compra]
 medido: 2026-10-07
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 Runner Chromium aparte de la suite nativa: no instalar Playwright ni arrancar
 server.js ordinario con NODE_TEST_CONTEXT. Necesita un clon tachi_codex_*,

@@ -3,7 +3,7 @@ const express=require('express');
 const Servicio=require('../src/modules/orders-whatsapp/orders-whatsapp.service');
 
 // Una pantalla vieja o una llamada directa tampoco puede comprar por fuera
-// de la cobertura por ciclo. Se prueba el router real antes de su servicio.
+// del registro de una orden independiente. Se prueba el router real antes de su servicio.
 test('envío global rechaza incluso un pedido válido sin invocar transporte',async t=>{
   let llamadas=0;
   t.mock.method(Servicio.prototype,'enviarOrdenCompraWhatsApp',async()=>{llamadas++;throw Error('No debe invocarse el envío global')});
@@ -15,7 +15,7 @@ test('envío global rechaza incluso un pedido válido sin invocar transporte',as
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({proveedor:'ZZ Proveedor',telefono:'88888888',productos:[{codigo:'ZZ',cantidad:10}]})
     });
-    assert.equal(respuesta.status,409);assert.match((await respuesta.json()).message,/Órdenes por ciclo/);
+    assert.equal(respuesta.status,409);assert.match((await respuesta.json()).message,/Abrí el proveedor en Faltantes/);
     assert.equal(llamadas,0);
   }finally{servidor.closeAllConnections();await new Promise(resolve=>servidor.close(resolve))}
 });

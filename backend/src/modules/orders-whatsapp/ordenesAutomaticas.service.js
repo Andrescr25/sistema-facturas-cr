@@ -1,23 +1,23 @@
 const {randomUUID}=require('node:crypto');
 const {registrarCambio}=require('../../utils/bitacora');
-const {interno:{enOrden,obtenerEn,contextoEn,proveedorEn,necesidadesEn,agrupar,micros,cantidadDe,reemplazarLineaEn}}=require('./ordenesCiclo.service');
+const {interno:{enOrden,obtenerEn,proveedorEn,necesidadesEn,agrupar,micros,cantidadDe,reemplazarLineaEn}}=require('./ordenesCiclo.service');
 const {faltantesEn}=require('./comprasProveedores.service');
 
-/** Se llama dentro de la transacción de Bodega/asignación, antes del COMMIT. */
+/** Una abierta por proveedor, sin agrupar por semana. La enviada/intento
+ * incierto nunca recibe nuevos productos. Se llama dentro de la transacción de Bodega/asignación, antes del COMMIT. */
 async function sincronizarEn(db,filtros={},usuarioId,incrementos=null) {
   await db.query('SELECT pg_advisory_xact_lock(46005,1)');
   const faltantes=await faltantesEn(db,filtros),contextos=new Map(),ordenes=[];
   for(const f of faltantes){
-    if(!f.proveedor_id||!f.activo||['cerrado','cancelado'].includes(f.ciclo_estado))continue;
+    if(!f.proveedor_id||!f.activo)continue;
     if(incrementos&&!incrementos.has(f.id))continue;
-    contextos.set(`${f.proveedor_id}|${f.ciclo_id}`,{proveedorId:f.proveedor_id,cicloId:f.ciclo_id});
+    contextos.set(f.proveedor_id,{proveedorId:f.proveedor_id});
   }
-  for(const {proveedorId,cicloId} of contextos.values()){
-    const p=await proveedorEn(db,proveedorId),c=await contextoEn(db,cicloId);
-    const {rows:[abierta]}=await db.query(`SELECT id FROM orden_compra_ciclo WHERE proveedor_id=$1 AND ciclo_id IS NOT DISTINCT FROM $2::int
-      AND estado IN ('borrador','pendiente_enviar') AND envio_id IS NULL ORDER BY id DESC LIMIT 1 FOR UPDATE`,[proveedorId,cicloId]);
+  for(const {proveedorId} of contextos.values()){
+    const cicloId=null,p=await proveedorEn(db,proveedorId);
+    const {rows:[abierta]}=await db.query(`SELECT id FROM orden_compra_ciclo WHERE proveedor_id=$1 AND estado IN ('borrador','pendiente_enviar') AND envio_id IS NULL ORDER BY id DESC LIMIT 1 FOR UPDATE`,[proveedorId]);
     let o=abierta?await obtenerEn(db,abierta.id,{bloquear:true}):null;
-    const libres=await necesidadesEn(db,p,cicloId,null,{bloquear:true});
+    const libres=await necesidadesEn(db,p,cicloId,null,{bloquear:true,sinCiclos:true});
     // Guardar de nuevo el mismo faltante no repone cantidades excluidas en una
     // revisión manual. Solo el aumento recién detectado puede ampliar el pedido.
     for(const f of libres)if(incrementos){
@@ -41,7 +41,7 @@ async function sincronizarEn(db,filtros={},usuarioId,incrementos=null) {
       }
       if(!o){
         const {rows:[n]}=await db.query(`INSERT INTO orden_compra_ciclo(proveedor_id,proveedor_nombre,proveedor_cedula,ciclo_id,ruta_nombre,semana,clave,solicitud)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,[p.id,p.nombre,p.identificacion,cicloId,c?.ruta_nombre??null,c?.semana??null,randomUUID(),{automatica:true,proveedorId,cicloId}]);
+          VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,[p.id,p.nombre,p.identificacion,cicloId,null,null,randomUUID(),{automatica:true,sinCiclos:true,proveedorId,cicloId:null}]);
         o={...n,lineas:[]};ordenes.push(o.id);
       }
       if(!cambios&&o.estado==='pendiente_enviar'){
@@ -55,7 +55,7 @@ async function sincronizarEn(db,filtros={},usuarioId,incrementos=null) {
       }
       // Solo reasignar los orígenes de ESTA línea. Otras revisiones y cantidades
       // manuales permanecen intactas. La orden enviada jamás llega a este flujo.
-      const disponible=agrupar(await necesidadesEn(db,p,cicloId,o.id,{bloquear:true})).find(p=>p.productoId===producto.productoId);
+      const disponible=agrupar(await necesidadesEn(db,p,cicloId,o.id,{bloquear:true,sinCiclos:true})).find(p=>p.productoId===producto.productoId);
       const anteriores=new Map(previa?.origenes.map(r=>[r.faltante_id,micros(r.cantidad)])||[]);
       for(const f of disponible.origenes){
         const permitido=(anteriores.get(f.faltanteId)||0n)+(incrementos?(incrementos.get(f.faltanteId)||0n):micros(f.disponible));

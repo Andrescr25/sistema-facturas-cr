@@ -168,14 +168,14 @@ describe('ya no hay un segundo lugar para ese número', () => {
     assert.equal(/proveedor-contacto\/:/.test(rutas), false);
   });
 
-  test('la pantalla lee el número de donde el servidor lo manda, y pide por el proveedor entero', () => {
-    const servicio = leer('frontend', 'src', 'services', 'alegraService.js');
-    const hook = leer('frontend', 'src', 'hooks', 'useReporteProveedores.js');
-
-    assert.match(servicio, /return response\.data\?\.data\?\.telefono \|\| null/);
-    assert.equal(/return response\.data\.telefono/.test(servicio), false, 'volvió a leerse donde el servidor no lo pone');
-    assert.match(servicio, /params: \{ cedula: cedula \|\| '', nombre: nombre \|\| '' \}/);
-    assert.match(hook, /getTelefonoProveedor\(proveedor\)/);
-    assert.match(hook, /guardarTelefonoProveedor\(proveedor, telefonoProveedor\)/);
+  test('la pantalla usa la propuesta de la orden con teléfonos de la ficha propia', () => {
+    const hook = leer('frontend', 'src', 'hooks', 'useEnvioOrdenProveedor.js');
+    const envio = leer('backend', 'src', 'modules', 'orders-whatsapp', 'ordenesCicloEnvio.service.js');
+    assert.match(hook, /api\.get\(`\$\{BASE\}\/\$\{orden\.id\}\/envios\/propuesta`/);
+    assert.match(hook, /setTelefonos\(data\.data\.telefonos\)/);
+    assert.match(hook, /setTelefono\(actual\?\.numero\|\|data\.data\.telefonos\[0\]\?\.numero/);
+    assert.match(envio, /SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=\$1/);
+    assert.match(envio, /\[o\.proveedor_id\]/);
+    assert.doesNotMatch(hook, /localStorage|proveedor_telefono/);
   });
 });

@@ -18,8 +18,7 @@ async function envioEn(db,ordenId,id){
 async function propuesta(id){return enOrden(async db=>{
   const o=await obtenerEn(db,id),{rows:[p]}=await db.query('SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=$1',[o.proveedor_id]);
   const {candidatos,sinReconocer}=telefonosDe({mobile:p.telefono_whatsapp,phonePrimary:p.telefono});
-  const ciclo=o.ciclo?`${o.ciclo.rutaNombre} · semana ${o.ciclo.semana}`:'Históricos · Sin ciclo';
-  return {telefonos:candidatos,sinReconocer,mensaje:`Te enviamos nuestra ORDEN DE COMPRA ${o.referencia} en PDF. ${ciclo}. Por favor confirmá los productos, cantidades y disponibilidad.`};
+  return {telefonos:candidatos,sinReconocer,mensaje:`Te enviamos nuestra ORDEN DE COMPRA ${o.referencia} en PDF. Por favor confirmá los productos, cantidades y disponibilidad.`};
 })}
 async function preparar(id,datos,usuarioId){
   const clave=uuid(datos?.clave),telefono=validarTelefonoEscrito(datos?.telefono);

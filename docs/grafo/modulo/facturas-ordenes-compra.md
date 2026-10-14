@@ -11,14 +11,19 @@ archivos:
   - backend/src/modules/orders-whatsapp/ordenesCicloFactura.archivos.js
   - backend/src/modules/orders-whatsapp/ordenesCiclo.routes.js
   - backend/tests/ordenesCompraFactura.test.js
-  - frontend/src/components/reporte-proveedores/FacturaOrdenCiclo.jsx
-  - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
 aristas:
   depende_de: [modulo/ordenes-compra-por-ciclo, tabla/facturas-proveedores, tabla/compra-linea, tabla/supplier-product-mapping, decision/la-ruta-no-el-contenido]
   relacionado: [modulo/cierre-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/el-total-manda-sobre-las-lineas]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
 medido: 2026-10-06
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 IMPLEMENTADO, código f41ce85, solo local.
 

@@ -129,9 +129,9 @@ caso('bodega cambia necesidad después de preparar: no enviar copia obsoleta',as
   const {o,e}=await copia();await c.query('UPDATE faltantes SET cantidad_faltante=2 WHERE id=$1',[fixture.faltantes[0].id]);
   await assert.rejects(mandar(o,e),e=>e.status===409);assert.equal(llamadas.length,0);
 });
-caso('cerrar ciclo después de preparar bloquea antes de enviar',async()=>{
+caso('cerrar una semana histórica ya no bloquea el envío por proveedor',async()=>{
   const {o,e}=await copia();await c.query("UPDATE ciclo_ruta SET estado='cancelado' WHERE id=$1",[fixture.ciclo]);
-  await assert.rejects(mandar(o,e),e=>e.status===409);assert.equal(llamadas.length,0);
+  const enviada=await mandar(o,e);assert.equal(enviada.estado,'enviada');assert.equal(llamadas.length,1);
 });
 caso('fallo al guardar después de transmitir mantiene bloqueo; recargar no repite el mensaje',async()=>{
   const {o,e}=await copia();fallarRegistro=true;await assert.rejects(mandar(o,e),e=>e.status===503);fallarRegistro=false;

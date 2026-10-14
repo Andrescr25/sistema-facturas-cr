@@ -65,9 +65,9 @@ describe('los componentes dibujan; con el servidor habla un gancho o un servicio
     'components/clientes/DispositivosAgente.jsx', 'components/clientes/ModalInvitacion.jsx',
     'components/clientes/ModalPreventa.jsx', 'components/cotizaciones/ModalCotizacion.jsx',
     'components/cuentas-por-cobrar/ClienteDetalle.jsx',
-    'components/relacionar-productos/ModalCrearProducto.jsx', 'components/reporte-proveedores/CierreOrdenCiclo.jsx',
-    'components/reporte-proveedores/EnvioOrdenCiclo.jsx', 'components/reporte-proveedores/FacturaOrdenCiclo.jsx',
-    'components/reporte-proveedores/RecepcionOrdenCiclo.jsx',
+    'components/relacionar-productos/ModalCrearProducto.jsx',
+
+
     'components/whatsapp/ModalEnviarWhatsApp.jsx', 'pages/Clientes.jsx', 'pages/CotizacionPublica.jsx',
     'pages/Cotizaciones.jsx', 'pages/Dashboard.jsx'
   ];
@@ -137,7 +137,7 @@ describe('ningún archivo crece sin que alguien lo decida', () => {
   const DEUDA_FRONT = {
     'hooks/useFacturacion.js': 1452, 'services/facturacionService.js': 1425, 'services/indexedDBService.js': 950,
     'utils/formasFarmaceuticas.js': 917, 'hooks/useInventarioAuditoria.js': 877, 'hooks/useRelacionarProductos.js': 668,
-    'hooks/useReporteProveedores.js': 659, 'components/relacionar-productos/ModalCrearProducto.jsx': 555
+    'components/relacionar-productos/ModalCrearProducto.jsx': 555
   };
   const DEUDA_BACK = {
     'modules/reporte-contador/reporte-contador.service.js': 964, 'modules/orders-whatsapp/orders-whatsapp.service.js': 844,

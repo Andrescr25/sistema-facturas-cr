@@ -73,12 +73,14 @@ describe('el prefijo /alegra se fue entero', () => {
   test('la pantalla llama a esas mismas direcciones', () => {
     const servicio = leer('frontend', 'src', 'services', 'alegraService.js');
     const bodega = leer('frontend', 'src', 'services', 'bodegaPropiaService.js');
-    const proveedores = leer('frontend', 'src', 'hooks', 'useReporteProveedores.js');
+    const proveedores = leer('frontend', 'src', 'hooks', 'useEdicionFaltantesProveedor.js');
+    const envio = leer('frontend', 'src', 'hooks', 'useEnvioOrdenProveedor.js');
 
     assert.match(bodega, /api\.get\('\/bodega\/facturas-propias'/);
     assert.match(servicio, /api\.post\('\/faltantes\/ajustes'/);
     assert.match(servicio, /api\.get\('\/reportes\/faltantes\/cliente'/);
-    assert.match(servicio, /api\.post\('\/orden-compra\/enviar-whatsapp'/);
+    assert.match(envio, /api\.post\(`\$\{BASE\}\/\$\{orden\.id\}\/envios\/\$\{actual\.id\}\/enviar`/);
+    assert.doesNotMatch(servicio, /api\.post\('\/orden-compra\/enviar-whatsapp'/);
     assert.match(proveedores, /api\.post\('\/orden-compra\/producto-agregado'/);
   });
 });
@@ -93,26 +95,34 @@ describe('cada llamada de la pantalla tiene su ruta en el servidor', () => {
     '/faltantes': ['missing-items', 'missing-items.routes.js'],
     '/orden-compra': ['orders-whatsapp', 'orders-whatsapp.routes.js']
   };
-  const rutasDe = (prefijo) => {
-    const fuente = codigo(leer('backend', 'src', 'modules', ...ROUTERS[prefijo]));
-    return [...fuente.matchAll(/router\.(get|post|put|patch|delete)\(\s*'([^']+)'/g)].map(m => ({
+  // Seguir también los subrouters: la orden persistida y la entrada por
+  // proveedor tienen rutas propias, todas bajo el permiso de /orden-compra.
+  const rutasEn = (archivo, base = '') => {
+    const fuente = codigo(fs.readFileSync(archivo, 'utf8'));
+    const directas = [...fuente.matchAll(/router\.(get|post|put|patch|delete)\(\s*'([^']+)'/g)].map(m => ({
       metodo: m[1],
-      patron: new RegExp(`^${m[2].replace(/:[A-Za-z]+/g, '[^/]+')}$`)
+      patron: new RegExp(`^${(base + m[2]).replace(/:[A-Za-z]+/g, '[^/]+')}$`)
     }));
+    const anidadas = [...fuente.matchAll(/router\.use\('([^']+)',\s*require\('([^']+)'\)\)/g)]
+      .flatMap(m => rutasEn(require.resolve(path.resolve(path.dirname(archivo), m[2])), base + m[1]));
+    return [...directas, ...anidadas];
   };
+  const rutasDe = prefijo => rutasEn(path.join(RAIZ, 'backend', 'src', 'modules', ...ROUTERS[prefijo]));
 
-  const llamadas = ['services/alegraService.js', 'services/bodegaPropiaService.js', 'hooks/useReporteProveedores.js']
+  const llamadas = ['services/alegraService.js', 'services/bodegaPropiaService.js', 'hooks/useReporteProveedores.js',
+    'hooks/useEdicionFaltantesProveedor.js', 'hooks/useOrdenesProveedor.js', 'hooks/useEnvioOrdenProveedor.js']
     .flatMap((archivo) => {
       const fuente = codigo(leer('frontend', 'src', ...archivo.split('/')));
+      const base = fuente.match(/const BASE\s*=\s*'([^']+)'/)?.[1];
       return [...fuente.matchAll(/api\.(get|post|put|patch|delete)\(\s*['`]([^'`]+)['`]/g)].map(m => ({
         archivo, metodo: m[1],
         // `${…}` es un valor en la dirección; lo que va después de `?` no es ruta.
-        ruta: m[2].replace(/\$\{[^}]+\}/g, 'x').split('?')[0]
+        ruta: m[2].replace(/\$\{BASE\}/g, base || 'x').replace(/\$\{[^}]+\}/g, 'x').split('?')[0]
       }));
     })
     .filter(l => Object.keys(ROUTERS).some(p => l.ruta.startsWith(`${p}/`)));
 
-  test('se reconocen las llamadas de las tres pantallas', () => {
+  test('se reconocen las llamadas de las pantallas y sus hooks separados', () => {
     assert.ok(llamadas.length >= 21, `se esperaban al menos 21 llamadas, se leyeron ${llamadas.length}`);
   });
 

@@ -129,8 +129,6 @@ export const alegraService = {
     }
   },
 
-  // Obtener cantidad sugerida inteligente por proveedor
-
   async guardarAjusteFaltante({ faltanteId, cantidadEntregada, estado, requiereActualizacion, revisado }) {
     try {
       const payload = {
@@ -158,83 +156,5 @@ export const alegraService = {
       throw new Error(`Error eliminando ajuste: ${error.message}`)
     }
   },
-
-  // ========================================
-  // TELÉFONOS DE WHATSAPP DE PROVEEDORES
-  // ========================================
-
-  // Obtener teléfono guardado de un proveedor
-  // El WhatsApp de la FICHA del proveedor, que se busca por cédula (y por
-  // nombre solo si la orden no la trae). Devuelve null si no tiene ficha o no
-  // tiene número.
-  //
-  // Leía `response.data.telefono`, pero el servidor lo manda adentro de
-  // `data`: daba siempre null, y el número que aparecía era el que cada
-  // navegador recordaba por su cuenta.
-  async getTelefonoProveedor({ cedula, nombre }) {
-    try {
-      const response = await api.get('/orden-compra/proveedor-contacto', {
-        params: { cedula: cedula || '', nombre: nombre || '' }
-      })
-      return response.data?.data?.telefono || null
-    } catch (error) {
-      console.error('❌ Error obteniendo teléfono proveedor:', error)
-      return null
-    }
-  },
-
-  // Guardar teléfono de un proveedor
-  // Deja en la ficha del proveedor el número con que se mandó la orden.
-  async guardarTelefonoProveedor({ cedula, nombre }, telefono) {
-    try {
-      const response = await api.put('/orden-compra/proveedor-contacto', {
-        cedula: cedula || null,
-        nombre,
-        telefono
-      })
-      return response.data
-    } catch (error) {
-      console.error('❌ Error guardando teléfono proveedor:', error)
-      throw new Error(`Error guardando teléfono: ${error.message}`)
-    }
-  },
-
-  // Enviar PDF de orden de compra por WhatsApp usando Evolution API
-  async enviarOrdenCompraWhatsApp(proveedor, telefono, productos, preferirDatosProveedor = true, mensaje = '') {
-    try {
-      console.log('📤 Enviando orden de compra por WhatsApp desde frontend...', proveedor);
-      const response = await api.post('/orden-compra/enviar-whatsapp', {
-        proveedor,
-        telefono,
-        productos,
-        preferirDatosProveedor,
-        mensaje
-      })
-      return response.data
-    } catch (error) {
-      console.error('❌ Error enviando PDF por WhatsApp:', error)
-      const errorMsg = error.response?.data?.message || error.message;
-      throw new Error(`Error enviando por WhatsApp: ${errorMsg}`)
-    }
-  },
-
-  /**
-   * A qué proveedores ya se les mandó el pedido desde una fecha.
-   *
-   * Falla en silencio a propósito: es una marca informativa en la tarjeta,
-   * no un dato del que dependa nada. Si el servidor no contesta, el reporte
-   * tiene que seguir abriéndose igual, solo que sin las marcas.
-   */
-  async getOrdenesEnviadas(desde = '') {
-    try {
-      const response = await api.get('/orden-compra/enviados', {
-        params: desde ? { desde } : {}
-      })
-      return response.data
-    } catch (error) {
-      console.error('⚠️ No se pudieron cargar los pedidos ya enviados:', error.message)
-      return { success: false, data: [] }
-    }
-  }
 
 }

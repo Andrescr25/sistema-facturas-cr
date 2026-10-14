@@ -12,7 +12,6 @@ archivos:
   - backend/src/modules/reports/report.service.js
   - backend/services/scheduledCleanup.js
   - backend/server.js
-  - frontend/src/components/reporte-proveedores/OrdenesCompraCiclo.jsx
   - frontend/src/components/configuracion/Mantenimiento.jsx
   - frontend/src/services/alegraService.js
   - backend/tests/ordenesCompraArchivo.test.js
@@ -23,6 +22,13 @@ aristas:
   relacionado: [modulo/cierre-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/permisos, decision/ciclo-de-ruta-como-contexto]
 medido: 2026-10-06
 ---
+
+**2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
+paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
+Solo Faltantes y fichas; órdenes se revisan dentro del proveedor, acumulando sin
+semanas. El detalle técnico/histórico de este nodo y sus APIs/documentos siguen
+conservados. Presentación vigente: [[modulo/reporte-proveedores]].
+
 
 CONTRATO. Solo estado recibida con recepción final del servidor inicia las
 24 horas. SQL050, vista orden_compra_ciclo_operativa: archivada y fechas

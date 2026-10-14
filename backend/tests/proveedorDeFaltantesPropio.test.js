@@ -284,7 +284,8 @@ describe('el Reporte de Proveedores ya no le pregunta nada a Alegra', () => {
 
   test('la pantalla busca, crea y asigna proveedores en las fichas propias', () => {
     const frente = path.join(RAIZ, '..', 'frontend', 'src');
-    const hook = fs.readFileSync(path.join(frente, 'hooks', 'useReporteProveedores.js'), 'utf8');
+    const hook = ['useReporteProveedores.js', 'useEdicionFaltantesProveedor.js']
+      .map(archivo => fs.readFileSync(path.join(frente, 'hooks', archivo), 'utf8')).join('\n');
     assert.doesNotMatch(hook, /\/alegra\/(proveedores|faltantes|productos)/, 'la pantalla sigue llamando a rutas que consultan a Alegra');
     assert.match(hook, /\/proveedores\/fichas/);
     assert.match(hook, /\/proveedores\/asignaciones/);

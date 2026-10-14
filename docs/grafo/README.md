@@ -30,7 +30,7 @@ carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 - [Reporte de clientes — ruta actual, próxima visita y revisión de faltantes](modulo/reporte-clientes.md)
 - [Preventa — agenda de todos los clientes por ruta y próxima visita](modulo/preventa-agenda.md)
 
-- [Reporte de Proveedores — compras por proveedor, órdenes separadas y fichas](modulo/reporte-proveedores.md)
+- [Reporte de Proveedores — faltantes y fichas, órdenes independientes](modulo/reporte-proveedores.md)
 
 - [Auditoría global local — migraciones, historia y cero provisional](modulo/auditoria-operacion-local.md)
 
@@ -59,7 +59,7 @@ carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 
 - [Factura del proveedor en la orden — PDF privado y comparación](modulo/facturas-ordenes-compra.md)
 
-- [Órdenes por ciclo — PDF revisado, envío inmutable, cobertura y recepción](modulo/ordenes-compra-por-ciclo.md)
+- [Órdenes por proveedor — PDF revisado, envío inmutable e historia](modulo/ordenes-compra-por-ciclo.md)
 
 - [Preventa — PDF con fotos y cuatro productos por hoja, enlace por cliente/semana y envío explícito](modulo/preventa-por-enlace.md)
 

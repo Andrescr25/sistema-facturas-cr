@@ -111,9 +111,8 @@ Estados: `sin_rotacion` (no se le definió: no se inventa una), `sin_facturas`
 - [ ] **ROT-08 — lo que quede.** Facturación (`SelectorCiclo`,
   `clientesParaOperar` manda `ciclos`, `documentosCiclo.validarEn`, y
   `facturaPropia.service` no deja cambiar el cliente de una factura con
-  recorrido), pedidos del portal/agente/WhatsApp (`ciclo_id`), Reporte de
-  Proveedores (necesidades y órdenes «por ciclo»; sus tablas ya admiten
-  `ciclo_id` NULL), la pantalla de Rutas (crear semanas), filtros de Bodega,
+  recorrido), pedidos del portal/agente/WhatsApp (`ciclo_id`), la pantalla
+  de Rutas (crear semanas), filtros de Bodega,
   los Excel y `ContextoCicloDocumento`. Las tablas `ciclo_ruta*` y las
   columnas `ciclo_ruta_cliente_id` NO se borran: son historia y sus triggers
   lo impiden; dejan de usarse.
@@ -150,3 +149,13 @@ se acumulan faltantes solo en borrador/pendiente sin envío. La integración de
 la rotación parte de ese commit. Se conserva el contexto histórico opcional
 de ciclo mientras llega ROT-08. Antes de tocar Reporte de Proveedores u
 órdenes: mirar `git worktree list` y su nodo.
+
+
+## ROT-08, parte proveedores — simplificado a petición del usuario
+
+Faltantes globales iguales a main + fichas; sin ciclos ni áreas adicionales.
+Orden abierta por proveedor, borradores antiguos reutilizables; enviada/incierta
+inmutable y nuevos faltantes en otra orden. SQL 058 aplicada solo localmente;
+pendiente en producción antes de main, además de 057. Se mantiene ROT-08 abierto
+por Facturación/pedidos/rutas/Bodega/exportaciones y ROT-06/07 por impresión.
+Evidencia: [[modulo/reporte-proveedores]] y su informe de simplificación.
