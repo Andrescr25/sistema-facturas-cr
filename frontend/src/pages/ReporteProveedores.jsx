@@ -1,7 +1,8 @@
 import NavegacionSecciones from '../components/ui/NavegacionSecciones'
-import ModalOrdenesProveedor from '../components/reporte-proveedores/ModalOrdenesProveedor'
 import { useState, useEffect } from 'react'
 import { AlertCircle, Package, ClipboardList, Contact } from 'lucide-react'
+import { useEnvioOrdenProveedor } from '../hooks/useEnvioOrdenProveedor'
+import { construirProductosParaOrden, usaDatosProveedor } from '../utils/reporteProveedoresUtils'
 import { useReporteProveedores } from '../hooks/useReporteProveedores'
 import { useFichasProveedor } from '../hooks/useFichasProveedor'
 import { useDialog } from '../hooks/useDialog'
@@ -22,13 +23,13 @@ export default function ReporteProveedores() {
     proveedores,
     notasPorProducto,
     cargandoNotas,
-    pedidosEnviados,
     resumen,
     loading,
     error,
     fechaInicio,
     setFechaInicio,
     loadReporte,
+    refrescarTrasEnvio,
 
     cantidadesModificadas,
     cantidadesGuardadas,
@@ -37,8 +38,6 @@ export default function ReporteProveedores() {
 
     preferenciasDatosProveedor,
     togglePreferenciaProveedor,
-
-    handleGenerarPDF,
 
     productosSeleccionados,
     toggleProductoSeleccionado,
@@ -87,9 +86,6 @@ export default function ReporteProveedores() {
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
   const [proveedorQuery, setProveedorQuery] = useState('')
 
-  // El proveedor elegido lleva su identidad a la revisión de la orden;
-  // las fichas conservan su administración independiente de los faltantes.
-  const [proveedorOrden, setProveedorOrden] = useState(null)
   // Diálogo propio: el del reporte lo maneja useReporteProveedores por dentro
   // y no expone `confirm`.
   const { confirm: confirmarFicha, dialogProps: dialogFichas } = useDialog()
@@ -124,6 +120,15 @@ export default function ReporteProveedores() {
   // espera tapara toda la página, entrar a corregir un proveedor obligaría a
   // esperar un reporte que no se va a mirar.
   const proveedorActivo = proveedores.find(p => p.id === proveedorActivoId)
+  const envio = useEnvioOrdenProveedor({
+    proveedor: proveedorActivo,
+    productos: proveedorActivo ? construirProductosParaOrden(proveedorActivo, {
+      productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados
+    }) : [],
+    preferirDatosProveedor: proveedorActivo ? usaDatosProveedor(proveedorActivo.nombre, preferenciasDatosProveedor) : true,
+    onEnviada: nombre => { setProveedorActivoId(null); return refrescarTrasEnvio(nombre) },
+    showToast
+  })
 
   const cerrarModalAsignar = () => {
     setModalAsignarVisible(false)
@@ -140,11 +145,11 @@ export default function ReporteProveedores() {
         </div>
         {vista === 'faltantes' && <BotonExportarExcel ruta="/reportes/faltantes/proveedor/exportar"
           params={{ fecha_inicio: fechaInicio, buscar: proveedorActivoId ? '' : proveedorQuery, proveedor: proveedorActivoId || '' }}
-          disabled={loading || Boolean(error)} title="Descarga los faltantes registrados; las cantidades de la orden se consultan en su PDF." />}
+          disabled={loading || Boolean(error)} title="Descargar faltantes pendientes" />}
       </div>
 
       <NavegacionSecciones verticalEnMovil etiqueta="Áreas de Reporte de Proveedores" seleccion={vista}
-        onCambiar={id => { setProveedorOrden(null); setVista(id) }} secciones={[
+        onCambiar={setVista} secciones={[
           { id: 'faltantes', titulo: 'Faltantes', detalle: 'Productos por proveedor', icono: ClipboardList },
           { id: 'fichas', titulo: 'Proveedores', detalle: 'Fichas y contacto', icono: Contact }
         ]} />
@@ -178,7 +183,6 @@ export default function ReporteProveedores() {
       ) : loading || error ? null : !proveedorActivoId ? (
         <ListaProveedores
           proveedores={proveedores}
-          pedidosEnviados={pedidosEnviados}
           resumen={resumen}
           fechaInicio={fechaInicio}
           setFechaInicio={setFechaInicio}
@@ -197,8 +201,7 @@ export default function ReporteProveedores() {
           cantidadesGuardadas={cantidadesGuardadas}
           handleGuardarCantidades={handleGuardarCantidades}
           handleCantidadChange={handleCantidadChange}
-          handleGenerarPDF={handleGenerarPDF}
-          onVerOrdenes={() => setProveedorOrden(proveedorActivo)}
+          envio={envio}
           preferenciasDatosProveedor={preferenciasDatosProveedor}
           togglePreferenciaProveedor={togglePreferenciaProveedor}
           productosSeleccionados={productosSeleccionados}
@@ -238,9 +241,6 @@ export default function ReporteProveedores() {
           onCerrar={() => fichas.setEditando(null)}
         />
       )}
-
-      {proveedorOrden && <ModalOrdenesProveedor proveedor={proveedorOrden}
-        onCerrar={() => setProveedorOrden(null)} onEnviada={loadReporte} />}
 
       <ConfirmModal {...dialogFichas} />
 

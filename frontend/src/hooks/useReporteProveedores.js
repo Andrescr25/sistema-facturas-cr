@@ -2,14 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useContextoConsulta } from './useContextoConsulta'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
-import { construirProductosParaOrden } from '../utils/reporteProveedoresUtils'
 import { useDialog } from './useDialog'
 import { useToast } from './useToast'
 import { useEdicionFaltantesProveedor } from './useEdicionFaltantesProveedor'
 
 /**
  * Estado y lógica de negocio del reporte de faltantes por proveedor: carga,
- * edición de cantidades a pedir, descarga de faltantes,
+ * edición de cantidades a pedir,
  * reasignación de productos a otro proveedor, y edición manual de la orden
  * (agregar/eliminar productos). Extraído de ReporteProveedores.jsx.
  *
@@ -56,10 +55,6 @@ export function useReporteProveedores({activo=true}={}) {
     restaurarProducto, abrirModalAgregarProducto, buscarProductos, solicitarCantidadYAgregar,
     eliminarProductoAgregado, actualizarCantidadAgregado } = useEdicionFaltantesProveedor({ prompt, showToast })
 
-  // Marca de órdenes pendientes y envíos históricos. Viene del
-  // registro de envíos del servidor y no del navegador, para que la marca la
-  // vea también quien abra el reporte desde otra máquina.
-  const [pedidosEnviados, setPedidosEnviados] = useState(new Map())
   const loadReporte = useCallback(async () => {
     if (!activo || !lectura.esActual()) return
     const actual = ++peticion.current
@@ -142,37 +137,15 @@ export function useReporteProveedores({activo=true}={}) {
     }
   }, [])
 
-  /** El estado sale de órdenes persistidas: una enviada antigua no oculta
-   * que este mismo proveedor ya tenga una nueva pendiente de envío. */
-  const loadPedidosEnviados = useCallback(async () => {
-    try {
-      const { data: result } = await api.get('/orden-compra/proveedor/estados')
-      if (!result?.success) return
-      const mapa = new Map()
-      for (const fila of result.data || []) {
-        const estado = { ultimoEnvio: fila.ultimoEnvio, veces: fila.veces, pendientes: fila.pendientes }
-        mapa.set(fila.proveedor, estado)
-        if (fila.cedula) mapa.set(fila.cedula, estado)
-      }
-      setPedidosEnviados(mapa)
-    } catch { setPedidosEnviados(new Map()) }
-  }, [])
-
   useEffect(() => {
     setModalAsignarVisible(false)
-    // El reporte legado puede asignar proveedores al abrirse. Las otras
-    // vistas no deben dispararlo de fondo ni aplicar sus borradores globales.
+    // Las fichas no deben disparar el reporte ni aplicar su edición de faltantes.
     if(!activo){++peticion.current;++peticionNotas.current;return}
     loadReporte()
     loadNotas()
-    loadCantidadesGuardadas(); loadPedidosEnviados()
+    loadCantidadesGuardadas()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaInicio,activo])
-
-  const usaDatosProveedor = useCallback((proveedorNombre) => {
-    const preferencia = preferenciasDatosProveedor[proveedorNombre]
-    return preferencia === undefined ? true : preferencia
-  }, [preferenciasDatosProveedor])
 
   const togglePreferenciaProveedor = useCallback((proveedorNombre, value) => {
     setPreferenciasDatosProveedor(prev => ({
@@ -200,7 +173,7 @@ export function useReporteProveedores({activo=true}={}) {
     try {
       setLoading(true)
       const cantidadesParaGuardar = []
-      proveedores.forEach(proveedor => {
+      proveedores.filter(proveedor => !proveedor.enviada && !proveedor.orden_id).forEach(proveedor => {
         proveedor.productos_faltantes.forEach(producto => {
           const key = `${proveedor.nombre}-${producto.codigo}`
           const cantidadModificada = cantidadesModificadas.get(key)
@@ -230,37 +203,6 @@ export function useReporteProveedores({activo=true}={}) {
       setLoading(false)
     }
   }, [cantidadesModificadas, proveedores, loadCantidadesGuardadas, showToast])
-
-  const handleGenerarPDF = useCallback(async (proveedor) => {
-    try {
-      setLoading(true)
-      const preferirDatosProveedor = usaDatosProveedor(proveedor.nombre)
-      const productosParaPDF = construirProductosParaOrden(proveedor, {
-        productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados
-      })
-
-      if (productosParaPDF.length === 0) {
-        showToast('No hay productos para generar la orden de compra', 'warning')
-        return
-      }
-
-      const blob = await alegraService.generarPDFOrdenCompra(proveedor.nombre, productosParaPDF, preferirDatosProveedor)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `orden-${proveedor.nombre.replace(/\s+/g, '-')}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-
-      showToast(`PDF generado para ${proveedor.nombre}`, 'success')
-    } catch (error) {
-      showToast(`Error generando PDF: ${error.message}`, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [usaDatosProveedor, productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados, showToast])
 
   // Selección de Múltiples Productos
   const toggleProductoSeleccionado = useCallback((codigo) => {
@@ -320,7 +262,7 @@ export function useReporteProveedores({activo=true}={}) {
     try {
       setLoading(true)
       const productosAAsignar = []
-      proveedores.forEach(proveedor => {
+      proveedores.filter(proveedor => !proveedor.enviada && !proveedor.orden_id).forEach(proveedor => {
         const prod = proveedor.productos_faltantes.filter(p => productosSeleccionados.has(p.codigo))
         prod.forEach(p => productosAAsignar.push({ producto: p, proveedorActual: proveedor.nombre }))
       })
@@ -379,17 +321,33 @@ export function useReporteProveedores({activo=true}={}) {
     }
   }, [asignarProveedorManual, showToast])
 
+  const refrescarTrasEnvio = useCallback(async (proveedorNombre) => {
+    if (proveedorNombre) {
+      // El servidor retira la edición de la compra confirmada; una nueva
+      // compra del mismo proveedor no puede heredar la cantidad anterior.
+      const claves = new Set(proveedores.filter(p => !p.enviada && !p.orden_id && p.nombre === proveedorNombre).flatMap(p => p.productos_faltantes.map(producto => `${proveedorNombre}-${producto.codigo}`)))
+      const sinProveedor = mapa => new Map([...mapa].filter(([key]) => !claves.has(key)))
+      setCantidadesModificadas(sinProveedor)
+      setCantidadesGuardadas(sinProveedor)
+      setProductosEliminados(prev => new Set([...prev].filter(key => !claves.has(key))))
+      setProductosAgregados(prev => { const nuevos = new Map(prev); nuevos.delete(proveedorNombre); return nuevos })
+      setProductosSeleccionados(new Set())
+      await loadCantidadesGuardadas()
+    }
+    await loadReporte()
+  }, [proveedores, loadReporte, loadCantidadesGuardadas])
+
   return {
     notasPorProducto: notas.vigente ? notasPorProducto : {},
     cargandoNotas: activo && (cargandoNotas || !notas.vigente),
     proveedores: lectura.vigente ? proveedores : [],
-    pedidosEnviados,
     resumen: lectura.vigente ? resumen : null,
     loading: activo && (loading || !lectura.vigente),
     error: lectura.vigente ? error : null,
     fechaInicio,
     setFechaInicio,
-    loadReporte: async () => { await loadReporte(); await loadPedidosEnviados() },
+    loadReporte,
+    refrescarTrasEnvio,
 
     cantidadesModificadas,
     cantidadesGuardadas,
@@ -397,10 +355,7 @@ export function useReporteProveedores({activo=true}={}) {
     handleGuardarCantidades,
 
     preferenciasDatosProveedor,
-    usaDatosProveedor,
     togglePreferenciaProveedor,
-
-    handleGenerarPDF,
 
     productosSeleccionados,
     toggleProductoSeleccionado,

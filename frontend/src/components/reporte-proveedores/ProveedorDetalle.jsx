@@ -1,13 +1,15 @@
 import ProcedenciaFaltante from './ProcedenciaFaltante'
+import OrdenEnviadaDetalle from './OrdenEnviadaDetalle'
+import { proveedorEnviado, notasDelProveedor } from '../../utils/proveedoresVista'
 import Boton from '../ui/Boton'
 import PanelSeccion from '../ui/PanelSeccion'
-import { Users, Package, RefreshCw, FileText, Download, Trash2, ArrowLeft } from 'lucide-react'
+import { Users, Package, RefreshCw, FileText, Trash2, ArrowLeft, Send } from 'lucide-react'
 import { getCantidadFinal, usaDatosProveedor } from '../../utils/reporteProveedoresUtils'
 import NotasDelProducto from './NotasDelProducto'
 import PanelNotasProveedor from './PanelNotasProveedor'
 
 /**
- * Panel de detalle de un proveedor: acciones (guardar cambios, generar PDF,
+ * Panel de detalle de un proveedor: acciones (guardar cambios, enviar PDF,
  * agregar producto), tarjeta de estadísticas, y la tabla de
  * productos de la orden de compra (originales + agregados manualmente), con
  * botón flotante para reasignar productos seleccionados. Extraído de
@@ -20,8 +22,7 @@ export default function ProveedorDetalle({
   cantidadesGuardadas,
   handleGuardarCantidades,
   handleCantidadChange,
-  handleGenerarPDF,
-  onVerOrdenes,
+  envio,
   preferenciasDatosProveedor,
   togglePreferenciaProveedor,
   productosSeleccionados,
@@ -38,28 +39,28 @@ export default function ProveedorDetalle({
   notasPorProducto,
   cargandoNotas
 }) {
+  if (proveedorEnviado(proveedor)) return <OrdenEnviadaDetalle proveedor={proveedor} onVolver={onVolver} />
+  const notasProveedor = notasDelProveedor(proveedor, notasPorProducto)
+  const bloqueado = envio.enviando || envio.estado !== 'pendiente'
   return (
     <div className="space-y-5 animate-fade-in-up">
       {/* Cabecera Activa */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <Boton variante="fantasma" icono={ArrowLeft} onClick={onVolver} className="min-h-12 self-start">Volver a proveedores</Boton>
+        <Boton variante="fantasma" icono={ArrowLeft} onClick={onVolver} disabled={envio.enviando} className="min-h-12 self-start">Volver a proveedores</Boton>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <Boton onClick={onVerOrdenes} className="min-h-12">Revisar y enviar orden</Boton>
+          <Boton onClick={envio.enviar} icono={Send} cargando={envio.enviando} disabled={envio.estado === 'incierto' || envio.estado === 'confirmado'} className="min-h-12">
+            {envio.estado === 'por_verificar' ? 'Verificar envío' : 'Enviar PDF a WhatsApp'}
+          </Boton>
           <button
             onClick={handleGuardarCantidades}
-            disabled={cantidadesModificadas.size === 0}
+            disabled={bloqueado || cantidadesModificadas.size === 0}
             className={`btn min-h-12 ${cantidadesModificadas.size > 0 ? 'bg-primario-600 text-white hover:bg-primario-700' : 'btn-outline opacity-50 cursor-not-allowed'} whitespace-nowrap`}
           >
             <FileText size={16} className="mr-2" /> Guardar Cambios
           </button>
           <button
-            onClick={() => handleGenerarPDF(proveedor)}
-            className="btn btn-outline min-h-12 whitespace-nowrap"
-          >
-            <Download size={16} className="mr-2" /> Descargar faltantes
-          </button>
-          <button
             onClick={() => onAgregarProducto(proveedor)}
+            disabled={bloqueado}
             className="btn btn-outline min-h-12 bg-exito-50 text-exito-700 border-exito-200 hover:bg-exito-100 whitespace-nowrap"
           >
             <Package size={16} className="mr-2" /> + Agregar Producto
@@ -67,7 +68,8 @@ export default function ProveedorDetalle({
         </div>
       </div>
 
-      <p className="text-sm text-neutro-500">Las órdenes nuevas incluyen solo faltantes que aún no se solicitaron. Revisá sus cantidades desde «Revisar y enviar orden».</p>
+      {envio.error && <p role="alert" className="text-sm text-peligro-700">{envio.error}</p>}
+      {(envio.estado === 'por_verificar' || envio.estado === 'incierto') && <p role="status" className="text-sm text-alerta-700">Envío por verificar. No lo vuelvas a enviar al proveedor.</p>}
       {/* Tarjeta Stats Proveedor */}
       <div className="rounded-2xl border border-neutro-200 bg-white p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="flex items-start gap-4 min-w-0">
@@ -76,9 +78,9 @@ export default function ProveedorDetalle({
           </div>
           <div className="min-w-0">
             <h2 className="text-2xl font-bold text-neutro-900 break-words">{proveedor.nombre}</h2>
-            <p className="text-neutro-500 mt-1 break-words">{proveedor.contacto || 'Sin contacto'} | ID: {proveedor.id}</p>
+            <p className="text-neutro-500 mt-1 break-words">{proveedor.contacto || 'Sin contacto'}</p>
             <label className="flex items-start gap-2 text-sm text-neutro-600 mt-3 bg-neutro-50 p-3 rounded-xl">
-              <input type="checkbox" className="mt-1 shrink-0" checked={usaDatosProveedor(proveedor.nombre, preferenciasDatosProveedor)} onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)} />
+              <input type="checkbox" disabled={bloqueado} className="mt-1 shrink-0" checked={usaDatosProveedor(proveedor.nombre, preferenciasDatosProveedor)} onChange={(e) => togglePreferenciaProveedor(proveedor.nombre, e.target.checked)} />
               Usar códigos/nombres propios del proveedor en PDFs
             </label>
           </div>
@@ -99,7 +101,7 @@ export default function ProveedorDetalle({
           empezar a poner cantidades. */}
       <PanelNotasProveedor
         productos={proveedor.productos_faltantes}
-        notasPorProducto={notasPorProducto}
+        notasPorProducto={notasProveedor}
         cargando={cargandoNotas}
       />
 
@@ -108,7 +110,7 @@ export default function ProveedorDetalle({
         titulo="Productos por comprar"
         acciones={
           <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
-            <input type="checkbox" checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))} onChange={() => toggleTodosProductos(proveedor)} />
+            <input type="checkbox" disabled={bloqueado} checked={proveedor.productos_faltantes.every(p => productosSeleccionados.has(p.codigo))} onChange={() => toggleTodosProductos(proveedor)} />
             Seleccionar todos para reasignar
           </label>
         }
@@ -126,14 +128,14 @@ export default function ProveedorDetalle({
             return (
               <div key={idx} className={`p-5 hover:bg-neutro-50 transition-colors flex flex-col md:flex-row gap-4 md:items-center ${estaEliminado ? 'bg-peligro-50/50 opacity-60' : tieneModificacion ? 'bg-alerta-50/30' : ''}`}>
                 <div className="flex items-start md:items-center w-full md:w-5/12 gap-3">
-                  <input type="checkbox" checked={seleccionado} onChange={() => toggleProductoSeleccionado(pCodigo)} className="mt-1 md:mt-0 cursor-pointer w-4 h-4 text-primario-600 rounded" />
+                  <input type="checkbox" disabled={bloqueado} checked={seleccionado} onChange={() => toggleProductoSeleccionado(pCodigo)} className="mt-1 md:mt-0 cursor-pointer w-4 h-4 text-primario-600 rounded" />
                   <div className="flex-1 min-w-0">
                     <p className={`font-semibold break-words ${estaEliminado ? 'line-through text-neutro-400' : 'text-neutro-900'}`}>{producto.nombre}</p>
                     <p className="text-sm text-neutro-500 break-words">Código: {pCodigo} {producto.descripcion_factura && `| Nota: ${producto.descripcion_factura}`}</p>
                     <ProcedenciaFaltante producto={producto} />
                     {/* Qué variante pidió el cliente. Solo aparece si la hay. */}
                     {!estaEliminado && (
-                      <NotasDelProducto notas={notasPorProducto?.[String(producto.producto_id)]} />
+                      <NotasDelProducto notas={notasProveedor[String(producto.producto_id)]} />
                     )}
                   </div>
                 </div>
@@ -153,17 +155,17 @@ export default function ProveedorDetalle({
                       onChange={(e) => handleCantidadChange(proveedor.nombre, pCodigo, e.target.value)}
                       aria-label={`Cantidad a pedir de ${producto.nombre}`}
                       className="w-full max-w-[120px] min-h-12 px-3 py-2 border border-neutro-300 rounded focus:ring-2 focus:ring-primario-500 outline-none transition-shadow"
-                      disabled={estaEliminado}
+                      disabled={bloqueado || estaEliminado}
                     />
                   </div>
 
                   <div className="flex items-center gap-2">
                     {estaEliminado ? (
-                      <button onClick={() => restaurarProducto(proveedor.nombre, pCodigo)} className="text-xs bg-neutro-200 hover:bg-neutro-300 text-neutro-700 px-3 py-1.5 rounded transition">
+                      <button disabled={bloqueado} onClick={() => restaurarProducto(proveedor.nombre, pCodigo)} className="text-xs bg-neutro-200 hover:bg-neutro-300 text-neutro-700 px-3 py-1.5 rounded transition">
                         Restaurar
                       </button>
                     ) : (
-                      <button onClick={() => eliminarProductoDeOrden(proveedor.nombre, pCodigo, producto.nombre, producto.cantidad_faltante)} aria-label={`Retirar ${producto.nombre} de la lista`} className="min-h-11 min-w-11 text-neutro-400 hover:text-peligro-600 p-2 rounded transition">
+                      <button disabled={bloqueado} onClick={() => eliminarProductoDeOrden(proveedor.nombre, pCodigo, producto.nombre, producto.cantidad_faltante)} aria-label={`Retirar ${producto.nombre} de la lista`} className="min-h-11 min-w-11 text-neutro-400 hover:text-peligro-600 p-2 rounded transition">
                         <Trash2 size={18} />
                       </button>
                     )}
@@ -187,14 +189,14 @@ export default function ProveedorDetalle({
                 <div className="flex-1 px-4 border-l border-neutro-200">
                   <p className="text-xs text-neutro-500 uppercase tracking-wider mb-1">Pedir Cantidad</p>
                   <input
-                    type="number" min="1" value={producto.cantidad}
+                    type="number" min="1" disabled={bloqueado} value={producto.cantidad}
                     onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, idx, e.target.value)}
                     aria-label={`Cantidad del producto agregado ${producto.nombre}`}
                     className="w-full max-w-[120px] min-h-12 px-3 py-2 border border-neutro-300 rounded focus:ring-2 focus:ring-primario-500 outline-none"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => eliminarProductoAgregado(proveedor.nombre, idx)} aria-label={`Retirar producto agregado ${producto.nombre}`} className="min-h-11 min-w-11 text-neutro-400 hover:text-peligro-600 p-2 rounded transition">
+                  <button disabled={bloqueado} onClick={() => eliminarProductoAgregado(proveedor.nombre, idx)} aria-label={`Retirar producto agregado ${producto.nombre}`} className="min-h-11 min-w-11 text-neutro-400 hover:text-peligro-600 p-2 rounded transition">
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -207,7 +209,7 @@ export default function ProveedorDetalle({
       {/* Floating Action Button para Reasignar si hay seleccionados */}
       {productosSeleccionados.size > 0 && (
         <div className="fixed bottom-5 right-5 left-5 sm:left-auto z-50">
-          <button onClick={onAbrirModalAsignar} className="bg-primario-600 text-white shadow-xl w-full sm:w-auto flex items-center justify-center gap-2 text-sm px-5 py-3 rounded-full hover:bg-primario-700 hover:scale-105 transition-all">
+          <button disabled={bloqueado} onClick={onAbrirModalAsignar} className="bg-primario-600 text-white shadow-xl w-full sm:w-auto flex items-center justify-center gap-2 text-sm px-5 py-3 rounded-full hover:bg-primario-700 hover:scale-105 transition-all">
             <RefreshCw size={18} />
             <span>Mover {productosSeleccionados.size} a otro proveedor</span>
           </button>

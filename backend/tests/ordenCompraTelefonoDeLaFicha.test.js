@@ -168,12 +168,11 @@ describe('ya no hay un segundo lugar para ese número', () => {
     assert.equal(/proveedor-contacto\/:/.test(rutas), false);
   });
 
-  test('la pantalla usa la propuesta de la orden con teléfonos de la ficha propia', () => {
+  test('la pantalla envía al destino seguro resuelto en la ficha por el servidor', () => {
     const hook = leer('frontend', 'src', 'hooks', 'useEnvioOrdenProveedor.js');
     const envio = leer('backend', 'src', 'modules', 'orders-whatsapp', 'ordenesCicloEnvio.service.js');
-    assert.match(hook, /api\.get\(`\$\{BASE\}\/\$\{orden\.id\}\/envios\/propuesta`/);
-    assert.match(hook, /setTelefonos\(data\.data\.telefonos\)/);
-    assert.match(hook, /setTelefono\(actual\?\.numero\|\|data\.data\.telefonos\[0\]\?\.numero/);
+    assert.match(hook, /api\.post\('\/orden-compra\/proveedor\/enviar', intento\.cuerpo\)/);
+    assert.doesNotMatch(hook, /setTelefono|telefonos\[0\]|telefono:/);
     assert.match(envio, /SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=\$1/);
     assert.match(envio, /\[o\.proveedor_id\]/);
     assert.doesNotMatch(hook, /localStorage|proveedor_telefono/);

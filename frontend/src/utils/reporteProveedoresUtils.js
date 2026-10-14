@@ -2,8 +2,7 @@
  * Cálculos puros del reporte de faltantes por proveedor: cantidad final a
  * pedir (considerando ediciones manuales/guardadas), preferencia de datos
  * de PDF, y construcción de la lista de productos para orden de compra
- * (compartida entre "Generar PDF" y "Enviar por WhatsApp", antes duplicada
- * en ambos handlers). Extraído de ReporteProveedores.jsx.
+ * que se envía desde la revisión de esta interfaz. Extraído de ReporteProveedores.jsx.
  */
 
 export function getCantidadFinal(proveedorNombre, producto, cantidadOriginal, cantidadesModificadas, cantidadesGuardadas) {
@@ -21,12 +20,9 @@ export function usaDatosProveedor(proveedorNombre, preferenciasDatosProveedor) {
 
 export function construirProductosParaOrden(proveedor, { productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados }) {
   const productosParaPDF = proveedor.productos_faltantes
-    .filter(producto => !productosEliminados.has(`${proveedor.nombre}-${producto.producto_codigo || producto.codigo}`))
+    .filter(producto => !productosEliminados.has(`${proveedor.nombre}-${producto.codigo || producto.producto_codigo || producto.id}`))
     .map(producto => {
-      const key = `${proveedor.nombre}-${producto.producto_codigo || producto.codigo}`
-      const mod = cantidadesModificadas.get(key)
-      const guardada = cantidadesGuardadas.get(key)
-      const cantFinal = mod !== undefined ? mod : (guardada ? guardada.cantidad_modificada : producto.cantidad_faltante)
+      const cantFinal = getCantidadFinal(proveedor.nombre, producto, producto.cantidad_faltante, cantidadesModificadas, cantidadesGuardadas)
       const factorConversion = producto.factor_conversion || 1
       const cantProv = factorConversion !== 1 ? Math.ceil(cantFinal / factorConversion) : cantFinal
 
@@ -51,7 +47,7 @@ export function construirProductosParaOrden(proveedor, { productosEliminados, ca
 
   const agregados = productosAgregados.get(proveedor.nombre) || []
   agregados.forEach(p => {
-    productosParaPDF.push({ codigo: p.codigo, nombre: p.nombre, cantidad: p.cantidad })
+    productosParaPDF.push({ codigo: p.codigo, nombre: p.nombre, cantidad: p.cantidad, cantidadOriginal: p.cantidad, productoId: p.productoId || null, codigoInterno: p.codigo, nombreInterno: p.nombre, agregadoManual: true })
   })
 
   return productosParaPDF

@@ -110,25 +110,6 @@ export const alegraService = {
     }
   },
 
-  // Generar PDF de orden de compra
-  async generarPDFOrdenCompra(proveedor, productos, preferirDatosProveedor = true) {
-    try {
-      console.log('📄 Frontend: Generando PDF para:', proveedor);
-      const response = await api.post('/orden-compra/generar-pdf', {
-        proveedor,
-        productos,
-        preferirDatosProveedor
-      }, {
-        responseType: 'blob' // Importante para recibir el PDF
-      })
-      console.log('✅ Frontend: PDF generado correctamente');
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error generando PDF:', error);
-      throw new Error(`Error generando PDF: ${error.message}`)
-    }
-  },
-
   async guardarAjusteFaltante({ faltanteId, cantidadEntregada, estado, requiereActualizacion, revisado }) {
     try {
       const payload = {

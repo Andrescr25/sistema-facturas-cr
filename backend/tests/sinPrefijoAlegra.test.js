@@ -79,7 +79,7 @@ describe('el prefijo /alegra se fue entero', () => {
     assert.match(bodega, /api\.get\('\/bodega\/facturas-propias'/);
     assert.match(servicio, /api\.post\('\/faltantes\/ajustes'/);
     assert.match(servicio, /api\.get\('\/reportes\/faltantes\/cliente'/);
-    assert.match(envio, /api\.post\(`\$\{BASE\}\/\$\{orden\.id\}\/envios\/\$\{actual\.id\}\/enviar`/);
+    assert.match(envio, /api\.post\('\/orden-compra\/proveedor\/enviar'/);
     assert.doesNotMatch(servicio, /api\.post\('\/orden-compra\/enviar-whatsapp'/);
     assert.match(proveedores, /api\.post\('\/orden-compra\/producto-agregado'/);
   });
@@ -110,7 +110,7 @@ describe('cada llamada de la pantalla tiene su ruta en el servidor', () => {
   const rutasDe = prefijo => rutasEn(path.join(RAIZ, 'backend', 'src', 'modules', ...ROUTERS[prefijo]));
 
   const llamadas = ['services/alegraService.js', 'services/bodegaPropiaService.js', 'hooks/useReporteProveedores.js',
-    'hooks/useEdicionFaltantesProveedor.js', 'hooks/useOrdenesProveedor.js', 'hooks/useEnvioOrdenProveedor.js']
+    'hooks/useEdicionFaltantesProveedor.js', 'hooks/useEnvioOrdenProveedor.js']
     .flatMap((archivo) => {
       const fuente = codigo(leer('frontend', 'src', ...archivo.split('/')));
       const base = fuente.match(/const BASE\s*=\s*'([^']+)'/)?.[1];
@@ -123,7 +123,13 @@ describe('cada llamada de la pantalla tiene su ruta en el servidor', () => {
     .filter(l => Object.keys(ROUTERS).some(p => l.ruta.startsWith(`${p}/`)));
 
   test('se reconocen las llamadas de las pantallas y sus hooks separados', () => {
-    assert.ok(llamadas.length >= 21, `se esperaban al menos 21 llamadas, se leyeron ${llamadas.length}`);
+    // El envío directo retiró cinco llamadas del modal de órdenes. Cuidar
+    // las entradas concretas evita que el lector deje de reconocer un hook.
+    for (const [metodo, ruta] of [
+      ['get', '/bodega/facturas-propias'], ['post', '/faltantes/ajustes'],
+      ['get', '/reportes/faltantes/cliente'], ['post', '/orden-compra/proveedor/enviar'],
+      ['post', '/orden-compra/producto-agregado']
+    ]) assert.ok(llamadas.some(l => l.metodo === metodo && l.ruta === ruta), `no se reconoció ${metodo} ${ruta}`);
   });
 
   for (const { archivo, metodo, ruta } of llamadas) {

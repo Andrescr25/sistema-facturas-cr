@@ -1,67 +1,68 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../services/api'
-import { normalizarTelefonoOrden } from '../utils/ordenCompraTexto'
+import { useAuth } from '../contexts/AuthContext'
+import { cuerpoEnvioProveedor, resultadoEnvioProveedor } from '../utils/proveedoresVista'
 
-const BASE='/orden-compra/por-ciclo'
+/** Un clic envía las cantidades de esta interfaz. Conservar el cuerpo y la
+ * clave antes de pedirlo permite consultar un resultado perdido sin duplicar
+ * el mensaje, incluso después de recargar la pestaña. */
+export function useEnvioOrdenProveedor({ proveedor, productos, preferirDatosProveedor, onEnviada, showToast }) {
+  const { usuario } = useAuth()
+  const claveStorage = proveedor ? `orden-proveedor:${usuario?.id}:${proveedor.proveedor_id || proveedor.cedula || proveedor.nombre}` : ''
+  const [estado, setEstado] = useState('pendiente')
+  const [error, setError] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const ocupado = useRef(false), seleccion = useRef(claveStorage), vivo = useRef(true)
+  seleccion.current = claveStorage
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false } }, [])
+  useEffect(() => {
+    setError('')
+    try {
+      const intento = claveStorage && JSON.parse(sessionStorage.getItem(claveStorage) || 'null')
+      setEstado(intento?.estado || (intento ? 'por_verificar' : 'pendiente'))
+    } catch { setEstado('por_verificar') }
+  }, [claveStorage, proveedor?.revisionReporte])
 
-/** Copia persistida y revisada; un intento incierto nunca se reenvía. */
-export function useEnvioOrdenProveedor({orden,onActualizar,onOcupado,prompt}) {
-  const [telefono,setTelefono]=useState(''),[mensaje,setMensaje]=useState(''),[telefonos,setTelefonos]=useState([])
-  const [error,setError]=useState(''),[aviso,setAviso]=useState(''),[url,setUrl]=useState(''),[revisado,setRevisado]=useState(false)
-  const [copiaAbierta,setCopiaAbierta]=useState(null)
-  const [cargandoPropuesta,setCargandoPropuesta]=useState(true)
-  const solicitud=useRef(null),blob=useRef(''),vivo=useRef(true)
-  const actual=orden.envios?.find(e=>e.id===orden.envio_id)||orden.envios?.find(e=>e.estado==='revisado'&&e.version_orden===orden.version)
-  const fijo=Boolean(orden.envio_id)||orden.estado==='enviada'
-  const vigente=actual&&(!fijo?actual.numero===normalizarTelefonoOrden(telefono)&&actual.mensaje===mensaje.trim():true)
-  const fallo=e=>e.response?.data?.message||'No se pudo consultar o guardar el envío. Recargá antes de reintentar.'
-  const limpiar=()=>{if(blob.current)URL.revokeObjectURL(blob.current);blob.current='';setUrl('');setRevisado(false);setCopiaAbierta(null)}
-  useEffect(()=>{
-    // La propuesta llega una sola vez. Esperarla evita que su respuesta
-    // reemplace el destino o mensaje que la persona empezó a escribir.
-    let activo=true;vivo.current=true;setCargandoPropuesta(true)
-    api.get(`${BASE}/${orden.id}/envios/propuesta`).then(({data})=>{
-      if(!activo)return
-      setTelefonos(data.data.telefonos)
-      setTelefono(actual?.numero||data.data.telefonos[0]?.numero||'');setMensaje(actual?.mensaje||data.data.mensaje)
-    }).catch(e=>{if(activo)setError(fallo(e))}).finally(()=>{if(activo)setCargandoPropuesta(false)})
-    return()=>{activo=false;vivo.current=false;if(blob.current)URL.revokeObjectURL(blob.current)}
-  },[orden.id])
-  useEffect(()=>{limpiar()},[actual?.id])
-  useEffect(()=>{
-    if(actual?.estado!=='enviando')return
-    let vivo=true
-    const timer=setInterval(()=>api.get(`${BASE}/${orden.id}`).then(({data})=>{if(vivo)onActualizar(data.data)}).catch(()=>{}),3000)
-    return()=>{vivo=false;clearInterval(timer)}
-  },[orden.id,actual?.estado])
-  const ejecutar=async tarea=>{
-    onOcupado(true);setError('');setAviso('')
-    try{const nueva=await tarea();if(!vivo.current)return;onActualizar(nueva)
-      const e=nueva.envios?.find(e=>e.id===nueva.envio_id)||nueva.envios?.[0]
-      if(e?.estado==='incierto'||e?.estado==='enviando')setAviso('No reenviés esta orden. Consultá si el proveedor tiene este mismo PDF y referencia.')
-      else if(e?.estado==='confirmado')setAviso('Envío confirmado. Los productos y cantidades quedaron bloqueados; los próximos faltantes irán en otra orden.')
-      else if(e?.estado==='no_enviado')setAviso(e.motivo)
-    }catch(e){if(vivo.current)setError(fallo(e))}finally{if(vivo.current)onOcupado(false)}
+  const enviar = async () => {
+    if (ocupado.current || !proveedor || estado === 'incierto' || estado === 'confirmado') return
+    ocupado.current = true; setEnviando(true); setError('')
+    const storage = claveStorage
+    const actual = () => vivo.current && seleccion.current === storage
+    try {
+      let intento
+      try { intento = JSON.parse(sessionStorage.getItem(storage) || 'null') }
+      catch { throw new Error('No se pudo recuperar el envío anterior. Consultá su resultado antes de volver a enviar.') }
+      if (!intento) intento = { cuerpo: { ...cuerpoEnvioProveedor(proveedor, productos, preferirDatosProveedor), clave: crypto.randomUUID() }, estado: 'por_verificar' }
+      // Si no puede conservarse, no se inicia un envío que perdería su clave al recargar.
+      sessionStorage.setItem(storage, JSON.stringify(intento))
+      const { data } = await api.post('/orden-compra/proveedor/enviar', intento.cuerpo)
+      if (!data.success) throw new Error(data.message || 'No se pudo consultar el envío.')
+      const resultado = resultadoEnvioProveedor(data.data)
+      if (resultado === 'confirmado') {
+        sessionStorage.removeItem(storage)
+        if (actual()) setEstado('confirmado')
+        showToast('PDF enviado a WhatsApp.', 'success')
+        await onEnviada(proveedor.nombre)
+      } else {
+        intento.estado = resultado === 'incierto' ? 'incierto' : 'por_verificar'
+        sessionStorage.setItem(storage, JSON.stringify(intento))
+        if (actual()) setEstado(intento.estado)
+        showToast('El envío está por verificar. No vuelvas a enviarlo al proveedor.', 'warning')
+        await onEnviada()
+      }
+    } catch (e) {
+      // Rechazos de validación ocurren antes del transporte. Una pérdida de
+      // respuesta conserva la misma clave y las mismas cantidades.
+      const status = e.response?.status
+      if (status === 400 || status === 409 || status === 422) {
+        sessionStorage.removeItem(storage)
+        if (actual()) setEstado('pendiente')
+      } else if (actual()) setEstado('por_verificar')
+      if (actual()) setError(e.response?.data?.message || e.message || 'No se pudo conocer el resultado del envío. Consultá con la misma solicitud.')
+    } finally {
+      ocupado.current = false
+      if (vivo.current) setEnviando(false)
+    }
   }
-  const preparar=()=>ejecutar(async()=>{
-    const cuerpo={version:orden.version,telefono,mensaje},firma=JSON.stringify(cuerpo)
-    if(solicitud.current?.firma!==firma)solicitud.current={firma,clave:crypto.randomUUID()}
-    limpiar();return(await api.post(`${BASE}/${orden.id}/envios`,{...cuerpo,clave:solicitud.current.clave})).data.data
-  })
-  const abrirPdf=async copia=>{
-    onOcupado(true);setError('')
-    try{const {data}=await api.get(`${BASE}/${orden.id}/envios/${copia.id}/pdf`,{responseType:'blob'})
-      if(!vivo.current)return
-      limpiar();blob.current=URL.createObjectURL(new Blob([data],{type:'application/pdf'}));setUrl(blob.current);setCopiaAbierta(copia)
-    }catch{if(vivo.current)setError('No se pudo abrir la copia guardada. Recargá antes de enviar.')}finally{if(vivo.current)onOcupado(false)}
-  }
-  const enviar=()=>ejecutar(async()=>(await api.post(`${BASE}/${orden.id}/envios/${actual.id}/enviar`,{confirmar:true})).data.data)
-  const verificar=async()=>{
-    const motivo=await prompt('Confirmá únicamente si verificaste que el proveedor tiene esta orden y sus cantidades. ¿Cómo lo verificaste?',{title:'Confirmar envío verificado',inputPlaceholder:'Ejemplo: confirmó la referencia y cantidades por llamada',confirmLabel:'Registrar confirmación'})
-    if(motivo)ejecutar(async()=>(await api.post(`${BASE}/${orden.id}/envios/${actual.id}/verificar`,{confirmarEnvio:true,motivo})).data.data)
-  }
-  const verificable=actual?.estado==='incierto'||(actual?.estado==='enviando'&&Date.now()-new Date(actual.iniciado_en).getTime()>300000)
-  return { telefono,mensaje,telefonos,error,aviso,url,revisado,copiaAbierta,cargandoPropuesta,
-    actual,fijo,vigente,verificable,preparar,abrirPdf,enviar,verificar,
-    cambiarTelefono:v=>{limpiar();setTelefono(v)},cambiarMensaje:v=>{limpiar();setMensaje(v)},setRevisado }
+  return { enviar, enviando, estado, error }
 }

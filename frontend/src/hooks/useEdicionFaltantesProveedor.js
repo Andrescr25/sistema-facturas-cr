@@ -69,7 +69,7 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
     const keyProv = proveedorParaAgregar.nombre
     const nuevosAgregados = new Map(productosAgregados)
     const list = nuevosAgregados.get(keyProv) || []
-    list.push({ codigo: producto.reference, nombre: producto.name, cantidad: parseInt(cantidad), agregadoManual: true })
+    list.push({ productoId: producto.id, codigo: producto.reference, nombre: producto.name, cantidad: parseInt(cantidad), agregadoManual: true })
     nuevosAgregados.set(keyProv, list)
     setProductosAgregados(nuevosAgregados)
 

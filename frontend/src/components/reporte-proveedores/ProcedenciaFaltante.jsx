@@ -1,5 +1,6 @@
 /** Faltantes originales por factura/cliente, sin agruparlos por semanas. */
 export default function ProcedenciaFaltante({ producto }) {
+  if (!producto.origenes?.length) return null
   return <details className="mt-2 text-sm">
     <summary className="cursor-pointer font-semibold text-primario-700">Procedencia del faltante · {producto.cantidad_faltante} unidades</summary>
     <div className="mt-2 space-y-2">
