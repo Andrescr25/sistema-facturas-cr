@@ -4,6 +4,8 @@ tipo: modulo
 titulo: Órdenes por proveedor — envío inmutable, origen e historia conservada
 estado: vigente
 archivos:
+  - backend/src/modules/orders-whatsapp/ordenProveedor.pdf.js
+  - backend/tests/ordenProveedorPdf.test.js
   - docs/informes/proveedores-correccion-2026-10-14.md
   - backend/tests/proveedoresCritico.test.js
   - backend/src/modules/orders-whatsapp/envioDesdeReporte.service.js
@@ -59,7 +61,9 @@ conversión decimal exacta de seis decimales, sin procedencia ficticia. La bitá
 y huella del cuerpo; un reintento reutiliza la copia. La reclamación durable
 existente sigue ocurriendo antes del transporte; resultado perdido/incierto
 no habilita retransmitir. Teléfono único de ficha y mensaje predeterminado.
-No hay modal ni segunda pantalla de preparación en la interfaz.
+El botón abre un modal para confirmar el número y el mensaje exactos. Revisar
+prepara y guarda el PDF sin transportar; confirmar reutiliza el mismo
+UUID/cuerpo y snapshot, sin reconstruir el pedido.
 Bloqueo factura → faltante y segunda lectura de huella antes de escribir;
 el claim revalida bajo bloqueo de factura. Los borradores históricos
 adicionales sin intento se cierran con motivo/bitácora, conservando líneas y
@@ -69,6 +73,29 @@ El reporte separa cobertura enviada de necesidad nueva: Sin enviar arriba,
 snapshots enviados tachados abajo. Relación con compra registrada/indicadores
 se describe en [[modulo/facturas-ordenes-compra]]. Sin tablas/SQL nuevos;
 [verificación](../../informes/proveedores-correccion-2026-10-14.md).
+
+## Formato comercial recuperado — 2026-10-14
+
+El usuario pide recuperar el PDF anterior: logo, referencia/fecha, proveedor,
+totales, cantidad destacada, descripción y código del proveedor. El factor
+permanece visible junto a la descripción, incluso cuando vale 1. La cantidad
+mostrada y los totales son del proveedor; se retiran columnas/cuentas internas
+y rótulos de revisión. Referencias faltantes conservan las bandas anteriores
+de código/equivalencia, sin inventar identificadores P-id.
+
+ordenProveedor.pdf.js comparte ese diseño con el generador histórico, usando
+marcaPdf y sus fuentes. ordenesCiclo.pdf.js traduce únicamente los snapshots
+guardados: no consulta mapping, fichas, faltantes ni cantidades actuales. La
+descarga y el transporte conservan los bytes preparados, incluidos documentos
+anteriores. No se regeneran órdenes ya enviadas ni cambian cantidades, factores,
+reservas o stock. Notas del generador antiguo continúan separadas del nombre;
+no se atribuyen al snapshot si no existen allí.
+
+Cinco regresiones con PDFKit real validan una hoja, 80 productos, fallback de
+referencias y textos mayores que una hoja sin truncar, repetir cantidades ni
+perder factor. Extracción y raster PDFKit nativos comprueban una hoja, seis
+hojas con 80 líneas y descripción extensa en siete hojas. Cero consultas de
+base o mensajes para esas verificaciones.
 
 
 ## Regla vigente — sin ciclos, 2026-10-13

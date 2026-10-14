@@ -2,9 +2,8 @@
  * Servicio para gestión de Órdenes de Compra y WhatsApp
  */
 
-const axios = require('axios');
-const path = require('path');
-const fs = require('fs');
+const { generarPdfCompra } = require('./ordenProveedor.pdf');
+const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { query } = require('../../../config/database');
 // La conversación con Evolution vive en un solo lugar: acá solo se arma el
 // PDF y se pide el envío. El traductor de errores se mudó con ella.
@@ -51,24 +50,6 @@ function normalizarTelefonoCR(telefono) {
   );
 }
 
-
-// Colores tomados del logo (muestreo de los píxeles del PNG): el naranja es
-// el único acento y se reserva para lo que el proveedor tiene que ver primero
-// — las cantidades — más la regla del encabezado y los rótulos de sección.
-const MARCA = {
-  naranja: '#E9501C',
-  naranjaSuave: '#FDEEE8',
-  naranjaOscuro: '#B0410F',
-  gris: '#616161',
-  tinta: '#1A1A1A',
-  grisSuave: '#8A8A8A',
-  linea: '#E4E4E4',
-  cebra: '#FAFAFA',
-  panel: '#F5F5F5'
-};
-
-const LOGO = path.join(__dirname, '../../../assets/logo-tachi.png');
-const LOGO_RATIO = 276 / 1000; // alto/ancho del PNG original
 
 /** Referencia citable por teléfono, derivada del momento del envío. */
 function referenciaOrden(fecha) {
@@ -355,192 +336,22 @@ class OrdersWhatsappService {
       }
     }
 
-    const productosConCodigoProveedor = productosEnriquecidos.filter(p =>
-      p.origen === 'con_codigo_proveedor' || p.origen === 'interno_manual'
-    );
-    const productosSinCodigoProveedor = productosEnriquecidos.filter(p => p.origen === 'sin_codigo_proveedor');
-    const productosSinMapeo = productosEnriquecidos.filter(p => p.origen === 'sin_mapeo' || p.origen === 'error');
-
-    const PDFDocument = require('pdfkit');
-    const doc = new PDFDocument({ margin: 40, size: 'letter', bufferPages: true });
-    const chunks = [];
-    doc.on('data', chunk => chunks.push(chunk));
-
-    const pdfPromise = new Promise((resolve) => {
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-    });
-
-    const M = 40;
-    const ANCHO = doc.page.width - M * 2;
     const ahora = new Date();
-    const totalUnidades = productosEnriquecidos.reduce((s, p) => s + (parseInt(p.cantidad, 10) || 0), 0);
-
-    // ==================== Encabezado ====================
-    let cursor = M;
-    if (fs.existsSync(LOGO)) {
-      const anchoLogo = 130;
-      doc.image(LOGO, M, cursor - 4, { width: anchoLogo });
-      cursor += anchoLogo * LOGO_RATIO + 2;
-    } else {
-      doc.font('Helvetica-Bold').fontSize(17).fillColor(MARCA.naranja).text('TACHI', M, cursor);
-      doc.font('Helvetica').fontSize(8).fillColor(MARCA.gris).text('DISTRIBUIDORA', M, cursor + 20, { characterSpacing: 2 });
-      cursor += 36;
-    }
-
-    doc.font('Helvetica-Bold').fontSize(15).fillColor(MARCA.tinta)
-      .text('ORDEN DE COMPRA', doc.page.width - M - 240, M + 2, { width: 240, align: 'right' });
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(MARCA.naranja)
-      .text(referenciaOrden(ahora), doc.page.width - M - 240, M + 22, { width: 240, align: 'right' });
-    doc.font('Helvetica').fontSize(8.5).fillColor(MARCA.gris)
-      .text(ahora.toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' }),
-        doc.page.width - M - 240, M + 36, { width: 240, align: 'right' });
-
-    const yRegla = Math.max(cursor + 18, M + 56);
-    doc.rect(M, yRegla, ANCHO, 2.5).fill(MARCA.naranja);
-
-    // ==================== Proveedor y totales ====================
-    let y = yRegla + 18;
-    doc.font('Helvetica').fontSize(7.5).fillColor(MARCA.grisSuave)
-      .text('PROVEEDOR', M, y, { characterSpacing: 1 });
-    doc.font('Helvetica-Bold').fontSize(15).fillColor(MARCA.tinta)
-      .text(proveedor || 'Sin especificar', M, y + 12, { width: ANCHO - 180 });
-
-    const anchoCaja = 168;
-    const xCaja = doc.page.width - M - anchoCaja;
-    doc.roundedRect(xCaja, y - 6, anchoCaja, 52, 5).fillAndStroke('#FFFFFF', MARCA.linea);
-    doc.font('Helvetica-Bold').fontSize(17).fillColor(MARCA.naranja)
-      .text(String(productosEnriquecidos.length), xCaja, y + 5, { width: anchoCaja / 2, align: 'center' })
-      .text(String(totalUnidades), xCaja + anchoCaja / 2, y + 5, { width: anchoCaja / 2, align: 'center' });
-    doc.font('Helvetica').fontSize(7).fillColor(MARCA.grisSuave)
-      .text('PRODUCTOS', xCaja, y + 28, { width: anchoCaja / 2, align: 'center', characterSpacing: 0.5 })
-      .text('UNIDADES', xCaja + anchoCaja / 2, y + 28, { width: anchoCaja / 2, align: 'center', characterSpacing: 0.5 });
-
-    y = yRegla + 76;
-
-    // ==================== Tabla ====================
-    const X_CANTIDAD = M + 6;
-    const ANCHO_CANTIDAD = 54;
-    const X_NOMBRE = M + 74;
-    const ANCHO_NOMBRE = ANCHO - 74 - 96;
-    const X_CODIGO = M + ANCHO - 96;
-    const LIMITE = doc.page.height - 52;
-
-    const encabezadoTabla = () => {
-      doc.font('Helvetica').fontSize(7).fillColor(MARCA.grisSuave)
-        .text('CANT.', X_CANTIDAD, y, { width: ANCHO_CANTIDAD, align: 'center', characterSpacing: 0.8 })
-        .text('PRODUCTO', X_NOMBRE, y, { characterSpacing: 0.8 })
-        .text('CÓDIGO', X_CODIGO, y, { width: 96, align: 'right', characterSpacing: 0.8 });
-      y += 12;
-      doc.rect(M, y, ANCHO, 1).fill(MARCA.tinta);
-      y += 6;
-    };
-
-    let cebra = false;
-    const paginaNueva = () => { doc.addPage(); y = M; encabezadoTabla(); cebra = false; };
-
-    const renderProducto = (producto) => {
-      const nombre = producto.nombre_pdf || 'Sin descripción';
-      // La descripción de factura y las observaciones van en su propia línea.
-      // Antes se concatenaban al nombre ("PLATO N-6 LINK 1X15 - urge") y se
-      // leían como parte del producto.
-      const notas = [producto.descripcionFactura, producto.observaciones]
-        .map(t => (t || '').trim()).filter(Boolean).join('   ·   ');
-
-      const altoNombre = doc.font('Helvetica-Bold').fontSize(10.5).heightOfString(nombre, { width: ANCHO_NOMBRE });
-      // El código también puede envolverse (los internos llegan a ser largos):
-      // si no se cuenta su alto, la segunda línea se sale de la fila y pisa la
-      // siguiente.
-      const codigo = producto.codigo_pdf || '—';
-      const altoCodigo = doc.font('Helvetica').fontSize(8.5).heightOfString(codigo, { width: 96 });
-      const alto = Math.max(altoNombre + (notas ? 11 : 0) + 12, altoCodigo + 12, 28);
-
-      if (y + alto > LIMITE) paginaNueva();
-      if (cebra) doc.rect(M, y - 2, ANCHO, alto).fill(MARCA.cebra);
-      cebra = !cebra;
-
-      // La cantidad es lo que el proveedor busca: va destacada y pegada al
-      // nombre, no a 300pt de distancia como en la versión anterior.
-      doc.roundedRect(X_CANTIDAD, y + 1, ANCHO_CANTIDAD, alto - 8, 4).fill(MARCA.naranjaSuave);
-      doc.font('Helvetica-Bold').fontSize(14).fillColor(MARCA.naranja)
-        .text(String(producto.cantidad ?? 0), X_CANTIDAD, y + (alto - 8) / 2 - 6, { width: ANCHO_CANTIDAD, align: 'center' });
-
-      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(MARCA.tinta)
-        .text(nombre, X_NOMBRE, y + 3, { width: ANCHO_NOMBRE });
-      if (notas) {
-        doc.font('Helvetica-Oblique').fontSize(8).fillColor(MARCA.naranjaOscuro)
-          .text(notas, X_NOMBRE, y + 3 + altoNombre + 1, { width: ANCHO_NOMBRE });
-      }
-      doc.font('Helvetica').fontSize(8.5).fillColor(MARCA.gris)
-        .text(codigo, X_CODIGO, y + 5, { width: 96, align: 'right' });
-
-      y += alto;
-      doc.rect(M, y - 2, ANCHO, 0.5).fill(MARCA.linea);
-    };
-
-    const renderSeccion = (titulo, nota) => {
-      if (y + 46 > LIMITE) paginaNueva();
-      y += 7;
-      doc.rect(M, y, ANCHO, 20).fill(MARCA.naranjaSuave);
-      doc.font('Helvetica-Bold').fontSize(8).fillColor(MARCA.naranjaOscuro)
-        .text(titulo, M + 8, y + 6, { characterSpacing: 0.5 });
-      doc.font('Helvetica').fontSize(7.5)
-        .text(nota, M + 8, y + 6.5, { width: ANCHO - 16, align: 'right' });
-      y += 25;
-      cebra = false;
-    };
-
-    encabezadoTabla();
-    productosConCodigoProveedor.forEach(renderProducto);
-
-    if (productosSinCodigoProveedor.length > 0) {
-      renderSeccion('SIN CÓDIGO DE PROVEEDOR', 'usar la referencia interna');
-      productosSinCodigoProveedor.forEach(renderProducto);
-    }
-
-    if (productosSinMapeo.length > 0) {
-      renderSeccion('SIN EQUIVALENCIA REGISTRADA', 'confirmar antes de despachar');
-      productosSinMapeo.forEach(renderProducto);
-    }
-
-    // ==================== Cierre ====================
-    // Totales y firma en una sola banda: separados costaban 120pt de alto y
-    // empujaban a una segunda página sin agregar información.
-    if (y + 52 > doc.page.height - 42) { doc.addPage(); y = M; }
-    y += 8;
-    doc.rect(M, y, ANCHO, 44).fill(MARCA.panel);
-    doc.rect(M, y, 3, 44).fill(MARCA.naranja);
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(MARCA.tinta)
-      .text(`${productosEnriquecidos.length} productos`, M + 16, y + 9)
-      .text(`${totalUnidades} unidades`, M + 122, y + 9);
-    doc.font('Helvetica').fontSize(7.5).fillColor(MARCA.gris)
-      .text('Cualquier faltante, confirmarlo antes de despachar.', M + 16, y + 27, { width: 260 });
-
-    const xFirma = M + ANCHO - 232;
-    doc.moveTo(xFirma, y + 27).lineTo(xFirma + 104, y + 27).lineWidth(0.5).stroke(MARCA.grisSuave);
-    doc.moveTo(xFirma + 120, y + 27).lineTo(M + ANCHO - 12, y + 27).stroke(MARCA.grisSuave);
-    doc.font('Helvetica').fontSize(7).fillColor(MARCA.grisSuave)
-      .text('Recibido por', xFirma, y + 31)
-      .text('Fecha', xFirma + 120, y + 31);
-
-    // ==================== Pie con paginación ====================
-    const rango = doc.bufferedPageRange();
-    for (let i = 0; i < rango.count; i++) {
-      doc.switchToPage(rango.start + i);
-      // pdfkit agrega una página en blanco si se escribe por debajo del margen
-      // inferior, y el pie va justo ahí.
-      const margenOriginal = doc.page.margins.bottom;
-      doc.page.margins.bottom = 0;
-      const yPie = doc.page.height - 30;
-      doc.rect(M, yPie - 8, ANCHO, 0.5).fill(MARCA.linea);
-      doc.font('Helvetica').fontSize(7).fillColor(MARCA.grisSuave)
-        .text(`${referenciaOrden(ahora)}   ·   ${proveedor || ''}`, M, yPie, { width: ANCHO - 110 })
-        .text(`Página ${i + 1} de ${rango.count}`, M + ANCHO - 110, yPie, { width: 110, align: 'right' });
-      doc.page.margins.bottom = margenOriginal;
-    }
-
-    doc.end();
-
-    const pdfBuffer = await pdfPromise;
+    const pdfBuffer = await generarPdfCompra({
+      referencia: referenciaOrden(ahora),
+      proveedor,
+      fecha: hoyEnCostaRica(ahora),
+      lineas: productosEnriquecidos.map(p => ({
+        codigo: p.codigo_pdf,
+        descripcion: p.nombre_pdf,
+        cantidad: p.cantidad,
+        factor: p.factorConversion,
+        descripcionFactura: p.descripcionFactura,
+        observaciones: p.observaciones,
+        seccion: p.origen === 'sin_codigo_proveedor' ? 'sin_codigo' :
+          ['sin_mapeo', 'error'].includes(p.origen) ? 'sin_mapeo' : null
+      }))
+    });
     return { pdfBuffer, cantidadProductos: productosEnriquecidos.length };
   }
 
