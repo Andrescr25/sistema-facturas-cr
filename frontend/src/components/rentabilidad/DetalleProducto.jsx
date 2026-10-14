@@ -50,7 +50,7 @@ export default function DetalleProducto({ seleccionado, detalle, cargando, error
         <Dato titulo="Dejó en 3 meses" valor={p.ganancia !== null ? colonesCorto(p.ganancia) : '—'}
           tono={p.ganancia !== null && p.ganancia < 0 ? 'peligro' : 'neutro'}
           pie={`De ${colonesCorto(p.ventas)} vendidos · estimado con el costo de hoy`} />
-        <Dato titulo="Promedio mensual" valor={`${unidades(p.unidadesMes)} u. / mes`} pie="Últimos 3 meses completos" />
+        <Dato titulo="Rotación mensual" valor={`${unidades(p.unidadesMes)} u. / mes`} pie="Últimos 30 días" />
         <Dato titulo="Facturas" valor={p.facturas} pie={`${p.clientes} ${p.clientes === 1 ? 'cliente distinto' : 'clientes distintos'} · 3 meses`} />
         <Dato titulo="Última venta" valor={fechaCorta(p.ultimaVenta)} />
         <Dato titulo="Rotación" valor={`Clase ${p.clase}`}

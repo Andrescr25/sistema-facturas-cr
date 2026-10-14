@@ -43,7 +43,7 @@ siguen en [checklist de independencia](checklist-independencia-alegra.md).
 
 ## Corrección prioritaria — 2026-10-14
 
-**Rotación de productos, ajuste posterior del día:** el usuario aclara que
+**Rotación de productos, decisión inicial del día:** el usuario aclara que
 la rotación mensual en **Rentabilidad** debe ser la media de unidades
 vendidas por mes. Confirma usar los **últimos 3 meses completos**: sumar las
 ventas de esos tres meses y dividir entre tres, contando los meses sin
@@ -55,6 +55,15 @@ se muestra en Rentabilidad y Gestión de Catálogo. Ambos campos mensuales
 deben usar el mismo promedio de tres meses completos, también en la búsqueda
 global y por categoría. Conservar decimales y mostrar cero sin ventas. La
 autorización incluye publicar el conjunto verificado a main.
+
+**Regla vigente tras el caso del bombillo, mismo día:** el usuario compró
+70 unidades y se agotaron en menos de un mes. Inspección autorizada sólo en
+lectura:74 vendidas en30 días; el16,33 correspondía a49/3 en los meses
+cerrados. El usuario elige explícitamente **«Rotación = unidades vendidas
+en los últimos 30 días»** en Rentabilidad y Gestión de Catálogo. Sustituye
+la regla anterior de tres meses completos para estos campos. Incluir hoy
+y los29 días anteriores, excluir fechas futuras y mostrar cero sin ventas.
+Las compras se revisan como evidencia; no se suman como ventas.
 
 Reporte Proveedores conserva solo Faltantes y fichas. Excluir facturas listas
 de Reporte Clientes y procedencia falsa. Nuevos faltantes Sin enviar arriba;

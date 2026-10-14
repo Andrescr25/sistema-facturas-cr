@@ -48,6 +48,13 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   autoriza publicar a main: «ok, subelo al main».
   [Evidencia](informes/rotacion-productos-2026-10-14.md).
 
+- [x] PROD-ROT-02 — Aclaración posterior al caso de70 unidades agotadas:
+  **rotación visible = unidades vendidas en los últimos30 días**, incluido
+  el actual. Reemplaza la media cerrada de PROD-ROT-01. Rentabilidad,
+  categoría/búsqueda de Gestión y Excel comparten cifra/período. Compras no
+  se cuentan como ventas; Precios y Pareto conservan sus ventanas.
+  [Evidencia](informes/rotacion-reciente-2026-10-14.md).
+
 - [x] RP-01 — Necesidades actuales: excluir resueltas/listas/Impresión; validar
   pertenencia producto/factura y conservar reaperturas legítimas.
 - [x] RP-02 — Clientes y notas por factura/producto/proveedor propios.

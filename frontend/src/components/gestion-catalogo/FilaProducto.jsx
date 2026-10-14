@@ -82,7 +82,7 @@ export default function FilaProducto({
           {p.precioConIva != null ? formatCRC(p.precioConIva) : '—'}
         </Dato>
         <Dato etiqueta="Margen"><TonoMargen margen={p.margenReal} /></Dato>
-        <Dato etiqueta="Rotación" pie="3 meses completos">
+        <Dato etiqueta="Rotación" pie="Últimos 30 días">
           {p.unidadesMes != null ? <>{unidades(p.unidadesMes)}<span className="text-xs font-semibold text-neutro-400">/mes</span></> : '—'}
         </Dato>
         <div className="flex items-center gap-2">

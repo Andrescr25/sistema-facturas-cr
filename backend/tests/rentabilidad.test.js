@@ -80,9 +80,9 @@ beforeEach(() => { COSTOS_DERIVADOS = new Map(); s = cargar(); });
 const porId = (lista) => Object.fromEntries(lista.map((p) => [p.productoId, p]));
 
 describe('el margen y la ganancia de cada producto', () => {
-  test('Rentabilidad pide el promedio de meses completos y muestra la cifra del cálculo', async () => {
+  test('Rentabilidad pide los últimos 30 días y muestra la cifra de la rotación', async () => {
     const p = porId((await s.listarProductos()).data);
-    assert.deepEqual(opcionesRotacion, { promedioMesesCompletos: true });
+    assert.deepEqual(opcionesRotacion, { ultimos30Dias: true });
     assert.equal(p[101].unidadesMes, 33.33);
     assert.equal(p[101].unidades, 100);
   });

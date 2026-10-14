@@ -1,5 +1,9 @@
 # Rotación mensual de productos — 2026-10-14
 
+**Antecedente:** esta media de tres meses completos fue reemplazada después
+por **unidades vendidas en los últimos30 días**, elegida expresamente por
+el usuario tras revisar un producto agotado. Ver [regla vigente y evidencia](rotacion-reciente-2026-10-14.md).
+
 El usuario detecta la cifra en Rentabilidad y confirma usar los últimos tres
 meses completos. El cálculo anterior promediaba una ventana móvil de tres
 meses, incluyendo parte del actual; la tarjeta destacaba unidades semanales

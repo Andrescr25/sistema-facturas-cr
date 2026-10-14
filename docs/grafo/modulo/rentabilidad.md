@@ -25,6 +25,7 @@ archivos:
   - frontend/src/components/rentabilidad/ListaProductos.jsx
   - frontend/src/components/rentabilidad/DetalleProducto.jsx
   - docs/informes/rotacion-productos-2026-10-14.md
+  - docs/informes/rotacion-reciente-2026-10-14.md
 aristas:
   depende_de: [tabla/venta-linea]
   relacionado: [leccion/precio-sin-iva-costo-con-iva, leccion/un-borrador-no-es-una-venta, modulo/catalogo-agente, modulo/gestion-catalogo, modulo/exportaciones-reportes, modulo/relacionar-productos]
@@ -53,21 +54,17 @@ otro producto en silencio el día que coincidan los números.
 
 DE DÓNDE SALE CADA CIFRA
 
-**Promedio mensual, aclaración del usuario 2026-10-14:** unidades vendidas
-en los últimos **tres meses calendario completos / 3**, incluidos meses sin
-ventas. En octubre se promedian julio, agosto y septiembre; octubre entra
-en noviembre. La fórmula previa dividía una ventana móvil entre tres, que
-incluía parte del mes en curso. Rentabilidad pide ahora
-`rotacionPorProducto({ promedioMesesCompletos: true })`. El SQL lee ambas
-ventanas en una sola consulta; filtros de agregación conservan los totales,
-semanas, facturas, clientes y Pareto vigentes. Incluye productos que sólo
-vendieron al inicio del primer mes completo, aunque su total móvil sea cero.
-La tarjeta y el detalle destacan **Promedio mensual / Últimos 3 meses
-completos**; el Excel exporta la misma cifra. Ajuste posterior: Gestión de
-Catálogo usa el mismo `SQL_ROTACION_MENSUAL`, también por categoría y en
-la búsqueda, con cero sin ventas y el formato compartido de decimales.
-El motor de precios conserva su ventana de doce meses. Publicación a main
-autorizada. [Pruebas y límites](../../informes/rotacion-productos-2026-10-14.md).
+**Rotación mensual, regla vigente tras el caso real 2026-10-14:** el usuario
+elige **unidades vendidas en los últimos30 días**, incluyendo el actual.
+Suma de hoy y los29 días anteriores: una venta sale al superar30 días, sin
+reiniciar el contador al comenzar otro mes. No cuenta compras ni fechas
+futuras. Reemplaza la media de tres meses completos de la entrega inicial.
+Rentabilidad pide `rotacionPorProducto({ ultimos30Dias: true })` y comparte
+`SQL_ROTACION_MENSUAL` con categoría y búsqueda de Gestión de Catálogo.
+Sin ventas da cero; el formato conserva decimales. Tarjetas, detalle y Excel
+indican **Últimos30 días**. Una consulta conserva los totales, semanas,
+facturas, clientes y Pareto vigentes. Precios mantiene su media de12 meses.
+[Caso, decisión y pruebas](../../informes/rotacion-reciente-2026-10-14.md).
 
 - **Margen de hoy**: `clasificarProducto` (`precios/auditoria.js`), con la
   tarifa real del producto y, si la ficha no tiene costo, el de las compras.

@@ -122,8 +122,8 @@ const SELECT_FILA = `
     LEFT JOIN categoria_producto c ON c.id = p.categoria_id
     LEFT JOIN impuesto i ON i.id = p.impuesto_id
     LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
-    -- La misma media mensual de Rentabilidad, de tres meses completos y
-    -- por el id propio. Sin ventas en ese período, la media es cero.
+    -- La misma rotación de Rentabilidad: unidades vendidas en los últimos
+    -- 30 días, por el id propio. Sin ventas en ese período, devuelve cero.
     LEFT JOIN (${SQL_ROTACION_MENSUAL}) r ON r.producto_id = p.id
     LEFT JOIN LATERAL (
            SELECT supplier_name, supplier_cedula

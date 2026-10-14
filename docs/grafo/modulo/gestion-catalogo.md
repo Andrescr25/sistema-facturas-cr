@@ -32,6 +32,7 @@ archivos:
   - backend/src/modules/ventas/rotacion.js
   - backend/tests/rotacionMensual.test.js
   - docs/informes/rotacion-productos-2026-10-14.md
+  - docs/informes/rotacion-reciente-2026-10-14.md
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
@@ -60,12 +61,13 @@ LO QUE CAMBIA RESPECTO DE `main`
   dados de baja no cuentan en las tarjetas —el agente tampoco los ve— y se
   encuentran con el filtro de estado del buscador.
 - La rotación de cada fila (unidades al mes) usa desde el 2026-10-14 la
-  misma media de Rentabilidad: **tres meses calendario completos / 3**,
-  incluidos meses sin ventas y excluyendo el actual. Categoría y búsqueda
-  leen `SQL_ROTACION_MENSUAL` desde `venta_linea`, por `producto.id`; sin
-  ventas dan cero. El formato compartido conserva los decimales y muestra
-  «3 meses completos». No se lee la foto antigua de `producto_rotacion`.
-  [Verificación y publicación](../../informes/rotacion-productos-2026-10-14.md).
+  misma rotación de Rentabilidad: **unidades vendidas en los últimos30
+  días**, incluido el actual, por aclaración posterior al caso real de
+  un producto agotado. Reemplaza la media de meses completos inicial.
+  Categoría y búsqueda leen `SQL_ROTACION_MENSUAL` desde `venta_linea`, por
+  `producto.id`; sin ventas dan cero. El formato compartido conserva los
+  decimales y muestra «Últimos30 días». No se lee la foto antigua de
+  `producto_rotacion`. [Verificación](../../informes/rotacion-reciente-2026-10-14.md).
 - Los componentes de `main` siguen hablando con los nombres de la caché
   (`name`, `imageUrl`…); la traducción está en UN solo lugar, `aFila` de
   `useListaCatalogo.js`, y el id es el propio.

@@ -44,23 +44,22 @@ const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
  *
  * unidades_semana divide entre las semanas REALES de la ventana (3 meses
  * son entre 89 y 92 días), no entre 13 fijas.
- * Con promedioMesesCompletos, sólo unidades_mes usa los meses calendario
- * cerrados anteriores. Los demás campos conservan la ventana móvil.
+ * Con ultimos30Dias, unidades_mes es lo vendido en los últimos 30 días,
+ * incluido hoy. Los demás campos conservan la ventana móvil de `meses`.
  */
-function sqlRotacion(meses = VENTANA_MESES, { promedioMesesCompletos = false } = {}) {
+function sqlRotacion(meses = VENTANA_MESES, { ultimos30Dias = false } = {}) {
   const n = Number(meses);
   if (!Number.isInteger(n) || n < 1 || n > 36) throw new Error(`Ventana de rotación inválida: ${meses}`);
   const inicio = `(${HOY_CR} - INTERVAL '${n} months')::date`;
-  const mesActual = `date_trunc('month', ${HOY_CR})::date`;
-  const inicioPromedio = `(${mesActual} - INTERVAL '${n} months')::date`;
-  // Rentabilidad pide meses cerrados para el promedio mensual. Leer desde
-  // su inicio permite contar también un mes sin ventas como cero, sin mover
-  // la ventana vigente de totales, semanas, clientes ni Pareto.
-  const filtroVigente = promedioMesesCompletos ? ` FILTER (WHERE fecha > ${inicio})` : '';
-  const suma = (columna) => promedioMesesCompletos
+  const inicioReciente = `(${HOY_CR} - 29)`;
+  // El caso real de un producto agotado en menos de un mes pide movimiento
+  // reciente: sumar 30 días, sin excluir el mes actual ni dividir entre tres.
+  // LEAST cubre también una ventana móvil de febrero menor de 30 días.
+  const filtroVigente = ultimos30Dias ? ` FILTER (WHERE fecha > ${inicio})` : '';
+  const suma = (columna) => ultimos30Dias
     ? `COALESCE(SUM(${columna})${filtroVigente}, 0)` : `SUM(${columna})`;
   const cantidad = suma('cantidad');
-  const promedio = promedioMesesCompletos ? 'v.unidades_meses_completos' : 'v.unidades';
+  const mensual = ultimos30Dias ? 'v.unidades_30_dias' : `v.unidades / ${n}.0`;
   return `
   SELECT v.producto_id,
          pr.alegra_id AS alegra_item_id,
@@ -71,7 +70,7 @@ function sqlRotacion(meses = VENTANA_MESES, { promedioMesesCompletos = false } =
          -- Como texto: un DATE llega a Node como medianoche LOCAL y, en JSON,
          -- cambia de día según la zona del servidor.
          v.ultima_venta::text AS ultima_venta,
-         ROUND(${promedio} / ${n}.0, 2) AS unidades_mes,
+         ROUND(${mensual}, 2) AS unidades_mes,
          ROUND(v.unidades / ((${HOY_CR} - ${inicio}) / 7.0), 2) AS unidades_semana,
          CASE
            WHEN v.unidades = 0 THEN 'C'
@@ -82,7 +81,7 @@ function sqlRotacion(meses = VENTANA_MESES, { promedioMesesCompletos = false } =
     FROM (
       SELECT producto_id,
              ${cantidad} AS unidades,
-             ${promedioMesesCompletos ? `COALESCE(SUM(cantidad) FILTER (WHERE fecha < ${mesActual}), 0) AS unidades_meses_completos,` : ''}
+             ${ultimos30Dias ? `COALESCE(SUM(cantidad) FILTER (WHERE fecha >= ${inicioReciente}), 0) AS unidades_30_dias,` : ''}
              -- Lo vendido SIN IVA, con el descuento de la línea ya restado.
              ${suma('importe')} AS ventas,
              COUNT(DISTINCT factura_id)${filtroVigente} AS facturas,
@@ -92,7 +91,7 @@ function sqlRotacion(meses = VENTANA_MESES, { promedioMesesCompletos = false } =
                                       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS acumulado,
              SUM(${cantidad}) OVER () AS total
         FROM venta_linea
-       WHERE fecha ${promedioMesesCompletos ? `>= ${inicioPromedio}` : `> ${inicio}`}
+       WHERE fecha ${ultimos30Dias ? `>= LEAST(${inicio} + 1, ${inicioReciente})` : `> ${inicio}`}
          AND fecha <= ${HOY_CR}
          AND producto_id IS NOT NULL
        GROUP BY producto_id
@@ -104,9 +103,9 @@ function sqlRotacion(meses = VENTANA_MESES, { promedioMesesCompletos = false } =
 /** La rotación de la pantalla y del catálogo del agente: los últimos 3 meses. */
 const SQL_ROTACION = sqlRotacion(VENTANA_MESES);
 
-// Una sola definición del promedio visible en Rentabilidad y Gestión de
-// Catálogo: los tres meses cerrados anteriores, con meses sin venta en cero.
-const SQL_ROTACION_MENSUAL = sqlRotacion(VENTANA_MESES, { promedioMesesCompletos: true });
+// Una sola definición de la rotación visible en Rentabilidad y Gestión de
+// Catálogo: las unidades vendidas durante los últimos 30 días, incluido hoy.
+const SQL_ROTACION_MENSUAL = sqlRotacion(VENTANA_MESES, { ultimos30Dias: true });
 
 /**
  * La del MOTOR DE PRECIOS (Revisión de Precios): 12 meses. Sus umbrales —10
@@ -133,8 +132,8 @@ function aFila(r) {
 }
 
 /** La rotación de todos los productos vendidos en la ventana, por `producto.id`. */
-async function rotacionPorProducto({ promedioMesesCompletos = false } = {}) {
-  const sql = promedioMesesCompletos ? SQL_ROTACION_MENSUAL : SQL_ROTACION;
+async function rotacionPorProducto({ ultimos30Dias = false } = {}) {
+  const sql = ultimos30Dias ? SQL_ROTACION_MENSUAL : SQL_ROTACION;
   const { rows } = await query(sql);
   return new Map(rows.map((r) => [Number(r.producto_id), aFila(r)]));
 }

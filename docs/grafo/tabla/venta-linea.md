@@ -46,9 +46,10 @@ QUIÉN LA LEE, y por qué id:
   rotación trae además `alegra_item_id` (el `producto.alegra_id`) para lo que
   todavía cruza por ahí: el motor de precios, la Gestión de Catálogo vieja y
   el costo derivado de [[modulo/rentabilidad]].
-  Rentabilidad y Gestión de Catálogo solicitan desde el 2026-10-14 la media mensual de los tres
-  meses completos anteriores, incluyendo meses en cero; sus totales y
-  Pareto mantienen la ventana móvil. La vista sigue contando sólo emitidas.
+  Rentabilidad y Gestión de Catálogo solicitan tras la aclaración final del
+  2026-10-14 lo vendido en los últimos30 días, incluido hoy. Reemplaza la
+  media inicial de tres meses completos; totales y Pareto mantienen su
+  ventana móvil. La vista sigue contando sólo emitidas.
 - Gestión de Catálogo (`productos/taxonomia.service.js`): por `producto.id`,
   con `SQL_ROTACION_MENSUAL` compartido para categoría y búsqueda global.
 - El portal (portada, "se lleva junto con", compras anteriores): ids propios

@@ -74,7 +74,7 @@ function TarjetaProducto({ producto: p, onAbrir }) {
       <div className="grid grid-cols-2 gap-3 border-t border-neutro-100 pt-3 sm:grid-cols-4">
         <Cifra titulo="Precio con IVA" valor={p.precioConIva !== null ? colonesExactos(p.precioConIva) : '—'} />
         <Cifra titulo="Margen hoy" valor={porcentaje(p.margen)} />
-        <Cifra titulo="Promedio mensual" valor={`${unidades(p.unidadesMes)} u. / mes`} pie="Últimos 3 meses completos" />
+        <Cifra titulo="Rotación mensual" valor={`${unidades(p.unidadesMes)} u. / mes`} pie="Últimos 30 días" />
         <Cifra titulo="Dejó (3 meses)" valor={p.ganancia !== null ? colonesCorto(p.ganancia) : '—'}
           pie={p.facturas ? `en ${p.facturas} ${p.facturas === 1 ? 'factura' : 'facturas'}` : 'sin ventas'} />
       </div>
