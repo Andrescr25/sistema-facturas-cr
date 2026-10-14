@@ -314,8 +314,10 @@ antes de reservar número o registrar cobro; la pantalla renueva condiciones
 y requiere otro clic. Una cola antigua sin vista previa permanece pendiente
 si el cliente ahora tiene descuento, para no alterar el total prometido.
 
-SQL 060 ensayada solo en base local desechable. Producción requiere aplicar
-la migración antes de publicar main. [Pruebas y estado](../../informes/descuento-global-cliente-2026-10-14.md).
+SQL 060 ensayada en copias locales y aplicada en producción por Codex el
+2026-10-14 a las 15:31:43 CR, tras autorización expresa de migrar y subir a
+main. Respaldo restaurado, 144 tablas y 250 clientes conservados; descuento
+inicial 0 %. Pruebas de escritura solo locales. [Pruebas y estado](../../informes/descuento-global-cliente-2026-10-14.md).
 
 El descuento produce centavos: la vista redondea descuento, base e IVA por
 línea, igual que el servidor. `utils/moneda.js` reúne el redondeo compartido

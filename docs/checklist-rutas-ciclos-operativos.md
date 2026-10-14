@@ -761,5 +761,7 @@ vigentes. Se llevan las partes implementadas y verificadas a main, incluido
 **2026-10-14, ficha del cliente:** descuento global porcentual para ventas
 nuevas, solo margen >21 % con costo fiable; mayor descuento sin acumular.
 No cambia rutas/ciclos, recorridos, recepción ni archivo, y no acredita
-pendientes ROT. SQL 060 pendiente en producción antes de main.
+pendientes ROT. SQL 060 aplicada por Codex en producción el 14/10 a las
+15:31:43 CR, con respaldo restaurado y 144 tablas conservadas; 250 clientes
+inician en 0 %. Usuario autoriza migración y publicación a main.
 [Validación](informes/descuento-global-cliente-2026-10-14.md).

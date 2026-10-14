@@ -1035,6 +1035,8 @@ No modifica los IDs ni los conteos históricos de independencia.
       de líneas/impuestos; documentos anteriores conservan descuentos.
 - [x] Consultas por lote sobre la transacción; costos solo en endpoint privado.
 - [x] Pruebas con PostgreSQL local, navegador y XML FE/TE; estructura/grafo.
-- [ ] Aplicar SQL 060 en producción antes de publicar la función en main.
+- [x] SQL 060 aplicada en producción por Codex el 14/10 a las 15:31:43 CR,
+      con respaldo restaurado, 144 tablas conservadas y 250 clientes en 0 %.
+      Usuario autoriza publicar la función y su registro en main.
 
 [Evidencia y estado](informes/descuento-global-cliente-2026-10-14.md).

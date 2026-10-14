@@ -249,5 +249,7 @@ bitácora comparten transacción. 0 o vacío desactiva; negativos, más de 100
 y más de dos decimales se rechazan antes de escribir. La respuesta y el
 catálogo compartido entregan el porcentaje como número; los costos siguen
 privados en Facturación. Regla de margen >21 %, mayor descuento sin acumular
-y conservación de ventas anteriores: [[modulo/facturacion]]. SQL 060 local;
-producción pendiente antes de main.
+y conservación de ventas anteriores: [[modulo/facturacion]]. SQL 060
+aplicada por Codex en producción el 2026-10-14 a las 15:31:43 CR con respaldo
+restaurado y 144 tablas conservadas; 250 clientes comienzan en 0 %. Usuario
+autoriza expresamente el despliegue a main.

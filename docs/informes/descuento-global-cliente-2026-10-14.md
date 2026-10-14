@@ -83,7 +83,40 @@ entre dobles bajo Node 25. Conexiones limitadas a localhost y salidas reales
 bloqueadas durante toda la verificación. Evidencia privada de navegador,
 logs y copia desechable: `codex-descuento-clientes-20261014`.
 
-SQL 060 aplicada únicamente a la copia desechable y a la vista previa local,
-con respaldo de esta última antes del cambio. Producción no se usó para
-desarrollar ni probar. Función preparada y verificada para developer; main espera la
-migración aplicada antes del despliegue.
+SQL 060 aplicada inicialmente a la copia desechable y a la vista previa
+local, con respaldo de esta última antes del cambio.
+
+## Migración y despliegue autorizados a producción
+
+Usuario: «ok, dale adelante haz la migracion y sube a main». Codex publica
+el cambio funcional `1dead1f` y este registro, ambos propios y firmados;
+`git log origin/main..developer` no incluye trabajo nuevo de Claude.
+
+SQL 060 aplicada en producción por Codex **el 14 de octubre a las 15:31:43,
+Costa Rica (21:31:43 UTC)**. Transacción REPEATABLE READ, bloqueo asesor de
+despliegue, lock_timeout 5 s y statement_timeout 45 s; COMMIT solo tras validar:
+
+- Las 144 tablas mantienen la huella de todas sus columnas anteriores.
+- 250 clientes inicializados en 0 %, sin asignar descuentos por omisión.
+- NUMERIC(5,2), NOT NULL, default 0 y CHECK 0–100 validado.
+- Restricciones, índices y triggers anteriores de Clientes conservados.
+- Ninguna factura ni línea anterior reescrita.
+
+Respaldo privado completo del esquema public: **19.089.457 bytes** y SHA-256
+registrada. Restauración en PostgreSQL local con salida correcta; SQL 060
+ensayada sobre ese mismo respaldo, preservando las 144 tablas. Sobre la copia
+restaurada pasan **107 pruebas dirigidas**, sin fallos ni omisiones, y Chromium
+390/700/1440 de ficha, factura, descuentos, conflicto recuperable y offline.
+La suite completa, build y XML fiscal de la implementación siguen vigentes;
+este registro solo modifica documentación y verifica estructura/grafo.
+
+Producción no se usa para desarrollar ni ejecutar pruebas de escritura.
+La intervención remota se limita a la migración autorizada y a lecturas de
+comprobación del despliegue; no se mandan mensajes ni comprobantes reales.
+No se regenera Prisma ni se instalan dependencias compartidas. Evidencia y
+respaldo privados: `codex-despliegue-descuento-20261014`.
+
+Se publica por avance sin fusión `developer:main` y se comprueba GitHub,
+la página actualizada y el endpoint autenticado nuevo en Render mediante
+GET. El commit final y la comprobación de Render se registran en la memoria
+compartida `permiso-subir-a-main.md`.

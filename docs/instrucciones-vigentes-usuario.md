@@ -794,5 +794,18 @@ no concede rebaja automática. La ficha guarda la condición para ventas
 nuevas y las anteriores conservan lo cobrado. Vista previa y guardado
 comparten porcentajes; un cambio mientras se revisaba requiere revisión
 antes de guardar. Se desarrolla y prueba con copias locales, sin mensajes
-reales. SQL 060 producción pendiente antes de main.
+reales. SQL 060 aplicada en producción tras la autorización posterior
+de migrar y publicar en main, registrada abajo.
 [Implementación](grafo/modulo/facturacion.md).
+
+
+## 2026-10-14 — Migrar y publicar el descuento global a main
+
+Textual: «ok, dale adelante haz la migracion y sube a main». Reemplaza el
+destino solo developer de esta función. Codex aplica 060 a las 15:31:43 CR
+con respaldo completo restaurado, ensayo local y 144 tablas conservadas;
+250 clientes comienzan en 0 % y las facturas anteriores conservan lo cobrado.
+Se publica el cambio funcional propio 1dead1f y el registro de despliegue,
+sin commits nuevos de Claude. Pruebas que escriben solo en copias locales;
+la comprobación de Render usa lecturas, sin mensajes ni comprobantes reales.
+[Registro](informes/descuento-global-cliente-2026-10-14.md).
