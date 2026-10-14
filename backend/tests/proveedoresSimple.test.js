@@ -42,7 +42,9 @@ describe('Proveedores simplificado — faltantes originales y órdenes por prove
   await faltante(0,3,1);const ls=await lista();assert.equal(ls.length,2);assert.notEqual(ls[0].id,enviada.id);
   const nueva=await ordenes.obtener(ls[0].id);assert.equal(nueva.lineas[0].cantidad_proveedor,3);assert.equal(nueva.ciclo,null);
   assert.deepEqual(await ordenes.obtener(enviada.id),enviada);assert.deepEqual((await env.descargar(enviada.id,enviada.envio_id)).pdf,pdf);
-  assert.equal((await datosReporte()).productos_faltantes[0].cantidad_faltante,13);
+  assert.equal((await datosReporte()).productos_faltantes[0].cantidad_faltante,3);
+  const reporteCompleto=await reporte.getMissingItemsBySupplier(null,{asignarProveedores:false});
+  assert.equal(reporteCompleto.data.find(p=>p.orden_id===enviada.id).productos_faltantes[0].cantidad_faltante,10);
   const estado=(await servicio.estados()).find(p=>p.cedula===f.p.identificacion);assert.equal(estado.pendientes,1);assert.equal(estado.veces,1);
  });
  test('consultar/preparar repetidamente no duplican órdenes ni alteran faltantes',async()=>{

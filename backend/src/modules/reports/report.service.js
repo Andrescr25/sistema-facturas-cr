@@ -4,24 +4,20 @@
  */
 
 const { query } = require('../../../config/database');
-const { asignarProveedorAutomatico } = require('../../../services/proveedorAsignacionService');
+const { faltanteOperativo, cantidadSinEnviar } = require('./faltantesCompra.sql');
+const { createHash } = require('node:crypto');
 const { JOIN_CICLO, filtrosOperacion } = require('../rutas/operacionCiclo.service');
 
 class ReportService {
   /**
    * Obtener reporte de faltantes por proveedor con mapping
    */
-  async getMissingItemsBySupplier(fechaInicio = null, { asignarProveedores = true, rutaId, cicloId } = {}) {
+  async getMissingItemsBySupplier(fechaInicio = null, { rutaId, cicloId, db = { query }, incluirEnviadas = true } = {}) {
     try {
       console.log('📋 Generando reporte de faltantes por proveedor con mapping...', fechaInicio ? `desde ${fechaInicio}` : '');
 
       // PASO 1: Obtener faltantes de la BD local
-      let whereClause = `
-        f.estado IN ('pendiente', 'procesado')
-        AND f.tipo_faltante != 'completo' 
-        AND (f.cantidad_faltante::numeric > 0)
-        AND fa.estado <> 'anulada'
-      `;
+      let whereClause = `${faltanteOperativo()} AND ${cantidadSinEnviar()}>0`;
       const queryParams = [];
 
       if (fechaInicio) {
@@ -34,71 +30,37 @@ class ReportService {
       if (whereCiclo.length) whereClause += ' AND ' + whereCiclo.join(' AND ');
       const origenes = `jsonb_agg(jsonb_build_object(
         'faltanteId',f.id,'facturaId',fa.id,'factura',fa.numero,'clienteId',fa.cliente_id,
-        'cliente',fa.cliente_nombre,'cantidad',f.cantidad_faltante,
+        'cliente',COALESCE(c.nombre,fa.cliente_nombre),'cantidad',${cantidadSinEnviar()},
         'anticipado',fa.preventa_anticipada,'cicloId',cr.id,'rutaId',cr.ruta_id,
         'rutaNombre',cr.ruta_nombre,'semana',cr.semana::text,'orden',rc.orden)
         ORDER BY cr.semana NULLS LAST,cr.id,rc.orden,fa.id,f.id) AS origenes`;
       const sqlFaltantes = `
         SELECT
          p.id as producto_id,          p.referencia as producto_codigo,          p.nombre as producto_nombre,          p.nombre as producto_nombre_actual,
-          SUM(f.cantidad_faltante) as total_faltante, ${origenes},
+          SUM(${cantidadSinEnviar()}) as total_faltante, ${origenes},
           COUNT(f.id) as facturas_afectadas,
-          STRING_AGG(DISTINCT fa.cliente_nombre, ', ') as clientes_afectados,
+          STRING_AGG(DISTINCT COALESCE(c.nombre,fa.cliente_nombre), ', ') as clientes_afectados,
           STRING_AGG(DISTINCT f.descripcion_factura, ' | ') FILTER (WHERE f.descripcion_factura IS NOT NULL AND f.descripcion_factura != '') as descripcion_factura,
           MAX(f.proveedor_asignado) as proveedor_asignado,
           MAX(f.proveedor_cedula) as proveedor_cedula,
           MAX(f.precio_asignado) as precio_asignado,
           MAX(f.asignacion_tipo) as asignacion_tipo,
-          (MAX(f.mapping_id::text) FILTER (WHERE f.mapping_id IS NOT NULL))::uuid as mapping_id
-        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN factura fa ON fa.id = f.factura_propia_id ${JOIN_CICLO('fa')} WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre, COALESCE(NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),''),upper(btrim(f.proveedor_asignado)))
-        ORDER BY total_faltante DESC
+          (MAX(m.id::text) FILTER (WHERE m.id IS NOT NULL))::uuid as mapping_id
+        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN factura fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id ${JOIN_CICLO('fa')}
+        LEFT JOIN LATERAL (SELECT m.id FROM supplier_product_mapping m WHERE m.producto_id=p.id AND (
+          m.proveedor_id=(SELECT pr.id FROM proveedor pr WHERE pr.identificacion=NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') LIMIT 1)
+          OR (m.proveedor_id IS NULL AND m.supplier_cedula=NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),''))
+          OR (NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') IS NULL
+            AND lower(btrim(m.supplier_name))=lower(btrim(f.proveedor_asignado))))
+          ORDER BY m.last_used_date DESC NULLS LAST,m.times_used DESC,m.id LIMIT 1) m ON true
+        WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre, COALESCE(NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),''),upper(btrim(f.proveedor_asignado)))
+        ORDER BY total_faltante DESC,p.id,COALESCE(NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),''),upper(btrim(f.proveedor_asignado)))
       `;
 
-      const faltantesResult = await query(sqlFaltantes, queryParams);
+      const faltantesResult = await db.query(sqlFaltantes, queryParams);
       console.log(`📊 Encontrados ${faltantesResult.rows.length} productos con faltantes`);
 
-      if (faltantesResult.rows.length === 0) {
-        return {
-          success: true,
-          data: [],
-          total_proveedores: 0,
-          resumen: {
-            total_productos_faltantes: 0,
-            total_cantidad_faltante: 0
-          }
-        };
-      }
-
-      // PASO 2: Asignar automáticamente productos sin asignación
-      const productosSinAsignacion = faltantesResult.rows.filter(f => !f.proveedor_asignado);
-      // Exportar lee la asignación guardada: descargar un archivo no debe
-      // cambiar a quién se le pide el faltante. La pantalla conserva su flujo.
-      // Consultar una semana no decide compras ni asigna proveedores: la
-      // asignación explícita pertenece al ciclo elegido por la persona.
-      if (asignarProveedores === true && !rutaId && !cicloId && productosSinAsignacion.length > 0) {
-        console.log(`⚠️ ${productosSinAsignacion.length} productos sin asignación guardada. Asignando automáticamente...`);
-        
-        for (const producto of productosSinAsignacion) {
-          const faltantesDelProducto = await query(`
-            SELECT f.id
-            FROM faltantes f JOIN factura fa ON fa.id=f.factura_propia_id ${JOIN_CICLO('fa')}
-            WHERE ${whereClause} AND f.producto_propio_id = $${queryParams.length + 1}
-              AND f.estado IN ('pendiente', 'procesado')
-              AND f.proveedor_asignado IS NULL
-          `, [...queryParams, producto.producto_id]);
-          
-          for (const faltante of faltantesDelProducto.rows) {
-            await asignarProveedorAutomatico(faltante.id, producto.producto_id, producto.producto_codigo);
-          }
-        }
-        
-        console.log(`✅ ${productosSinAsignacion.length} productos asignados automáticamente`);
-        
-        // Recargar faltantes ahora con asignaciones
-        const faltantesActualizados = await query(sqlFaltantes, queryParams);
-        
-        faltantesResult.rows = faltantesActualizados.rows;
-      }
+      // Consultar el reporte nunca cambia asignaciones ni prepara órdenes.
 
       // PASO 3: Obtener mapping info solo para productos con asignación
       const mappingIds = faltantesResult.rows
@@ -107,7 +69,7 @@ class ReportService {
       
       let mappingsInfo = new Map();
       if (mappingIds.length > 0) {
-        const mappingsResult = await query(`
+        const mappingsResult = await db.query(`
           SELECT
             id,
             supplier_code as "supplierCode",
@@ -174,7 +136,7 @@ class ReportService {
           clientes_afectados: faltante.clientes_afectados,
           descripcion_factura: faltante.descripcion_factura || null,
           confianza_mapping: mappingInfo?.confidence || 0,
-          factor_conversion: mappingInfo?.factorConversion || 1,
+          factor_conversion: Number(Number(mappingInfo?.factorConversion ?? 1).toFixed(6)),
           precio_asignado: precioAsignado,
           asignacion_automatica: asignacionTipo === 'automatica'
         });
@@ -185,6 +147,8 @@ class ReportService {
 
       const proveedoresArray = Array.from(proveedoresMap.values()).map(proveedor => ({
         ...proveedor,
+        fechaInicio:fechaInicio || null,
+        revisionReporte: createHash('sha256').update(JSON.stringify(proveedor.productos_faltantes.map(p => ({ id:p.producto_id, nombre:p.nombre, codigo:p.codigo, nombreProveedor:p.nombre_proveedor, codigoProveedor:p.codigo_proveedor, cantidad:p.cantidad_faltante, factor:p.factor_conversion, mapping:p.mapping_id, origenes:p.origenes })))).digest('hex'),
         aliases: proveedor.aliases && proveedor.aliases.length > 0 ? proveedor.aliases : undefined
       }));
 
@@ -195,7 +159,7 @@ class ReportService {
 
       return {
         success: true,
-        data: proveedoresArray,
+        data: [...proveedoresArray, ...(incluirEnviadas ? await require('../orders-whatsapp/ordenesReporte.service').enviadasEn(db, { fechaInicio, rutaId, cicloId }) : [])],
         total_proveedores: proveedoresArray.length,
         resumen: {
           total_productos_faltantes: totalProductos,

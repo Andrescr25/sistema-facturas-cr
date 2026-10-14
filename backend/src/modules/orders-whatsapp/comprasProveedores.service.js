@@ -1,3 +1,4 @@
+const {faltanteOperativo,cantidadPendiente}=require('../reports/faltantesCompra.sql');
 const {pool}=require('../../../config/database');
 const {enTransaccion}=require('../../utils/transaccion');
 const {filtrosOperacion}=require('../rutas/operacionCiclo.service');
@@ -5,11 +6,11 @@ const {interno:{entero,listarEn}}=require('./ordenesCiclo.service');
 
 /** Una ficha inequívoca, sin decidir por parecido ni por la ruta actual del cliente. */
 async function faltantesEn(db,{rutaId,cicloId,proveedorId,facturaId}={}) {
-  const params=[],where=["f.estado IN ('pendiente','procesado')","f.tipo_faltante<>'completo'","f.cantidad_faltante>0","fa.estado='emitida'"];
+  const params=[],where=[faltanteOperativo(),`${cantidadPendiente()}>0`];
   filtrosOperacion({rutaId,cicloId},where,params);
   if(proveedorId!=null&&proveedorId!==''){params.push(entero(proveedorId));where.push(`pr.id=$${params.length}`)}
   if(facturaId!=null){params.push(entero(facturaId));where.push(`fa.id=$${params.length}`)}
-  const {rows}=await db.query(`SELECT f.id,f.producto_propio_id AS producto_id,f.cantidad_faltante,
+  const {rows}=await db.query(`SELECT f.id,f.producto_propio_id AS producto_id,${cantidadPendiente()} AS cantidad_faltante,
     f.proveedor_asignado,f.proveedor_cedula,fa.id factura_id,rc.ciclo_id,cr.estado ciclo_estado,
     p.nombre producto_nombre,p.referencia,pr.id proveedor_id,pr.nombre proveedor_nombre,pr.activo,
     COALESCE(cv.cubierta,0) cubierta,COALESCE(cv.pendiente_enviar,0) pendiente_enviar,

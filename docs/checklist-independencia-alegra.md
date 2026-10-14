@@ -32,6 +32,13 @@ enviada/incierta inmutable, nuevo faltante en otra orden. SQL 058 local, pendien
 producción; APIs y documentos históricos conservados. No cambia los conteos de
 independencia. [Evidencia vigente](informes/proveedores-simplificados-2026-10-13.md).
 
+**Corrección del 2026-10-14:** Proveedores excluye faltantes resueltos,
+separa órdenes enviadas de nueva demanda y envía desde un solo botón con
+WhatsApp/mensaje predeterminado. Notas/clientes pertenecen a la factura exacta.
+Revisión de precios relaciona una única orden automáticamente; varias exigen
+selección. Tarjetas de Reporte Clientes dejan la agenda a Preventa. Sin SQL
+nuevo; no cambia los IDs históricos. [Evidencia](informes/proveedores-correccion-2026-10-14.md).
+
 Cada sección dice qué depende hoy de Alegra y cuándo se da por lista. Se
 marca `- [x]` al terminar.
 

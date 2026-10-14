@@ -119,29 +119,11 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
       tablero: require('../src/modules/dashboard/dashboard.service')
     };
 
-    // Dos facturas emitidas con al menos dos líneas de productos propios, que
-    // Impresión pueda editar: ni electrónicas, ni con cobros ni notas de crédito.
-    const { rows } = await cliente.query(`
-      SELECT f.id FROM factura f
-       WHERE f.estado = 'emitida' AND NOT f.electronica
-         AND NOT EXISTS (SELECT 1 FROM pago_factura pf WHERE pf.factura_id = f.id)
-         AND NOT EXISTS (SELECT 1 FROM nota_credito_factura nf WHERE nf.factura_id = f.id)
-         -- Una procedencia de compra es historia: no borrarla para preparar fixtures.
-         AND NOT EXISTS (SELECT 1 FROM faltantes ft JOIN orden_compra_ciclo_origen oc ON oc.faltante_id=ft.id WHERE ft.factura_propia_id=f.id)
-         AND (SELECT COUNT(DISTINCT l.producto_id) FROM factura_linea l
-               WHERE l.factura_id = f.id AND l.producto_id IS NOT NULL) >= 2
-       ORDER BY f.id DESC LIMIT 2
-    `);
-    assert.equal(rows.length, 2, 'la base local no tiene dos facturas emitidas con dos productos');
-    [A, B] = rows.map((r) => r.id);
-    // Nada de lo que ya hubiera de estas dos facturas confunde la prueba.
-    await cliente.query(`DELETE FROM faltantes_ajustes WHERE faltante_id IN (SELECT id FROM faltantes WHERE factura_propia_id = ANY($1))`, [[A, B]]);
-    await cliente.query(`DELETE FROM faltantes WHERE factura_propia_id = ANY($1)`, [[A, B]]);
-    await cliente.query(`DELETE FROM facturas_reimpresion WHERE factura_propia_id = ANY($1)`, [[A, B]]);
-    lineasA = (await cliente.query(`
-      SELECT DISTINCT ON (producto_id) producto_id FROM factura_linea
-       WHERE factura_id = $1 AND producto_id IS NOT NULL ORDER BY producto_id LIMIT 2
-    `, [A])).rows.map((r) => r.producto_id);
+    // Fichas propias de la prueba: no tomar una factura real cuya cantidad
+    // puede ser menor que los tres faltantes de este recorrido.
+    const fixture = await require('./dobles/ordenesAutomaticas').sembrar(cliente);
+    [A, B] = fixture.facturas;
+    lineasA = fixture.productos.slice(0, 2);
   });
 
   after(async () => {

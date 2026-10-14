@@ -4,6 +4,16 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - docs/informes/proveedores-correccion-2026-10-14.md
+  - backend/tests/proveedoresCritico.test.js
+  - backend/src/modules/orders-whatsapp/envioDesdeReporte.service.js
+  - backend/src/modules/orders-whatsapp/temporalesVisibles.sql.js
+  - backend/src/modules/orders-whatsapp/ordenesReporte.service.js
+  - backend/tests/envioReporteProveedor.test.js
+  - backend/tests/proveedoresInterfaz.test.js
+  - frontend/src/utils/proveedoresVista.js
+  - frontend/src/components/reporte-proveedores/OrdenEnviadaDetalle.jsx
+  - backend/src/modules/reports/faltantesCompra.sql.js
   - docs/informes/despliegue-main-2026-10-13.md
   - docs/informes/proveedores-simplificados-2026-10-13.md
   - backend/migrations/independencia/058_ordenes_proveedor_sin_ciclos.sql
@@ -12,10 +22,7 @@ archivos:
   - backend/src/modules/orders-whatsapp/ordenesProveedor.routes.js
   - backend/tests/proveedoresSimple.test.js
   - frontend/src/hooks/useEdicionFaltantesProveedor.js
-  - frontend/src/hooks/useOrdenesProveedor.js
   - frontend/src/hooks/useEnvioOrdenProveedor.js
-  - frontend/src/components/reporte-proveedores/ModalOrdenesProveedor.jsx
-  - frontend/src/components/reporte-proveedores/EnvioOrdenProveedor.jsx
   - frontend/src/components/reporte-proveedores/ProcedenciaFaltante.jsx
   - docs/informes/ordenes-automaticas-proveedores-2026-10-13.md
   - frontend/src/pages/ReporteProveedores.jsx
@@ -32,8 +39,46 @@ archivos:
 aristas:
   depende_de: [modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/permisos]
   relacionado: [modulo/rutas-clientes, modulo/facturas-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion, decision/rotacion-por-cliente-sin-ciclos]
-medido: 2026-10-13
+medido: 2026-10-14
 ---
+
+## Corrección vigente — 2026-10-14
+
+El reporte muestra necesidades **actuales sin enviar**, no el histórico resuelto:
+solo faltantes pendientes de facturas vigentes con el producto en sus líneas.
+Una decisión revisada por línea (completo/parcial/no llegó), factura procesada
+o en cola pendiente de Impresión deja de ser una compra actual. Recuperar
+una factura sí puede reabrirla; una cola procesada antigua no la bloquea.
+La cobertura enviada se descuenta; el borrador sigue editable en la pantalla.
+
+Tarjetas Sin enviar arriba; cada enviada abajo, tachada e independiente, con
+cantidades/códigos de su snapshot. Sin ciclos, modal de órdenes, preparación
+adicional ni descarga global duplicada. Solo **Enviar PDF a WhatsApp** desde
+el detalle ya revisado. POST /orden-compra/proveedor/enviar toma ese contenido,
+comprueba la revisión del reporte, guarda PDF y mensaje predeterminado y usa
+un único teléfono de la ficha. Manuales derivan conversión desde el proveedor,
+sin inventar un cliente. La UUID/cuerpo sobreviven a una respuesta perdida;
+el mismo intento solo consulta el resultado, nunca retransmite. Un resultado
+incierto conserva su fotografía bloqueada; nuevas necesidades separadas pueden
+formar otro pedido. Una prueba de transporte no iniciado permite otro clic
+explícito con clave nueva. Confirmado/incierto retiran solo las ediciones temporales
+que acompañaron ese envío, conservando cambios concurrentes posteriores.
+Enviando las oculta al leer para no contaminar el siguiente pedido; un fallo
+anterior al transporte las devuelve a la revisión. Claves internas por id de
+producto, sin mezclar cantidades si dos productos tienen el mismo código.
+Se revalida el filtro de fecha y solo se reservan sus orígenes visibles.
+
+Procedencia usa producto/factura/cliente propios; notas se recortan a las
+facturas de ese producto en ese proveedor, sin mezclar clientes homónimos ni
+necesidades históricas. Consultar nunca asigna proveedor ni crea compras.
+Tras Revisión de precios, indicadores mínimos Facturado/parcial/No facturado
+comparan la compra registrada con la orden enviada. Una candidata se vincula
+automáticamente; varias requieren elegir en Revisión de precios. No se
+infiere por orden de llegada. [[modulo/facturas-ordenes-compra]].
+
+Sin SQL nuevo. Ver [evidencia y límites](../../informes/proveedores-correccion-2026-10-14.md).
+
+## Antecedentes
 
 ## Entrada vigente — simplificación del 2026-10-13
 

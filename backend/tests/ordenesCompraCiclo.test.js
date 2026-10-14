@@ -195,6 +195,7 @@ async function conDosConexiones(f) {
     const p=(await seed.query('INSERT INTO proveedor(nombre,identificacion) VALUES($1,$2) RETURNING *',[zz('concurrente'),randomUUID().slice(0,18)])).rows[0];proveedorId=p.id;
     pid=(await seed.query('INSERT INTO producto(nombre) VALUES($1) RETURNING id',[zz('concurrente')])).rows[0].id;
     const fid=(await seed.query("INSERT INTO factura(numero,estado,fecha,cliente_id,cliente_nombre,ciclo_ruta_cliente_id) VALUES($1,'emitida','2026-10-05',$2,'ZZ concurrente',$3) RETURNING id",[zz('concurrente'),cid,rc])).rows[0].id;
+    await seed.query("INSERT INTO factura_linea(factura_id,numero_linea,producto_id,nombre,cantidad,precio_unitario,total) VALUES($1,1,$2,'ZZ',10,1,10)",[fid,pid]);
     await seed.query("INSERT INTO faltantes(factura_propia_id,producto_propio_id,cantidad_faltante,tipo_faltante,estado,proveedor_asignado,proveedor_cedula) VALUES($1,$2,10,'parcial','pendiente',$3,$4)",[fid,pid,p.nombre,p.identificacion]);
     await seed.query('COMMIT');
   }catch(e){await seed.query('ROLLBACK');throw e}finally{seed.release()}

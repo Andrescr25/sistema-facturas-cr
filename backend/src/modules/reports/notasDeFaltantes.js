@@ -23,6 +23,7 @@
  * son las notas.
  */
 
+const { faltanteOperativo, cantidadSinEnviar } = require('./faltantesCompra.sql');
 const { query } = require('../../../config/database');
 const { filtrosOperacion, JOIN_CICLO } = require('../rutas/operacionCiclo.service');
 
@@ -39,15 +40,12 @@ async function lineasConNota(fechaInicio = null, filtros = {}) {
   if (where.length) filtroFecha += ' AND ' + where.join(' AND ');
   const { rows } = await query(`
     SELECT DISTINCT l.id AS linea_id, l.producto_id, btrim(l.descripcion) AS nota,
-           fa.id AS factura_id, fa.numero, fa.cliente_nombre, fa.fecha::text AS fecha
+           fa.id AS factura_id, fa.cliente_id, fa.numero, COALESCE(c.nombre,fa.cliente_nombre) AS cliente_nombre, fa.fecha::text AS fecha
       FROM faltantes f
-      JOIN factura fa ON fa.id = f.factura_propia_id ${JOIN_CICLO('fa')}
+      JOIN factura fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id ${JOIN_CICLO('fa')}
       JOIN factura_linea l ON l.factura_id = fa.id AND l.producto_id = f.producto_propio_id
       LEFT JOIN producto p ON p.id = l.producto_id
-     WHERE f.estado IN ('pendiente', 'procesado')
-       AND f.tipo_faltante <> 'completo'
-       AND f.cantidad_faltante::numeric > 0
-       AND fa.estado <> 'anulada'
+     WHERE ${faltanteOperativo()} AND ${cantidadSinEnviar()}>0
        AND btrim(COALESCE(l.descripcion, '')) <> ''
        AND btrim(l.descripcion) IS DISTINCT FROM btrim(COALESCE(p.descripcion, ''))${filtroFecha}
      ORDER BY fecha DESC, factura_id DESC
@@ -81,10 +79,12 @@ async function notasPorProducto(fechaInicio = null, filtros = {}) {
     const iguales = porProducto[producto].find((n) => n.nota.toLowerCase() === l.nota.toLowerCase());
     if (iguales) {
       iguales.veces++;
+      iguales.origenes.push({ facturaId:l.factura_id,clienteId:l.cliente_id,cliente:l.cliente_nombre });
       if (l.cliente_nombre && !iguales.clientes.includes(l.cliente_nombre)) iguales.clientes.push(l.cliente_nombre);
     } else {
       porProducto[producto].push({
         nota: l.nota,
+        origenes:[{ facturaId:l.factura_id,clienteId:l.cliente_id,cliente:l.cliente_nombre }],
         veces: 1,
         clientes: l.cliente_nombre ? [l.cliente_nombre] : [],
         numeroFactura: l.numero,

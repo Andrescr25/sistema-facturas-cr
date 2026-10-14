@@ -51,7 +51,7 @@ async function exportarProveedores(filtros = {}) {
   }
   const buscar = texto(filtros.buscar, 'buscar').toLowerCase();
   const id = texto(filtros.proveedor, 'proveedor');
-  const datos = comprobar(await new ReportService().getMissingItemsBySupplier(desde || null, { ...filtros, asignarProveedores: false }));
+  const datos = comprobar(await new ReportService().getMissingItemsBySupplier(desde || null, { ...filtros, asignarProveedores: false, incluirEnviadas: false }));
   const proveedores = datos.filter(p => (!id || p.id === id) && p.nombre.toLowerCase().includes(buscar));
   return generarExcel({
     titulo: 'Faltantes por proveedor', prefijo: 'faltantes-proveedores',
@@ -80,7 +80,7 @@ async function exportarClientes(filtros = {}) {
   // Validar antes de consultar: un filtro mal formado no descarga el total
   // del reporte silenciosamente. La selección por producto es por cliente.
   filtrarClientes([], filtros);
-  const datos = comprobar(await new ReportService().getMissingItemsByClient({ ...filtros, asignarProveedores: false }));
+  const datos = comprobar(await new ReportService().getMissingItemsByClient({ ...filtros, asignarProveedores: false, incluirEnviadas: false }));
   const clientes = filtrarClientes(datos, filtros);
   return generarExcel({
     titulo: 'Faltantes por cliente', prefijo: 'faltantes-clientes',

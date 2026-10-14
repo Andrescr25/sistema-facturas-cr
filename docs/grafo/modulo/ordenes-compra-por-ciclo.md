@@ -4,6 +4,15 @@ tipo: modulo
 titulo: Órdenes por proveedor — envío inmutable, origen e historia conservada
 estado: vigente
 archivos:
+  - docs/informes/proveedores-correccion-2026-10-14.md
+  - backend/tests/proveedoresCritico.test.js
+  - backend/src/modules/orders-whatsapp/envioDesdeReporte.service.js
+  - backend/src/modules/orders-whatsapp/temporalesVisibles.sql.js
+  - backend/src/modules/orders-whatsapp/ordenesReporte.service.js
+  - backend/tests/envioReporteProveedor.test.js
+  - backend/tests/proveedoresInterfaz.test.js
+  - frontend/src/utils/proveedoresVista.js
+  - frontend/src/components/reporte-proveedores/OrdenEnviadaDetalle.jsx
   - docs/informes/despliegue-main-2026-10-13.md
   - docs/informes/proveedores-simplificados-2026-10-13.md
   - backend/migrations/independencia/058_ordenes_proveedor_sin_ciclos.sql
@@ -12,16 +21,11 @@ archivos:
   - backend/src/modules/orders-whatsapp/ordenesProveedor.routes.js
   - backend/tests/proveedoresSimple.test.js
   - backend/tests/dobles/ordenesAutomaticas.js
-  - frontend/src/hooks/useOrdenesProveedor.js
   - frontend/src/hooks/useEnvioOrdenProveedor.js
-  - frontend/src/components/reporte-proveedores/ModalOrdenesProveedor.jsx
-  - frontend/src/components/reporte-proveedores/EnvioOrdenProveedor.jsx
   - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
   - backend/src/modules/orders-whatsapp/comprasProveedores.service.js
   - backend/src/modules/orders-whatsapp/comprasProveedores.controller.js
   - backend/tests/ordenesAutomaticas.test.js
-  - backend/tests/ordenCompraTexto.test.js
-  - frontend/src/utils/ordenCompraTexto.js
   - docs/informes/ordenes-automaticas-proveedores-2026-10-13.md
   - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/migrations/independencia/046_ordenes_compra_por_ciclo.sql
@@ -42,8 +46,30 @@ aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
   relacionado: [modulo/reporte-proveedores, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-13
+medido: 2026-10-14
 ---
+
+## Envío desde el reporte — 2026-10-14
+
+La revisión es el detalle de Faltantes. POST /proveedor/enviar valida la huella
+del reporte, reemplaza únicamente el borrador/pendiente abierto con las
+cantidades revisadas y prepara su PDF en la misma transacción. Nombre/código
+son del maestro/mapping propio; extras manuales resuelven identidad única y
+conversión decimal exacta de seis decimales, sin procedencia ficticia. La bitácora revisar_reporte guarda UUID
+y huella del cuerpo; un reintento reutiliza la copia. La reclamación durable
+existente sigue ocurriendo antes del transporte; resultado perdido/incierto
+no habilita retransmitir. Teléfono único de ficha y mensaje predeterminado.
+No hay modal ni segunda pantalla de preparación en la interfaz.
+Bloqueo factura → faltante y segunda lectura de huella antes de escribir;
+el claim revalida bajo bloqueo de factura. Los borradores históricos
+adicionales sin intento se cierran con motivo/bitácora, conservando líneas y
+PDF; se reúnen únicamente al clic de envío, sin mutación desde GET.
+
+El reporte separa cobertura enviada de necesidad nueva: Sin enviar arriba,
+snapshots enviados tachados abajo. Relación con compra registrada/indicadores
+se describe en [[modulo/facturas-ordenes-compra]]. Sin tablas/SQL nuevos;
+[verificación](../../informes/proveedores-correccion-2026-10-14.md).
+
 
 ## Regla vigente — sin ciclos, 2026-10-13
 

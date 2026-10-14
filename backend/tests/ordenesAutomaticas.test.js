@@ -83,6 +83,7 @@ caso('faltantes de otra semana se acumulan en la misma abierta del proveedor, si
  const rc=(await c.query("INSERT INTO ciclo_ruta_cliente(ciclo_id,cliente_id,orden,cliente_nombre) SELECT $1,cliente_id,orden,cliente_nombre FROM ciclo_ruta_cliente WHERE ciclo_id=$2 RETURNING id",[nueva,f.ciclo])).rows[0].id;
  await c.query('UPDATE ciclo_ruta SET recorrido_fijado=TRUE WHERE id=$1',[nueva]);
  const factura=(await c.query("INSERT INTO factura(numero,estado,fecha,cliente_id,cliente_nombre,ciclo_ruta_cliente_id) SELECT $1,'emitida','2026-10-19',cliente_id,cliente_nombre,$2 FROM factura WHERE id=$3 RETURNING id",[zz('futura'),rc,f.facturas[0]])).rows[0].id;
+ await c.query("INSERT INTO factura_linea(factura_id,numero_linea,producto_id,nombre,cantidad,precio_unitario,total) VALUES($1,1,$2,\'ZZ\',20,1,20)",[factura,f.productos[0]]);
  await guardar([[0,3]],factura);const otras=await lista();assert.equal(otras.length,1);assert.equal(otras[0].id,primera.id);
  assert.equal((await s.obtener(primera.id)).lineas[0].cantidad_proveedor,13);assert.equal(otras[0].ciclo,null);
 });

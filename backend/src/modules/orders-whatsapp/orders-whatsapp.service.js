@@ -6,6 +6,7 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 const { query } = require('../../../config/database');
+const { TEMPORAL_VIGENTE } = require('./temporalesVisibles.sql');
 // La conversación con Evolution vive en un solo lugar: acá solo se arma el
 // PDF y se pide el envío. El traductor de errores se mudó con ella.
 const whatsapp = require('../../integrations/whatsapp');
@@ -650,16 +651,9 @@ class OrdersWhatsappService {
    */
   async getCantidadesModificadas() {
     const result = await query(`
-      SELECT 
-        proveedor_nombre,
-        producto_codigo,
-        producto_nombre,
-        cantidad_original,
-        cantidad_modificada,
-        accion,
-        created_at,
-        updated_at
-      FROM orden_compra_temporal
+      SELECT t.*,p.id producto_id,p.referencia codigo_interno
+      FROM orden_compra_temporal t LEFT JOIN producto p ON t.producto_codigo='id:'||p.id::text
+      WHERE ${TEMPORAL_VIGENTE}
       ORDER BY proveedor_nombre, producto_nombre
     `);
 

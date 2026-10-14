@@ -4,6 +4,8 @@ tipo: modulo
 titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra
 estado: vigente
 archivos:
+  - docs/informes/proveedores-correccion-2026-10-14.md
+  - backend/tests/proveedoresCritico.test.js
   - backend/tests/ordenesAutomaticas.test.js
   - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
   - backend/src/modules/rutas/operacionCiclo.service.js
@@ -30,8 +32,16 @@ archivos:
   - backend/src/modules/reprinting/colaImpresion.js
 aristas:
   relacionado: [modulo/carga-entregas-por-ruta, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-13
+medido: 2026-10-14
 ---
+
+**2026-10-14, pertenencia del faltante:** guardarFaltantes exige producto en
+las líneas de esa factura y cantidad entera entre cero y su total facturado.
+Resolver una ficha de producto por sí solo no prueba que ese cliente la pidió.
+Un dato ajeno/excesivo devuelve 409 y revierte toda la transacción; producto
+no resoluble devuelve 400. Se conserva la resolución histórica inequívoca
+por id/referencia. [Pruebas](../../informes/proveedores-correccion-2026-10-14.md).
+
 
 SOBRE LA FACTURA PROPIA (sección 11 del checklist, terminada el
 2026-09-30). La pantalla lista las facturas EMITIDAS de `factura` con sus

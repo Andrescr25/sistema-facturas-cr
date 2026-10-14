@@ -37,6 +37,19 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   sin áreas/paneles de ciclos. Una abierta por proveedor; enviada/incierta
   inmutable y siguiente faltante crea otra orden. SQL 058 aplicada en producción el 13/10 a las 19:31. [Evidencia](informes/proveedores-simplificados-2026-10-13.md).
 
+## Correcciones de producción solicitadas el 2026-10-14
+
+- [x] RP-01 — Necesidades actuales: excluir resueltas/listas/Impresión; validar
+  pertenencia producto/factura y conservar reaperturas legítimas.
+- [x] RP-02 — Clientes y notas por factura/producto/proveedor propios.
+- [x] RP-03 — Sin enviar arriba, enviadas tachadas abajo; un único botón PDF
+  WhatsApp, mensaje predeterminado y reintento idempotente.
+- [x] RP-04 — Compra tras Revisión de precios: candidata única automática,
+  múltiples con selección; indicadores por producto de la compra registrada.
+- [x] RP-05 — Tarjetas Reporte Clientes sin rotación ni próxima visita.
+
+Evidencia local y estado de publicación: [corrección de proveedores](informes/proveedores-correccion-2026-10-14.md). No modifica los pendientes ROT-06/07/08.
+
 ## Antecedente: implementación por ciclos
 
 Solicitud y aclaración del usuario: **2026-10-05**.

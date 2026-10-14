@@ -6,3 +6,5 @@ const responder = async (res, trabajo) => {
 exports.consultar = (req,res) => responder(res, () => s.consultar(req.query));
 exports.preparar = (req,res) => responder(res, () => s.preparar(req.body, req.usuario?.id));
 exports.estados = (req,res) => responder(res, () => s.estados());
+
+exports.enviar = (req,res) => responder(res, () => require('./envioDesdeReporte.service').enviar(req.body, req.usuario?.id));

@@ -20,12 +20,11 @@ async function propuesta(id){return enOrden(async db=>{
   const {candidatos,sinReconocer}=telefonosDe({mobile:p.telefono_whatsapp,phonePrimary:p.telefono});
   return {telefonos:candidatos,sinReconocer,mensaje:`Te enviamos nuestra ORDEN DE COMPRA ${o.referencia} en PDF. Por favor confirmá los productos, cantidades y disponibilidad.`};
 })}
-async function preparar(id,datos,usuarioId){
+async function prepararEn(db,id,datos,usuarioId){
   const clave=uuid(datos?.clave),telefono=validarTelefonoEscrito(datos?.telefono);
   if(!telefono.valido)throw httpError(400,telefono.motivo);
   const mensaje=typeof datos.mensaje==='string'?datos.mensaje.trim():'';
   if(!mensaje||mensaje.length>2000)throw httpError(400,'Escribí un mensaje de hasta 2000 caracteres con la referencia de la orden.');
-  return enOrden(async db=>{
     const o=await obtenerEn(db,id,{bloquear:true});
     if(!new RegExp(`\\b${o.referencia}\\b`).test(mensaje))throw httpError(400,'Incluí la referencia de esta orden en el mensaje.');
     const {rows:[previa]}=await db.query('SELECT orden_id,version_orden,numero,mensaje FROM orden_compra_ciclo_envio WHERE id=$1',[clave]);
@@ -35,13 +34,13 @@ async function preparar(id,datos,usuarioId){
       return o;
     }
     revision(o,datos.version);pendiente(o);await validarPendienteEn(db,o);
-    const pdf=await generarPdfOrden(o);if(pdf.length>5*1024*1024)throw httpError(413,'La orden supera el tamaño permitido para el PDF.');
+    const pdf=await generarPdfOrden(o,{preferirDatosProveedor:datos.preferirDatosProveedor});if(pdf.length>5*1024*1024)throw httpError(413,'La orden supera el tamaño permitido para el PDF.');
     await db.query(`INSERT INTO orden_compra_ciclo_envio(id,orden_id,version_orden,numero,mensaje,nombre_archivo,pdf,sha256,preparado_por)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[clave,o.id,o.version,telefono.numero,mensaje,`orden-${o.referencia}-revision-${o.version}.pdf`,pdf,sha(pdf),usuarioId||null]);
     await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:'preparar_envio',despues:{copiaId:clave,version:o.version,numero:telefono.numero,sha256:sha(pdf)},usuarioId});
     return obtenerEn(db,o.id);
-  });
 }
+const preparar=(id,datos,usuarioId)=>enOrden(db=>prepararEn(db,id,datos,usuarioId));
 async function descargar(id,copiaId){return enOrden(async db=>{
   const o=await obtenerEn(db,id),e=await envioEn(db,o.id,copiaId);
   // Una revisión anterior sigue en historial; descargar jamás regenera bytes.
@@ -53,6 +52,15 @@ async function finalizarEn(db,o,e,{estado,via=null,confirmacion=null,motivo=null
     confirmado_por=CASE WHEN $2::varchar='confirmado' THEN $6::int ELSE NULL END WHERE id=$1`,[e.id,estado,via,motivo,confirmacion,usuarioId||null]);
   if(estado==='confirmado')await db.query(`UPDATE orden_compra_ciclo SET estado='enviada',enviada_en=(SELECT confirmado_en FROM orden_compra_ciclo_envio WHERE id=$2),version=version+1,actualizado_en=NOW() WHERE id=$1`,[o.id,e.id]);
   if(estado==='no_enviado')await db.query('UPDATE orden_compra_ciclo SET envio_id=NULL,version=version+1,actualizado_en=NOW() WHERE id=$1',[o.id]);
+  if(estado==='confirmado'||estado==='incierto'){
+    const directo=await db.query(`SELECT despues FROM bitacora_cambio WHERE entidad='orden_compra_ciclo'
+      AND entidad_id=$1 AND accion='revisar_reporte' AND despues->>'clave'=$2 LIMIT 1`,[String(o.id),e.id]);
+    // Retirar solo las ediciones que acompañaron ESTE envío; otra persona
+    // puede haber revisado el siguiente pedido mientras WhatsApp respondía.
+    if(directo.rows.length)await db.query(`DELETE FROM orden_compra_temporal t
+      USING jsonb_to_recordset($1::jsonb) AS r(id int,actualizado text)
+      WHERE t.id=r.id AND t.updated_at=r.actualizado::timestamp`,[JSON.stringify(directo.rows[0].despues.temporales || [])]);
+  }
   if(confirmacion!=='manual')await db.query(`INSERT INTO envio_whatsapp(tipo,referencia,telefono,enviado_por,exito,error)
     VALUES('orden_compra',$1,$2,$3,$4,$5)`,[o.referencia,e.numero,usuarioId||null,estado==='confirmado',estado==='confirmado'?null:motivo]);
   await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:`envio_${estado}`,despues:{copiaId:e.id,estado,confirmacion,via},usuarioId,motivo});
@@ -104,4 +112,4 @@ async function confirmarVerificado(id,copiaId,datos,usuarioId){
     return finalizarEn(db,o,e,{estado:'confirmado',confirmacion:'manual',motivo,usuarioId});
   });
 }
-module.exports={propuesta,preparar,descargar,enviar,confirmarVerificado};
+module.exports={propuesta,preparar,descargar,enviar,confirmarVerificado,interno:{prepararEn}};

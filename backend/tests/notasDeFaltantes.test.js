@@ -63,8 +63,10 @@ describe('qué notas se devuelven', () => {
     const { t } = consultas[0];
     assert.match(t, /JOIN factura fa ON fa\.id = f\.factura_propia_id/);
     assert.match(t, /JOIN factura_linea l ON l\.factura_id = fa\.id AND l\.producto_id = f\.producto_propio_id/);
-    assert.match(t, /fa\.estado <> 'anulada'/, 'una anulada no se compra');
-    assert.match(t, /f\.tipo_faltante <> 'completo'/);
+    assert.match(t, /fa\.estado='emitida'/, 'solo una factura vigente se compra');
+    assert.match(t, /f\.estado='pendiente'/, 'no comprar historia procesada');
+    assert.match(t, /a\.revisado/, 'no comprar una decisión final de Reporte Clientes');
+    assert.match(t, /f\.tipo_faltante<>'completo'/);
   });
 
   test('la descripción del producto no es una nota, y una línea vacía tampoco', async () => {
@@ -131,7 +133,7 @@ describe('lo que no se puede romper', () => {
     const raiz = require('path').join(__dirname, '..', '..', 'frontend', 'src', 'components', 'reporte-proveedores');
     for (const archivo of ['PanelNotasProveedor.jsx', 'ProveedorDetalle.jsx']) {
       const fuente = fs.readFileSync(require('path').join(raiz, archivo), 'utf8');
-      assert.match(fuente, /notasPorProducto\?\.\[String\((p|producto)\.producto_id\)\]/, archivo);
+      assert.match(fuente, /(?:notasPorProducto\?\.|notasProveedor)\[String\((p|producto)\.producto_id\)\]/, archivo);
       assert.doesNotMatch(fuente, /notasPorProducto\?\.\[String\([a-z]+\.alegra_item_id\)\]/, archivo);
     }
   });

@@ -1,0 +1,128 @@
+const { randomUUID } = require('node:crypto');
+const { interno:{hash:firma} } = require('./ordenesCicloFactura.service');
+const { httpError } = require('../../utils/validacion');
+const { fechaValida } = require('../../utils/exportarExcel');
+const { registrarCambio } = require('../../utils/bitacora');
+const { telefonosDe } = require('../../utils/telefonosCliente');
+const { salidasBloqueadas, errorSalidaBloqueada } = require('../../../config/aislado');
+const motor = require('./ordenesCiclo.service');
+const envio = require('./ordenesCicloEnvio.service');
+const { enOrden, obtenerEn, resolverProveedorEn, entero, necesidadesEn, agrupar, reemplazarLineaEn, micros } = motor.interno;
+
+const uuid = v => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(v);
+function validar(datos) {
+  if (!uuid(datos?.clave) || !/^[a-f0-9]{64}$/.test(datos?.revisionReporte || '')) throw httpError(400,'Recargá los faltantes antes de enviar.');
+  if (!Array.isArray(datos.productos) || !datos.productos.length || datos.productos.length > 500) throw httpError(400,'Incluí entre 1 y 500 productos en el pedido.');
+  if (datos.fechaInicio != null && (typeof datos.fechaInicio !== 'string' || !fechaValida(datos.fechaInicio))) throw httpError(400,'La fecha inicial del reporte no es válida.');
+  return { ...datos, clave:datos.clave.toLowerCase() };
+}
+async function productoManualEn(db,p,l) {
+  let productoId = l.productoId;
+  if (productoId == null) {
+    // Agregados antiguos guardaban código/nombre. Resolver solo si ambas
+    // señas apuntan a una ficha única; jamás inferir un id por parecido.
+    const { rows } = await db.query('SELECT id FROM producto WHERE referencia=$1 AND nombre=$2 LIMIT 2',[l.codigoInterno || l.codigo,l.nombreInterno || l.nombre]);
+    if (rows.length !== 1) throw httpError(409,'Volvé a agregar el producto manual desde el catálogo antes de enviar.');
+    productoId = rows[0].id;
+  }
+  const { rows:[r] } = await db.query(`SELECT p.id,p.nombre,p.referencia,m.id mapping_id,m.supplier_code,m.supplier_desc,
+    COALESCE(m.factor_conversion,1) factor_conversion FROM producto p
+    LEFT JOIN LATERAL (SELECT * FROM supplier_product_mapping WHERE producto_id=p.id
+      AND (proveedor_id=$2 OR (proveedor_id IS NULL AND supplier_cedula=$3))
+      ORDER BY last_used_date DESC NULLS LAST,times_used DESC,id LIMIT 1) m ON true WHERE p.id=$1 FOR SHARE OF p`,[entero(productoId),p.id,p.identificacion]);
+  if (!r) throw httpError(409,'El producto manual ya no está en el catálogo.');
+  if ((l.codigoInterno && l.codigoInterno !== r.referencia) || (l.nombreInterno && l.nombreInterno !== r.nombre)) throw httpError(409,'El producto manual cambió. Volvé a elegirlo en el catálogo.');
+  return { productoId:r.id,nombre:r.nombre,codigo:r.referencia,mappingId:r.mapping_id,
+    codigoProveedor:r.supplier_code,nombreProveedor:r.supplier_desc,factorConversion:Number(r.factor_conversion) };
+}
+async function limpiarBorradorEn(db,o) {
+  if (o.estado === 'pendiente_enviar') await db.query("UPDATE orden_compra_ciclo SET estado='borrador',version=version+1,actualizado_en=NOW() WHERE id=$1",[o.id]);
+  await db.query('DELETE FROM orden_compra_ciclo_origen WHERE linea_id IN (SELECT id FROM orden_compra_ciclo_linea WHERE orden_id=$1)',[o.id]);
+  await db.query('DELETE FROM orden_compra_ciclo_linea WHERE orden_id=$1',[o.id]);
+}
+async function revisarEn(db,datos,actor) {
+  const { rows:[previa] } = await db.query('SELECT orden_id FROM orden_compra_ciclo_envio WHERE id=$1',[datos.clave]);
+  if (previa) {
+    const { rows:[registro] } = await db.query(`SELECT despues FROM bitacora_cambio
+      WHERE entidad='orden_compra_ciclo' AND entidad_id=$1 AND accion='revisar_reporte'
+        AND despues->>'clave'=$2 ORDER BY id DESC LIMIT 1`,[String(previa.orden_id),datos.clave]);
+    if (registro?.despues?.firma !== firma(datos)) throw httpError(409,'Este intento ya corresponde a otro pedido.');
+    return obtenerEn(db,previa.orden_id);
+  }
+  if (salidasBloqueadas()) throw errorSalidaBloqueada('enviar la orden de compra');
+  const p = await resolverProveedorEn(db,datos);
+  const { rows:[contacto] } = await db.query('SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=$1 FOR SHARE',[p.id]);
+  const campo = contacto.telefono_whatsapp?.trim() ? { mobile:contacto.telefono_whatsapp } : { phonePrimary:contacto.telefono };
+  const { candidatos } = telefonosDe(campo);
+  if (candidatos.length !== 1) throw httpError(409,'Guardá un único número de WhatsApp en la ficha del proveedor antes de enviar.');
+  const reporte = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false,asignarProveedores:false});
+  if (!reporte.success) throw httpError(503,'No se pudieron comprobar los faltantes. No se inició el envío.');
+  const actual = reporte.data.find(r => p.identificacion ? r.cedula === p.identificacion : r.nombre.toLowerCase() === p.nombre.toLowerCase());
+  if (!actual || datos.revisionReporte !== actual.revisionReporte) throw httpError(409,'Los faltantes cambiaron. Actualizá el reporte antes de enviar.');
+  // Reporte Clientes bloquea factura antes de ajustar/encolar. Esperar en
+  // ese mismo orden y releer la revisión evita enviar cantidades anteriores
+  // a una respuesta que terminó mientras este clic esperaba el bloqueo.
+  const facturas = [...new Set(actual.productos_faltantes.flatMap(l => l.origenes.map(r => r.facturaId)))];
+  await db.query('SELECT id FROM factura WHERE id=ANY($1::int[]) ORDER BY id FOR SHARE',[facturas]);
+  const faltantes = actual.productos_faltantes.flatMap(l => l.origenes.map(r => r.faltanteId));
+  await db.query('SELECT id FROM faltantes WHERE id=ANY($1::int[]) ORDER BY id FOR UPDATE',[faltantes]);
+  const vigente = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false});
+  if (!vigente.success || vigente.data.find(r => r.id === actual.id)?.revisionReporte !== datos.revisionReporte) throw httpError(409,'Los faltantes cambiaron mientras se revisaban. Actualizá el reporte.');
+  const { rows:abiertas } = await db.query(`SELECT * FROM orden_compra_ciclo WHERE proveedor_id=$1
+    AND estado IN ('borrador','pendiente_enviar') AND envio_id IS NULL ORDER BY id DESC FOR UPDATE`,[p.id]);
+  let o = abiertas[0];
+  // Antes se abría una por semana. La revisión visible ahora reúne al
+  // proveedor completo; liberar borradores anteriores conservando su historia
+  // evita que reservas ocultas bloqueen el pedido que acaba de revisar.
+  for (const anterior of abiertas.slice(1)) {
+    const motivo = 'Borrador sustituido por las cantidades revisadas en Reporte Proveedores.';
+    await db.query("UPDATE orden_compra_ciclo SET estado='cerrada',motivo_cierre=$2,cerrada_en=NOW(),version=version+1,actualizado_en=NOW() WHERE id=$1",[anterior.id,motivo]);
+    await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:anterior.id,accion:'cerrada',despues:{sustituidaPor:o.id},usuarioId:actor,motivo});
+  }
+  if (!o) o = (await db.query(`INSERT INTO orden_compra_ciclo(proveedor_id,proveedor_nombre,proveedor_cedula,clave,solicitud)
+    VALUES($1,$2,$3,$4,$5) RETURNING *`,[p.id,p.nombre,p.identificacion,randomUUID(),{sinCiclos:true,desdeReporte:true}])).rows[0];
+  // La pantalla es la revisión: reemplazar la abierta con lo que allí se vio
+  // retira orígenes resueltos y ediciones anteriores, sin tocar una enviada.
+  await limpiarBorradorEn(db,o);
+  const visibles = new Set(actual.productos_faltantes.flatMap(l => l.origenes.map(r => r.faltanteId)));
+  const fuentes = agrupar((await necesidadesEn(db,p,null,o.id,{bloquear:true,sinCiclos:true})).filter(r => visibles.has(r.faltanteId)));
+  const vistos = new Set();
+  for (const l of datos.productos) {
+    const manual = l.agregadoManual === true;
+    let origen = manual ? await productoManualEn(db,p,l) : fuentes.find(f => f.productoId === entero(l.productoId));
+    if (!origen || vistos.has(origen.productoId)) throw httpError(409,'Los productos del pedido cambiaron o están repetidos. Actualizá el reporte.');
+    vistos.add(origen.productoId);
+    const revisado = actual.productos_faltantes.find(f => f.producto_id === origen.productoId);
+    if (!manual && (!revisado || ['nombre','codigo','nombreProveedor','codigoProveedor','mappingId'].some(k => {
+      const claves = {nombre:'nombre',codigo:'codigo',nombreProveedor:'nombre_proveedor',codigoProveedor:'codigo_proveedor',mappingId:'mapping_id'};
+      return (origen[k] || null) !== (revisado[claves[k]] || null);
+    }))) throw httpError(409,'Los datos del producto cambiaron. Actualizá el reporte.');
+    const propia = Number(l.cantidadOriginal);
+    if (!Number.isFinite(propia) || propia <= 0 || propia > 1000000 || Number(propia.toFixed(6)) !== propia) throw httpError(400,'Cantidad propia positiva de hasta seis decimales requerida.');
+    if (!Number.isFinite(origen.factorConversion) || origen.factorConversion < 0.000001 || origen.factorConversion > 1000000) throw httpError(409,'La conversión del proveedor no es válida. Revisá su ficha.');
+    const unidades = micros(propia.toFixed(6)), factor = micros(origen.factorConversion.toFixed(6));
+    const esperada = Number((unidades + factor - 1n) / factor);
+    const q = entero(manual ? esperada : l.cantidad,'Cantidad a pedir',1000000);
+    if (!manual && Number(l.factorConversion) !== origen.factorConversion) throw httpError(409,'La conversión del proveedor cambió. Actualizá antes de enviar.');
+    if (!manual && esperada !== q) throw httpError(400,'La cantidad del pedido no coincide con las unidades revisadas.');
+    if (manual) await db.query(`INSERT INTO orden_compra_ciclo_linea(orden_id,producto_id,producto_nombre,codigo_interno,codigo_proveedor,nombre_proveedor,mapping_id,factor_conversion,cantidad_proveedor)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[o.id,origen.productoId,origen.nombre,origen.codigo,origen.codigoProveedor,origen.nombreProveedor,origen.mappingId,origen.factorConversion,q]);
+    else await reemplazarLineaEn(db,o,{productoId:origen.productoId,cantidadProveedor:q},origen);
+  }
+  await db.query("UPDATE orden_compra_ciclo SET estado='pendiente_enviar',version=version+1,actualizado_en=NOW() WHERE id=$1",[o.id]);
+  o = await obtenerEn(db,o.id);
+  const mensaje = `Te enviamos nuestra ORDEN DE COMPRA ${o.referencia} en PDF. Por favor confirmá los productos, cantidades y disponibilidad.`;
+  o = await envio.interno.prepararEn(db,o.id,{version:o.version,clave:datos.clave,telefono:candidatos[0].numero,mensaje,preferirDatosProveedor:datos.preferirDatosProveedor !== false},actor);
+  const { rows:temporales } = await db.query(`SELECT id,updated_at::text actualizado FROM orden_compra_temporal
+    WHERE proveedor_nombre=ANY($1::text[])`,[[...new Set([p.nombre,actual.nombre,...(actual.aliases || [])])]]);
+  await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:'revisar_reporte',despues:{clave:datos.clave,firma:firma(datos),temporales},usuarioId:actor});
+  return o;
+}
+async function enviar(datos,actor) {
+  datos = validar(datos);
+  const o = await enOrden(db => revisarEn(db,datos,actor));
+  const orden = await envio.enviar(o.id,datos.clave,{confirmar:true},actor);
+  const estado = orden.envios.find(e => e.id === datos.clave)?.estado;
+  return { orden, envioEstado:estado };
+}
+module.exports = { enviar };

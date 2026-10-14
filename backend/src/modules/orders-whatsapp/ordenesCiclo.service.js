@@ -1,3 +1,4 @@
+const { faltanteOperativo, cantidadPendiente } = require('../reports/faltantesCompra.sql');
 const { pool } = require('../../../config/database');
 const { enTransaccion } = require('../../utils/transaccion');
 const { registrarCambio } = require('../../utils/bitacora');
@@ -53,7 +54,7 @@ async function resolverProveedorEn(db,{ proveedorId,cedula,nombre }={},opciones=
 async function necesidadesEn(db,p,cicloId,excluirOrden=null,{ bloquear=false,sinCiclos=false }={}) {
   // La reserva se cuenta por FALTANTE, incluso si se reasigna el proveedor.
   // No descontar stock provisional ni llamar al borrador «ya pedido».
-  const {rows}=await db.query(`SELECT f.id AS "faltanteId",f.producto_propio_id AS "productoId",f.cantidad_faltante,
+  const {rows}=await db.query(`SELECT f.id AS "faltanteId",f.producto_propio_id AS "productoId",${cantidadPendiente()} AS cantidad_faltante,
     p.nombre,p.referencia,fa.id AS "facturaId",fa.numero,fa.cliente_id,fa.cliente_nombre,fa.preventa_anticipada,rc.orden,
     m.id AS mapping_id,m.supplier_code,m.supplier_desc,COALESCE(m.factor_conversion,1) AS factor_conversion,
     COALESCE((SELECT SUM(r.cobertura) FROM orden_compra_ciclo_cobertura r
@@ -69,7 +70,7 @@ async function necesidadesEn(db,p,cicloId,excluirOrden=null,{ bloquear=false,sin
     LEFT JOIN LATERAL (SELECT m.* FROM supplier_product_mapping m WHERE m.producto_id=p.id
       AND (m.proveedor_id=$1 OR (m.proveedor_id IS NULL AND m.supplier_cedula=$2))
       ORDER BY m.last_used_date DESC NULLS LAST,m.times_used DESC,m.id LIMIT 1) m ON TRUE
-    WHERE f.estado IN ('pendiente','procesado') AND f.tipo_faltante<>'completo' AND f.cantidad_faltante>0 AND fa.estado<>'anulada'
+    WHERE ${faltanteOperativo()} AND ${cantidadPendiente()}>0
       AND ($6::boolean OR rc.ciclo_id IS NOT DISTINCT FROM $3::int)
       AND ((NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') IS NOT NULL AND btrim(f.proveedor_cedula)=$2)
         OR (NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') IS NULL AND lower(btrim(f.proveedor_asignado))=lower(btrim($5))))
@@ -186,6 +187,8 @@ async function cambiarEstado(id,datos,usuarioId) {
 async function validarPendienteEn(db,o) {
   if (!o.lineas.length) throw httpError(409,'La orden no tiene productos para enviar.');
   const p=await proveedorEn(db,o.proveedor_id);
+  const facturas=[...new Set(o.lineas.flatMap(l=>l.origenes.map(r=>r.factura_id)))];
+  await db.query('SELECT id FROM factura WHERE id=ANY($1::int[]) ORDER BY id FOR SHARE',[facturas]);
   const filas=await necesidadesEn(db,p,o.ciclo_id,o.id,{bloquear:true,sinCiclos:true}),porId=new Map(filas.map(f=>[f.faltanteId,f]));
   for (const l of o.lineas) for (const r of l.origenes) {
     const f=porId.get(r.faltante_id);

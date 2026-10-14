@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios
 estado: vigente
 archivos:
+  - docs/informes/proveedores-correccion-2026-10-14.md
+  - backend/tests/proveedoresCritico.test.js
+  - backend/src/modules/reports/faltantesCompra.sql.js
   - backend/tests/ordenesAutomaticas.test.js
   - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
   - backend/src/modules/rutas/operacionCiclo.service.js
@@ -52,8 +55,19 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-13
+medido: 2026-10-14
 ---
+
+**2026-10-14, compra actual y procedencia exacta:** Reporte Proveedores y sus
+notas comparten faltantesCompra.sql: pendiente, factura emitida sin crédito
+total, producto presente, sin respuesta revisada ni cola pendiente. No leer
+procesados como demanda nueva. Restar solo cobertura ya enviada/intentada;
+conservar snapshots enviados aparte. Notas incluyen facturaId/clienteId de
+cada origen; frontend filtra las facturas actuales de ese proveedor.
+Bodega valida pertenencia y cantidad contra factura_linea antes de guardar;
+un producto ajeno o cantidad mayor revierte el despacho completo.
+[Evidencia](../../informes/proveedores-correccion-2026-10-14.md).
+
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.

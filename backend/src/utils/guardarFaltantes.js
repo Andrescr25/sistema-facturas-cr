@@ -22,6 +22,7 @@
  * @returns {Promise<number>} cuántos se guardaron
  */
 
+const { httpError } = require('./validacion');
 const { query } = require('../../config/database');
 const { AHORA_CR_SQL } = require('./fechaCR');
 
@@ -57,11 +58,12 @@ async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario',
   let guardados = 0;
   for (const faltante of faltantes) {
     const productoId = await productoPropioDe(faltante, db);
-    if (!productoId) {
-      console.warn('⚠️ No se encontró el producto del faltante, se omite:', {
-        producto_id: faltante.producto_id, alegra_item_id: faltante.alegra_item_id, referencia: faltante.referencia
-      });
-      continue;
+    if (!productoId) throw httpError(400, 'No se encontró el producto del faltante. Recargá la factura.');
+    const { rows:[linea] } = await db.query(`SELECT SUM(cantidad) AS cantidad FROM factura_linea
+      WHERE factura_id=$1 AND producto_id=$2`, [facturaId, productoId]);
+    const cantidad = Number(faltante.cantidad_faltante);
+    if (linea?.cantidad == null || !Number.isSafeInteger(cantidad) || cantidad < 0 || cantidad > Number(linea.cantidad)) {
+      throw httpError(409, 'El producto o la cantidad del faltante no corresponde a esta factura. Recargá antes de registrar.');
     }
 
     const existente = await db.query(`

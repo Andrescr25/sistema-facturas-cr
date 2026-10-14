@@ -4,7 +4,7 @@ const {hoyEnCostaRica}=require('../../utils/fechaCR');
 const numero=n=>Number(n).toLocaleString('es-CR',{maximumFractionDigits:6});
 
 /** Solo snapshots de la orden: jamás consultar mapeos o cantidades globales. */
-function generarPdfOrden(o) {
+function generarPdfOrden(o,{preferirDatosProveedor=true}={}) {
   return new Promise((resolve,reject)=>{
     const doc=new PDFDocument({size:'LETTER',margin:38,bufferPages:true,info:{Title:`Orden ${o.referencia}`,Author:'Distribuidora Tachi'}});
     const partes=[];doc.on('data',p=>partes.push(p));doc.on('error',reject);doc.on('end',()=>resolve(Buffer.concat(partes)));
@@ -31,8 +31,8 @@ function generarPdfOrden(o) {
     try{
       cabecera();
       for(const l of o.lineas){
-        const codigo=l.codigo_proveedor||l.codigo_interno||`P-${l.producto_id}`;
-        let descripcion=l.nombre_proveedor||l.producto_nombre;
+        const codigo=(preferirDatosProveedor?l.codigo_proveedor:null)||l.codigo_interno||`P-${l.producto_id}`;
+        let descripcion=(preferirDatosProveedor?l.nombre_proveedor:null)||l.producto_nombre;
         descripcion+=`\nProducto propio: ${l.producto_nombre} · P-${l.producto_id}\n1 unidad del proveedor = ${numero(l.factor_conversion)} propias`;
         let primera=true;
         while(descripcion.length){

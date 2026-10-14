@@ -21,6 +21,7 @@ describe('descargar faltantes propios — PostgreSQL con ROLLBACK', () => {
     await conexion.query(`INSERT INTO faltantes_ajustes (faltante_id, cantidad_entregada, estado, revisado)
       VALUES ($1, 1, 'parcial', true)`, [faltanteId]);
     const otro = (await conexion.query("INSERT INTO producto (nombre, referencia) VALUES ('zz-Excel Sin proveedor', 'zz-excel-null') RETURNING id")).rows[0].id;
+    await conexion.query("INSERT INTO factura_linea(factura_id,numero_linea,producto_id,nombre,cantidad,precio_unitario,total) VALUES($1,1,$2,'zz-Excel Jabón',3,1,3),($1,2,$3,'zz-Excel Sin proveedor',2,1,2)",[facturaId,productoId,otro]);
     sinProveedorId = (await conexion.query(`INSERT INTO faltantes (factura_propia_id, producto_propio_id, cantidad_faltante, tipo_faltante, estado)
       VALUES ($1, $2, 2, 'parcial', 'pendiente') RETURNING id`, [facturaId, otro])).rows[0].id;
 
@@ -57,12 +58,14 @@ describe('descargar faltantes propios — PostgreSQL con ROLLBACK', () => {
 
   test('fecha y búsqueda del proveedor coinciden; cédula y código conservan sus ceros', async () => {
     const filtros = { fecha_inicio: '2026-10-01', buscar: 'zz-excel proveedor postgresql' };
+    assert.equal(contenido(await excel.exportarProveedores(filtros)).length,0,'una decisión revisada ya no es compra actual');
+    await conexion.query('UPDATE faltantes_ajustes SET revisado=false WHERE faltante_id IN (SELECT id FROM faltantes WHERE factura_propia_id=$1)',[facturaId]);
     const filas = contenido(await excel.exportarProveedores(filtros));
     assert.equal(filas.length, 1);
     assert.equal(filas[0]['ID producto'], productoId);
     assert.equal(filas[0]['Cédula proveedor'], '00100001');
     assert.equal(filas[0].Código, '00123');
-    assert.equal(filas[0]['Cantidad faltante'], 3);
+    assert.equal(filas[0]['Cantidad faltante'], 2);
     assert.equal(contenido(await excel.exportarProveedores({ ...filtros, fecha_inicio: '2026-10-02' })).length, 0);
   });
 

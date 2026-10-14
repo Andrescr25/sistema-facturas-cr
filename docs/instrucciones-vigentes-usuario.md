@@ -41,6 +41,20 @@ del nuevo flujo se obtuvo de la copia local, no de producción.
 [grafo](grafo/README.md) y código del módulo elegido. Los pendientes anteriores
 siguen en [checklist de independencia](checklist-independencia-alegra.md).
 
+## Corrección prioritaria — 2026-10-14
+
+Reporte Proveedores conserva solo Faltantes y fichas. Excluir facturas listas
+de Reporte Clientes y procedencia falsa. Nuevos faltantes Sin enviar arriba;
+cada orden enviada abajo, tachada y con su fotografía conservada. El detalle
+ya es la revisión: solo enviar PDF a WhatsApp con mensaje predeterminado,
+sin preparar órdenes ni otro modal. Cuando la factura electrónica pase por
+Revisión de precios, indicar mínimamente qué productos fueron facturados y
+cuáles no. Si no hay referencia de orden: vincular automáticamente solo con
+una candidata; varias requieren elegir en Revisión de precios (confirmado
+por el usuario). Quitar rotación/próxima visita de cards de Reporte Clientes;
+son información de Preventa. Esta decisión sustituye los pasos adicionales
+de órdenes de entregas anteriores. [Implementación y evidencia](informes/proveedores-correccion-2026-10-14.md).
+
 ## Decisiones anteriores que siguen vigentes
 
 - **Inventario y auditorías desde cero.** El físico está desordenado: iniciar
