@@ -8,6 +8,7 @@ const { salidasBloqueadas, errorSalidaBloqueada } = require('../../../config/ais
 const motor = require('./ordenesCiclo.service');
 const envio = require('./ordenesCicloEnvio.service');
 const { enOrden, obtenerEn, resolverProveedorEn, entero, necesidadesEn, agrupar, reemplazarLineaEn, micros } = motor.interno;
+const { mappingProveedor } = require('../reports/proveedorCompra.sql');
 
 const uuid = v => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(v);
 function validar(datos) {
@@ -27,9 +28,7 @@ async function productoManualEn(db,p,l) {
   }
   const { rows:[r] } = await db.query(`SELECT p.id,p.nombre,p.referencia,m.id mapping_id,m.supplier_code,m.supplier_desc,
     COALESCE(m.factor_conversion,1) factor_conversion FROM producto p
-    LEFT JOIN LATERAL (SELECT * FROM supplier_product_mapping WHERE producto_id=p.id
-      AND (proveedor_id=$2 OR (proveedor_id IS NULL AND supplier_cedula=$3))
-      ORDER BY last_used_date DESC NULLS LAST,times_used DESC,id LIMIT 1) m ON true WHERE p.id=$1 FOR SHARE OF p`,[entero(productoId),p.id,p.identificacion]);
+    LEFT JOIN LATERAL (${mappingProveedor('p.id','$2','$3')}) m ON true WHERE p.id=$1 FOR SHARE OF p`,[entero(productoId),p.id,p.identificacion]);
   if (!r) throw httpError(409,'El producto manual ya no está en el catálogo.');
   if ((l.codigoInterno && l.codigoInterno !== r.referencia) || (l.nombreInterno && l.nombreInterno !== r.nombre)) throw httpError(409,'El producto manual cambió. Volvé a elegirlo en el catálogo.');
   return { productoId:r.id,nombre:r.nombre,codigo:r.referencia,mappingId:r.mapping_id,
@@ -57,7 +56,11 @@ async function revisarEn(db,datos,actor) {
   if (candidatos.length !== 1) throw httpError(409,'Guardá un único número de WhatsApp en la ficha del proveedor antes de enviar.');
   const reporte = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false,asignarProveedores:false});
   if (!reporte.success) throw httpError(503,'No se pudieron comprobar los faltantes. No se inició el envío.');
-  const actual = reporte.data.find(r => p.identificacion ? r.cedula === p.identificacion : r.nombre.toLowerCase() === p.nombre.toLowerCase());
+  // La asignación antigua puede tener sólo nombre aunque su ficha sí tenga
+  // cédula. Conservar el identificador público del reporte también conserva
+  // la clave del intento incierto guardada por la pestaña.
+  const actual = reporte.data.find(r => (r.cedula ? r.cedula === p.identificacion
+    : r.nombre.trim().toLowerCase() === p.nombre.trim().toLowerCase()) && r.revisionReporte === datos.revisionReporte);
   if (!actual || datos.revisionReporte !== actual.revisionReporte) throw httpError(409,'Los faltantes cambiaron. Actualizá el reporte antes de enviar.');
   // Reporte Clientes bloquea factura antes de ajustar/encolar. Esperar en
   // ese mismo orden y releer la revisión evita enviar cantidades anteriores

@@ -7,6 +7,7 @@ const { query } = require('../../../config/database');
 const { faltanteOperativo, cantidadSinEnviar } = require('./faltantesCompra.sql');
 const { createHash } = require('node:crypto');
 const { JOIN_CICLO, filtrosOperacion } = require('../rutas/operacionCiclo.service');
+const { cedulaAsignada, fichaAsignada, mappingProveedor } = require('./proveedorCompra.sql');
 
 class ReportService {
   /**
@@ -47,14 +48,10 @@ class ReportService {
           MAX(f.asignacion_tipo) as asignacion_tipo,
           (MAX(m.id::text) FILTER (WHERE m.id IS NOT NULL))::uuid as mapping_id
         FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN factura fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id ${JOIN_CICLO('fa')}
-        LEFT JOIN LATERAL (SELECT m.id FROM supplier_product_mapping m WHERE m.producto_id=p.id AND (
-          m.proveedor_id=(SELECT pr.id FROM proveedor pr WHERE pr.identificacion=NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') LIMIT 1)
-          OR (m.proveedor_id IS NULL AND m.supplier_cedula=NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),''))
-          OR (NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') IS NULL
-            AND lower(btrim(m.supplier_name))=lower(btrim(f.proveedor_asignado))))
-          ORDER BY m.last_used_date DESC NULLS LAST,m.times_used DESC,m.id LIMIT 1) m ON true
-        WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre, COALESCE(NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),''),upper(btrim(f.proveedor_asignado)))
-        ORDER BY total_faltante DESC,p.id,COALESCE(NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),''),upper(btrim(f.proveedor_asignado)))
+        LEFT JOIN LATERAL (${fichaAsignada()}) pr ON true
+        LEFT JOIN LATERAL (${mappingProveedor('p.id','pr.id',`COALESCE(pr.identificacion,${cedulaAsignada()})`)}) m ON true
+        WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre, COALESCE(${cedulaAsignada()},upper(btrim(f.proveedor_asignado)))
+        ORDER BY total_faltante DESC,p.id,COALESCE(${cedulaAsignada()},upper(btrim(f.proveedor_asignado)))
       `;
 
       const faltantesResult = await db.query(sqlFaltantes, queryParams);

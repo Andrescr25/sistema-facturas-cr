@@ -4,6 +4,7 @@ const { enTransaccion } = require('../../utils/transaccion');
 const { registrarCambio } = require('../../utils/bitacora');
 const { httpError } = require('../../utils/validacion');
 const { filtrosOperacion } = require('../rutas/operacionCiclo.service');
+const { mappingProveedor, asignadoAlProveedor } = require('../reports/proveedorCompra.sql');
 
 const entero = (v, etiqueta='Identificador', max=2147483647) => {
   if (!((typeof v==='number' && Number.isSafeInteger(v)) || (typeof v==='string' && /^[1-9]\d*$/.test(v))) || Number(v)<1 || Number(v)>max)
@@ -67,13 +68,10 @@ async function necesidadesEn(db,p,cicloId,excluirOrden=null,{ bloquear=false,sin
       WHERE r.faltante_id=f.id AND ($4::int IS NULL OR r.orden_id<>$4)),0) AS recibida
     FROM faltantes f JOIN producto p ON p.id=f.producto_propio_id JOIN factura fa ON fa.id=f.factura_propia_id
     LEFT JOIN ciclo_ruta_cliente rc ON rc.id=fa.ciclo_ruta_cliente_id
-    LEFT JOIN LATERAL (SELECT m.* FROM supplier_product_mapping m WHERE m.producto_id=p.id
-      AND (m.proveedor_id=$1 OR (m.proveedor_id IS NULL AND m.supplier_cedula=$2))
-      ORDER BY m.last_used_date DESC NULLS LAST,m.times_used DESC,m.id LIMIT 1) m ON TRUE
+    LEFT JOIN LATERAL (${mappingProveedor('p.id','$1','$2')}) m ON TRUE
     WHERE ${faltanteOperativo()} AND ${cantidadPendiente()}>0
       AND ($6::boolean OR rc.ciclo_id IS NOT DISTINCT FROM $3::int)
-      AND ((NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') IS NOT NULL AND btrim(f.proveedor_cedula)=$2)
-        OR (NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') IS NULL AND lower(btrim(f.proveedor_asignado))=lower(btrim($5))))
+      AND ${asignadoAlProveedor('$1','$2','$5')}
     ORDER BY f.id ${bloquear?'FOR UPDATE OF f':''}`,[p.id,p.identificacion,cicloId,excluirOrden,p.nombre,sinCiclos]);
   return rows;
 }

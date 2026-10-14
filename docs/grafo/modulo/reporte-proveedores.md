@@ -4,6 +4,8 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - backend/src/modules/reports/proveedorCompra.sql.js
+  - backend/tests/identidadEnvioProveedor.test.js
   - backend/src/modules/orders-whatsapp/temporalesProveedor.service.js
   - backend/src/modules/orders-whatsapp/revisionTemporalesProveedor.service.js
   - backend/src/modules/orders-whatsapp/historialEnviosProveedor.service.js
@@ -77,6 +79,14 @@ Se revalida el filtro de fecha y solo se reservan sus orígenes visibles.
 Procedencia usa producto/factura/cliente propios; notas se recortan a las
 facturas de ese producto en ese proveedor, sin mezclar clientes homónimos ni
 necesidades históricas. Consultar nunca asigna proveedor ni crea compras.
+Una asignación legada sólo por nombre usa la ficha exacta única para resolver
+su mapping, incluso si esa ficha tiene cédula o el mapping conserva otro nombre.
+Reporte y envío comparten la selección por id propio/cédula: no inventan un
+cambio de producto/conversión al enviar una revisión recién consultada. Los
+homónimos sin cédula quedan sin resolver; los identificados conservan cantidades,
+orígenes y destinatarios separados. Nombre, cédula e id públicos del reporte
+mantienen sus claves anteriores para conservar los intentos guardados en la
+pestaña. La consulta sigue sin escribir asignaciones ni preparar órdenes.
 Tras Revisión de precios, indicadores mínimos Facturado/parcial/No facturado
 comparan la compra registrada con la orden enviada. Una candidata confiable
 se vincula automáticamente; varias o una comparación incierta requieren elegir
