@@ -124,7 +124,7 @@ async function actualizarProductoDeLinea(cliente, linea, precioAjustado, { compr
  * @param {Object} preciosAjustados    { [productoFacturaId]: precioNuevo }, mismo contrato que enviarFacturaAlegra
  * @param {number|null} usuarioId
  */
-async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuarioId = null) {
+async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuarioId = null, { ordenCompraId } = {}) {
   const id = idBuzonValido(facturaProveedorId);
 
   return enTransaccion(async (cliente) => {
@@ -164,6 +164,9 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
         `No hay proveedor propio con cédula ${factura.proveedor_cedula} (${factura.proveedor_nombre}). ` +
         'Hay que crearlo antes de registrar esta compra.');
     }
+
+    const ordenes = require('../orders-whatsapp/facturacionOrdenProveedor.service');
+    const seleccionOrden = await ordenes.elegirEn(cliente, factura, proveedor.id, ordenCompraId);
 
     const { rows: compraRows } = await cliente.query(
       `INSERT INTO compra (
@@ -247,8 +250,13 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
       `UPDATE facturas_proveedores SET estado = 'ENVIADA' WHERE id = $1`, [id]
     );
 
+    // El snapshot se toma después del estado final, antes del COMMIT. Así la
+    // misma revisión no parece modificada al consultar la compra registrada.
+    const ordenCompra = await ordenes.vincularRegistradaEn(cliente, seleccionOrden, id, usuarioId);
+
     return {
       compra: sinTiempos(compra),
+      ordenCompraId: ordenCompra,
       lineas: lineas.length,
       costosActualizados,
       preciosActualizados,

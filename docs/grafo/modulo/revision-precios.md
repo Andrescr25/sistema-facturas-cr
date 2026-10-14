@@ -4,6 +4,14 @@ tipo: modulo
 titulo: Revisión de Precios — costos y precios de la factura del proveedor, contra el maestro propio
 estado: vigente
 archivos:
+  - backend/src/modules/revision-precios/revision-precios.controller.js
+  - backend/src/modules/compras/compras.controller.js
+  - backend/src/modules/orders-whatsapp/facturacionOrdenProveedor.service.js
+  - backend/src/modules/orders-whatsapp/ordenesFacturacionReporte.service.js
+  - backend/tests/facturacionOrdenProveedor.test.js
+  - frontend/src/hooks/useOrdenCompraRevision.js
+  - frontend/src/components/revision-precios/OrdenCompraRevision.jsx
+  - frontend/src/pages/RevisionPrecios.jsx
   - backend/src/modules/revision-precios/revision-precios.service.js
   - backend/src/modules/revision-precios/revision-precios.routes.js
   - backend/src/modules/compras/compras.service.js
@@ -20,9 +28,28 @@ archivos:
   - frontend/src/utils/revisionPreciosUtils.js
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
-  relacionado: [modulo/relacionar-productos, modulo/compras, decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-04
+  relacionado: [modulo/relacionar-productos, modulo/compras, modulo/facturas-ordenes-compra, decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan]
+medido: 2026-10-14
 ---
+
+## Orden de compra en la revisión (2026-10-14)
+
+`GET /revision-precios/facturas/:facturaId/ordenes-compra` consulta, con el permiso
+de esta pantalla, pedidos con envío confirmado del proveedor exacto y sin vínculo
+vigente. READ ONLY/REPEATABLE READ, sin preparar nada. Si hay una candidata se
+asigna automáticamente al Registrar compra; si hay varias aparece un único
+selector junto al encabezado. No obliga a entrar a paneles de pedidos en Reporte
+Proveedores. Si no hay candidatas, la compra se registra como siempre.
+
+El hook separado usa la identidad de la factura para ignorar consultas tardías.
+Un error de consulta ofrece Reintentar y bloquea el registro; una selección
+ambigua también. El servidor revalida con el mismo bloqueo/transacción de compra.
+El registro conserva la revisión hasta terminar: un conflicto permite elegir de
+nuevo sin perder precios. Hacienda continúa después del COMMIT, como antes.
+
+La comparación comercial usa el vínculo por UUID/ficha propia y compra_linea;
+detalle en [[modulo/facturas-ordenes-compra]]. Facturado/Parcial/No facturado se
+muestra sólo tras el registro revisado, sin afirmar llegada física de mercancía.
 
 Las facturas de los proveedores llegan al buzón, se relacionan línea por
 línea ([[modulo/relacionar-productos]]) y acá se mira cómo cambió el costo y

@@ -3,6 +3,7 @@ import api from '../services/api'
 import { redondearPrecio, calcularFactorConversion, inferirCantidadesDesdeFactor } from '../utils/revisionPreciosUtils'
 import { avisoDeAceptacion } from '../utils/aceptacionCompraTexto'
 import { useDialog } from './useDialog'
+import { useOrdenCompraRevision } from './useOrdenCompraRevision'
 
 /**
  * Estado y lógica de negocio de la revisión de precios: navegación
@@ -22,6 +23,7 @@ export function useRevisionPrecios() {
   const [vista, setVista] = useState('lista')
   const [facturas, setFacturas] = useState([])
   const [facturaSeleccionada, setFacturaSeleccionada] = useState(null)
+  const ordenCompra = useOrdenCompraRevision(facturaSeleccionada)
   const [productos, setProductos] = useState([])
   // Llaveado por `producto.id`.
   const [productosDelCatalogo, setProductosDelCatalogo] = useState({})
@@ -249,7 +251,7 @@ export function useRevisionPrecios() {
   }, [productoSeleccionadoFactor, cantidadProveedor, cantidadMia, showToast])
 
   const registrarCompra = useCallback(async () => {
-    if (!facturaSeleccionada) return
+    if (!facturaSeleccionada || ordenCompra.bloqueada || enviando) return
 
     // Contar cuántos precios se van a actualizar
     const preciosQueActualizar = Object.keys(preciosAjustados).filter(
@@ -269,10 +271,14 @@ export function useRevisionPrecios() {
     // Guardar info de la factura para el toast
     const facturaNumero = facturaSeleccionada.numeroConsecutivo
     const facturaId = facturaSeleccionada.id
+    // Una candidata única se decide otra vez en el servidor al guardar. Si
+    // apareció otro pedido, requiere elegir y no confirma la orden antigua.
+    const ordenCompraId = ordenCompra.seleccionExplicita ? ordenCompra.ordenId : undefined
 
-    // Mostrar toast de "registrando" y volver a la lista inmediatamente
+    // Mantener la revisión hasta confirmar: un conflicto en la orden permite
+    // volver a elegir sin perder los precios que la persona acaba de revisar.
     showToast(`📤 Registrando la compra de la factura ${facturaNumero}...`, 'loading', null)
-    volverALista()
+    setEnviando(true)
 
     // Registrar en segundo plano. A diferencia del envío a Alegra de antes,
     // esto es todo o nada: si algo falla, no queda nada a medias — no hay
@@ -280,11 +286,13 @@ export function useRevisionPrecios() {
     try {
       const response = await api.post('/compras/registrar', {
         facturaId: facturaId,
-        preciosAjustados: preciosAjustados
+        preciosAjustados: preciosAjustados,
+        ordenCompraId
       })
 
       if (response.data.success) {
         const resultado = response.data.data
+        volverALista()
 
         // Remover toast de "registrando"
         setToasts(prev => prev.filter(t => t.type !== 'loading'))
@@ -319,13 +327,17 @@ export function useRevisionPrecios() {
         'error',
         10000
       )
+      if (err.response?.status === 409) ordenCompra.cargar()
+    } finally {
+      setEnviando(false)
     }
-  }, [facturaSeleccionada, preciosAjustados, productos.length, confirm, showToast, volverALista, loadFacturas])
+  }, [facturaSeleccionada, preciosAjustados, productos.length, confirm, showToast, volverALista, loadFacturas, ordenCompra.bloqueada, ordenCompra.ordenId, ordenCompra.seleccionExplicita, ordenCompra.cargar, enviando])
 
   return {
     vista,
     facturas,
     facturaSeleccionada,
+    ordenCompra,
     productos,
     productosDelCatalogo,
     sugerenciasPrecio,

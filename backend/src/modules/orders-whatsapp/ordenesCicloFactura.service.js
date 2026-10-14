@@ -21,19 +21,19 @@ const cantidad=v=>Number(v)/1000000;
 /** Fuente revisada: compra ya registrada tiene conversión propia histórica.
  * Sin compra se conserva el buzón/mapeo explícito; jamás deducir producto
  * por nombre/código ni asumir factor 1 cuando falta su relación. */
-async function fuenteEn(db,o,id){
+async function fuenteEn(db,o,id,{bloquear=true}={}){
   const {rows:[f]}=await db.query(`SELECT id,clave,numero_consecutivo,proveedor_nombre,proveedor_cedula,
     fecha_emision::text,moneda,total_factura,estado::text,xml_ruta IS NOT NULL AS xml_disponible
-    FROM facturas_proveedores WHERE id=$1 FOR SHARE`,[uuid(id)]);
+    FROM facturas_proveedores WHERE id=$1 ${bloquear?'FOR SHARE':''}`,[uuid(id)]);
   if(!f)throw httpError(404,'No existe ese comprobante.');
   if(!identidad(o.proveedor_cedula)||identidad(f.proveedor_cedula)!==identidad(o.proveedor_cedula))throw httpError(409,'La factura pertenece a otro proveedor.');
   if(!/^\d{50}$/.test(f.clave)||!['RECIBIDA','PROCESADA','RELACIONADA','ENVIADA'].includes(f.estado))throw httpError(409,'El comprobante no es una factura electrónica disponible para esta orden.');
-  const {rows:[c]}=await db.query('SELECT id,estado,proveedor_id FROM compra WHERE factura_proveedor_id=$1 FOR SHARE',[f.id]);
+  const {rows:[c]}=await db.query(`SELECT id,estado,proveedor_id FROM compra WHERE factura_proveedor_id=$1 ${bloquear?'FOR SHARE':''}`,[f.id]);
   if(c&&(c.estado!=='registrada'||c.proveedor_id!==o.proveedor_id))throw httpError(409,'La compra está anulada o no coincide con el proveedor de la orden.');
   let lineas;
   if(c){({rows:lineas}=await db.query(`SELECT id::text,numero_linea,producto_id,descripcion,codigo_proveedor,unidad,
     cantidad::text,factor_conversion::text,cantidad_propia::text,precio_unitario::text,descuento::text,impuesto::text,total_linea::text
-    FROM compra_linea WHERE compra_id=$1 ORDER BY numero_linea,id FOR SHARE`,[c.id]));}
+    FROM compra_linea WHERE compra_id=$1 ORDER BY numero_linea,id ${bloquear?'FOR SHARE':''}`,[c.id]));}
   else{({rows:lineas}=await db.query(`SELECT l.id::text,l.numero_linea,COALESCE(l.producto_id,m.producto_id) producto_id,
     l.descripcion,l.codigo_proveedor,l.unidad_medida unidad,l.cantidad::numeric::text cantidad,
     CASE WHEN (m.proveedor_id=$2 OR (m.proveedor_id IS NULL AND regexp_replace(upper(m.supplier_cedula),'[^A-Z0-9]','','g')=$3))
@@ -44,7 +44,7 @@ async function fuenteEn(db,o,id){
       THEN ROUND(ROUND(l.cantidad::numeric,4)*m.factor_conversion::numeric(14,6),4)::text END cantidad_propia,
     l.precio_unitario::numeric::text,l.descuento::numeric::text,l.impuesto::numeric::text,l.total_linea::numeric::text
     FROM productos_factura_proveedor l LEFT JOIN supplier_product_mapping m ON m.id=l.mapeo_id
-    WHERE l.factura_id=$1 ORDER BY l.numero_linea,l.id FOR SHARE OF l`,[f.id,o.proveedor_id,identidad(o.proveedor_cedula)]));}
+    WHERE l.factura_id=$1 ORDER BY l.numero_linea,l.id ${bloquear?'FOR SHARE OF l':''}`,[f.id,o.proveedor_id,identidad(o.proveedor_cedula)]));}
   if(!lineas.length||lineas.length>2000)throw httpError(409,'La factura debe tener entre 1 y 2000 líneas para compararla.');
   lineas=lineas.map(l=>({...l,revision:!l.producto_id?'Producto sin relacionar':!l.factor_conversion||Number(l.factor_conversion)<=0||!l.cantidad_propia||Number(l.cantidad)<=0?'Conversión o cantidad sin confirmar':null}));
   return {documento:{...f,compra_id:c?.id||null,fuente:c?'compra_registrada':'buzon'},lineas};
@@ -140,4 +140,4 @@ async function descargarPdf(id,vinculoId,pdfId){return enOrden(async db=>{
   if(!p)throw httpError(404,'Este PDF no corresponde a la factura de la orden.');
   return {pdf:await archivos.leer(p),nombreArchivo:`factura-${v.factura_id}-${p.tipo}.pdf`};
 })}
-module.exports={consultar,candidatas,proponer,vincular,retirar,guardarPdf,descargarPdf,comparar,interno:{uuid,identidad,hash}};
+module.exports={consultar,candidatas,proponer,vincular,retirar,guardarPdf,descargarPdf,comparar,interno:{uuid,identidad,hash,fuenteEn}};

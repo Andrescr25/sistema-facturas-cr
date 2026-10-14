@@ -3,6 +3,7 @@ import FilaProducto from './FilaProducto'
 import Insignia from '../ui/Insignia'
 import { formatCurrency, formatDate } from '../../utils/pagos'
 import AceptacionCompra from './AceptacionCompra'
+import OrdenCompraRevision from './OrdenCompraRevision'
 
 /**
  * Revisar los precios de una factura.
@@ -34,7 +35,7 @@ import AceptacionCompra from './AceptacionCompra'
  */
 export default function RevisionFactura({
   facturaSeleccionada, productos, productosDelCatalogo, sugerenciasPrecio, preciosAjustados,
-  loading, devolviendo, enviando,
+  loading, devolviendo, enviando, ordenCompra,
   onVolver, onDevolver, onAjustarPrecio, onAplicarPrecioSugerido, onAbrirFactor, onEnviar
 }) {
   const ajustados = Object.keys(preciosAjustados).filter(id => preciosAjustados[id] > 0).length
@@ -91,6 +92,7 @@ export default function RevisionFactura({
             </span>
           )}
         </div>
+        {!yaRegistrada && ordenCompra && <OrdenCompraRevision consulta={ordenCompra} />}
       </div>
 
       {loading ? (
@@ -161,7 +163,7 @@ export default function RevisionFactura({
             </div>
             <button
               onClick={onEnviar}
-              disabled={enviando || loading}
+              disabled={enviando || loading || ordenCompra?.bloqueada}
               className="btn btn-primary flex shrink-0 items-center gap-2 px-6 py-3 font-bold disabled:opacity-50"
             >
               {enviando ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}

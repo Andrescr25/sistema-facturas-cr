@@ -4,6 +4,10 @@ tipo: modulo
 titulo: Factura del proveedor en la orden — vínculo revisado, PDF privado y comparación; recepción física separada
 estado: vigente
 archivos:
+  - backend/src/modules/orders-whatsapp/facturacionOrdenProveedor.service.js
+  - backend/src/modules/orders-whatsapp/ordenesFacturacionReporte.service.js
+  - backend/src/modules/compras/compras.service.js
+  - backend/tests/facturacionOrdenProveedor.test.js
   - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/migrations/independencia/048_factura_orden_compra_ciclo.sql
   - backend/src/modules/orders-whatsapp/ordenesCicloFactura.service.js
@@ -15,8 +19,44 @@ aristas:
   depende_de: [modulo/ordenes-compra-por-ciclo, tabla/facturas-proveedores, tabla/compra-linea, tabla/supplier-product-mapping, decision/la-ruta-no-el-contenido]
   relacionado: [modulo/cierre-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/el-total-manda-sobre-las-lineas]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-06
+medido: 2026-10-14
 ---
+
+## Revisión de precios → indicación en la lista de proveedores (2026-10-14)
+
+El usuario permite vincular automáticamente únicamente cuando hay **una orden
+enviada posible** del proveedor propio exacto, todavía sin comprobante vigente.
+Si hay varias, elige una en Revisión de precios antes de Registrar compra.
+Con cero candidatas la compra sigue normal. No elegir por parecido de producto,
+nombre, fecha ni total. Un vínculo explícito anterior conserva su identidad e
+historia. No reasignar una factura completa ni repartirla entre pedidos.
+
+Registrar compra revalida candidatas bajo el advisory común 46005/1. Una candidata
+única en pantalla se vuelve a decidir al guardar: si apareció otra, 409 exige
+elección y la pantalla conserva sus precios. El vínculo se inserta en la misma
+transacción, después del estado final ENVIADA, desde compra_linea y su conversión
+histórica. Un fallo revierte también compra, costos, precios, CxP y kardex. El PDF,
+líneas y cantidades del pedido enviado quedan idénticos. No hay SQL nuevo.
+
+El lector `ordenesFacturacionReporte.comparacionEn(db, ordenId)` acepta READ ONLY
+y devuelve por producto estado y cantidad facturada en unidades propias. Sin
+vínculo vigente **y compra registrada**, `sin_revisar` con cantidad NULL. Después
+de revisar: `facturado`, `parcial` o `no_facturado`; fuente alterada/desconocida es
+`por_identificar`, nunca una ausencia afirmada. No deriva recepción física de la
+factura. No prepara pedidos, llama transporte ni modifica documentos al consultar.
+Un vínculo antiguo del buzón conserva el snapshot y usa la compra final revisada.
+
+La nueva asociación después de crear la compra conserva su modalidad comercial
+de inventario (false). Un vínculo físico anterior conserva la modalidad true
+establecida por SQL049. Ninguna consulta ni asociación cambia esa decisión fija.
+
+Verificación: nueve casos con PostgreSQL local y ROLLBACK cubren única/múltiple,
+proveedor ajeno/borrador, conversiones, faltantes, cantidades históricas, fuente
+alterada, compra anulada, permisos, fallo del vínculo y READ ONLY real. Chromium
+390/1440 recorre selección, registro real local, carrera, conservación de precios
+y error/reintento de consulta; transporte y Hacienda simulados, sin salidas.
+
+Los apartados siguientes conservan el contrato histórico del vínculo explícito.
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.
