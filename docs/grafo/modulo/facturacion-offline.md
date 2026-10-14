@@ -25,9 +25,15 @@ archivos:
   - backend/tests/baseLocalAbierta.test.js
   - backend/tests/facturacionFlujoPantalla.test.js
   - frontend/src/components/facturacion/PestanasFacturacion.jsx
+  - frontend/src/hooks/useLineasFacturacion.js
+  - frontend/src/hooks/useDescuentoClienteFacturacion.js
+  - frontend/src/services/descuentoClienteService.js
+  - frontend/src/utils/descuentoCliente.js
+  - backend/tests/descuentoCliente.test.js
+  - backend/tests/descuentoClientePg.test.js
 aristas:
   relacionado: [leccion/lo-que-mueve-plata-no-va-por-omision, modulo/historicos-contexto-documentos, modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
-medido: 2026-10-11
+medido: 2026-10-14
 ---
 
 SECCIÓN 16. Se retiró `facturaPropiaAdaptador.js`: la copia de facturas y
@@ -191,3 +197,20 @@ oculto → «Activar» en Gestión de Catálogo → aparece en Facturación sin 
 «Actualizar»; sin cambios no baja nada; un precio corregido llega solo; uno
 dado de baja deja de ofrecerse.
 
+
+
+DESCUENTO DEL CLIENTE (2026-10-14). El carrito se extrae a
+`useLineasFacturacion`: conserva el descuento manual/oferta separado del
+automático. El precio cambia la elegibilidad y el cliente cambia su
+porcentaje, sin duplicar rebajas. `useDescuentoClienteFacturacion` carga
+condiciones privadas con guarda contra respuestas de otro cliente. La copia
+en IndexedDB se separa por usuario e id propio de cliente, sin guardar
+el token como clave; permite preparar la venta sin señal. Si no se conoce
+la condición, se pide una descarga antes de facturar.
+
+El cuerpo de la cola nueva conserva `descuentoClienteRevisado` y
+`descuentoBase` por línea junto con la clave de idempotencia. Cambiar
+condiciones al sincronizar produce rechazo revisable, sin convertirlo en
+otra venta ni reescribir una cola antigua. Editar una venta ya persistida
+no reaplica el descuento actual de la ficha. Chromium comprobó guardar
+sin conexión con 5 %, porcentaje base 0 y cola conservada.

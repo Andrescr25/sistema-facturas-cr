@@ -44,6 +44,27 @@ const PULPERIA = {
 
 const VALIDO = { nombre: 'PULPERÍA NUEVA', tipo_identificacion: 'CF', identificacion: '1-0234-0567', celular: '8827 2453' };
 
+describe('descuento global en la ficha', () => {
+  test('se guarda, se modifica y se convierte a número en la respuesta', async () => {
+    const { servicio } = montar(base());
+    const creada = await servicio.crearCliente({ ...VALIDO, descuento_global: 5 }, 4);
+    assert.equal(creada.descuento_global, 5);
+    const editada = await servicio.editarCliente(creada.id, { descuento_global: 7.25 }, 4);
+    assert.equal(editada.descuento_global, 7.25);
+    const desactivada = await servicio.editarCliente(creada.id, { descuento_global: null }, 4);
+    assert.equal(desactivada.descuento_global, 0);
+  });
+
+  test('un porcentaje inválido se rechaza antes de escribir', async () => {
+    const { servicio, log } = montar(base());
+    for (const descuento_global of [-1, 100.01, Infinity, 'texto', 5.123]) {
+      await assert.rejects(servicio.crearCliente({ ...VALIDO, descuento_global }, 4),
+        e => e.status === 400 && /Descuento global/.test(e.message));
+    }
+    assert.equal(log.length, 0);
+  });
+});
+
 function base({ cliente = PULPERIA, plazoActivo = true } = {}) {
   let actual = { ...cliente };
   return (sql, p) => {

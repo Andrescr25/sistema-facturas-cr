@@ -68,7 +68,7 @@ describe('las ofertas para facturar', () => {
 
 test('la línea nace con el descuento de la oferta', () => {
   const hook = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useFacturacion.js'), 'utf8');
+    path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useLineasFacturacion.js'), 'utf8');
   assert.match(hook, /const ofertaExceso = ofertas\.get\(/);
   assert.match(hook, /discount: ofertaExceso/);
   // Y la pantalla dice de dónde salió: si el cajero lo cambia, deja de

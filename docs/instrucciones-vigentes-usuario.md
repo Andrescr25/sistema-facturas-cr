@@ -778,3 +778,21 @@ trabajo integrado de Claude, por avance sin fusión. No autoriza pruebas que
 escriban registros ficticios ni mensajes reales en producción. Los impresos
 24 h SIN MOVIMIENTO y el resto del retiro de ciclos siguen pendientes.
 [Registro](informes/despliegue-main-2026-10-13.md).
+
+
+## 2026-10-14 — Descuento global en la ficha del cliente
+
+Textual: «que la ficha de cliente tenga descuento global … un input donde
+uno pueda poner cuanto % de descuento en todos los productos tendra el
+cliente … un 5%, automaticamente aplicar un 5% a todos los productos que
+tengan más de un 21% de margen». Confirma: «Usar el descuento mayor, sin
+acumularlos». Después pide continuar.
+
+El margen se mide antes de descuentos, sobre precio y costo sin IVA con
+la tarifa del producto; exactamente 21 % queda fuera. Costo no confiable
+no concede rebaja automática. La ficha guarda la condición para ventas
+nuevas y las anteriores conservan lo cobrado. Vista previa y guardado
+comparten porcentajes; un cambio mientras se revisaba requiere revisión
+antes de guardar. Se desarrolla y prueba con copias locales, sin mensajes
+reales. SQL 060 producción pendiente antes de main.
+[Implementación](grafo/modulo/facturacion.md).

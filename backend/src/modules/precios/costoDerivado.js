@@ -110,8 +110,14 @@ function comoCosto(r) {
  *   indexado por `producto.id` (NÚMERO). No es el id de Alegra: buscar acá
  *   con uno devuelve el costo de otro producto, o nada.
  */
-async function obtenerCostosDerivados() {
-  const res = await query(SQL_COSTO_DERIVADO);
+async function obtenerCostosDerivados({ db = { query }, productoIds = null } = {}) {
+  if (productoIds && !productoIds.length) return new Map();
+  // El filtro por producto llega antes de numerar compras: una factura no
+  // necesita recorrer todo el historial ni salir de su transacción.
+  const sql = productoIds
+    ? SQL_COSTO_DERIVADO.replace("WHERE pf.estado_relacionado", "WHERE ch.producto_id = ANY($1::int[]) AND pf.estado_relacionado")
+    : SQL_COSTO_DERIVADO;
+  const res = await db.query(sql, productoIds ? [productoIds] : []);
   const mapa = new Map();
   for (const r of res.rows) {
     const costo = comoCosto(r);

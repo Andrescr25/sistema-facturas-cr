@@ -19,7 +19,7 @@ const { pool } = require('../../../config/database');
 function fallo(res, error, contexto) {
   const s = error.status || 500;
   if (s >= 500) console.error(`❌ Facturación propia (${contexto}):`, error);
-  res.status(s).json({ success: false, message: error.message, error: error.message });
+  res.status(s).json({ success: false, message: error.message, error: error.message, ...(error.code === 'DESCUENTO_CLIENTE_CAMBIO' ? { code: error.code } : {}) });
 }
 
 function falloCorreo(res, error) {
@@ -31,6 +31,10 @@ function falloCorreo(res, error) {
 }
 
 module.exports = {
+  descuentoCliente: async (req, res) => {
+    try { res.json({ success: true, data: await require('./descuentoCliente.service').condicionesDelCliente(req.params.clienteId) }); }
+    catch (error) { fallo(res, error, 'descuento del cliente'); }
+  },
   ciclos: async (req, res) => {
     try { res.json({ success: true, data: await require('../rutas/documentosCiclo.service').disponibles(req.params.clienteId) }); }
     catch (error) { fallo(res, error, 'ciclos'); }
@@ -213,9 +217,7 @@ module.exports = {
       const status = factura.yaExistia ? 200 : 201;
       res.status(status).json({ success: true, data: factura });
     } catch (error) {
-      const s = error.status || 500;
-      if (s >= 500) console.error('❌ Facturación propia (crear):', error);
-      res.status(s).json({ success: false, message: error.message, error: error.message });
+      fallo(res, error, 'crear');
     }
   }
 };

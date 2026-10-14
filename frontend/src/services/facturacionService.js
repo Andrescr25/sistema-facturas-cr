@@ -213,7 +213,7 @@ class FacturacionService {
         // guardan como están y quien los use decide, igual que siempre.
         phonePrimary: c.telefono || '',
         mobile: c.celular || '',
-        plazoCreditoId: c.plazo_credito_id || null,
+        plazoCreditoId: c.plazo_credito_id || null, descuentoGlobal: Number(c.descuento_global) || 0,
         ciclos: c.ciclos || [],
         status: c.activo === false ? 'inactive' : 'active'
       }));
@@ -529,7 +529,7 @@ class FacturacionService {
           if (this.esRechazo(error)) {
             const motivo = this.motivoDelFallo(error);
             console.error('⛔ El servidor rechazó la factura:', motivo);
-            throw new Error(motivo);
+            throw Object.assign(new Error(motivo), { code: error.response?.data?.code });
           }
           // Sin respuesta o con el servidor caído: eso sí es para la cola.
           console.warn('⚠️ No se pudo llegar al servidor, guardando offline:', error.message);

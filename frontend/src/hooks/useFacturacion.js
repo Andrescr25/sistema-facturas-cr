@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import api from '../services/api'
+import useDescuentoClienteFacturacion from './useDescuentoClienteFacturacion'
+import useLineasFacturacion from './useLineasFacturacion'
 import { hoyEnCostaRica } from '../utils/fechaCR'
 import facturacionService from '../services/facturacionService'
 import { abrirPdfFacturaPropia } from '../services/facturaPdf'
@@ -111,7 +113,12 @@ export function useFacturacion() {
   // catálogo: si fueran dos cuentas distintas, el agente le ofrecería algo
   // que el portal no le muestra.
   const [sugerencias, setSugerencias] = useState({ habituales: [], perdidos: [] })
-  const [items, setItems] = useState([])
+  const facturaExistente = modoEdicion && !facturaEditando?.pendienteSincronizar && !String(facturaEditando?.id).startsWith('local-')
+  const condicionesDescuento = useDescuentoClienteFacturacion(clienteSeleccionado, isOnline, facturaExistente)
+  const { items, setItems, agregarProductoAFactura, eliminarItem, actualizarCantidadItem, validarCantidadItem,
+    actualizarPrecioItem, actualizarDescuentoItem, actualizarDescripcionItem } = useLineasFacturacion({
+    ofertas, impuestoPrincipal, mostrarMensaje: (...args) => mostrarMensaje(...args), condiciones: condicionesDescuento, facturaExistente, DESCRIPCION_MAX
+  })
   const [fecha, setFecha] = useState(hoyEnCostaRica())
   const [observaciones, setObservaciones] = useState('')
   const [descuentoGlobal, setDescuentoGlobal] = useState(0)
@@ -692,7 +699,7 @@ export function useFacturacion() {
         reference: getReference(linea.referencia), name: linea.nombre,
         quantity: linea.cantidad, price: linea.precioUnitario,
         tax: [{ id: linea.impuestoId, percentage: linea.tarifa }],
-        discount: linea.descuentoPorcentaje || 0,
+        discount: linea.descuentoPorcentaje || 0, descuentoBase: linea.descuentoBase ?? linea.descuentoPorcentaje ?? 0,
         description: String(linea.descripcion || '').slice(0, DESCRIPCION_MAX)
       })));
       setFecha(facturaCompleta.fecha || hoyEnCostaRica());
@@ -841,120 +848,10 @@ export function useFacturacion() {
     agregarProductoAFactura(producto, 1)
   }
 
-  const agregarProductoAFactura = (producto, cantidad) => {
-    // Verificar si ya existe
-    const existente = items.find(item => item.id === producto.id)
-
-    if (existente) {
-      // Actualizar cantidad y mover al principio
-      const itemActualizado = { ...existente, quantity: existente.quantity + cantidad }
-      setItems([itemActualizado, ...items.filter(item => item.id !== producto.id)])
-    } else {
-      // Agregar nuevo al principio
-      const impuestoDefault = impuestoPrincipal
-        ? [{
-          id: impuestoPrincipal.id,
-          percentage: Number(impuestoPrincipal.percentage) || 0,
-          name: impuestoPrincipal.name,
-          type: impuestoPrincipal.type
-        }]
-        : []
-
-      // LA TARIFA ES LA DEL PRODUCTO, no la principal de la factura.
-      //
-      // Antes toda línea nacía con el impuesto principal (13 %), y eso es lo
-      // que la pantalla le sumaba al cliente. Con un producto al 1 % el cajero
-      // cobraba 13 % mientras el servidor guardaba 1 %: en una factura de dos
-      // líneas al 1 % y al 2 % la diferencia fue de ₡191,82. El papel y la
-      // pantalla tienen que decir lo mismo.
-      //
-      // En producción, donde ese id viajaba a Alegra, el daño quedó medido
-      // sobre lo ya emitido: 213 líneas en 147 facturas de productos al 1 %
-      // salieron al 13 %, 13 líneas al 2 % y 6 exentas.
-      const impuestoDelProducto = Array.isArray(producto.tax) && producto.tax.length
-        ? producto.tax.map(t => ({
-          id: t.id,
-          percentage: Number(t.percentage) || 0,
-          name: t.name,
-          type: t.type
-        }))
-        : impuestoDefault
-
-      // Si el producto está en oferta de exceso, la línea NACE con ese
-      // descuento. Es el mismo que el cliente ya ve en el catálogo y en el
-      // portal: la oferta que se promete y la que se cobra tienen que ser la
-      // misma, y nadie en la caja tiene por qué acordarse de cuáles son.
-      const ofertaExceso = ofertas.get(Number(producto.productoId ?? producto.id)) || 0
-
-      const nuevoItem = {
-        id: producto.id,
-        // El id propio viaja con la línea: es el que el servidor usa para
-        // resolver el producto contra su maestro.
-        productoId: producto.productoId ?? producto.id,
-        reference: getReference(producto.reference),
-        name: producto.name,
-        quantity: cantidad,
-        price: producto.price || 0,
-        tax: impuestoDelProducto,
-        discount: ofertaExceso,
-        ofertaExceso,
-        description: ''
-      }
-
-      setItems([nuevoItem, ...items])
-    }
-
-    mostrarMensaje(`${producto.name} agregado (${cantidad})`, 'success', 2000)
-  }
-
-  const eliminarItem = (index) => {
-    setItems(items.filter((_, i) => i !== index))
-  }
-
-  const actualizarCantidadItem = (index, cantidad) => {
-    // Permitir valores vacíos temporalmente mientras el usuario edita
-    const nuevaCantidad = cantidad === '' ? '' : (parseInt(cantidad) || 1)
-
-    setItems(prevItems => prevItems.map((item, i) =>
-      i === index ? { ...item, quantity: nuevaCantidad } : item
-    ))
-  }
-
-  const validarCantidadItem = (index) => {
-    // Al perder foco, validar que la cantidad sea válida
-    setItems(prevItems => prevItems.map((item, i) => {
-      if (i === index) {
-        const cantidad = parseInt(item.quantity) || 1
-        return { ...item, quantity: cantidad >= 1 ? cantidad : 1 }
-      }
-      return item
-    }))
-  }
-
-  const actualizarPrecioItem = (index, precio) => {
-    const nuevoPrecio = Math.max(0, parseFloat(precio) || 0)
-    setItems(items.map((item, i) =>
-      i === index ? { ...item, price: nuevoPrecio } : item
-    ))
-  }
-
-  const actualizarDescuentoItem = (index, descuento) => {
-    // Un 150 % dejaba la línea en negativo en pantalla y el servidor la
-    // rechazaba recién al facturar.
-    const nuevoDescuento = Math.min(100, Math.max(0, parseFloat(descuento) || 0))
-    setItems(items.map((item, i) =>
-      i === index ? { ...item, discount: nuevoDescuento } : item
-    ))
-  }
-
-  const actualizarDescripcionItem = (index, descripcion) => {
-    const texto = (descripcion || '').slice(0, DESCRIPCION_MAX)
-    setItems(items.map((item, i) =>
-      i === index ? { ...item, description: texto } : item
-    ))
-  }
-
   const finalizarFactura = async () => {
+    if (!facturaExistente && (condicionesDescuento.cargando || condicionesDescuento.error)) {
+      mostrarMensaje(condicionesDescuento.error || 'Esperá a que se consulte el descuento del cliente.', 'error'); return
+    }
     // Validaciones
     if (!clienteSeleccionado) {
       mostrarMensaje('Debes seleccionar un cliente', 'error')
@@ -992,7 +889,7 @@ export function useFacturacion() {
           name: item.name || '',
           quantity: Number(item.quantity) || 0,
           price: Number(item.price) || 0,
-          discount: item.discount || 0,
+          discount: item.discount || 0, descuentoBase: item.descuentoBase ?? item.discount ?? 0,
           description: (item.description && item.description.trim()
             ? item.description.trim()
             : '' // Si no hay descripción, dejar vacío
@@ -1002,6 +899,8 @@ export function useFacturacion() {
         observations: observaciones || '',
         status: 'open'
       }
+
+      if (!facturaExistente) facturaData.descuentoClienteRevisado = condicionesDescuento.porcentaje
 
       // Solo el ID elegido viaja con la venta; el servidor valida la parada.
       // Las colas antiguas no se actualizan al refrescar este formulario.
@@ -1029,7 +928,7 @@ export function useFacturacion() {
         productoId: item.productoId ?? item.id,
         nombre: item.name, referencia: item.reference,
         cantidad: item.quantity, precioUnitario: item.price,
-        descuentoPorcentaje: item.discount || 0,
+        descuentoPorcentaje: item.discount || 0, descuentoBase: item.descuentoBase ?? item.discount ?? 0,
         descripcion: (item.description || '').slice(0, DESCRIPCION_MAX),
         impuestoId: item.tax?.[0]?.id, tarifa: item.tax?.[0]?.percentage || 0
       }));
@@ -1141,6 +1040,7 @@ export function useFacturacion() {
         await refrescarFacturasLocales()
       }
     } catch (error) {
+      if (error.code === 'DESCUENTO_CLIENTE_CAMBIO') condicionesDescuento.refrescar()
       console.error('Error creando factura:', error)
       // No se va solo: la venta sigue en pantalla y hay que leer por qué no
       // salió antes de volver a intentar.
@@ -1340,7 +1240,7 @@ export function useFacturacion() {
 
     // Factura actual
     ciclosCliente, cicloId, setCicloId, cargandoCiclos, errorCiclos,
-    clienteSeleccionado,
+    condicionesDescuento, facturaExistente, clienteSeleccionado,
     setClienteSeleccionado,
     deseleccionarCliente,
     items,

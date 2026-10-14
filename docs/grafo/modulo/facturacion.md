@@ -41,9 +41,24 @@ archivos:
   - frontend/src/components/facturacion/SelectorPago.jsx
   - frontend/src/components/facturacion/PanelCobro.jsx
   - backend/migrations/independencia/041_intento_de_factura_con_id_propio.sql
+  - backend/src/modules/facturacion/facturaLineas.js
+  - backend/src/modules/facturacion/descuentoCliente.service.js
+  - backend/src/modules/precios/costoDerivado.js
+  - backend/migrations/independencia/060_descuento_global_cliente.sql
+  - frontend/src/hooks/useLineasFacturacion.js
+  - frontend/src/hooks/useDescuentoClienteFacturacion.js
+  - frontend/src/services/descuentoClienteService.js
+  - frontend/src/utils/descuentoCliente.js
+  - frontend/src/components/facturacion/AvisoDescuentoCliente.jsx
+  - backend/tests/descuentoCliente.test.js
+  - backend/tests/descuentoClientePg.test.js
+  - docs/informes/descuento-global-cliente-2026-10-14.md
+  - frontend/src/utils/moneda.js
+  - frontend/src/utils/revisionPreciosUtils.js
+  - frontend/src/utils/impresionUtils.js
 aristas:
-  relacionado: [modulo/hacienda, leccion/la-estructura-se-cuida-con-una-prueba, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
-medido: 2026-10-11
+  relacionado: [modulo/rutas-clientes, modulo/rentabilidad, leccion/precio-sin-iva-costo-con-iva, modulo/hacienda, leccion/la-estructura-se-cuida-con-una-prueba, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
+medido: 2026-10-14
 ---
 
 Ventas ya vive sobre la base propia (sección 6 del checklist). Se
@@ -275,3 +290,34 @@ como fecha (la base la rechaza).
 Chromium real: editar una factura ZZ, cambiarla a un cliente con crédito
 (vence a los días de su plazo) y a uno de contado (vence el mismo día).
 
+
+
+DESCUENTO POR CLIENTE (2026-10-14). La ficha guarda `descuento_global`
+(0–100, dos decimales; vacío desactiva). En ventas nuevas se aplica cuando
+el margen sobre el precio sin IVA, antes de descuentos, es estrictamente
+mayor al 21 %. El costo se normaliza con la tarifa real (incluido 0/1 %) y
+con la clasificación de calidad de Rentabilidad; costo ausente, sospechoso
+o historial inestable no concede descuento automático. La oferta, el
+manual y el del cliente se comparan: gana el mayor, nunca se suman.
+
+`facturaLineas.js` conserva el cálculo y la validación de la copia mostrada;
+el servicio de escritura baja de 827 a menos de 700 líneas. Los costos se
+leen en lote, por ids propios y sobre la conexión de la factura. Solo
+`emitirCon` aplica la condición nueva; editar/reimprimir no vuelve a leer
+la ficha para rebajar documentos anteriores. La integración fiscal usa las
+líneas persistidas y mantiene la elección explícita del motivo de descuento.
+
+GET privado `/facturacion/clientes/:clienteId/descuento` prepara la vista
+previa. No agrega costos al catálogo público ni compartido. POST compara
+porcentaje y descuentos revisados: un cambio de ficha/costo devuelve 409
+antes de reservar número o registrar cobro; la pantalla renueva condiciones
+y requiere otro clic. Una cola antigua sin vista previa permanece pendiente
+si el cliente ahora tiene descuento, para no alterar el total prometido.
+
+SQL 060 ensayada solo en base local desechable. Producción requiere aplicar
+la migración antes de publicar main. [Pruebas y estado](../../informes/descuento-global-cliente-2026-10-14.md).
+
+El descuento produce centavos: la vista redondea descuento, base e IVA por
+línea, igual que el servidor. `utils/moneda.js` reúne el redondeo compartido
+con Impresión y Revisión de precios; la prueba compara pantalla y escritura
+para precios decimales y descuentos, evitando diferencias de un centavo.

@@ -132,6 +132,7 @@ export default function FichaCliente({ clienteId, revision, onVolver, onEditar, 
           <Bloque titulo="Información general">
             <p className="text-sm text-neutro-600">{cliente.tipo_identificacion || 'Sin tipo'} · {cliente.identificacion || 'Sin identificación'}</p>
             <p className="mt-2 text-sm text-neutro-500">Actividad económica: {cliente.actividad_economica || 'Sin definir'}</p>
+            <p className="mt-2 text-sm text-neutro-600">Descuento global: {Number(cliente.descuento_global) || 0} % · productos con margen mayor al 21 %</p>
             <div className="mt-3"><Insignia tono={cliente.activo ? 'exito' : 'neutro'}>{cliente.activo ? 'Activo' : 'Inactivo'}</Insignia></div>
           </Bloque>
           <Bloque titulo="Contacto">

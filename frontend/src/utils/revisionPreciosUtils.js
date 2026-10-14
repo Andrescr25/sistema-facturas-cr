@@ -5,25 +5,12 @@
  * RevisionPrecios.jsx.
  */
 
+import { redondearDinero as aDosDecimales } from './moneda.js'
+
 // Redondear a la decena más cercana terminada en 5 o 0. Es para el precio
 // SUGERIDO: se propone un número redondo, no el resultado exacto del margen.
 export function redondearPrecio(precio) {
   return Math.round(precio / 5) * 5
-}
-
-/**
- * Plata, con la precisión que tiene la plata.
- *
- * Quitarle el IVA a un precio es una división, y una división deja cola:
- * ₡536,75 / 1,13 da 475,00000000000006. Ese número entraba tal cual en el
- * campo de "nuevo precio" y se leía como una pantalla rota.
- *
- * No se redondea a múltiplos de 5 acá a propósito: eso cambiaría el precio
- * actual del producto solo por abrir la factura, y parecería que alguien
- * propuso un cambio que nadie hizo. Dos decimales es lo que vale un colón.
- */
-function aDosDecimales(n) {
-  return Math.round((Number(n) || 0) * 100) / 100
 }
 
 /**

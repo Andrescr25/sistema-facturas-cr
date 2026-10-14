@@ -25,10 +25,10 @@ const CAMPOS = [
   'nombre', 'tipo_identificacion', 'identificacion', 'correo', 'correos_adicionales',
   'telefono', 'telefono_secundario', 'celular',
   'provincia', 'canton', 'distrito', 'barrio', 'otras_senas',
-  'actividad_economica', 'plazo_credito_id', 'limite_credito', 'observaciones',
+  'actividad_economica', 'descuento_global', 'plazo_credito_id', 'limite_credito', 'observaciones',
   'ruta_id', 'orden_ruta', 'ubicacion_maps', 'dia_visita', 'dia_entrega', 'rotacion_dias'
 ]
-const NUMERICOS = new Set(['plazo_credito_id', 'limite_credito', 'ruta_id', 'orden_ruta', 'dia_visita', 'dia_entrega', 'rotacion_dias'])
+const NUMERICOS = new Set(['descuento_global', 'plazo_credito_id', 'limite_credito', 'ruta_id', 'orden_ruta', 'dia_visita', 'dia_entrega', 'rotacion_dias'])
 const CLASE_CAMPO = 'input min-h-12 w-full rounded-xl border border-neutro-300 text-base'
 
 // Las mismas reglas que `backend/src/modules/clientes/identificacion.js`. No se
@@ -58,6 +58,7 @@ function valoresDe(c) {
 
 function listo(campo, v) {
   if (campo === 'correos_adicionales') return aLista(v)
+  if (campo === 'descuento_global' && v === '') return 0
   if (NUMERICOS.has(campo)) return v === '' ? null : Number(v)
   return String(v).trim() === '' ? null : String(v).trim()
 }
@@ -367,7 +368,12 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
             </div>
         </SeccionFormulario>
 
-        <SeccionFormulario id="credito" titulo="Crédito">
+        <SeccionFormulario id="credito" titulo="Crédito y descuento">
+          <div>
+            <Etiqueta htmlFor="cliente-descuento_global">Descuento global (%)</Etiqueta>
+            <input id="cliente-descuento_global" type="number" step="0.01" min="0" max="100" inputMode="decimal" className={CLASE_CAMPO} value={valores.descuento_global} onChange={cambiar('descuento_global')} placeholder="0" />
+            <p className="mt-1 text-xs text-neutro-500">Se aplica al facturar productos con margen mayor al 21 %. Se usa el mayor descuento, sin sumarlos.</p>
+          </div>
           <div>
             <Etiqueta htmlFor="cliente-plazo_credito_id">Plazo de crédito</Etiqueta>
             <select id="cliente-plazo_credito_id" className={CLASE_CAMPO} value={valores.plazo_credito_id} onChange={cambiar('plazo_credito_id')}>

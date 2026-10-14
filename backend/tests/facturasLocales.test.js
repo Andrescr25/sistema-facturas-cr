@@ -200,7 +200,7 @@ test('el impuesto se suma con la tarifa de CADA línea', async () => {
 });
 
 test('una línea nace con la tarifa del PRODUCTO, no con la principal de la factura', () => {
-  const fuente = fs.readFileSync(HOOK, 'utf8');
+  const fuente = fs.readFileSync(HOOK.replace('useFacturacion.js', 'useLineasFacturacion.js'), 'utf8');
   assert.match(fuente, /const impuestoDelProducto = Array\.isArray\(producto\.tax\)/);
   assert.match(fuente, /tax: impuestoDelProducto/);
   assert.equal(/tax: impuestoDefault,/.test(fuente), false,
@@ -208,11 +208,11 @@ test('una línea nace con la tarifa del PRODUCTO, no con la principal de la fact
 });
 
 test('la línea lleva nuestro id de producto', () => {
-  const fuente = fs.readFileSync(HOOK, 'utf8');
+  const fuente = fs.readFileSync(HOOK.replace('useFacturacion.js', 'useLineasFacturacion.js'), 'utf8');
   assert.match(fuente, /productoId: producto\.productoId \?\? producto\.id/);
   // El id propio explícito primero; `id` queda para la ficha que viene de una
   // factura abierta para editar (ver catalogoViejoEnElNavegador.test.js).
-  assert.match(fuente, /clienteId: parseInt\(clienteSeleccionado\.clienteId \?\? clienteSeleccionado\.id\)/);
+  assert.match(fs.readFileSync(HOOK, 'utf8'), /clienteId: parseInt\(clienteSeleccionado\.clienteId \?\? clienteSeleccionado\.id\)/);
 });
 
 test('los catálogos de la pantalla salen de la base propia', () => {

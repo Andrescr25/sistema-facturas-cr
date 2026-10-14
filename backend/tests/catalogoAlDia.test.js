@@ -84,7 +84,7 @@ describe('cómo quedó conectado', () => {
     assert.match(servicio, /listarProductos\(\{ buscar, pagina, limite, estado: 'vendibles' \}\)/);
     assert.match(servicio, /case 'activos': where\.push\('p\.activo = TRUE AND p\.oculto = FALSE'\)/);
     // Facturar sigue rechazando solo lo inactivo: las dos reglas dicen lo mismo.
-    const facturar = back('modules', 'facturacion', 'facturaPropia.service.js');
+    const facturar = back('modules', 'facturacion', 'facturaLineas.js');
     assert.match(facturar, /está inactivo: no se puede facturar/);
     assert.doesNotMatch(sinComentarios(facturar), /oculto/);
     assert.match(back('modules', 'productos', 'productos.routes.js'), /rutasCompartidas\.get\('\/productos\/huella', controller\.huellaParaOperar\)/);

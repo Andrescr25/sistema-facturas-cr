@@ -1,5 +1,5 @@
 import { Minus, Plus, Trash2, StickyNote, ChevronUp } from 'lucide-react'
-import { getReference } from '../../utils/facturacionUtils'
+import { getReference, montosLineaFacturacion } from '../../utils/facturacionUtils'
 
 const colones = (n) => `₡${(Number(n) || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -37,7 +37,7 @@ export default function LineaFactura({
   DESCRIPCION_MAX
 }) {
   const cantidad = parseInt(item.quantity) || 0
-  const subtotal = (item.quantity * item.price) * (1 - (item.discount || 0) / 100)
+  const subtotal = montosLineaFacturacion(item).base
   const detalleAbierto = mostrarDetalle || Boolean(item.description)
 
   return (
@@ -103,6 +103,9 @@ export default function LineaFactura({
             <p className="text-[10px] font-bold uppercase tracking-wide text-exito-600">
               Oferta de exceso
             </p>
+          )}
+          {item.descuentoCliente > 0 && item.discount === item.descuentoCliente && (
+            <p className="text-[10px] font-bold uppercase tracking-wide text-nota-700">Descuento del cliente</p>
           )}
           <p className="text-lg font-extrabold leading-tight text-neutro-900">{colones(subtotal)}</p>
         </div>

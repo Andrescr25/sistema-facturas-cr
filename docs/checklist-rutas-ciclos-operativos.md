@@ -756,3 +756,10 @@ copia restaurada y 200 pruebas PostgreSQL correctas; suite/build/navegador
 vigentes. Se llevan las partes implementadas y verificadas a main, incluido
 201d07b de Claude. ROT-06/07 y resto de ROT-08 siguen pendientes.
 [Registro](informes/despliegue-main-2026-10-13.md).
+
+
+**2026-10-14, ficha del cliente:** descuento global porcentual para ventas
+nuevas, solo margen >21 % con costo fiable; mayor descuento sin acumular.
+No cambia rutas/ciclos, recorridos, recepción ni archivo, y no acredita
+pendientes ROT. SQL 060 pendiente en producción antes de main.
+[Validación](informes/descuento-global-cliente-2026-10-14.md).

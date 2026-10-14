@@ -65,6 +65,13 @@ const CAMPOS = {
     patron: /^\d+(?:\.\d+)?$/, mensajePatron: 'use números o un código con punto, por ejemplo 4752.1'
   }) },
   plazo_credito_id: { etiqueta: 'Plazo de crédito', validar: entero },
+  descuento_global: { etiqueta: 'Descuento global', validar: (v, etiqueta) => {
+    const porcentaje = numero({ min: 0, max: 100 })(v, etiqueta) ?? 0;
+    if (Math.abs(porcentaje * 100 - Math.round(porcentaje * 100)) > 1e-7) {
+      throw httpError(400, `${etiqueta}: hasta dos decimales.`);
+    }
+    return porcentaje;
+  } },
   limite_credito: { etiqueta: 'Límite de crédito', validar: numero({ min: 0, max: 1e10 }) },
   exoneracion: { etiqueta: 'Exoneración', validar: objeto({ maxBytes: 8000 }) },
   observaciones: { etiqueta: 'Observaciones', validar: texto(2000) },
@@ -91,6 +98,7 @@ function aVista(f) {
   const { total: _t, ...resto } = f;
   return {
     ...resto,
+    descuento_global: Number(f.descuento_global) || 0,
     limite_credito: f.limite_credito === null || f.limite_credito === undefined ? null : Number(f.limite_credito),
     correos_adicionales: f.correos_adicionales || []
   };
@@ -302,7 +310,7 @@ async function clientesParaOperar({ buscar = '', pagina = 1, limite = 30 } = {})
       id: c.id, alegra_id: c.alegra_id, nombre: c.nombre,
       tipo_identificacion: c.tipo_identificacion, identificacion: c.identificacion,
       correo: c.correo, telefono: c.telefono, celular: c.celular,
-      plazo_credito_id: c.plazo_credito_id, plazo: c.plazo, plazo_dias: c.plazo_dias,
+      descuento_global: c.descuento_global, plazo_credito_id: c.plazo_credito_id, plazo: c.plazo, plazo_dias: c.plazo_dias,
       actividad_economica: c.actividad_economica, ciclos: ciclos.get(c.id) || []
     }))
   };

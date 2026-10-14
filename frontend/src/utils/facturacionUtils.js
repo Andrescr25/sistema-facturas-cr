@@ -3,6 +3,8 @@
  * detección de dispositivo móvil. Extraído de Facturacion.jsx.
  */
 
+import { redondearDinero as dinero } from './moneda.js'
+
 // Helper: Obtener reference como string (puede venir como objeto o string desde Alegra)
 export function getReference(ref) {
   if (!ref) return ''
@@ -39,28 +41,22 @@ export function obtenerPorcentajeImpuesto(taxItem, impuestos) {
   return null
 }
 
+/** La factura redondea descuento, base e IVA por línea, antes de sumarlos. */
+export function montosLineaFacturacion(item, impuestoPrincipal = null, impuestos = []) {
+  const bruto = (Number(item.quantity) || 0) * (Number(item.price) || 0)
+  const descuento = dinero(bruto * (Number(item.discount) || 0) / 100)
+  const base = dinero(bruto - descuento)
+  const tarifa = obtenerPorcentajeImpuesto(item.tax?.[0], impuestos) ??
+    (Number(impuestoPrincipal?.percentage) || 0)
+  return { base, descuento, impuesto: dinero(base * tarifa / 100) }
+}
+
 export function calcularSubtotal(items) {
-  return items.reduce((sum, item) => {
-    const cantidad = Number(item.quantity) || 0
-    const precio = Number(item.price) || 0
-    const descuento = Number(item.discount) || 0
-    const subtotalItem = cantidad * precio
-    const descuentoItem = (subtotalItem * descuento) / 100
-    return sum + (subtotalItem - descuentoItem)
-  }, 0)
+  return dinero(items.reduce((sum, item) => sum + montosLineaFacturacion(item).base, 0))
 }
 
 export function calcularImpuestos(items, impuestoPrincipal, impuestos) {
-  return items.reduce((sum, item) => {
-    const cantidad = Number(item.quantity) || 0
-    const precio = Number(item.price) || 0
-    const descuento = Number(item.discount) || 0
-    const base = cantidad * precio * (1 - descuento / 100)
-    const porcentaje =
-      obtenerPorcentajeImpuesto(item.tax?.[0], impuestos) ??
-      (impuestoPrincipal ? Number(impuestoPrincipal.percentage) || 0 : 0)
-    return sum + (base * porcentaje) / 100
-  }, 0)
+  return dinero(items.reduce((sum, item) => sum + montosLineaFacturacion(item, impuestoPrincipal, impuestos).impuesto, 0))
 }
 
 export function calcularDescuentoGlobal(items, descuentoGlobal) {
@@ -72,7 +68,7 @@ export function calcularTotal(items, descuentoGlobal, impuestoPrincipal, impuest
   const subtotal = calcularSubtotal(items)
   const impuesto = calcularImpuestos(items, impuestoPrincipal, impuestos)
   const descuento = calcularDescuentoGlobal(items, descuentoGlobal)
-  return subtotal + impuesto - descuento
+  return dinero(subtotal + impuesto - descuento)
 }
 
 // Detección de dispositivo móvil (sin el efecto secundario de las clases del body,

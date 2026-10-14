@@ -37,10 +37,13 @@ archivos:
   - frontend/src/components/clientes/CampoRotacion.jsx
   - frontend/src/components/clientes/RotacionCliente.jsx
   - backend/tests/rotacionCliente.test.js
+  - backend/migrations/independencia/060_descuento_global_cliente.sql
+  - backend/tests/descuentoClientePg.test.js
+  - docs/informes/descuento-global-cliente-2026-10-14.md
 aristas:
-  relacionado: [modulo/preventa-agenda, modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, decision/rotacion-por-cliente-sin-ciclos, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
+  relacionado: [modulo/facturacion, modulo/preventa-agenda, modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, decision/rotacion-por-cliente-sin-ciclos, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-13
+medido: 2026-10-14
 ---
 
 Primera parte implementada y aplicada solo en la copia local. Rutas y ciclos
@@ -238,3 +241,13 @@ el aviso de 400 días, quitarla, y crear un cliente con 15 días.
 incluso si no hay factura ni faltante. `rutaActual.service.js` comparte el
 filtro parametrizado y el selector mínimo con Reporte Clientes; consulta
 rutas sin ciclos e inactivas asignadas. No se cambian recorridos históricos.
+
+
+DESCUENTO GLOBAL (2026-10-14). Input porcentual en «Crédito y descuento»
+de crear/editar cliente; la ficha muestra la condición. Guardar, editar y
+bitácora comparten transacción. 0 o vacío desactiva; negativos, más de 100
+y más de dos decimales se rechazan antes de escribir. La respuesta y el
+catálogo compartido entregan el porcentaje como número; los costos siguen
+privados en Facturación. Regla de margen >21 %, mayor descuento sin acumular
+y conservación de ventas anteriores: [[modulo/facturacion]]. SQL 060 local;
+producción pendiente antes de main.

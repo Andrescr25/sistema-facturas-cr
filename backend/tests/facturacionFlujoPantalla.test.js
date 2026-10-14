@@ -157,7 +157,7 @@ describe('los avisos', () => {
   });
 
   test('el descuento de una línea se queda entre 0 y 100', () => {
-    assert.match(cuerpoDe(hook, 'actualizarDescuentoItem'), /Math\.min\(100, Math\.max\(0,/);
+    assert.match(cuerpoDe(codigo('hooks', 'useLineasFacturacion.js'), 'actualizarDescuentoItem'), /Math\.min\(100, Math\.max\(0,/);
   });
 });
 

@@ -1022,3 +1022,19 @@ Usuario: «perfecto, despliega todo a main», luego «continua». Codex aplica
 Incluye rotación de Claude y cambios de Reporte Clientes/Preventa/Carga/
 Proveedores de Codex; no cambia pendientes funcionales ni los conteos de
 independencia. [Registro](informes/despliegue-main-2026-10-13.md).
+
+
+## Función posterior al corte: descuento global del cliente — 2026-10-14
+
+No modifica los IDs ni los conteos históricos de independencia.
+
+- [x] Porcentaje en crear/editar ficha, con validación y bitácora.
+- [x] Margen estrictamente mayor al 21 %, sin IVA y con costo confiable.
+- [x] Mayor entre descuento del cliente, oferta y manual; sin acumular.
+- [x] Vista previa, cambio de precio, facturación online/offline y guardado
+      de líneas/impuestos; documentos anteriores conservan descuentos.
+- [x] Consultas por lote sobre la transacción; costos solo en endpoint privado.
+- [x] Pruebas con PostgreSQL local, navegador y XML FE/TE; estructura/grafo.
+- [ ] Aplicar SQL 060 en producción antes de publicar la función en main.
+
+[Evidencia y estado](informes/descuento-global-cliente-2026-10-14.md).

@@ -11,6 +11,8 @@
  * SIN IMPORTS A PROPÓSITO: las pruebas lo cargan con `import()` directo.
  */
 
+import { redondearDinero as dinero } from './moneda.js'
+
 /**
  * Una fecha de calendario 'YYYY-MM-DD' (la emisión de la factura propia) se
  * muestra como ese día, sin hora: `new Date('2026-09-10')` es medianoche UTC,
@@ -33,7 +35,6 @@ export const formatDate = (dateString) => {
 }
 
 const numero = (v) => Number(v) || 0
-const dinero = (v) => Math.round(v * 100) / 100
 
 /**
  * Una línea de la propuesta del servidor, en la forma que dibuja el

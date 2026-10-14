@@ -15,6 +15,7 @@ import TarjetaCliente from '../components/facturacion/TarjetaCliente'
 import AgregarProductos from '../components/facturacion/AgregarProductos'
 import BarraSugerencias from '../components/facturacion/BarraSugerencias'
 import LineaFactura from '../components/facturacion/LineaFactura'
+import AvisoDescuentoCliente from '../components/facturacion/AvisoDescuentoCliente'
 import PanelCobro from '../components/facturacion/PanelCobro'
 import ModalCantidad from '../components/facturacion/ModalCantidad'
 import PanelEditarFacturas from '../components/facturacion/PanelEditarFacturas'
@@ -56,7 +57,7 @@ export default function Facturacion() {
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
     productos, setProductos, sugerencias, agregarSugerencia, facturasPendientes,
     ciclosCliente, cicloId, setCicloId, cargandoCiclos, errorCiclos,
-    clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
+    condicionesDescuento, facturaExistente, clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
     codigoProducto, cantidadProducto, setCantidadProducto,
     modoEntradaRapida, setModoEntradaRapida,
     busquedaProducto, productosEncontrados, totalProductosEncontrados,
@@ -194,6 +195,7 @@ export default function Facturacion() {
                   actuar porque nada le pedía encogerse primero. */}
               <div className="flex flex-col gap-4 lg:col-span-2 min-w-0">
                 <TarjetaCliente cliente={clienteSeleccionado} onCambiarCliente={deseleccionarCliente} />
+                <AvisoDescuentoCliente condiciones={condicionesDescuento} facturaExistente={facturaExistente} />
                 <div className="rounded-2xl border border-neutro-200 bg-white p-3">
                   {modoEdicion && facturaEditando?.ciclo === undefined
                     ? <ContextoCicloDocumento documento={facturaEditando} />
@@ -286,7 +288,7 @@ export default function Facturacion() {
                   descuentoTotal={calcularDescuentoGlobal()}
                   total={calcularTotal()}
                   modoEdicion={modoEdicion}
-                  loading={loading}
+                  loading={loading || condicionesDescuento.cargando || Boolean(condicionesDescuento.error)}
                   clienteSeleccionado={clienteSeleccionado}
                   onFinalizar={finalizarFactura}
                   onCancelar={limpiarFactura}

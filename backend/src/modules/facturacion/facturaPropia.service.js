@@ -53,27 +53,11 @@ const CAMPOS_FACTURA = {
   anotaciones: { etiqueta: 'Anotaciones', validar: texto(4000) }
 };
 
-const dinero = (v) => Math.round((Number(v) || 0) * 100) / 100;
+const { armarLineas, exigirClienteMostrado, recortar, dinero } = require('./facturaLineas');
+const { aplicarDescuentoEn } = require('./descuentoCliente.service');
 
 /** "₡45.145,80", para los mensajes. `toLocaleString('es-CR')` daba "₡45 145,8". */
 const enColones = (v) => `₡${dinero(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
-
-/**
- * Recorta un texto al largo de su columna.
- *
- * ES UNA FUNCIÓN PROPIA, Y NO EL `texto` DE utils/validacion, A PROPÓSITO. Ese
- * se usa al revés: `texto(largo)` DEVUELVE el validador, y recién entonces se
- * le pasa el valor. Escribirlo como `texto(valor, largo)` no falla ni avisa —
- * devuelve la función, que al guardarse se convierte en su propio código
- * fuente: 294 caracteres que reventaban tres columnas a la vez. Los archivos
- * de traducción (desdeAlegra) tienen su propio `texto(v, max)` con el valor
- * primero, y esa colisión de nombres fue justo la trampa.
- */
-function recortar(valor, largo) {
-  if (valor === null || valor === undefined) return null;
-  const s = String(valor).trim();
-  return s ? s.slice(0, largo) : null;
-}
 
 /**
  * Postgres avisa "value too long for type character varying(40)" pero NO dice
@@ -133,7 +117,7 @@ async function buscarCliente(cliente, { clienteId, alegraClienteId }) {
             -- que traerlos: sin estas columnas se guardaban vacíos y el papel
             -- salía sin los datos del cliente.
             c.telefono, c.celular, c.provincia, c.canton, c.distrito, c.barrio, c.otras_senas,
-            c.activo, c.plazo_credito_id, p.nombre AS plazo_nombre, p.dias AS plazo_dias
+            c.activo, c.descuento_global, c.plazo_credito_id, p.nombre AS plazo_nombre, p.dias AS plazo_dias
        FROM cliente c
        LEFT JOIN plazo_credito p ON p.id = c.plazo_credito_id
       WHERE ${porId ? 'c.id = $1' : 'c.alegra_id = $1'}`,
@@ -151,170 +135,13 @@ async function buscarProductos(cliente, alegraItemIds, productoIds) {
   const porAlegra = alegraItemIds.length > 0;
   const { rows } = await cliente.query(
     `SELECT p.id, p.alegra_id, p.nombre, p.referencia, p.descripcion, p.cabys, p.unidad,
-            p.activo, p.impuesto_id, i.tarifa
+            p.activo, p.precio_sin_iva AS precio, p.costo_con_iva AS costo, p.impuesto_id, i.tarifa
        FROM producto p
        LEFT JOIN impuesto i ON i.id = p.impuesto_id
       WHERE ${porAlegra ? 'p.alegra_id = ANY($1::varchar[])' : 'p.id = ANY($1::int[])'}`,
     [porAlegra ? alegraItemIds.map(String) : productoIds.map(Number)]
   );
   return rows;
-}
-
-/** La referencia tal como se compara: sin espacios de borde y sin distinguir mayúsculas. */
-const referenciaComparable = (valor) => String(valor ?? '').trim().toLowerCase();
-
-/** El nombre tal como se compara: sin acentos, sin mayúsculas y con los espacios juntos. */
-const nombreComparable = (valor) => String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .toLowerCase().replace(/\s+/g, ' ').trim();
-
-/** La cédula tal como se compara: solo letras y números ("3-101-123456" = "3101123456"). */
-const cedulaComparable = (valor) => String(valor ?? '').replace(/[^0-9a-z]/gi, '').toLowerCase();
-
-/**
- * ¿Lo que mostraba la pantalla es lo que hay acá con ese id?
- *
- * Recibe pares [lo que mandó la pantalla, lo que dice la ficha]. Con que UNA
- * seña calce, es el mismo: así corregirle el nombre a un cliente en la
- * oficina no rechaza la factura que una tablet hizo sin señal con el nombre
- * de antes (la cédula sigue calzando). Quien no manda ninguna seña (el
- * portal, Impresión, una cola antigua) no se revisa.
- */
-function esLoMostrado(pares) {
-  const dichas = pares.filter(([mostrado]) => mostrado);
-  return dichas.length === 0 || dichas.some(([mostrado, real]) => mostrado === real);
-}
-
-/**
- * EL CLIENTE QUE EL CAJERO VIO TIENE QUE SER EL QUE SE FACTURA.
- *
- * El id de Alegra de un cliente es el id propio de otro. El 2026-10-10, en
- * producción, un dispositivo con el catálogo de antes del corte mandó el id
- * de Alegra como si fuera el propio y dos facturas salieron a nombre de
- * PANADERÍA SION, sin un solo error. El id solo no alcanza para darse
- * cuenta. La pantalla manda además el nombre y la cédula que mostraba; si
- * ninguno es el de la ficha con ese id, no se factura.
- */
-function exigirClienteMostrado(datos, ficha) {
-  if (esLoMostrado([
-    [nombreComparable(datos?.clienteNombre), nombreComparable(ficha.nombre)],
-    [cedulaComparable(datos?.clienteIdentificacion), cedulaComparable(ficha.identificacion)]
-  ])) return;
-  const mostrado = String(datos.clienteNombre || datos.clienteIdentificacion).trim();
-  throw httpError(409,
-    `El cliente elegido no coincide con el del servidor: la pantalla mostraba «${mostrado}» ` +
-    `y ese código acá es «${ficha.nombre}». El catálogo de este dispositivo está viejo: toque ` +
-    '«Actualizar catálogo» y arme la factura de nuevo.');
-}
-
-/**
- * Arma las líneas con la tarifa del maestro y calcula los totales.
- *
- * El descuento viene en porcentaje, como lo manda la pantalla, y se guarda
- * también en monto para que sumar la factura no exija rehacer la regla de tres
- * en cada consulta.
- */
-function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set(), preciosConImpuesto = false, exigirLoMostrado = false } = {}) {
-  const lineas = [];
-  let subtotal = 0;
-  let descuentoTotal = 0;
-  let impuestoTotal = 0;
-
-  items.forEach((item, indice) => {
-    const clave = claveDe(item);
-    const producto = productosPorClave.get(String(clave));
-    if (!producto) throw httpError(400, `No se encontró el producto ${clave}.`);
-
-    // LO QUE EL CAJERO VIO TIENE QUE SER LO QUE SE FACTURA. La línea llega con
-    // el id del producto Y con la referencia y el nombre que la pantalla
-    // mostraba. Si el dispositivo conserva un catálogo de antes del corte,
-    // ese id es el de Alegra y acá es OTRO producto: el 2026-10-10, en
-    // producción, se pidió la referencia 0005 (UNIÓN LISA) y se facturó JARRA
-    // VIDRIO MD LABRADA, sin un solo error. No se revisa lo que ya estaba en
-    // la factura: su referencia es la copia de aquel día y pudo cambiar.
-    if (exigirLoMostrado && !yaFacturados.has(producto.id) && !esLoMostrado([
-      [referenciaComparable(item.reference ?? item.referencia), referenciaComparable(producto.referencia)],
-      [nombreComparable(item.name ?? item.nombre), nombreComparable(producto.nombre)]
-    ])) {
-      const pedido = [item.reference ?? item.referencia, item.name ?? item.nombre]
-        .map(v => String(v ?? '').trim()).filter(Boolean).join(' ');
-      throw httpError(409,
-        `La línea ${indice + 1} no coincide con el catálogo del servidor: la pantalla pidió «${pedido}» ` +
-        `y ese código acá es «${[producto.referencia, producto.nombre].filter(Boolean).join(' ')}». ` +
-        'El catálogo de este dispositivo está viejo: toque «Actualizar catálogo» y arme la factura de nuevo.');
-    }
-
-    // Un producto desactivado DESPUÉS de facturarlo se puede conservar al
-    // editar esa factura (Impresión la ajusta para reimprimirla); lo que no se
-    // puede es agregarlo nuevo.
-    if (!producto.activo && !yaFacturados.has(producto.id)) {
-      throw httpError(400, `${producto.nombre} está inactivo: no se puede facturar.`);
-    }
-
-    const cantidad = Number(item.quantity ?? item.cantidad);
-    if (!Number.isFinite(cantidad) || cantidad <= 0) {
-      throw httpError(400, `${producto.nombre}: la cantidad tiene que ser mayor que cero.`);
-    }
-    let precio = Number(item.price ?? item.precio);
-    if (!Number.isFinite(precio) || precio < 0) {
-      throw httpError(400, `${producto.nombre}: el precio no es válido.`);
-    }
-
-    const porcentajeDescuento = Number(item.discount ?? item.descuento) || 0;
-    if (porcentajeDescuento < 0 || porcentajeDescuento > 100) {
-      throw httpError(400, `${producto.nombre}: el descuento va entre 0 y 100.`);
-    }
-
-    // La tarifa del PRODUCTO, no la que mande la pantalla.
-    const tarifa = producto.tarifa === null || producto.tarifa === undefined ? 0 : Number(producto.tarifa);
-    const bruto = cantidad * precio;
-    let descuentoMonto, base, impuestoMonto;
-    if (preciosConImpuesto) {
-      // El portal promete un precio FINAL. Separar base e IVA del total de
-      // la línea evita perder centavos al dividir y luego redondear de nuevo
-      // (dos unidades de ₡37.800 al 13% deben seguir costando ₡75.600).
-      const totalConImpuesto = dinero(bruto * (1 - porcentajeDescuento / 100));
-      base = dinero(totalConImpuesto / (1 + tarifa / 100));
-      impuestoMonto = dinero(totalConImpuesto - base);
-      descuentoMonto = dinero((bruto * porcentajeDescuento / 100) / (1 + tarifa / 100));
-      precio = Math.round(precio / (1 + tarifa / 100) * 100000) / 100000;
-    } else {
-      descuentoMonto = dinero((bruto * porcentajeDescuento) / 100);
-      base = dinero(bruto - descuentoMonto);
-      impuestoMonto = dinero((base * tarifa) / 100);
-    }
-
-    subtotal += base;
-    descuentoTotal += descuentoMonto;
-    impuestoTotal += impuestoMonto;
-
-    lineas.push({
-      numero_linea: indice + 1,
-      producto_id: producto.id,
-      nombre: producto.nombre,
-      referencia: producto.referencia,
-      // Lo que el cajero escribió para esta línea; si no escribió nada, la del producto.
-      descripcion: recortar(item.description ?? item.descripcion, 2000) || producto.descripcion,
-      cabys: producto.cabys,
-      unidad: producto.unidad,
-      cantidad,
-      precio_unitario: precio,
-      descuento_porcentaje: porcentajeDescuento,
-      descuento_monto: descuentoMonto,
-      impuesto_id: producto.impuesto_id,
-      tarifa,
-      impuesto_monto: impuestoMonto,
-      total: dinero(base + impuestoMonto),
-      alegra_item_id: producto.alegra_id
-    });
-  });
-
-  return {
-    lineas,
-    subtotal: dinero(subtotal),
-    descuento: dinero(descuentoTotal),
-    impuesto: dinero(impuestoTotal),
-    total: dinero(subtotal + impuestoTotal)
-  };
 }
 
 async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuarioId, contexto }) {
@@ -485,13 +312,19 @@ function revisarPedido(datos) {
 }
 
 /** Cliente, productos, líneas y el guardado — todo sobre la transacción recibida. */
-async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preciosConImpuesto = false, contextoPedido = null } = {}) {
+async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preciosConImpuesto = false, contextoPedido = null, exigirDescuentoRevisado = false } = {}) {
   const clienteFacturado = await buscarCliente(cliente, {
     clienteId: datos.clienteId,
     alegraClienteId: datos.client
   });
 
   const contexto = contextoPedido || await ciclos.validarEn(cliente, clienteFacturado.id, datos.cicloId);
+
+  // Una cola o pantalla anterior a esta función no vio la rebaja: cambiarle
+  // el total al sincronizar también cambiaría lo cobrado o prometido.
+  if (exigirDescuentoRevisado && Number(clienteFacturado.descuento_global) > 0 && datos.descuentoClienteRevisado === undefined) {
+    throw httpError(409, 'Este cliente tiene un descuento global. Actualizá Facturación y revisá la factura antes de guardarla.');
+  }
 
   const usaAlegraId = items.some(i => i.productoId === undefined);
   const productos = await buscarProductos(
@@ -506,7 +339,9 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preci
     exigirClienteMostrado(datos, clienteFacturado);
   }
 
-  const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId), {
+  const descontados = await aplicarDescuentoEn(cliente, clienteFacturado, items, productos,
+    (p) => usaAlegraId ? p.alegra_id : p.id, { revisado: datos.descuentoClienteRevisado, preciosConImpuesto, claveItem: i => usaAlegraId ? i.id : i.productoId });
+  const armado = armarLineas(descontados, porClave, (i) => (usaAlegraId ? i.id : i.productoId), {
     preciosConImpuesto,
     // Solo en el contrato propio: una cola antigua de tablet llega con ids
     // de Alegra y se resuelve por ESE id: ahí el id sí es el que mostraba.
@@ -568,7 +403,7 @@ async function crearFactura(datos, usuarioId, { clave = null } = {}) {
   }
 
   try {
-    const factura = await enTransaccion((cliente) => emitirCon(cliente, datos, pedido, usuarioId));
+    const factura = await enTransaccion((cliente) => emitirCon(cliente, datos, pedido, usuarioId, { exigirDescuentoRevisado: true }));
 
     if (clave) {
       await idempotencia.marcarCreada(clave, { id: factura.id, numero: factura.numero });

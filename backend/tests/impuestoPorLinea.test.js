@@ -16,7 +16,7 @@ const path = require('path');
  * un valor "principal" usado como si fuera el de cada línea.
  */
 
-const HOOK = path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useFacturacion.js');
+const HOOK = path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useLineasFacturacion.js');
 const PANEL = path.join(__dirname, '..', '..', 'frontend', 'src', 'components', 'facturacion', 'PanelCobro.jsx');
 
 test('el impuesto se suma con la tarifa de cada línea', async () => {
