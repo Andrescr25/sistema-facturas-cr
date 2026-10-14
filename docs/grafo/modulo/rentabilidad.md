@@ -63,8 +63,11 @@ ventanas en una sola consulta; filtros de agregación conservan los totales,
 semanas, facturas, clientes y Pareto vigentes. Incluye productos que sólo
 vendieron al inicio del primer mes completo, aunque su total móvil sea cero.
 La tarjeta y el detalle destacan **Promedio mensual / Últimos 3 meses
-completos**; el Excel exporta la misma cifra. Catálogo y el motor de precios
-conservan sus ventanas anteriores. [Pruebas y límites](../../informes/rotacion-productos-2026-10-14.md).
+completos**; el Excel exporta la misma cifra. Ajuste posterior: Gestión de
+Catálogo usa el mismo `SQL_ROTACION_MENSUAL`, también por categoría y en
+la búsqueda, con cero sin ventas y el formato compartido de decimales.
+El motor de precios conserva su ventana de doce meses. Publicación a main
+autorizada. [Pruebas y límites](../../informes/rotacion-productos-2026-10-14.md).
 
 - **Margen de hoy**: `clasificarProducto` (`precios/auditoria.js`), con la
   tarifa real del producto y, si la ficha no tiene costo, el de las compras.

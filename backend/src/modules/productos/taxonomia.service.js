@@ -26,7 +26,7 @@ const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { clasificarProducto } = require('../precios/auditoria');
 const tablas = require('./taxonomiaTablas');
-const { SQL_ROTACION } = require('../ventas/rotacion');
+const { SQL_ROTACION_MENSUAL } = require('../ventas/rotacion');
 const { listarProductos } = require('./productos.service');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -116,16 +116,15 @@ const SELECT_FILA = `
          p.activo, p.oculto, p.categoria_id,
          c.nombre AS categoria, i.tarifa,
          s.id AS sub_id, s.nombre AS sub_nombre,
-         r.unidades_mes,
+         COALESCE(r.unidades_mes, 0) AS unidades_mes,
          prov.supplier_name, prov.supplier_cedula
     FROM producto p
     LEFT JOIN categoria_producto c ON c.id = p.categoria_id
     LEFT JOIN impuesto i ON i.id = p.impuesto_id
     LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
-    -- Rotación en tiempo real (ventas/rotacion.js), de las facturas propias
-    -- y por el id propio: un producto creado acá, sin id de Alegra, también
-    -- tiene la suya.
-    LEFT JOIN (${SQL_ROTACION}) r ON r.producto_id = p.id
+    -- La misma media mensual de Rentabilidad, de tres meses completos y
+    -- por el id propio. Sin ventas en ese período, la media es cero.
+    LEFT JOIN (${SQL_ROTACION_MENSUAL}) r ON r.producto_id = p.id
     LEFT JOIN LATERAL (
            SELECT supplier_name, supplier_cedula
              FROM supplier_product_mapping m

@@ -104,6 +104,10 @@ function sqlRotacion(meses = VENTANA_MESES, { promedioMesesCompletos = false } =
 /** La rotación de la pantalla y del catálogo del agente: los últimos 3 meses. */
 const SQL_ROTACION = sqlRotacion(VENTANA_MESES);
 
+// Una sola definición del promedio visible en Rentabilidad y Gestión de
+// Catálogo: los tres meses cerrados anteriores, con meses sin venta en cero.
+const SQL_ROTACION_MENSUAL = sqlRotacion(VENTANA_MESES, { promedioMesesCompletos: true });
+
 /**
  * La del MOTOR DE PRECIOS (Revisión de Precios): 12 meses. Sus umbrales —10
  * u/mes es "rota alto", 3 clientes o menos es "exclusivo"— se calibraron con
@@ -130,7 +134,7 @@ function aFila(r) {
 
 /** La rotación de todos los productos vendidos en la ventana, por `producto.id`. */
 async function rotacionPorProducto({ promedioMesesCompletos = false } = {}) {
-  const sql = promedioMesesCompletos ? sqlRotacion(VENTANA_MESES, { promedioMesesCompletos }) : SQL_ROTACION;
+  const sql = promedioMesesCompletos ? SQL_ROTACION_MENSUAL : SQL_ROTACION;
   const { rows } = await query(sql);
   return new Map(rows.map((r) => [Number(r.producto_id), aFila(r)]));
 }
@@ -147,4 +151,4 @@ async function clasesAB() {
   return clases;
 }
 
-module.exports = { SQL_ROTACION, SQL_ROTACION_PRECIOS, sqlRotacion, HOY_CR, VENTANA_MESES, CORTE_A, CORTE_B, rotacionPorProducto, clasesAB, aFila };
+module.exports = { SQL_ROTACION, SQL_ROTACION_MENSUAL, SQL_ROTACION_PRECIOS, sqlRotacion, HOY_CR, VENTANA_MESES, CORTE_A, CORTE_B, rotacionPorProducto, clasesAB, aFila };

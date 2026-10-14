@@ -50,6 +50,12 @@ ventas de esos tres meses y dividir entre tres, contando los meses sin
 ventas como cero. Excluir el mes en curso, que aún no es comparable con un
 mes cerrado. La tarjeta y el detalle deben explicar ese período.
 
+**Alcance y publicación posteriores:** «ok, subelo al main» y consulta si
+se muestra en Rentabilidad y Gestión de Catálogo. Ambos campos mensuales
+deben usar el mismo promedio de tres meses completos, también en la búsqueda
+global y por categoría. Conservar decimales y mostrar cero sin ventas. La
+autorización incluye publicar el conjunto verificado a main.
+
 Reporte Proveedores conserva solo Faltantes y fichas. Excluir facturas listas
 de Reporte Clientes y procedencia falsa. Nuevos faltantes Sin enviar arriba;
 cada orden enviada abajo, tachada y con su fotografía conservada. El detalle

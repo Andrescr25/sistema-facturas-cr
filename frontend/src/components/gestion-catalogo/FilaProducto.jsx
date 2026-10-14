@@ -2,6 +2,7 @@ import { Camera, Copy, Pencil } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import VistaPreviaImagen from './VistaPreviaImagen'
 import { formatCRC } from '../../utils/gestionCatalogoUtils'
+import { unidades } from '../../utils/rentabilidadFormato'
 
 function Dato({ etiqueta, children, pie }) {
   return (
@@ -81,8 +82,8 @@ export default function FilaProducto({
           {p.precioConIva != null ? formatCRC(p.precioConIva) : '—'}
         </Dato>
         <Dato etiqueta="Margen"><TonoMargen margen={p.margenReal} /></Dato>
-        <Dato etiqueta="Rotación">
-          {p.unidadesMes != null ? <>{p.unidadesMes.toFixed(0)}<span className="text-xs font-semibold text-neutro-400">/mes</span></> : '—'}
+        <Dato etiqueta="Rotación" pie="3 meses completos">
+          {p.unidadesMes != null ? <>{unidades(p.unidadesMes)}<span className="text-xs font-semibold text-neutro-400">/mes</span></> : '—'}
         </Dato>
         <div className="flex items-center gap-2">
           <Accion icono={Camera} texto="Foto" onClick={() => onSugerirFoto(p)} />

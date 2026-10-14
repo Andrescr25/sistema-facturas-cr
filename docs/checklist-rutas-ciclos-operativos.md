@@ -43,7 +43,9 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   de los últimos tres meses calendario completos, incluidos meses en cero,
   sin el acumulado del mes en curso. Tarjeta, detalle y Excel con período
   explícito. SQL probado en PostgreSQL local con ROLLBACK; conservar totales
-  móviles/Pareto y ventanas de Catálogo y Precios. Entrega en developer.
+  móviles/Pareto. Ajuste posterior: Gestión de Catálogo (categoría y búsqueda)
+  comparte la misma media y decimales; Precios conserva su ventana. El usuario
+  autoriza publicar a main: «ok, subelo al main».
   [Evidencia](informes/rotacion-productos-2026-10-14.md).
 
 - [x] RP-01 — Necesidades actuales: excluir resueltas/listas/Impresión; validar

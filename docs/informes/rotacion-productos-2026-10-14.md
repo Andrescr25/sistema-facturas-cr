@@ -40,5 +40,30 @@ en el mes en curso;390/700/1440 sin desbordes ni errores. El Excel devuelve
 200 y conserva el valor numérico30 en la columna del promedio mensual.
 Build correcto; grafo y estructura aprobados dentro de la suite.
 
-Entrega en developer, sin migración nueva. Main conserva6c96741; vista
+Entrega inicial en developer, sin migración nueva. Main conserva6c96741; vista
 local5173/3000 actualizada al publicar. Hash y relevo en la memoria compartida.
+
+## Unificación con Gestión y publicación autorizada
+
+Después el usuario autoriza «ok, subelo al main» y consulta por ambos módulos.
+Gestión de Catálogo comparte ahora `SQL_ROTACION_MENSUAL` con Rentabilidad,
+tanto por categoría como al buscar. Sin ventas se muestra0/mes; los decimales
+usan el mismo formato, evitando que una media0,33 se mostrase como cero.
+La fila explica «3 meses completos». El motor de precios mantiene su ventana
+de12 meses y el catálogo del agente conserva el Pareto vigente.
+
+La prueba nueva ejecuta los tres servicios reales contra PostgreSQL y compara
+30,0,33 y0 sin ventas: categoría, búsqueda global y Rentabilidad coinciden.
+El conjunto se publica por avance sin fusión después de la suite completa,
+base local, build y recorrido de ambas pantallas en navegador. Sin SQL nuevo,
+pruebas ni mensajes reales de producción. Los hashes y la comprobación
+pública de Render se registran en permiso-subir-a-main.md.
+
+Verificación del conjunto: suite240 archivos/2.895 casos,2.489 aprobados,
+406 condicionales omitidos y cero fallos;12 casos mensuales con PostgreSQL,
+los lectores de ventas y la suite de taxonomía con base local aprobados.
+Build correcto. Chromium verifica Rentabilidad, categoría y búsqueda con
+ocho solicitudes HTTP a servicios reales, en390/700/1440: medias30,0,33 y0,
+mismo formato, período explícito y ausencia de desbordes/errores. El Excel
+responde200. Todas las escrituras de prueba se revierten; la suite completa
+usa una copia desechable de la base local.
