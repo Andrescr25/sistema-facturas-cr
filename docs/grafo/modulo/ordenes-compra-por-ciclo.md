@@ -60,7 +60,8 @@ medido: 2026-10-14
 
 ## Envío desde el reporte — 2026-10-14
 
-Optimización posterior limitada a developer: contactos en lectura independiente
+Optimización posterior verificada en developer; el usuario autoriza después
+publicarla a main. Contactos en lectura independiente
 sin advisory ni preparación, para mostrar el número de inmediato. Preparar
 mantiene bloqueos/versiones/huella; cantidades se insertan en dos consultas de
 lote usando las mismas restricciones de PostgreSQL y aritmética de micros.

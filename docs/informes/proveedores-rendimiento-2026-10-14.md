@@ -63,7 +63,17 @@ snapshot de pedido conservados. Reasignar un producto desde el modal de la
 pantalla pasó por la transacción real y el reporte recargado,125ms local.
 390/700/1440 sin desbordes ni errores de ejecución; ninguna salida real.
 
-Publicación únicamente en developer y preview5173/3000; main se conserva
+Publicación inicial únicamente en developer y preview5173/3000; main se conserva
 en010ee18. No se escribieron datos ni índices/migraciones en producción.
 Sin mensajes reales ni limpieza semanal. El resto de pendientes de la cadena
 operativa queda fuera de esta entrega; hash publicado en memoria compartida.
+
+## Autorización posterior de publicación
+
+El mismo día, el usuario pide «perfecto, mandalo a main». Se publica el cambio
+verificado de Codex5d1d7c5 y este registro por avance sin fusión, después de
+revisar el rango completo desde origin/main. No incluye cambios nuevos de
+Claude, migraciones ni escrituras de prueba en producción. La evidencia
+anterior corresponde al mismo código; este registro sólo actualiza el destino.
+Los hashes finales y la comprobación HTTP pública de Render quedan en la
+memoria compartida permiso-subir-a-main.md.

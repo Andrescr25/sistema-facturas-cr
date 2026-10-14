@@ -89,6 +89,11 @@ base de producción únicamente en lectura; pruebas de escritura en copias
 locales. Esta restricción de destino sustituye la autorización anterior de
 publicar directamente a main para esta optimización.
 
+**Publicación posterior, mismo día:** «perfecto, mandalo a main». Autoriza
+publicar la optimización ya verificada en developer y sustituye la restricción
+anterior de destino. No necesita SQL nuevo; se conservan las pruebas locales
+y la inspección exclusivamente de lectura en producción.
+
 ## Decisiones anteriores que siguen vigentes
 
 - **Inventario y auditorías desde cero.** El físico está desordenado: iniciar

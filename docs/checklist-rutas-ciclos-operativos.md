@@ -74,9 +74,11 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   y reintentos exactos. SQL059 aplicada en producción el14/10 a11:16 CR,
   respaldo restaurado y144 tablas conservadas; suite/base/navegador verificados.
 - [x] RP-14 — Optimizar asignación y lectura de contactos: medir consultas,
-  conservar compras/snapshots y concurrencia, probar sólo en developer. La
+  conservar compras/snapshots y concurrencia, probar primero en developer. La
   inspección de producción está autorizada exclusivamente en lectura.
-  Suite/base/navegador verificados; sin SQL nuevo. [Evidencia](informes/proveedores-rendimiento-2026-10-14.md).
+  Suite/base/navegador verificados; sin SQL nuevo. El usuario autoriza después
+  publicar la optimización a main: «perfecto, mandalo a main».
+  [Evidencia](informes/proveedores-rendimiento-2026-10-14.md).
 
 Evidencia local y estado de publicación: [corrección de proveedores](informes/proveedores-correccion-2026-10-14.md). No modifica los pendientes ROT-06/07/08.
 Verificación del ajuste posterior: [modal y PDF comercial](informes/proveedores-modal-pdf-2026-10-14.md).

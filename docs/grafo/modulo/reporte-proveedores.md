@@ -72,7 +72,8 @@ medido: 2026-10-14
 
 ## Corrección vigente — 2026-10-14
 
-**Rendimiento, sólo developer:** GET /proveedor/contactos lee la ficha en
+**Rendimiento, verificado en developer y autorizado para main:**
+GET /proveedor/contactos lee la ficha en
 una consulta, sin advisory de compras, faltantes ni PDF. El modal muestra
 números/mensaje mientras se prepara la copia; cero/varios contactos sólo
 requieren elegir/revisar, sin preparar previamente. La confirmación sigue
