@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Órdenes por proveedor — envío inmutable, origen e historia conservada
 estado: vigente
 archivos:
+  - backend/migrations/independencia/059_telefonos_whatsapp_proveedor.sql
+  - backend/src/utils/telefonosProveedor.js
+  - docs/informes/proveedores-telefonos-2026-10-14.md
   - backend/src/modules/orders-whatsapp/ordenProveedor.pdf.js
   - backend/tests/ordenProveedorPdf.test.js
   - docs/informes/proveedores-correccion-2026-10-14.md
@@ -53,6 +56,14 @@ medido: 2026-10-14
 
 ## Envío desde el reporte — 2026-10-14
 
+Solicitud posterior: varios WhatsApp en la ficha, uno elegido por envío.
+Sin contacto único ni número explícito, /revisar-envio devuelve opciones y
+pendiente_destino sin escribir una copia; /enviar directo exige elegir.
+Un número escrito se valida como un destino único y no actualiza la ficha.
+La copia guarda ese número exacto; otra selección requiere UUID/revisión
+nuevas. El cuerpo original mantiene su firma incluso si antes no incluía
+telefono. Una enviada o incierta conserva su número y no se retransmite.
+
 La revisión es el detalle de Faltantes. POST /proveedor/enviar valida la huella
 del reporte, reemplaza únicamente el borrador/pendiente abierto con las
 cantidades revisadas y prepara su PDF en la misma transacción. Nombre/código
@@ -60,7 +71,7 @@ son del maestro/mapping propio; extras manuales resuelven identidad única y
 conversión decimal exacta de seis decimales, sin procedencia ficticia. La bitácora revisar_reporte guarda UUID
 y huella del cuerpo; un reintento reutiliza la copia. La reclamación durable
 existente sigue ocurriendo antes del transporte; resultado perdido/incierto
-no habilita retransmitir. Teléfono único de ficha y mensaje predeterminado.
+no habilita retransmitir. Destino único revisado y mensaje predeterminado.
 El texto nuevo solicitado es «Hola buenas, adjunto pedido» y en la siguiente
 línea «gracias», sin referencia en el cuerpo. Una constante común sirve a la
 propuesta y al reporte. Preparar acepta este texto exacto; los mensajes

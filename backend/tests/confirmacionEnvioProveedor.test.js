@@ -31,7 +31,8 @@ async function pedido(){const r=await reportes.getMissingItemsBySupplier(null,{d
 caso('abrir y cancelar sólo prepara; el modal recibe destino y mensaje reales sin transporte',async()=>{
  await faltante(10);const datos=await pedido(),r=await s.revisarEnvio(datos),copia=r.orden.envios.find(e=>e.id===datos.clave);
  assert.equal(transportes,0);assert.equal(r.envioEstado,'revisado');assert.equal(r.orden.envio_id,null);assert.equal(r.orden.enviada_en,null);
- assert.deepEqual(r.destino,{telefono:'50688888888',mensaje:'Hola buenas, adjunto pedido\ngracias'});
+ assert.equal(r.destino.telefono,'50688888888');assert.equal(r.destino.mensaje,'Hola buenas, adjunto pedido\ngracias');
+ assert.deepEqual(r.destino.telefonos.map(t=>t.numero),['50688888888']);
  assert.equal(copia.numero,r.destino.telefono);assert.equal(copia.mensaje,r.destino.mensaje);assert.ok((await env.descargar(r.orden.id,datos.clave)).pdf.length>0);
  const actual=await reportes.getMissingItemsBySupplier(null,{db,incluirEnviadas:false});assert.equal(actual.data.find(p=>p.cedula===f.p.identificacion).productos_faltantes[0].cantidad_faltante,10);
  assert.equal((await c.query('SELECT COUNT(*)::int n FROM envio_whatsapp WHERE referencia=$1',[r.orden.referencia])).rows[0].n,0);
@@ -66,6 +67,37 @@ caso('un faltante nuevo que cambia el borrador exige volver a revisar sin altera
  await assert.rejects(s.enviar(datos),e=>e.status===409);assert.equal(transportes,0);assert.deepEqual((await env.descargar(r.orden.id,datos.clave)).pdf,antes.pdf);
  const nueva=await pedido(),revision=await s.revisarEnvio(nueva);assert.equal(revision.orden.lineas[0].cantidad_proveedor,13);
  const enviada=await s.enviar(nueva);assert.equal(transportes,1);assert.equal(enviada.orden.lineas[0].cantidad_proveedor,13);
+});
+caso('varios WhatsApp ofrecen opciones sin preparar; sólo se envía al número elegido',async()=>{
+ await faltante(10);await c.query('UPDATE proveedor SET telefono_whatsapp=$2 WHERE id=$1',[f.p.id,'8888 8888\n8777 7777']);
+ const datos=await pedido(),antes=await motor.obtener((await motor.listar({proveedorId:f.p.id}))[0].id),r=await s.revisarEnvio(datos);
+ assert.equal(r.orden,null);assert.equal(r.envioEstado,'pendiente_destino');assert.equal(r.destino.telefono,'');assert.deepEqual(r.destino.telefonos.map(t=>t.numero),['50688888888','50687777777']);
+ assert.deepEqual(await motor.obtener(antes.id),antes);assert.equal(transportes,0);await assert.rejects(s.enviar(datos),e=>e.status===409);assert.equal(transportes,0);
+ const elegido={...datos,clave:randomUUID(),telefono:'+506 8777 7777'},copia=await s.revisarEnvio(elegido);
+ assert.equal(copia.destino.telefono,'50687777777');assert.equal(transportes,0);await s.enviar(elegido);assert.equal(transportes,1);assert.equal(ultimo.telefono,'50687777777');
+ assert.equal((await c.query('SELECT telefono_whatsapp FROM proveedor WHERE id=$1',[f.p.id])).rows[0].telefono_whatsapp,'8888 8888\n8777 7777');
+});
+caso('sin número guardado se abre el modal y un número escrito sirve sólo para ese pedido',async()=>{
+ await faltante(10);await c.query('UPDATE proveedor SET telefono_whatsapp=NULL,telefono=NULL WHERE id=$1',[f.p.id]);
+ const datos=await pedido(),r=await s.revisarEnvio(datos);assert.equal(r.orden,null);assert.equal(r.envioEstado,'pendiente_destino');assert.deepEqual(r.destino.telefonos,[]);assert.equal(transportes,0);
+ const escrito={...datos,clave:randomUUID(),telefono:'8666 6666'},copia=await s.revisarEnvio(escrito);assert.equal(copia.destino.telefono,'50686666666');await s.enviar(escrito);assert.equal(ultimo.telefono,'50686666666');assert.equal(transportes,1);
+ assert.deepEqual((await c.query('SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=$1',[f.p.id])).rows[0],{telefono_whatsapp:null,telefono:null});
+});
+caso('cambiar número crea otra copia y conserva PDF/destino anteriores sin permitir la confirmación vieja',async()=>{
+ await faltante(10);const datos=await pedido(),primera=await s.revisarEnvio(datos),pdf=await env.descargar(primera.orden.id,datos.clave);
+ const nuevos={...datos,clave:randomUUID(),telefono:'8666 6666'},segunda=await s.revisarEnvio(nuevos);assert.equal(segunda.destino.telefono,'50686666666');assert.equal(transportes,0);
+ const vieja=segunda.orden.envios.find(e=>e.id===datos.clave);assert.equal(vieja.numero,'50688888888');assert.deepEqual((await env.descargar(primera.orden.id,datos.clave)).pdf,pdf.pdf);
+ await assert.rejects(s.enviar(datos),e=>e.status===409);assert.equal(transportes,0);await s.enviar(nuevos);assert.equal(transportes,1);assert.equal(ultimo.telefono,'50686666666');
+});
+caso('número inválido, anotaciones o más de un destino se rechazan antes de modificar la compra',async()=>{
+ await faltante(10);const datos=await pedido(),antes=await motor.obtener((await motor.listar({proveedorId:f.p.id}))[0].id);
+ for(const telefono of ['',null,88888888,'1234567','88888888 87777777','88888888 GABRIEL','88888888\n87777777'])await assert.rejects(s.revisarEnvio({...datos,clave:randomUUID(),telefono}),e=>e.status===400);
+ assert.equal(transportes,0);assert.deepEqual(await motor.obtener(antes.id),antes);
+});
+caso('respuesta perdida conserva el destino elegido; otra selección con la misma clave se rechaza',async()=>{
+ await faltante(10);const datos={...await pedido(),telefono:'8666 6666'},copia=await s.revisarEnvio(datos);await s.enviar(datos);
+ await c.query("UPDATE proveedor SET telefono_whatsapp='87777777' WHERE id=$1",[f.p.id]);await s.enviar(datos);assert.equal(transportes,1);assert.equal(ultimo.telefono,copia.destino.telefono);
+ await assert.rejects(s.enviar({...datos,telefono:'8777 7777'}),e=>e.status===409);assert.equal(transportes,1);
 });
 caso('HTTP de revisar-envio exige permiso Reporte Proveedores y no manda WhatsApp',async()=>{
  await faltante(10);const datos=await pedido();

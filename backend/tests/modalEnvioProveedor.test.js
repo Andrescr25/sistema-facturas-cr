@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { montar, proveedor, producto } = require('./dobles/envioProveedorGancho');
-const destino = { telefono: '50688888888', mensaje: 'Buenas tardes.\nAdjuntamos la orden OC-25.\nGracias.' };
+const destino = { telefono: '50688888888', mensaje: 'Hola buenas, adjunto pedido\ngracias' };
 const preparado = { data: { success: true, data: { orden: { id: 25 }, destino, envioEstado: 'preparado' } } };
 const confirmado = { data: { success: true, data: { orden: { id: 25 }, envioEstado: 'confirmado' } } };
 
@@ -150,4 +150,105 @@ test('doble clic al reintentar una preparación fallida genera una sola consulta
   const primero = actual.reintentarRevision(); await actual.reintentarRevision();
   assert.equal(llamadas.length, 2); assert.deepEqual(llamadas[1].cuerpo, llamadas[0].cuerpo);
   resolver(preparado); await primero; assert.deepEqual(m.render().modal.destino, destino);
+});
+
+const telefonos = [
+  { numero: '50688888888', nacional: '88888888', formateado: '8888 8888', esMovil: true, origen: 'telefono_whatsapp' },
+  { numero: '50687777777', nacional: '87777777', formateado: '8777 7777', esMovil: true, origen: 'telefono_whatsapp' }
+];
+const pendienteDestino = numeros => ({ data: { success: true, data: { orden: null, envioEstado: 'pendiente_destino', destino: { telefono: '', mensaje: destino.mensaje, telefonos: numeros } } } });
+
+test('varios números requieren elegir explícitamente y revisar una copia nueva antes de confirmar', async () => {
+  const llamadas = [], m = montar({ post: async (ruta, cuerpo) => {
+    llamadas.push({ ruta, cuerpo: structuredClone(cuerpo) });
+    if (!cuerpo.telefono) return pendienteDestino(telefonos);
+    return ruta.endsWith('revisar-envio') ? { data: { success: true, data: { destino: { ...destino, telefono: cuerpo.telefono, telefonos } } } } : confirmado;
+  } });
+  await m.render().enviar();
+  assert.equal(m.render().modal.telefono, ''); assert.deepEqual(m.render().modal.telefonos, telefonos);
+  assert.equal(m.render().modal.mensaje, destino.mensaje); assert.equal(m.render().modal.requiereRevision, true);
+  await m.render().confirmarEnvio(); assert.equal(llamadas.length, 1);
+  await m.render().reintentarRevision(); assert.equal(llamadas.length, 1); assert.match(m.render().modal.error, /Escribí el número/);
+  m.render().cambiarTelefono(telefonos[1].numero);
+  await m.render().confirmarEnvio(); assert.equal(llamadas.length, 1);
+  await m.render().reintentarRevision();
+  assert.notEqual(llamadas[1].cuerpo.clave, llamadas[0].cuerpo.clave);
+  assert.equal(llamadas[1].cuerpo.telefono, telefonos[1].numero);
+  assert.equal(m.render().modal.destino.telefono, telefonos[1].numero);
+  await m.render().confirmarEnvio(); assert.deepEqual(llamadas[2].cuerpo, llamadas[1].cuerpo);
+  assert.equal(llamadas[2].ruta, '/orden-compra/proveedor/enviar'); assert.equal(m.almacen.size, 0);
+});
+
+test('sin teléfonos registrados permite escribir uno para este envío sin guardar la ficha', async () => {
+  const llamadas = [], m = montar({ post: async (ruta, cuerpo) => {
+    llamadas.push({ ruta, cuerpo: structuredClone(cuerpo) });
+    return cuerpo.telefono ? { data: { success: true, data: { destino: { ...destino, telefono: cuerpo.telefono, telefonos: [] } } } } : pendienteDestino([]);
+  } });
+  await m.render().enviar(); assert.deepEqual(m.render().modal.telefonos, []);
+  m.render().cambiarTelefono('+506 8777 7777'); await m.render().reintentarRevision();
+  assert.equal(m.render().modal.telefono, '50687777777'); assert.equal(llamadas[1].cuerpo.telefono, '50687777777');
+  assert.equal(m.almacen.size, 0); assert.ok(llamadas.every(l => l.ruta.endsWith('revisar-envio')));
+});
+
+test('editar un destino revisado conserva su cuerpo anterior y exige una nueva UUID para el cambio', async () => {
+  const llamadas = [], m = montar({ post: async (ruta, cuerpo) => {
+    llamadas.push({ ruta, cuerpo });
+    return { data: { success: true, data: { destino: { ...destino, telefono: cuerpo.telefono || destino.telefono } } } };
+  } });
+  await m.render().enviar(); const original = structuredClone(llamadas[0].cuerpo);
+  m.render().cambiarTelefono('8777 7777');
+  assert.equal(m.render().modal.destino, undefined); assert.equal(m.render().modal.requiereRevision, true);
+  await m.render().confirmarEnvio(); assert.equal(llamadas.length, 1);
+  await m.render().reintentarRevision(); assert.deepEqual(llamadas[0].cuerpo, original);
+  assert.equal(original.telefono, undefined); assert.notEqual(llamadas[1].cuerpo.clave, original.clave);
+  assert.equal(llamadas[1].cuerpo.telefono, '50687777777');
+});
+
+test('editar durante una preparación descarta la respuesta tardía del teléfono anterior', async () => {
+  const pendientes = [], m = montar({ post: (ruta, cuerpo) => new Promise(resolver => pendientes.push({ cuerpo: structuredClone(cuerpo), resolver })) });
+  const anterior = m.render().enviar();
+  m.render().cambiarTelefono('8777 7777'); const actual = m.render().reintentarRevision();
+  pendientes[1].resolver({ data: { success: true, data: { destino: { ...destino, telefono: '50687777777', telefonos } } } });
+  await actual; pendientes[0].resolver(preparado); await anterior;
+  assert.equal(m.render().modal.destino.telefono, '50687777777'); assert.equal(m.render().modal.cargando, false);
+  assert.equal(m.almacen.size, 0);
+});
+
+test('otro número inválido no se prepara ni habilita confirmar, aunque antes hubiera una copia válida', async () => {
+  let llamadas = 0; const m = montar({ post: async () => { llamadas++; return preparado; } });
+  await m.render().enviar();
+  for (const telefono of ['', '88888888 87777777', '88888888 José', '+50787777777', '8777777']) {
+    m.render().cambiarTelefono(telefono); await m.render().reintentarRevision();
+    assert.ok(m.render().modal.error); await m.render().confirmarEnvio(); assert.equal(llamadas, 1);
+  }
+  assert.equal(m.almacen.size, 0);
+});
+
+test('el número editado confirmado sobrevive a una respuesta perdida y se consulta con la misma copia', async () => {
+  const llamadas = [], m = montar({ post: async (ruta, cuerpo) => {
+    llamadas.push({ ruta, cuerpo: structuredClone(cuerpo) });
+    if (ruta.endsWith('revisar-envio')) return { data: { success: true, data: { destino: { ...destino, telefono: cuerpo.telefono || destino.telefono } } } };
+    throw { response: { status: 503, data: { message: 'Respuesta perdida' } } };
+  } });
+  await m.render().enviar(); m.render().cambiarTelefono('8777 7777'); await m.render().reintentarRevision();
+  await m.render().confirmarEnvio(); assert.equal(m.render().estado, 'por_verificar');
+  m.render().cambiarTelefono('8999 9999'); assert.equal(m.render().modal, null);
+  const recarga = montar({ post: async (ruta, cuerpo) => { llamadas.push({ ruta, cuerpo: structuredClone(cuerpo) }); return confirmado; } }, m.almacen);
+  await recarga.render().enviar(); assert.equal(llamadas.length, 4);
+  assert.deepEqual(llamadas[3].cuerpo, llamadas[2].cuerpo); assert.equal(llamadas[3].cuerpo.telefono, '50687777777');
+});
+
+test('doble clic al revisar el nuevo número prepara una copia y cambiarlo durante el envío no la modifica', async () => {
+  const llamadas = []; let revisar, enviar;
+  const m = montar({ post: (ruta, cuerpo) => {
+    llamadas.push({ ruta, cuerpo: structuredClone(cuerpo) });
+    if (llamadas.length === 1) return Promise.resolve(preparado);
+    return new Promise(resolver => { if (ruta.endsWith('revisar-envio')) revisar = resolver; else enviar = resolver; });
+  } });
+  await m.render().enviar(); m.render().cambiarTelefono('8777 7777');
+  const primera = m.render().reintentarRevision(); await m.render().reintentarRevision(); assert.equal(llamadas.length, 2);
+  revisar({ data: { success: true, data: { destino: { ...destino, telefono: '50687777777' } } } }); await primera;
+  const transporte = m.render().confirmarEnvio(); m.render().cambiarTelefono('8999 9999');
+  assert.equal(m.render().modal.telefono, '50687777777'); assert.deepEqual(llamadas[2].cuerpo, llamadas[1].cuerpo);
+  enviar(confirmado); await transporte;
 });

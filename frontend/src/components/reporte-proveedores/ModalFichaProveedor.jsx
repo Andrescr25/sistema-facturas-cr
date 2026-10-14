@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Save, Package, Receipt } from 'lucide-react'
+import { AlertTriangle, Save, Package, Receipt, Plus, Trash2 } from 'lucide-react'
 import HojaModal from '../pagos/HojaModal'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
 import { fechaCorta } from '../../utils/fechaCR'
+import { useTelefonosProveedor } from '../../hooks/useTelefonosProveedor'
+import { filasTelefonosProveedor, revisarTelefonosProveedor, MAX_TELEFONOS_PROVEEDOR } from '../../utils/telefonosProveedor'
 
 /**
  * La ficha de un proveedor: quién es y qué le compramos.
@@ -13,8 +15,8 @@ import { fechaCorta } from '../../utils/fechaCR'
  * que le compramos según el mapeo. Están a la vista porque son la razón por
  * la que alguien abre esta hoja.
  *
- * El WhatsApp es el número al que sale la orden de compra, así que se valida
- * como teléfono de verdad y no como texto libre.
+ * Cada WhatsApp se registra en su propia fila. El destino de una orden se
+ * elige después en el modal de envío; guardar la ficha no manda mensajes.
  */
 
 const CAMPOS = [
@@ -36,7 +38,8 @@ const TIPOS = [
 
 function valoresDe(p) {
   return Object.fromEntries(CAMPOS.map(campo => {
-    const v = p?.[campo]
+    const revisados = campo === 'telefono_whatsapp' && revisarTelefonosProveedor(filasTelefonosProveedor(p?.[campo]))
+    const v = revisados && !revisados.error ? revisados.valor : p?.[campo]
     return [campo, v === null || v === undefined ? '' : String(v)]
   }))
 }
@@ -67,6 +70,8 @@ export default function ModalFichaProveedor({ proveedor, plazos, guardando, onGu
   const editando = Boolean(proveedor?.id)
   const base = useMemo(() => valoresDe(proveedor), [proveedor])
   const [valores, setValores] = useState(base)
+  const telefonos = useTelefonosProveedor(base.telefono_whatsapp)
+  const valoresActuales = { ...valores, telefono_whatsapp: telefonos.valor || '' }
   const cambiar = (campo) => (e) => setValores(prev => ({ ...prev, [campo]: e.target.value }))
 
   const tipo = TIPOS.find(t => t.valor === valores.tipo_identificacion)
@@ -81,14 +86,15 @@ export default function ModalFichaProveedor({ proveedor, plazos, guardando, onGu
   const opcionesPlazo = plazos.filter(p => p.activo || String(p.id) === String(base.plazo_credito_id))
 
   const cambios = useMemo(() => Object.fromEntries(
-    CAMPOS.filter(c => valores[c] !== base[c]).map(c => [c, listo(c, valores[c])])
-  ), [valores, base])
+    CAMPOS.filter(c => valoresActuales[c] !== base[c]).map(c => [c, listo(c, valoresActuales[c])])
+  ), [valores, base, telefonos.valor])
   const hayCambios = Object.keys(cambios).length > 0
 
   const enviar = async (e) => {
     e.preventDefault()
+    if (telefonos.error) return
     if (editando && !hayCambios) { onCerrar(); return }
-    const datos = editando ? cambios : Object.fromEntries(CAMPOS.map(c => [c, listo(c, valores[c])]))
+    const datos = editando ? cambios : Object.fromEntries(CAMPOS.map(c => [c, listo(c, valoresActuales[c])]))
     if (await onGuardar(datos)) onCerrar()
   }
 
@@ -135,9 +141,25 @@ export default function ModalFichaProveedor({ proveedor, plazos, guardando, onGu
         </section>
 
         <section className="grid gap-4 rounded-xl border border-neutro-200 p-4 sm:grid-cols-2">
-          <div>
-            <Etiqueta htmlFor="proveedor-telefono_whatsapp">WhatsApp (para la orden de compra)</Etiqueta>
-            <input id="proveedor-telefono_whatsapp" className={CLASE_CAMPO} inputMode="tel" value={valores.telefono_whatsapp} onChange={cambiar('telefono_whatsapp')} maxLength={30} placeholder="8827 2453" />
+          <div className="space-y-2 sm:col-span-2">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-neutro-500">WhatsApp para pedidos</p>
+            {telefonos.filas.map((numero, i) => (
+              <div key={i}>
+                <Etiqueta htmlFor={`proveedor-whatsapp-${i}`}>Número {i + 1}</Etiqueta>
+                <div className="flex items-center gap-2">
+                  <input id={`proveedor-whatsapp-${i}`} type="tel" className={CLASE_CAMPO} value={numero}
+                    onChange={e => telefonos.cambiar(i, e.target.value)} maxLength={30} placeholder="8827 2453" disabled={guardando}
+                    aria-invalid={Boolean(telefonos.errores[i])} aria-describedby={telefonos.errores[i] ? `proveedor-whatsapp-aviso-${i}` : undefined} />
+                  <Boton variante="secundario" onClick={() => telefonos.quitar(i)} disabled={guardando}
+                    aria-label={`Quitar número ${i + 1}`} className="shrink-0"><Trash2 size={16} /></Boton>
+                </div>
+                {telefonos.errores[i] && <div id={`proveedor-whatsapp-aviso-${i}`}><Aviso>{telefonos.errores[i]}</Aviso></div>}
+              </div>
+            ))}
+            <Boton variante="secundario" onClick={telefonos.agregar} disabled={guardando || telefonos.filas.length >= MAX_TELEFONOS_PROVEEDOR}>
+              <Plus size={15} /> Agregar número
+            </Boton>
+            <p className="text-xs text-neutro-500">Al enviar un pedido podrás elegir uno de estos números.</p>
           </div>
           <div>
             <Etiqueta htmlFor="proveedor-telefono">Teléfono</Etiqueta>
@@ -196,7 +218,7 @@ export default function ModalFichaProveedor({ proveedor, plazos, guardando, onGu
         <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutro-100 pt-4">
           {editando && hayCambios && <span className="mr-auto text-sm text-neutro-500">{Object.keys(cambios).length} cambios sin guardar</span>}
           <Boton type="button" variante="secundario" onClick={onCerrar}>Cancelar</Boton>
-          <Boton type="submit" cargando={guardando} disabled={editando && !hayCambios}>
+          <Boton type="submit" cargando={guardando} disabled={Boolean(telefonos.error) || (editando && !hayCambios)}>
             <Save size={16} /> {editando ? 'Guardar cambios' : 'Crear proveedor'}
           </Boton>
         </div>

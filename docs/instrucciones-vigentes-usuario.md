@@ -75,6 +75,13 @@ PDF históricos; un cambio de lógica no autoriza cambiar su diseño.
 «Hola buenas, adjunto pedido» y en la siguiente línea «gracias». Sin agregar
 referencia ni indicaciones al texto; la orden sigue identificada en su PDF.
 
+**Teléfonos, ajuste posterior del mismo día:** registrar varios números de
+WhatsApp en la ficha del mismo proveedor, y permitir elegir o cambiar el
+número en el modal de envío. Otro número escrito corresponde a ese pedido;
+los contactos permanentes se gestionan en la ficha. Con varios contactos se
+elige uno explícitamente. El número revisado se conserva al confirmar y en
+reintentos; elegir otro prepara una copia nueva antes de enviar.
+
 ## Decisiones anteriores que siguen vigentes
 
 - **Inventario y auditorías desde cero.** El físico está desordenado: iniciar

@@ -4,6 +4,7 @@ const { httpError } = require('../../utils/validacion');
 const { fechaValida } = require('../../utils/exportarExcel');
 const { registrarCambio } = require('../../utils/bitacora');
 const { telefonosDe } = require('../../utils/telefonosCliente');
+const { validarTelefonoProveedor } = require('../../utils/telefonosProveedor');
 const { salidasBloqueadas, errorSalidaBloqueada } = require('../../../config/aislado');
 const motor = require('./ordenesCiclo.service');
 const envio = require('./ordenesCicloEnvio.service');
@@ -15,6 +16,7 @@ function validar(datos) {
   if (!uuid(datos?.clave) || !/^[a-f0-9]{64}$/.test(datos?.revisionReporte || '')) throw httpError(400,'Recargá los faltantes antes de enviar.');
   if (!Array.isArray(datos.productos) || !datos.productos.length || datos.productos.length > 500) throw httpError(400,'Incluí entre 1 y 500 productos en el pedido.');
   if (datos.fechaInicio != null && (typeof datos.fechaInicio !== 'string' || !fechaValida(datos.fechaInicio))) throw httpError(400,'La fecha inicial del reporte no es válida.');
+  if ('telefono' in datos && (typeof datos.telefono !== 'string' || !datos.telefono.trim())) throw httpError(400,'Escribí un número de WhatsApp para este envío.');
   return { ...datos, clave:datos.clave.toLowerCase() };
 }
 async function productoManualEn(db,p,l) {
@@ -39,6 +41,11 @@ async function limpiarBorradorEn(db,o) {
   await db.query('DELETE FROM orden_compra_ciclo_origen WHERE linea_id IN (SELECT id FROM orden_compra_ciclo_linea WHERE orden_id=$1)',[o.id]);
   await db.query('DELETE FROM orden_compra_ciclo_linea WHERE orden_id=$1',[o.id]);
 }
+async function telefonosFichaEn(db,id) {
+  const { rows:[p] } = await db.query('SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=$1',[id]);
+  const campo = p.telefono_whatsapp?.trim() ? { mobile:p.telefono_whatsapp } : { phonePrimary:p.telefono };
+  return telefonosDe(campo).candidatos;
+}
 async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   const { rows:[previa] } = await db.query('SELECT orden_id FROM orden_compra_ciclo_envio WHERE id=$1',[datos.clave]);
   if (previa) {
@@ -50,10 +57,15 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   }
   if (!soloPreparar && salidasBloqueadas()) throw errorSalidaBloqueada('enviar la orden de compra');
   const p = await resolverProveedorEn(db,datos);
-  const { rows:[contacto] } = await db.query('SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=$1 FOR SHARE',[p.id]);
-  const campo = contacto.telefono_whatsapp?.trim() ? { mobile:contacto.telefono_whatsapp } : { phonePrimary:contacto.telefono };
-  const { candidatos } = telefonosDe(campo);
-  if (candidatos.length !== 1) throw httpError(409,'Guardá un único número de WhatsApp en la ficha del proveedor antes de enviar.');
+  await db.query('SELECT id FROM proveedor WHERE id=$1 FOR SHARE',[p.id]);
+  const candidatos = await telefonosFichaEn(db,p.id);
+  const telefono = 'telefono' in datos ? validarTelefonoProveedor(datos.telefono,'WhatsApp') : candidatos.length === 1 ? candidatos[0].formateado : null;
+  if (!telefono) {
+    // Con varios destinos, no elegir uno por el orden de lectura. Abrir el
+    // modal permite elegir o escribir otro sin crear una copia sin destino.
+    if (soloPreparar) return { destinoPendiente:{telefono:'',mensaje:envio.mensajePredeterminado,telefonos:candidatos} };
+    throw httpError(409,'Elegí o escribí un número de WhatsApp antes de enviar.');
+  }
   const reporte = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false,asignarProveedores:false});
   if (!reporte.success) throw httpError(503,'No se pudieron comprobar los faltantes. No se inició el envío.');
   // La asignación antigua puede tener sólo nombre aunque su ficha sí tenga
@@ -119,7 +131,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   await db.query("UPDATE orden_compra_ciclo SET estado='pendiente_enviar',version=version+1,actualizado_en=NOW() WHERE id=$1",[o.id]);
   o = await obtenerEn(db,o.id);
   const mensaje = envio.mensajePredeterminado;
-  o = await envio.interno.prepararEn(db,o.id,{version:o.version,clave:datos.clave,telefono:candidatos[0].numero,mensaje,preferirDatosProveedor:datos.preferirDatosProveedor !== false},actor);
+  o = await envio.interno.prepararEn(db,o.id,{version:o.version,clave:datos.clave,telefono,mensaje,preferirDatosProveedor:datos.preferirDatosProveedor !== false},actor);
   const { rows:temporales } = await db.query(`SELECT id,updated_at::text actualizado FROM orden_compra_temporal
     WHERE proveedor_nombre=ANY($1::text[])`,[[...new Set([p.nombre,actual.nombre,...(actual.aliases || [])])]]);
   await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:'revisar_reporte',despues:{clave:datos.clave,firma:firma(datos),temporales},usuarioId:actor});
@@ -138,13 +150,12 @@ async function enviar(datos,actor) {
  */
 async function revisarEnvio(datos,actor) {
   datos=validar(datos);
-  const orden=await enOrden(async db=>{
+  return enOrden(async db=>{
     const o=await revisarEn(db,datos,actor,{soloPreparar:true});
+    if (o.destinoPendiente) return { orden:null,destino:o.destinoPendiente,envioEstado:'pendiente_destino' };
     const copia=o.envios.find(e=>e.id===datos.clave);
     if (o.estado!=='pendiente_enviar' || o.envio_id || copia?.estado!=='revisado' || copia.version_orden!==o.version) throw httpError(409,'La compra cambió o ya tiene un envío por verificar. Actualizá el reporte.');
-    return o;
+    return { orden:o,destino:{telefono:copia.numero,mensaje:copia.mensaje,telefonos:await telefonosFichaEn(db,o.proveedor_id)},envioEstado:copia.estado };
   });
-  const copia=orden.envios.find(e=>e.id===datos.clave);
-  return { orden,destino:{telefono:copia.numero,mensaje:copia.mensaje},envioEstado:copia.estado };
 }
 module.exports = { enviar,revisarEnvio };

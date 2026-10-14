@@ -4,6 +4,15 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - docs/informes/proveedores-telefonos-2026-10-14.md
+  - backend/migrations/independencia/059_telefonos_whatsapp_proveedor.sql
+  - backend/src/modules/proveedores/proveedores.maestro.service.js
+  - backend/src/utils/telefonosProveedor.js
+  - backend/tests/telefonosProveedor.test.js
+  - backend/tests/telefonosProveedorUtils.test.js
+  - frontend/src/utils/telefonosProveedor.js
+  - frontend/src/hooks/useTelefonosProveedor.js
+  - backend/tests/telefonosProveedorVista.test.js
   - docs/informes/proveedores-modal-pdf-2026-10-14.md
   - frontend/src/components/reporte-proveedores/ModalEnviarProveedor.jsx
   - backend/tests/modalEnvioProveedor.test.js
@@ -59,6 +68,17 @@ medido: 2026-10-14
 
 ## Corrección vigente — 2026-10-14
 
+**Varios destinos, solicitud posterior:** la ficha permite añadir/quitar
+hasta diez números. SQL059 ensancha telefono_whatsapp a TEXT; conserva el
+contrato de texto y las filas existentes, guardando un número validado por
+línea. El modal permite elegir un contacto o escribir otro sólo para ese
+envío, sin cambiar la ficha. Cero o varios contactos devuelven
+pendiente_destino sin crear copia ni reclamar transporte; un único contacto
+permite preparar como antes. Cambiar destino invalida la confirmación y
+crea otra UUID/copia; el resultado normalizado se muestra antes de confirmar.
+Las respuestas tardías se ignoran y una pérdida de respuesta mantiene el
+cuerpo/UUID/número originales. [Verificación y SQL](../../informes/proveedores-telefonos-2026-10-14.md).
+
 **Confirmación solicitada después de la corrección:** el botón abre un modal
 con destino/mensaje exactos. POST /proveedor/revisar-envio prepara la copia
 desde las cantidades revisadas, devuelve número normalizado y mensaje de esa
@@ -99,7 +119,8 @@ adicional ni descarga global duplicada. Solo **Enviar PDF a WhatsApp** desde
 el detalle ya revisado: el modal posterior solicitado sólo confirma número
 y mensaje. POST /orden-compra/proveedor/revisar-envio toma ese contenido,
 comprueba la revisión del reporte y guarda PDF, mensaje predeterminado y un
-único teléfono de la ficha. /enviar confirma esa copia. Manuales derivan conversión desde el proveedor,
+destino único elegido por el usuario (o el único de la ficha). /enviar confirma
+esa copia. Manuales derivan conversión desde el proveedor,
 sin inventar un cliente. La UUID/cuerpo sobreviven a una respuesta perdida;
 el mismo intento solo consulta el resultado, nunca retransmite. Un resultado
 incierto conserva su fotografía bloqueada; nuevas necesidades separadas pueden

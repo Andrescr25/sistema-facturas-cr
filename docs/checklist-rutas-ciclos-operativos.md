@@ -69,9 +69,14 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
 - [x] RP-12 — Mensaje solicitado de dos líneas: «Hola buenas, adjunto pedido»
   y «gracias»; modal y transporte usan la copia exacta, sin exigir OC en este
   texto ni modificar mensajes guardados de órdenes anteriores.
+- [x] RP-13 — Varios WhatsApp por proveedor en su ficha, selección explícita
+  o número escrito en el modal; nueva copia al cambiar destino, mensaje/PDF
+  y reintentos exactos. SQL059 aplicada en producción el14/10 a11:16 CR,
+  respaldo restaurado y144 tablas conservadas; suite/base/navegador verificados.
 
 Evidencia local y estado de publicación: [corrección de proveedores](informes/proveedores-correccion-2026-10-14.md). No modifica los pendientes ROT-06/07/08.
 Verificación del ajuste posterior: [modal y PDF comercial](informes/proveedores-modal-pdf-2026-10-14.md).
+Contactos y destino: [varios teléfonos por proveedor](informes/proveedores-telefonos-2026-10-14.md).
 
 ## Antecedente: implementación por ciclos
 

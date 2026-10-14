@@ -1,4 +1,5 @@
 import { Loader2, Search, Plus, Pencil, Ban, RotateCcw, Mail, Phone, MessageCircle, Package, Receipt } from 'lucide-react'
+import { filasTelefonosProveedor } from '../../utils/telefonosProveedor'
 
 /**
  * Las fichas de proveedores: una sola lista, identificada por cédula.
@@ -87,6 +88,7 @@ export default function ListaFichasProveedor({
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {proveedores.map(p => {
             const ocupado = procesando === p.id
+            const telefonos = filasTelefonosProveedor(p.telefono_whatsapp)
             return (
               <div
                 key={p.id}
@@ -111,8 +113,8 @@ export default function ListaFichasProveedor({
                   </p>
 
                   <div className="flex items-start gap-x-3 gap-y-3 flex-col text-sm">
-                    <Dato icono={MessageCircle} falta={!p.telefono_whatsapp}>
-                      {p.telefono_whatsapp || 'Sin WhatsApp'}
+                    <Dato icono={MessageCircle} falta={!telefonos.length}>
+                      {telefonos.length ? telefonos.map((numero, i) => <span key={i} className="block">{numero}</span>) : 'Sin WhatsApp'}
                     </Dato>
                     <Dato icono={Phone} falta={!p.telefono}>{p.telefono || 'Sin teléfono'}</Dato>
                     <Dato icono={Mail} falta={!p.correo}>{p.correo || 'Sin correo'}</Dato>

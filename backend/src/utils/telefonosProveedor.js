@@ -9,7 +9,9 @@ function validarTelefonoProveedor(v, etiqueta = 'WhatsApp') {
   if (!/^\+?[\d().\- \t]+$/.test(escrito)) {
     throw httpError(400, `${etiqueta}: escribí solo el teléfono, sin nombres ni anotaciones.`);
   }
-  const r = validarTelefonoEscrito(escrito);
+  // Ya comprobados los caracteres, unir sólo separadores de presentación
+  // mantiene válido «+5068888 8888» sin unir dos teléfonos completos.
+  const r = validarTelefonoEscrito(escrito.replace(/[().\- \t]/g, ''));
   if (!r.valido) throw httpError(400, `${etiqueta}: ${r.motivo}`);
   return r.formateado;
 }

@@ -4,6 +4,7 @@ const frente = path.join(__dirname, '../../../frontend/src');
 const leer = archivo => fs.readFileSync(path.join(frente, archivo), 'utf8');
 const cargar = (archivo, nombres) => new Function(leer(`utils/${archivo}`).replace(/^export /gm, '') + `\nreturn {${nombres}}`)();
 const vista = cargar('proveedoresVista.js', 'cuerpoEnvioProveedor,resultadoEnvioProveedor,intentoSeparadoDelProveedor');
+const telefonos = cargar('telefonosProveedor.js', 'revisarTelefonoProveedor');
 const proveedor = { id: 'p-1', proveedor_id: 1, nombre: 'zz-Proveedor', cedula: 'zz-cedula', revisionReporte: 'revision-1' };
 const producto = { productoId: 7, codigoInterno: 'zz-A', nombreInterno: 'zz-Producto A', cantidadOriginal: 3, cantidad: 2, factorConversion: 2 };
 
@@ -25,8 +26,8 @@ function montar(api, almacen = new Map()) {
   };
   const sessionStorage = { getItem: clave => almacen.get(clave) || null, setItem: (clave, valor) => almacen.set(clave, valor), removeItem: clave => almacen.delete(clave) };
   const codigo = leer('hooks/useEnvioOrdenProveedor.js').replace(/^import .*$/gm, '').replace(/^export /gm, '');
-  const hook = new Function('useState', 'useRef', 'useEffect', 'api', 'useAuth', 'sessionStorage', 'crypto', 'cuerpoEnvioProveedor', 'resultadoEnvioProveedor', 'intentoSeparadoDelProveedor', codigo + '\nreturn useEnvioOrdenProveedor')(
-    useState, useRef, useEffect, api, () => ({ usuario: { id: 50 } }), sessionStorage, { randomUUID: () => `clave-${++serial}` }, vista.cuerpoEnvioProveedor, vista.resultadoEnvioProveedor, vista.intentoSeparadoDelProveedor);
+  const hook = new Function('useState', 'useRef', 'useEffect', 'api', 'useAuth', 'sessionStorage', 'crypto', 'cuerpoEnvioProveedor', 'resultadoEnvioProveedor', 'intentoSeparadoDelProveedor', 'revisarTelefonoProveedor', codigo + '\nreturn useEnvioOrdenProveedor')(
+    useState, useRef, useEffect, api, () => ({ usuario: { id: 50 } }), sessionStorage, { randomUUID: () => `clave-${++serial}` }, vista.cuerpoEnvioProveedor, vista.resultadoEnvioProveedor, vista.intentoSeparadoDelProveedor, telefonos.revisarTelefonoProveedor);
   const render = (datos = {}) => {
     indice = 0;
     const resultado = hook({ proveedor, productos: [producto], preferirDatosProveedor: true, onEnviada: async () => {}, showToast() {}, ...datos });

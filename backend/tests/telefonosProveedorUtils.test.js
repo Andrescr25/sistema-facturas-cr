@@ -4,7 +4,7 @@ const { validarTelefonoProveedor, validarWhatsappsProveedor } = require('../src/
 
 describe('destinos de WhatsApp del proveedor', () => {
   test('un destino escrito conserva el número nacional, con o sin país', () => {
-    for (const escrito of ['88888888', '8888 8888', '+506 8888-8888', '50688888888', '(506) 8888 8888']) {
+    for (const escrito of ['88888888', '8888 8888', '+506 8888-8888', '50688888888', '(506) 8888 8888', '+5068888 8888']) {
       assert.equal(validarTelefonoProveedor(escrito), '8888 8888');
     }
   });

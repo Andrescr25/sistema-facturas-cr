@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { cuerpoEnvioProveedor, resultadoEnvioProveedor, intentoSeparadoDelProveedor } from '../utils/proveedoresVista'
+import { revisarTelefonoProveedor } from '../utils/telefonosProveedor'
 
 const SIN_COMPRAS = []
 
@@ -46,17 +47,23 @@ export function useEnvioOrdenProveedor({ proveedor, productos, preferirDatosProv
     copia.preparando = true
     const actual = () => vivo.current && seleccion.current === copia.contexto && revision.current === copia
     copia.lista = false
-    setModal({ nombre: copia.nombre, cargando: true })
+    const mostrar = extra => ({ nombre: copia.nombre, telefono: copia.telefono || '', telefonos: copia.telefonos || [], mensaje: copia.mensaje, ...extra })
+    setModal(mostrar({ cargando: true }))
     try {
       const { data } = await api.post('/orden-compra/proveedor/revisar-envio', copia.cuerpo)
       if (!data.success) throw new Error(data.message || 'No se pudo preparar la revisión del envío.')
       const destino = data.data?.destino
-      if (!destino?.telefono || typeof destino.mensaje !== 'string' || !destino.mensaje.trim()) throw new Error('No se pudo comprobar el número y el mensaje. Volvé a revisar el envío.')
+      const pendienteDestino = data.data?.envioEstado === 'pendiente_destino'
+      if ((!destino?.telefono && !pendienteDestino) || typeof destino?.mensaje !== 'string' || !destino.mensaje.trim()) throw new Error('No se pudo comprobar el número y el mensaje. Volvé a revisar el envío.')
       if (!actual()) return
-      copia.lista = true
-      setModal({ nombre: copia.nombre, destino, cargando: false })
+      copia.telefono = destino.telefono || ''
+      copia.telefonos = Array.isArray(destino.telefonos) ? destino.telefonos : []
+      copia.mensaje = destino.mensaje
+      copia.lista = !pendienteDestino && Boolean(destino.telefono)
+      copia.requiereTelefono = pendienteDestino
+      setModal(mostrar({ destino, cargando: false, requiereRevision: !copia.lista }))
     } catch (e) {
-      if (actual()) setModal({ nombre: copia.nombre, cargando: false, error: e.response?.data?.message || e.message || 'No se pudo preparar la revisión del envío.' })
+      if (actual()) setModal(mostrar({ cargando: false, error: e.response?.data?.message || e.message || 'No se pudo preparar la revisión del envío.' }))
     } finally { copia.preparando = false }
   }
 
@@ -126,7 +133,31 @@ export function useEnvioOrdenProveedor({ proveedor, productos, preferirDatosProv
 
   const reintentarRevision = () => {
     const copia = revision.current
-    if (copia && !modal?.cargando && !ocupado.current) return preparar(copia)
+    if (!copia || copia.preparando || ocupado.current) return
+    if (copia.cambioTelefono || copia.requiereTelefono) {
+      const telefono = revisarTelefonoProveedor(copia.telefono)
+      if (telefono.error) {
+        setModal(prev => ({ ...prev, error: telefono.error, requiereRevision: true }))
+        return
+      }
+      // Esta clave todavía no se preparó. Una revisión fallida se reintenta
+      // con su mismo cuerpo; otra edición genera una copia independiente.
+      copia.cuerpo.telefono = telefono.numero
+      copia.cambioTelefono = false
+      copia.requiereTelefono = false
+    }
+    return preparar(copia)
+  }
+
+  const cambiarTelefono = telefono => {
+    const anterior = revision.current
+    if (!anterior || ocupado.current) return
+    const copia = { ...anterior, cuerpo: structuredClone({ ...anterior.cuerpo, clave: crypto.randomUUID(), telefono }),
+      telefono, lista: false, preparando: false, cambioTelefono: true }
+    // Reemplazar la copia también descarta una respuesta tardía del número
+    // anterior. Nunca editar una solicitud confirmada o por verificar.
+    revision.current = copia
+    setModal({ nombre: copia.nombre, telefono, telefonos: copia.telefonos || [], mensaje: copia.mensaje, cargando: false, requiereRevision: true })
   }
 
   const confirmarEnvio = () => {
@@ -136,5 +167,5 @@ export function useEnvioOrdenProveedor({ proveedor, productos, preferirDatosProv
     return enviarIntento({ cuerpo: copia.cuerpo, estado: 'por_verificar' }, copia.storage, copia.nombre, copia.contexto, true)
   }
 
-  return { enviar, enviando, estado, error, modal, cerrarModal, reintentarRevision, confirmarEnvio }
+  return { enviar, enviando, estado, error, modal, cerrarModal, reintentarRevision, confirmarEnvio, cambiarTelefono }
 }
