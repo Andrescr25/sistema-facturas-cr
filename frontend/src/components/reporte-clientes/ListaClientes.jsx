@@ -1,4 +1,3 @@
-import VisitaCliente from './VisitaCliente'
 import { useState } from 'react'
 import { User, Package, RefreshCw, AlertTriangle, Check, ChevronDown, Search } from 'lucide-react'
 import {
@@ -45,8 +44,8 @@ const ESTILO_SIN_CAJA = {
  * vista: se desmonta al entrar a un cliente, y con el estado acá adentro
  * volvían vacíos al regresar a la lista (2026-10-01).
  *
- * Conserva el orden por próxima visita del servidor dentro de pendientes y
- * listos. La alerta sin caja sigue visible sin reemplazar la fecha de visita.
+ * Conserva el orden del servidor dentro de pendientes y listos. Las cards
+ * muestran la revisión del pedido; la agenda de visitas se consulta en Preventa.
  */
 export default function ListaClientes({ clientes, resumen, facturasEstado, entregasAjustadas, contarAjustes, filtros, onFiltrosChange, onSelectCliente, onRefresh }) {
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false)
@@ -260,7 +259,7 @@ function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente })
         </div>
       </div>
 
-      <VisitaCliente cliente={cliente} />
+      <p className="mb-3 text-sm font-semibold text-neutro-700">{cliente.ruta?.nombre || 'Sin ruta asignada'}</p>
 
       {/* Estado dicho en palabras */}
       <div className="flex flex-wrap gap-1.5 mb-3">

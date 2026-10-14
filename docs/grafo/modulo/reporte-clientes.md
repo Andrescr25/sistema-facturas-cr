@@ -25,7 +25,7 @@ archivos:
   - docs/informes/reporte-clientes-por-ruta-2026-10-13.md
 aristas:
   relacionado: [modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica]
-medido: 2026-10-13
+medido: 2026-10-14
 ---
 
 ROT-03 del pedido del usuario: rutas se mantienen, rotación individual,
@@ -58,8 +58,11 @@ La rotación se calcula con el helper de Clientes para todas las facturas
 vigentes, incluso las que no tienen faltantes. Una consulta por el conjunto
 de ids evita una consulta por línea. Ordena por próxima visita, vencidas
 primero, luego hoy y próximas; sin fecha al final. Empates por nombre y clave.
-La pantalla conserva ese orden dentro de pendientes y listos, muestra el
-estado de visita, frecuencia y fecha, y mantiene visibles las alertas sin caja.
+La pantalla conserva ese orden dentro de pendientes y listos, y mantiene
+visibles las alertas sin caja. Desde el ajuste pedido el 2026-10-14, las
+tarjetas muestran la ruta y el progreso de revisión, sin frecuencia, estado
+de visita ni próxima visita: la agenda vive en Preventa. El detalle conserva
+la información de visita; el cálculo del servidor y el Excel no cambian.
 
 Consultar clientes/rutas/Excel no asigna proveedores ni guarda respuestas.
 Bodega y la asignación explícita conservan ese trabajo. El servicio del
