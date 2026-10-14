@@ -7,13 +7,13 @@ const { query } = require('../../../config/database');
 const { faltanteOperativo, cantidadSinEnviar } = require('./faltantesCompra.sql');
 const { createHash } = require('node:crypto');
 const { JOIN_CICLO, filtrosOperacion } = require('../rutas/operacionCiclo.service');
-const { cedulaAsignada, fichaAsignada, mappingProveedor } = require('./proveedorCompra.sql');
+const { cedulaAsignada, fichaAsignada, mappingProveedor, asignadoAlProveedor } = require('./proveedorCompra.sql');
 
 class ReportService {
   /**
    * Obtener reporte de faltantes por proveedor con mapping
    */
-  async getMissingItemsBySupplier(fechaInicio = null, { rutaId, cicloId, db = { query }, incluirEnviadas = true } = {}) {
+  async getMissingItemsBySupplier(fechaInicio = null, { rutaId, cicloId, db = { query }, incluirEnviadas = true, proveedor = null } = {}) {
     try {
       console.log('📋 Generando reporte de faltantes por proveedor con mapping...', fechaInicio ? `desde ${fechaInicio}` : '');
 
@@ -21,9 +21,16 @@ class ReportService {
       let whereClause = `${faltanteOperativo()} AND ${cantidadSinEnviar()}>0`;
       const queryParams = [];
 
+      // Una revisión de envío ya identificó su ficha. Comprobar sus mismos
+      // orígenes y huella no necesita agrupar otra vez todos los proveedores.
+      if (proveedor?.id) {
+        queryParams.push(proveedor.id,proveedor.identificacion,proveedor.nombre);
+        whereClause += ` AND ${asignadoAlProveedor('$1','$2','$3')}`;
+      }
+
       if (fechaInicio) {
-        whereClause += ` AND fa.fecha >= $1::date`;
         queryParams.push(fechaInicio);
+        whereClause += ` AND fa.fecha >= $${queryParams.length}::date`;
       }
 
       const whereCiclo = [];
@@ -35,7 +42,15 @@ class ReportService {
         'anticipado',fa.preventa_anticipada,'cicloId',cr.id,'rutaId',cr.ruta_id,
         'rutaNombre',cr.ruta_nombre,'semana',cr.semana::text,'orden',rc.orden)
         ORDER BY cr.semana NULLS LAST,cr.id,rc.orden,fa.id,f.id) AS origenes`;
+      // Materializar sólo las facturas que tienen faltantes evita evaluar
+      // crédito/última impresión en miles de facturas ajenas a esta consulta.
       const sqlFaltantes = `
+        WITH facturas_candidatas AS MATERIALIZED (
+          SELECT fa.* FROM factura fa JOIN (
+            SELECT DISTINCT factura_propia_id FROM faltantes
+            WHERE estado='pendiente' AND tipo_faltante<>'completo' AND cantidad_faltante>0
+          ) pendientes ON pendientes.factura_propia_id=fa.id
+        )
         SELECT
          p.id as producto_id,          p.referencia as producto_codigo,          p.nombre as producto_nombre,          p.nombre as producto_nombre_actual,
           SUM(${cantidadSinEnviar()}) as total_faltante, ${origenes},
@@ -47,7 +62,7 @@ class ReportService {
           MAX(f.precio_asignado) as precio_asignado,
           MAX(f.asignacion_tipo) as asignacion_tipo,
           (MAX(m.id::text) FILTER (WHERE m.id IS NOT NULL))::uuid as mapping_id
-        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN factura fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id ${JOIN_CICLO('fa')}
+        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN facturas_candidatas fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id ${JOIN_CICLO('fa')}
         LEFT JOIN LATERAL (${fichaAsignada()}) pr ON true
         LEFT JOIN LATERAL (${mappingProveedor('p.id','pr.id',`COALESCE(pr.identificacion,${cedulaAsignada()})`)}) m ON true
         WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre, COALESCE(${cedulaAsignada()},upper(btrim(f.proveedor_asignado)))

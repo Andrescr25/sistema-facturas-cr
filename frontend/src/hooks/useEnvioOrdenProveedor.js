@@ -117,17 +117,34 @@ export function useEnvioOrdenProveedor({ proveedor, productos, preferirDatosProv
   const enviar = async () => {
     if (ocupado.current || revision.current || !activo || !proveedor || estado === 'incierto' || estado === 'confirmado') return
     setError('')
+    let copia
     try {
       let intento
       try { intento = leerIntento(claveStorage) }
       catch { throw new Error('No se pudo recuperar el envío anterior. Consultá su resultado antes de volver a enviar.') }
       if (intento) return await enviarIntento(intento, claveStorage, proveedor.nombre, contexto)
       const cuerpo = structuredClone({ ...cuerpoEnvioProveedor(proveedor, typeof productos === 'function' ? productos() : productos, preferirDatosProveedor), clave: crypto.randomUUID() })
-      const copia = { cuerpo, storage: claveStorage, contexto, nombre: proveedor.nombre }
+      copia = { cuerpo, storage: claveStorage, contexto, nombre: proveedor.nombre }
       revision.current = copia
-      await preparar(copia)
+      // Los contactos llegan antes de calcular el pedido/PDF. No esperar el
+      // bloqueo de compras para que la persona pueda ver o cambiar el número.
+      setModal({ nombre:copia.nombre,cargando:true })
+      const { data } = await api.get('/orden-compra/proveedor/contactos', { params:{proveedorId:proveedor.proveedor_id,cedula:proveedor.cedula,nombre:proveedor.nombre} })
+      if (!vivo.current || seleccion.current !== copia.contexto || revision.current !== copia) return
+      if (!data.success || typeof data.data?.mensaje !== 'string') throw new Error(data.message || 'No se pudieron consultar los contactos del proveedor.')
+      copia.telefono = data.data.telefono || ''
+      copia.telefonos = data.data.telefonos || []
+      copia.mensaje = data.data.mensaje
+      if (copia.telefono) await preparar(copia)
+      else {
+        copia.requiereTelefono = true
+        setModal({nombre:copia.nombre,telefono:'',telefonos:copia.telefonos,mensaje:copia.mensaje,cargando:false,requiereRevision:true})
+      }
     } catch (e) {
-      setError(e.message || 'No se pudo revisar el envío.')
+      if (vivo.current && seleccion.current === contexto && (!copia || revision.current === copia)) {
+        setError(e.response?.data?.message || e.message || 'No se pudo revisar el envío.')
+        revision.current = null; setModal(null)
+      }
     }
   }
 

@@ -5,6 +5,24 @@ const destino = { telefono: '50688888888', mensaje: 'Hola buenas, adjunto pedido
 const preparado = { data: { success: true, data: { orden: { id: 25 }, destino, envioEstado: 'preparado' } } };
 const confirmado = { data: { success: true, data: { orden: { id: 25 }, envioEstado: 'confirmado' } } };
 
+test('los números se muestran mientras el pedido sigue preparándose, sin habilitar transporte',async()=>{
+ let resolver;const m=montar({post:()=>new Promise(r=>{resolver=r})});
+ const pendiente=m.render().enviar();await Promise.resolve();
+ assert.equal(m.render().modal.telefono,'50688888888');assert.equal(m.render().modal.mensaje,destino.mensaje);assert.equal(m.render().modal.cargando,true);
+ await m.render().confirmarEnvio();assert.equal(m.almacen.size,0);resolver(preparado);await pendiente;
+});
+test('varios contactos cargan sin preparar PDF; sólo elegir y revisar inicia preparación',async()=>{
+ let posts=0;const m=montar({get:async()=>({data:{success:true,data:{...destino,telefono:'',telefonos:[{numero:'50688888888'},{numero:'50687777777'}]}}}),post:async()=>{posts++;return preparado}});
+ await m.render().enviar();assert.equal(posts,0);assert.equal(m.render().modal.telefonos.length,2);assert.equal(m.render().modal.requiereRevision,true);
+ await m.render().confirmarEnvio();assert.equal(posts,0);m.render().cambiarTelefono('8777 7777');await m.render().reintentarRevision();assert.equal(posts,1);
+});
+test('un fallo tardío de contactos tras cancelar no cierra el modal siguiente',async()=>{
+ const pendientes=[];const m=montar({get:()=>new Promise((resolve,reject)=>pendientes.push({resolve,reject})),post:async()=>preparado});
+ const vieja=m.render().enviar();m.render().cerrarModal();const nueva=m.render().enviar();
+ pendientes[1].resolve({data:{success:true,data:destino}});await nueva;pendientes[0].reject(Error('ZZ contactos antiguos'));await vieja;
+ assert.equal(m.render().modal.destino.telefono,destino.telefono);assert.equal(m.render().error,'');
+});
+
 test('abrir revisa el número/mensaje exactos del servidor sin enviar ni guardar una llave activa; cancelar no transporta', async () => {
   const llamadas = [], m = montar({ post: async (ruta, cuerpo) => { llamadas.push({ ruta, cuerpo }); return preparado; } });
   await m.render().enviar();
@@ -61,8 +79,10 @@ test('una respuesta tardía de otro proveedor no reemplaza el destino de la revi
   const pendientes = [];
   const m = montar({ post: (ruta, cuerpo) => new Promise(resolver => pendientes.push({ cuerpo, resolver })) });
   const vieja = m.render().enviar();
+  await Promise.resolve();
   const siguiente = { proveedor: { ...proveedor, proveedor_id: 2, nombre: 'zz-Otro proveedor' } };
   m.render(siguiente); const nueva = m.render(siguiente).enviar();
+  await Promise.resolve();
   pendientes[1].resolver({ data: { success: true, data: { destino: { telefono: '50689999999', mensaje: 'OC-26' } } } });
   await nueva; pendientes[0].resolver(preparado); await vieja;
   assert.equal(m.render(siguiente).modal.destino.telefono, '50689999999');
@@ -207,6 +227,7 @@ test('editar un destino revisado conserva su cuerpo anterior y exige una nueva U
 test('editar durante una preparación descarta la respuesta tardía del teléfono anterior', async () => {
   const pendientes = [], m = montar({ post: (ruta, cuerpo) => new Promise(resolver => pendientes.push({ cuerpo: structuredClone(cuerpo), resolver })) });
   const anterior = m.render().enviar();
+  await Promise.resolve();
   m.render().cambiarTelefono('8777 7777'); const actual = m.render().reintentarRevision();
   pendientes[1].resolver({ data: { success: true, data: { destino: { ...destino, telefono: '50687777777', telefonos } } } });
   await actual; pendientes[0].resolver(preparado); await anterior;

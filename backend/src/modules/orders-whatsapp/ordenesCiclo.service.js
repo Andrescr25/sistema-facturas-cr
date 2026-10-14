@@ -35,21 +35,26 @@ async function contextoEn(db,cicloId,{ activo=true }={}) {
   if (activo && ['cerrado','cancelado'].includes(c.estado)) throw httpError(409,'Ese ciclo está cerrado o cancelado; no admite compras nuevas.');
   return c;
 }
-async function proveedorEn(db,id,{ activo=true,bloquear=true }={}) {
-  const {rows:[p]}=await db.query(`SELECT id,nombre,identificacion,activo FROM proveedor WHERE id=$1 ${bloquear?'FOR SHARE':''}`,[id]);
+function proveedorValido(p,{activo=true}={}) {
   if (!p) throw httpError(404,'No existe la ficha propia del proveedor.');
   if (activo && !p.activo) throw httpError(409,'El proveedor está inactivo.');
   return p;
+}
+async function proveedorEn(db,id,{ activo=true,bloquear=true,contactos=false }={}) {
+  const {rows:[p]}=await db.query(`SELECT id,nombre,identificacion,activo${contactos?',telefono_whatsapp,telefono':''} FROM proveedor WHERE id=$1 ${bloquear?'FOR SHARE':''}`,[id]);
+  return proveedorValido(p,{activo});
 }
 async function resolverProveedorEn(db,{ proveedorId,cedula,nombre }={},opciones={}) {
   if (proveedorId!=null) return proveedorEn(db,entero(proveedorId),opciones);
   if (cedula!=null && (typeof cedula!=='string' || cedula.length>20)) throw httpError(400,'Cédula inválida.');
   if (nombre!=null && (typeof nombre!=='string' || nombre.length>200)) throw httpError(400,'Nombre inválido.');
   let rows;
-  if (cedula?.trim() && cedula!=='SIN_PROVEEDOR') ({rows}=await db.query('SELECT id FROM proveedor WHERE identificacion=$1',[cedula.trim()]));
-  else if (nombre?.trim() && nombre!=='Sin_Proveedor') ({rows}=await db.query('SELECT id FROM proveedor WHERE lower(btrim(nombre))=lower(btrim($1)) LIMIT 2',[nombre]));
+  const campos=opciones.contactos?'id,nombre,identificacion,activo,telefono_whatsapp,telefono':'id';
+  if (cedula?.trim() && cedula!=='SIN_PROVEEDOR') ({rows}=await db.query(`SELECT ${campos} FROM proveedor WHERE identificacion=$1`,[cedula.trim()]));
+  else if (nombre?.trim() && nombre!=='Sin_Proveedor') ({rows}=await db.query(`SELECT ${campos} FROM proveedor WHERE lower(btrim(nombre))=lower(btrim($1)) LIMIT 2`,[nombre]));
   if (!rows?.length) throw httpError(409,'Guardá primero la ficha de este proveedor; no se puede crear una orden por un nombre sin ficha.');
   if (rows.length!==1) throw httpError(409,'Hay varias fichas con ese nombre. Identificá al proveedor por su cédula.');
+  if (opciones.contactos && opciones.bloquear===false) return proveedorValido(rows[0],opciones);
   return proveedorEn(db,rows[0].id,opciones);
 }
 async function necesidadesEn(db,p,cicloId,excluirOrden=null,{ bloquear=false,sinCiclos=false }={}) {
@@ -113,23 +118,8 @@ async function sugerir(filtros) {
       productos:agrupar(await necesidadesEn(db,p,cicloId))};});
 }
 async function reemplazarLineaEn(db,o,l,producto,previa) {
-    if (!producto || producto.disponible<=0) throw httpError(409,'Un producto ya no tiene faltantes libres. Revisá la orden.');
-    // Al editar, conservar la conversión y los códigos que la persona revisó.
-    // Un cambio posterior del maestro/mapeo no modifica la orden guardada.
-    const factor=previa?.factor_conversion??producto.factorConversion;
-    if (!Number.isFinite(factor)||factor<0.000001||factor>1000000) throw httpError(409,'Corregí la conversión del producto antes de preparar su orden.');
-    const {rows:[n]}=await db.query(`INSERT INTO orden_compra_ciclo_linea(orden_id,producto_id,producto_nombre,codigo_interno,codigo_proveedor,nombre_proveedor,mapping_id,factor_conversion,cantidad_proveedor)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id,cantidad_propia`,[o.id,l.productoId,previa?.producto_nombre??producto.nombre,
-      previa?previa.codigo_interno:producto.codigo,previa?previa.codigo_proveedor:producto.codigoProveedor,
-      previa?previa.nombre_proveedor:producto.nombreProveedor,previa?previa.mapping_id:producto.mappingId,factor,l.cantidadProveedor]);
-    let disponible=micros(n.cantidad_propia);
-    for (const f of producto.origenes) {
-      const libre=micros(f.disponible),cantidad=disponible<libre?disponible:libre;
-      if (cantidad<=0n) continue;
-      await db.query(`INSERT INTO orden_compra_ciclo_origen(linea_id,faltante_id,factura_id,factura_numero,cliente_id,cliente_nombre,orden_visita,anticipado,cantidad)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[n.id,f.faltanteId,f.facturaId,f.numero,f.cliente_id,f.cliente_nombre,f.orden,f.preventa_anticipada,cantidadDe(cantidad)]);
-      disponible-=cantidad;
-    }
+  const [linea]=await require('./ordenesCicloLineas.service').insertarLineasEn(db,o,[{l,producto,previa}]);
+  return linea;
 }
 async function reemplazarLineasEn(db,o,lineas,p,{sinCiclos=o.ciclo_id==null}={}) {
   const productos=agrupar(await necesidadesEn(db,p,o.ciclo_id,o.id,{bloquear:true,sinCiclos}));

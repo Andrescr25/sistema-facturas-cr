@@ -82,6 +82,13 @@ los contactos permanentes se gestionan en la ficha. Con varios contactos se
 elige uno explícitamente. El número revisado se conserva al confirmar y en
 reintentos; elegir otro prepara una copia nueva antes de enviar.
 
+**Rendimiento, solicitud posterior del mismo día:** optimizar consultas de
+asignación de productos y carga de números. Probar/publicar primero sólo en
+developer, sin enviar este cambio a main. El usuario permite inspeccionar la
+base de producción únicamente en lectura; pruebas de escritura en copias
+locales. Esta restricción de destino sustituye la autorización anterior de
+publicar directamente a main para esta optimización.
+
 ## Decisiones anteriores que siguen vigentes
 
 - **Inventario y auditorías desde cero.** El físico está desordenado: iniciar

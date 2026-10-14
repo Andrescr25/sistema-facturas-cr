@@ -8,7 +8,7 @@ const { validarTelefonoProveedor } = require('../../utils/telefonosProveedor');
 const { salidasBloqueadas, errorSalidaBloqueada } = require('../../../config/aislado');
 const motor = require('./ordenesCiclo.service');
 const envio = require('./ordenesCicloEnvio.service');
-const { enOrden, obtenerEn, resolverProveedorEn, entero, necesidadesEn, agrupar, reemplazarLineaEn, micros } = motor.interno;
+const { enOrden, obtenerEn, resolverProveedorEn, entero, necesidadesEn, agrupar, micros } = motor.interno;
 const { mappingProveedor } = require('../reports/proveedorCompra.sql');
 
 const uuid = v => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(v);
@@ -66,7 +66,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
     if (soloPreparar) return { destinoPendiente:{telefono:'',mensaje:envio.mensajePredeterminado,telefonos:candidatos} };
     throw httpError(409,'Elegí o escribí un número de WhatsApp antes de enviar.');
   }
-  const reporte = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false,asignarProveedores:false});
+  const reporte = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false,proveedor:p});
   if (!reporte.success) throw httpError(503,'No se pudieron comprobar los faltantes. No se inició el envío.');
   // La asignación antigua puede tener sólo nombre aunque su ficha sí tenga
   // cédula. Conservar el identificador público del reporte también conserva
@@ -81,7 +81,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   await db.query('SELECT id FROM factura WHERE id=ANY($1::int[]) ORDER BY id FOR SHARE',[facturas]);
   const faltantes = actual.productos_faltantes.flatMap(l => l.origenes.map(r => r.faltanteId));
   await db.query('SELECT id FROM faltantes WHERE id=ANY($1::int[]) ORDER BY id FOR UPDATE',[faltantes]);
-  const vigente = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false});
+  const vigente = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false,proveedor:p});
   if (!vigente.success || vigente.data.find(r => r.id === actual.id)?.revisionReporte !== datos.revisionReporte) throw httpError(409,'Los faltantes cambiaron mientras se revisaban. Actualizá el reporte.');
   await require('./reservasBorradorReporte.service').liberarReasignadasEn(db,p.id,faltantes,actor);
   const { rows:abiertas } = await db.query(`SELECT * FROM orden_compra_ciclo WHERE proveedor_id=$1
@@ -102,7 +102,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   await limpiarBorradorEn(db,o);
   const visibles = new Set(actual.productos_faltantes.flatMap(l => l.origenes.map(r => r.faltanteId)));
   const fuentes = agrupar((await necesidadesEn(db,p,null,o.id,{bloquear:true,sinCiclos:true})).filter(r => visibles.has(r.faltanteId)));
-  const vistos = new Set();
+  const vistos = new Set(),entradas=[];
   for (const l of datos.productos) {
     const manual = l.agregadoManual === true;
     let origen = manual ? await productoManualEn(db,p,l) : fuentes.find(f => f.productoId === entero(l.productoId));
@@ -124,10 +124,10 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
     const q = entero(manual ? esperada : l.cantidad,'Cantidad a pedir',1000000);
     if (!manual && Number(l.factorConversion) !== origen.factorConversion) throw httpError(409,'La conversión del proveedor cambió. Actualizá antes de enviar.');
     if (!manual && esperada !== q) throw httpError(400,'La cantidad del pedido no coincide con las unidades revisadas.');
-    if (manual) await db.query(`INSERT INTO orden_compra_ciclo_linea(orden_id,producto_id,producto_nombre,codigo_interno,codigo_proveedor,nombre_proveedor,mapping_id,factor_conversion,cantidad_proveedor)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[o.id,origen.productoId,origen.nombre,origen.codigo,origen.codigoProveedor,origen.nombreProveedor,origen.mappingId,origen.factorConversion,q]);
-    else await reemplazarLineaEn(db,o,{productoId:origen.productoId,cantidadProveedor:q},origen);
+    entradas.push({l:{productoId:origen.productoId,cantidadProveedor:q},
+      producto:manual?{...origen,disponible:propia,origenes:[]}:origen});
   }
+  await require('./ordenesCicloLineas.service').insertarLineasEn(db,o,entradas);
   await db.query("UPDATE orden_compra_ciclo SET estado='pendiente_enviar',version=version+1,actualizado_en=NOW() WHERE id=$1",[o.id]);
   o = await obtenerEn(db,o.id);
   const mensaje = envio.mensajePredeterminado;

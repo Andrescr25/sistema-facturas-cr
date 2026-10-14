@@ -4,6 +4,10 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - docs/informes/proveedores-rendimiento-2026-10-14.md
+  - backend/src/modules/orders-whatsapp/destinoProveedor.service.js
+  - backend/src/modules/orders-whatsapp/ordenesCicloLineas.service.js
+  - backend/tests/proveedoresRendimiento.test.js
   - docs/informes/proveedores-telefonos-2026-10-14.md
   - backend/migrations/independencia/059_telefonos_whatsapp_proveedor.sql
   - backend/src/modules/proveedores/proveedores.maestro.service.js
@@ -67,6 +71,17 @@ medido: 2026-10-14
 ---
 
 ## Corrección vigente — 2026-10-14
+
+**Rendimiento, sólo developer:** GET /proveedor/contactos lee la ficha en
+una consulta, sin advisory de compras, faltantes ni PDF. El modal muestra
+números/mensaje mientras se prepara la copia; cero/varios contactos sólo
+requieren elegir/revisar, sin preparar previamente. La confirmación sigue
+requiriendo la copia exacta; una respuesta tardía no pisa otra selección.
+Acumular faltantes lee disponibilidad dos veces por proveedor bajo los
+bloqueos existentes e inserta líneas/orígenes en lotes. La revisión de envío
+consulta únicamente su proveedor, con los mismos orígenes/huella y relectura
+tras bloquear. El reporte materializa sólo facturas con faltantes, sin
+examinar última impresión/créditos de todas las ventas. [Mediciones y límites](../../informes/proveedores-rendimiento-2026-10-14.md).
 
 **Varios destinos, solicitud posterior:** la ficha permite añadir/quitar
 hasta diez números. SQL059 ensancha telefono_whatsapp a TEXT; conserva el

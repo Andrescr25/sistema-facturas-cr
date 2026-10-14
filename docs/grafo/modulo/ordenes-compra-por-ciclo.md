@@ -4,6 +4,10 @@ tipo: modulo
 titulo: Órdenes por proveedor — envío inmutable, origen e historia conservada
 estado: vigente
 archivos:
+  - backend/src/modules/orders-whatsapp/destinoProveedor.service.js
+  - backend/src/modules/orders-whatsapp/ordenesCicloLineas.service.js
+  - backend/tests/proveedoresRendimiento.test.js
+  - docs/informes/proveedores-rendimiento-2026-10-14.md
   - backend/migrations/independencia/059_telefonos_whatsapp_proveedor.sql
   - backend/src/utils/telefonosProveedor.js
   - docs/informes/proveedores-telefonos-2026-10-14.md
@@ -55,6 +59,14 @@ medido: 2026-10-14
 ---
 
 ## Envío desde el reporte — 2026-10-14
+
+Optimización posterior limitada a developer: contactos en lectura independiente
+sin advisory ni preparación, para mostrar el número de inmediato. Preparar
+mantiene bloqueos/versiones/huella; cantidades se insertan en dos consultas de
+lote usando las mismas restricciones de PostgreSQL y aritmética de micros.
+La acumulación lee necesidades por proveedor, no por cada línea; mantiene
+el límite500 y reserva cada origen una vez. Un rechazo revierte todo el lote.
+No modifica enviada/incierta ni reintentos guardados. Sin SQL nuevo.
 
 Solicitud posterior: varios WhatsApp en la ficha, uno elegido por envío.
 Sin contacto único ni número explícito, /revisar-envio devuelve opciones y

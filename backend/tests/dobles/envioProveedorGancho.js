@@ -12,6 +12,7 @@ const producto = { productoId: 7, codigoInterno: 'zz-A', nombreInterno: 'zz-Prod
  * navegador, mensajes ni base: interesa no crear otro envío al perder la
  * respuesta, incluso recreando el gancho con la misma sesión de la pestaña. */
 function montar(api, almacen = new Map()) {
+  api = { get:async()=>({data:{success:true,data:{telefono:'50688888888',telefonos:[],mensaje:'Hola buenas, adjunto pedido\ngracias'}}}), ...api };
   const slots = [], efectos = [];
   let indice = 0, serial = 0;
   const useState = inicial => {
