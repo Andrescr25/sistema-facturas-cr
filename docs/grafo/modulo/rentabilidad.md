@@ -20,10 +20,15 @@ archivos:
   - backend/tests/rentabilidad.test.js
   - backend/tests/rentabilidadFormato.test.js
   - backend/tests/rotacionVentas.test.js
+  - backend/tests/rotacionMensual.test.js
+  - backend/src/modules/rentabilidad/rentabilidad.excel.js
+  - frontend/src/components/rentabilidad/ListaProductos.jsx
+  - frontend/src/components/rentabilidad/DetalleProducto.jsx
+  - docs/informes/rotacion-productos-2026-10-14.md
 aristas:
   depende_de: [tabla/venta-linea]
   relacionado: [leccion/precio-sin-iva-costo-con-iva, leccion/un-borrador-no-es-una-venta, modulo/catalogo-agente, modulo/gestion-catalogo, modulo/exportaciones-reportes, modulo/relacionar-productos]
-medido: 2026-10-03
+medido: 2026-10-14
 ---
 
 Rehecho el 2026-09-25 a pedido del usuario: una sola pantalla, sin pestañas
@@ -47,6 +52,19 @@ de un producto NO abre su detalle: aceptar los dos espacios habría abierto
 otro producto en silencio el día que coincidan los números.
 
 DE DÓNDE SALE CADA CIFRA
+
+**Promedio mensual, aclaración del usuario 2026-10-14:** unidades vendidas
+en los últimos **tres meses calendario completos / 3**, incluidos meses sin
+ventas. En octubre se promedian julio, agosto y septiembre; octubre entra
+en noviembre. La fórmula previa dividía una ventana móvil entre tres, que
+incluía parte del mes en curso. Rentabilidad pide ahora
+`rotacionPorProducto({ promedioMesesCompletos: true })`. El SQL lee ambas
+ventanas en una sola consulta; filtros de agregación conservan los totales,
+semanas, facturas, clientes y Pareto vigentes. Incluye productos que sólo
+vendieron al inicio del primer mes completo, aunque su total móvil sea cero.
+La tarjeta y el detalle destacan **Promedio mensual / Últimos 3 meses
+completos**; el Excel exporta la misma cifra. Catálogo y el motor de precios
+conservan sus ventanas anteriores. [Pruebas y límites](../../informes/rotacion-productos-2026-10-14.md).
 
 - **Margen de hoy**: `clasificarProducto` (`precios/auditoria.js`), con la
   tarifa real del producto y, si la ficha no tiene costo, el de las compras.

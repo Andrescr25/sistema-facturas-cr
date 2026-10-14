@@ -44,11 +44,23 @@ const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
  *
  * unidades_semana divide entre las semanas REALES de la ventana (3 meses
  * son entre 89 y 92 días), no entre 13 fijas.
+ * Con promedioMesesCompletos, sólo unidades_mes usa los meses calendario
+ * cerrados anteriores. Los demás campos conservan la ventana móvil.
  */
-function sqlRotacion(meses = VENTANA_MESES) {
+function sqlRotacion(meses = VENTANA_MESES, { promedioMesesCompletos = false } = {}) {
   const n = Number(meses);
   if (!Number.isInteger(n) || n < 1 || n > 36) throw new Error(`Ventana de rotación inválida: ${meses}`);
   const inicio = `(${HOY_CR} - INTERVAL '${n} months')::date`;
+  const mesActual = `date_trunc('month', ${HOY_CR})::date`;
+  const inicioPromedio = `(${mesActual} - INTERVAL '${n} months')::date`;
+  // Rentabilidad pide meses cerrados para el promedio mensual. Leer desde
+  // su inicio permite contar también un mes sin ventas como cero, sin mover
+  // la ventana vigente de totales, semanas, clientes ni Pareto.
+  const filtroVigente = promedioMesesCompletos ? ` FILTER (WHERE fecha > ${inicio})` : '';
+  const suma = (columna) => promedioMesesCompletos
+    ? `COALESCE(SUM(${columna})${filtroVigente}, 0)` : `SUM(${columna})`;
+  const cantidad = suma('cantidad');
+  const promedio = promedioMesesCompletos ? 'v.unidades_meses_completos' : 'v.unidades';
   return `
   SELECT v.producto_id,
          pr.alegra_id AS alegra_item_id,
@@ -59,26 +71,28 @@ function sqlRotacion(meses = VENTANA_MESES) {
          -- Como texto: un DATE llega a Node como medianoche LOCAL y, en JSON,
          -- cambia de día según la zona del servidor.
          v.ultima_venta::text AS ultima_venta,
-         ROUND(v.unidades / ${n}.0, 2) AS unidades_mes,
+         ROUND(${promedio} / ${n}.0, 2) AS unidades_mes,
          ROUND(v.unidades / ((${HOY_CR} - ${inicio}) / 7.0), 2) AS unidades_semana,
          CASE
+           WHEN v.unidades = 0 THEN 'C'
            WHEN (v.acumulado - v.unidades) < ${CORTE_A} * v.total THEN 'A'
            WHEN (v.acumulado - v.unidades) < ${CORTE_B} * v.total THEN 'B'
            ELSE 'C'
          END AS clase
     FROM (
       SELECT producto_id,
-             SUM(cantidad) AS unidades,
+             ${cantidad} AS unidades,
+             ${promedioMesesCompletos ? `COALESCE(SUM(cantidad) FILTER (WHERE fecha < ${mesActual}), 0) AS unidades_meses_completos,` : ''}
              -- Lo vendido SIN IVA, con el descuento de la línea ya restado.
-             SUM(importe) AS ventas,
-             COUNT(DISTINCT factura_id) AS facturas,
-             COUNT(DISTINCT cliente_id) AS clientes_distintos,
-             MAX(fecha) AS ultima_venta,
-             SUM(SUM(cantidad)) OVER (ORDER BY SUM(cantidad) DESC, producto_id
+             ${suma('importe')} AS ventas,
+             COUNT(DISTINCT factura_id)${filtroVigente} AS facturas,
+             COUNT(DISTINCT cliente_id)${filtroVigente} AS clientes_distintos,
+             MAX(fecha)${filtroVigente} AS ultima_venta,
+             SUM(${cantidad}) OVER (ORDER BY ${cantidad} DESC, producto_id
                                       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS acumulado,
-             SUM(SUM(cantidad)) OVER () AS total
+             SUM(${cantidad}) OVER () AS total
         FROM venta_linea
-       WHERE fecha > ${inicio}
+       WHERE fecha ${promedioMesesCompletos ? `>= ${inicioPromedio}` : `> ${inicio}`}
          AND fecha <= ${HOY_CR}
          AND producto_id IS NOT NULL
        GROUP BY producto_id
@@ -115,8 +129,9 @@ function aFila(r) {
 }
 
 /** La rotación de todos los productos vendidos en la ventana, por `producto.id`. */
-async function rotacionPorProducto() {
-  const { rows } = await query(SQL_ROTACION);
+async function rotacionPorProducto({ promedioMesesCompletos = false } = {}) {
+  const sql = promedioMesesCompletos ? sqlRotacion(VENTANA_MESES, { promedioMesesCompletos }) : SQL_ROTACION;
+  const { rows } = await query(sql);
   return new Map(rows.map((r) => [Number(r.producto_id), aFila(r)]));
 }
 

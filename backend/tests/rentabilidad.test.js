@@ -47,10 +47,12 @@ const ROTACION = new Map([
 ]);
 
 let pedidasSeries;
+let opcionesRotacion;
 
 function cargar() {
   for (const r of [rutaDb, rutaCostos, rutaRotacion, rutaEstadisticas, rutaServicio]) delete require.cache[r];
   pedidasSeries = [];
+  opcionesRotacion = null;
   // Esta base local ES producción: nada de este archivo llega a la real.
   const query = async (sql) => {
     // En esta rama los productos salen del maestro propio (`producto`).
@@ -61,7 +63,7 @@ function cargar() {
   const doble = (ruta, exports) => { require.cache[ruta] = { id: ruta, filename: ruta, loaded: true, exports }; };
   doble(rutaDb, { query });
   doble(rutaCostos, { obtenerCostosDerivados: async () => COSTOS_DERIVADOS });
-  doble(rutaRotacion, { HOY_CR: 'HOY', VENTANA_MESES: 3, rotacionPorProducto: async () => ROTACION });
+  doble(rutaRotacion, { HOY_CR: 'HOY', VENTANA_MESES: 3, rotacionPorProducto: async (opciones) => { opcionesRotacion = opciones; return ROTACION; } });
   doble(rutaEstadisticas, { series: async (id) => { pedidasSeries.push(id ?? null); return { semanas: [] }; } });
   return require(rutaServicio);
 }
@@ -78,6 +80,12 @@ beforeEach(() => { COSTOS_DERIVADOS = new Map(); s = cargar(); });
 const porId = (lista) => Object.fromEntries(lista.map((p) => [p.productoId, p]));
 
 describe('el margen y la ganancia de cada producto', () => {
+  test('Rentabilidad pide el promedio de meses completos y muestra la cifra del cálculo', async () => {
+    const p = porId((await s.listarProductos()).data);
+    assert.deepEqual(opcionesRotacion, { promedioMesesCompletos: true });
+    assert.equal(p[101].unidadesMes, 33.33);
+    assert.equal(p[101].unidades, 100);
+  });
   test('el margen usa la tarifa real: el exento no se divide entre 1,13', async () => {
     const p = porId((await s.listarProductos()).data);
     assert.equal(p[101].margen, 40);

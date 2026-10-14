@@ -6,7 +6,8 @@ const columnasProducto = [c('productoId', 'ID producto'), c('referencia', 'Códi
   c('categoria', 'Categoría', 'texto', 25), c('subcategoria', 'Subcategoría', 'texto', 25), c('tarifa', 'IVA', 'porcentaje'),
   c('precio', 'Precio sin IVA', 'moneda'), c('precioConIva', 'Precio con IVA', 'moneda'), c('costoSinIva', 'Costo sin IVA', 'moneda'),
   c('origenCosto', 'Origen del costo', 'texto'), c('calidadCosto', 'Calidad del costo', 'texto'), c('margen', 'Margen de hoy', 'porcentaje'),
-  c('clase', 'Rotación', 'texto'), c('unidades', 'Unidades en 3 meses'), c('ventas', 'Ventas sin IVA · 3 meses', 'moneda', 25),
+  c('clase', 'Rotación', 'texto'), c('unidadesMes', 'Promedio mensual · 3 meses completos', 'numero', 36),
+  c('unidades', 'Unidades en 3 meses'), c('ventas', 'Ventas sin IVA · 3 meses', 'moneda', 25),
   c('ganancia', 'Ganancia estimada · 3 meses', 'moneda', 27), c('facturas', 'Facturas'), c('clientes', 'Clientes'),
   c('ultimaVenta', 'Última venta', 'fecha')];
 

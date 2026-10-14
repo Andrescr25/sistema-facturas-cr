@@ -43,6 +43,13 @@ siguen en [checklist de independencia](checklist-independencia-alegra.md).
 
 ## Corrección prioritaria — 2026-10-14
 
+**Rotación de productos, ajuste posterior del día:** el usuario aclara que
+la rotación mensual en **Rentabilidad** debe ser la media de unidades
+vendidas por mes. Confirma usar los **últimos 3 meses completos**: sumar las
+ventas de esos tres meses y dividir entre tres, contando los meses sin
+ventas como cero. Excluir el mes en curso, que aún no es comparable con un
+mes cerrado. La tarjeta y el detalle deben explicar ese período.
+
 Reporte Proveedores conserva solo Faltantes y fichas. Excluir facturas listas
 de Reporte Clientes y procedencia falsa. Nuevos faltantes Sin enviar arriba;
 cada orden enviada abajo, tachada y con su fotografía conservada. El detalle

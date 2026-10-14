@@ -69,7 +69,9 @@ async function calcularCatalogo() {
        WHERE p.activo = TRUE AND p.oculto = FALSE
     `),
     obtenerCostosDerivados(),
-    rotacion.rotacionPorProducto()
+    // El mes en curso no es comparable con un mes cerrado. Su acumulado
+    // sigue en ventas/totales; la media mensual usa tres meses completos.
+    rotacion.rotacionPorProducto({ promedioMesesCompletos: true })
   ]);
 
   return productos.rows.map((p) => {
