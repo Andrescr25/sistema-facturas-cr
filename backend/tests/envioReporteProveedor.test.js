@@ -193,3 +193,48 @@ caso('saldo 0.14 más extra entero1 se compara con aritmética exacta al enviar'
   const r=await s.enviar(datos);assert.equal(r.orden.lineas[0].cantidad_proveedor,3);
   assert.equal(r.orden.lineas[0].origenes.reduce((t,o)=>t+Number(o.cantidad),0),.14);
 });
+caso('reserva de borrador del proveedor anterior no bloquea el faltante reasignado que se revisó',async()=>{
+  await guardar(0,10);await guardar(1,5);let vieja=await motor.obtener((await motor.listar({proveedorId:f.p.id}))[0].id);
+  vieja=await motor.cambiarEstado(vieja.id,{version:vieja.version,estado:'pendiente_enviar'});
+  vieja=await env.preparar(vieja.id,{version:vieja.version,clave:randomUUID(),telefono:'88888888',mensaje:`ZZ ${vieja.referencia}`});
+  const pdf=await env.descargar(vieja.id,vieja.envios[0].id);
+  const p=(await c.query("INSERT INTO proveedor(nombre,identificacion,telefono_whatsapp) VALUES($1,$2,'88888888') RETURNING *",['ZZ nuevo '+randomUUID(),randomUUID().slice(0,18)])).rows[0];
+  await c.query(`INSERT INTO supplier_product_mapping(supplier_name,supplier_cedula,supplier_code,supplier_desc,alegra_item_id,alegra_name,producto_id,proveedor_id,factor_conversion)
+    VALUES($1,$2,'ZZ nuevo código','ZZ nuevo nombre','','',$3,$4,1)`,[p.nombre,p.identificacion,f.productos[0],p.id]);
+  await c.query('UPDATE faltantes SET proveedor_asignado=$2,proveedor_cedula=$3 WHERE factura_propia_id=$1 AND producto_propio_id=$4',[f.facturas[0],p.nombre,p.identificacion,f.productos[0]]);
+  const r=await reportes.getMissingItemsBySupplier(null,{db,incluirEnviadas:false}),actual=r.data.find(a=>a.cedula===p.identificacion);
+  assert.equal(actual.productos_faltantes[0].cantidad_faltante,10);
+  const datos={clave:randomUUID(),proveedorId:p.id,cedula:actual.cedula,nombre:actual.nombre,revisionReporte:actual.revisionReporte,fechaInicio:null,
+    productos:actual.productos_faltantes.map(l=>({productoId:l.producto_id,cantidad:10,cantidadOriginal:10,factorConversion:1}))};
+  const enviado=await s.enviar(datos);assert.equal(enviado.envioEstado,'confirmado');assert.equal(envios,1);
+  assert.equal(enviado.orden.lineas[0].cantidad_proveedor,10);assert.notEqual(enviado.orden.id,vieja.id);
+  assert.equal(enviado.orden.lineas[0].origenes.reduce((s,o)=>s+Number(o.cantidad),0),10);
+  const historica=await motor.obtener(vieja.id);assert.equal(historica.estado,'cerrada');assert.deepEqual(historica.lineas,vieja.lineas);assert.deepEqual(historica.envios,vieja.envios);
+  assert.deepEqual((await env.descargar(vieja.id,vieja.envios[0].id)).pdf,pdf.pdf);
+  const vigente=await reporte();assert.equal(vigente.productos_faltantes.length,1);assert.equal(vigente.productos_faltantes[0].producto_id,f.productos[1]);assert.equal(vigente.productos_faltantes[0].cantidad_faltante,5);
+});
+caso('un rechazo después de revisar no cancela el borrador anterior ni registra un envío',async()=>{
+  await guardar(0,10);const vieja=await motor.obtener((await motor.listar({proveedorId:f.p.id}))[0].id);
+  const p=(await c.query("INSERT INTO proveedor(nombre,identificacion,telefono_whatsapp) VALUES($1,$2,'88888888') RETURNING *",['ZZ rechazo '+randomUUID(),randomUUID().slice(0,18)])).rows[0];
+  await c.query('UPDATE faltantes SET proveedor_asignado=$2,proveedor_cedula=$3 WHERE factura_propia_id=$1',[f.facturas[0],p.nombre,p.identificacion]);
+  const r=await reportes.getMissingItemsBySupplier(null,{db,incluirEnviadas:false}),actual=r.data.find(a=>a.cedula===p.identificacion);
+  const datos={clave:randomUUID(),proveedorId:p.id,cedula:actual.cedula,nombre:actual.nombre,revisionReporte:actual.revisionReporte,fechaInicio:null,
+    productos:actual.productos_faltantes.map(l=>({productoId:l.producto_id,cantidad:10,cantidadOriginal:0,factorConversion:1}))};
+  await assert.rejects(s.enviar(datos),e=>e.status===400);assert.equal(envios,0);assert.deepEqual(await motor.obtener(vieja.id),vieja);
+});
+caso('cobertura enviada o incierta permanece intacta tras reasignar; sólo se compra el saldo nuevo',async()=>{
+  for(const incierto of [false,true]){
+    await c.query('SAVEPOINT reasignacion_enviada');
+    try{
+      await guardar(0,10);wa.enviarDocumento=async d=>{envios++;if(incierto)throw Error('ZZ incierto');return{enviado:true,numero:d.telefono,via:'interno'}};
+      const enviada=await s.enviar(await pedido()),antes=await motor.obtener(enviada.orden.id);
+      const p=(await c.query("INSERT INTO proveedor(nombre,identificacion,telefono_whatsapp) VALUES($1,$2,'88888888') RETURNING *",['ZZ destino '+randomUUID(),randomUUID().slice(0,18)])).rows[0];
+      await c.query('UPDATE faltantes SET cantidad_faltante=15,proveedor_asignado=$2,proveedor_cedula=$3 WHERE factura_propia_id=$1',[f.facturas[0],p.nombre,p.identificacion]);
+      const r=await reportes.getMissingItemsBySupplier(null,{db,incluirEnviadas:false}),actual=r.data.find(a=>a.cedula===p.identificacion);assert.equal(actual.productos_faltantes[0].cantidad_faltante,5);
+      wa.enviarDocumento=async d=>{envios++;return{enviado:true,numero:d.telefono,via:'interno'}};
+      const nueva=await s.enviar({clave:randomUUID(),proveedorId:p.id,cedula:actual.cedula,nombre:actual.nombre,revisionReporte:actual.revisionReporte,fechaInicio:null,
+        productos:actual.productos_faltantes.map(l=>({productoId:l.producto_id,cantidad:5,cantidadOriginal:5,factorConversion:1}))});
+      assert.equal(nueva.orden.lineas[0].cantidad_proveedor,5);assert.deepEqual(await motor.obtener(antes.id),antes);
+    }finally{await c.query('ROLLBACK TO SAVEPOINT reasignacion_enviada')}
+  }
+});

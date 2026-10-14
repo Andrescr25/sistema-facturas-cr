@@ -56,6 +56,10 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
 - [x] RP-08 — Ediciones ligadas al reporte revisado, descartadas tras cambiar
   origen/fecha; prueba de un envío fuera del filtro permite la compra nueva
   conservando bloqueados el PDF, cuerpo y UUID anteriores.
+- [x] RP-09 — 409 por reserva obsoleta de otro proveedor: cierre transaccional
+  sólo de borradores/pendientes sin envío que conservaban faltantes reasignados;
+  líneas/PDF históricos y necesidades restantes conservados. Identidad/mapping
+  legados coherentes, sin cambiar las claves de intentos guardados.
 
 Evidencia local y estado de publicación: [corrección de proveedores](informes/proveedores-correccion-2026-10-14.md). No modifica los pendientes ROT-06/07/08.
 

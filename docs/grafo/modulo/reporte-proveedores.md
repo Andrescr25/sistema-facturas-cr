@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - backend/src/modules/orders-whatsapp/reservasBorradorReporte.service.js
+  - frontend/src/services/api.js
+  - docs/informes/proveedores-envio-409-2026-10-14.md
   - backend/src/modules/reports/proveedorCompra.sql.js
   - backend/tests/identidadEnvioProveedor.test.js
   - backend/src/modules/orders-whatsapp/temporalesProveedor.service.js
@@ -51,6 +54,16 @@ medido: 2026-10-14
 ---
 
 ## Corrección vigente — 2026-10-14
+
+**409 al enviar, confirmado después de la entrega:** «Un producto ya no tiene
+faltantes libres». Un borrador de otro proveedor podía conservar la reserva de
+un faltante reasignado: GET lo mostraba actual, pero preparar descontaba esa
+reserva obsoleta. Al revisar el envío se cierran sólo los borradores/pendientes
+que retienen esos orígenes, sin envío ni intento activo, conservando líneas,
+orígenes y PDF. Sus demás productos siguen pendientes para revisión; un fallo
+posterior revierte el cierre. Nunca libera una enviada o incierta. La consola
+ahora conserva el motivo real del servidor, en lugar del rótulo de Axios.
+[Reproducción y verificación](../../informes/proveedores-envio-409-2026-10-14.md).
 
 El reporte muestra necesidades **actuales sin enviar**, no el histórico resuelto:
 solo faltantes pendientes de facturas vigentes con el producto en sus líneas.

@@ -73,7 +73,9 @@ api.interceptors.response.use(
   (error) => {
     console.error('API Response Error:', {
       status: error.response?.status,
-      message: error.message,
+      // Un409 contiene el motivo de negocio (reporte cambiado, ficha o
+      // teléfono). El rótulo de Axios ocultaba esa explicación en consola.
+      message: error.response?.data?.message || error.message,
       url: error.config?.url
     })
     

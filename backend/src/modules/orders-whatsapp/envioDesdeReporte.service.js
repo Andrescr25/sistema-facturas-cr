@@ -71,6 +71,7 @@ async function revisarEn(db,datos,actor) {
   await db.query('SELECT id FROM faltantes WHERE id=ANY($1::int[]) ORDER BY id FOR UPDATE',[faltantes]);
   const vigente = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false});
   if (!vigente.success || vigente.data.find(r => r.id === actual.id)?.revisionReporte !== datos.revisionReporte) throw httpError(409,'Los faltantes cambiaron mientras se revisaban. Actualizá el reporte.');
+  await require('./reservasBorradorReporte.service').liberarReasignadasEn(db,p.id,faltantes,actor);
   const { rows:abiertas } = await db.query(`SELECT * FROM orden_compra_ciclo WHERE proveedor_id=$1
     AND estado IN ('borrador','pendiente_enviar') AND envio_id IS NULL ORDER BY id DESC FOR UPDATE`,[p.id]);
   let o = abiertas[0];
