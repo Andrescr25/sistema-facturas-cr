@@ -124,7 +124,7 @@ async function actualizarProductoDeLinea(cliente, linea, precioAjustado, { compr
  * @param {Object} preciosAjustados    { [productoFacturaId]: precioNuevo }, mismo contrato que enviarFacturaAlegra
  * @param {number|null} usuarioId
  */
-async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuarioId = null, { ordenCompraId } = {}) {
+async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuarioId = null, { ordenCompraId, ordenCompraAutomaticaId } = {}) {
   const id = idBuzonValido(facturaProveedorId);
 
   return enTransaccion(async (cliente) => {
@@ -166,7 +166,7 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
     }
 
     const ordenes = require('../orders-whatsapp/facturacionOrdenProveedor.service');
-    const seleccionOrden = await ordenes.elegirEn(cliente, factura, proveedor.id, ordenCompraId);
+    const seleccionOrden = await ordenes.elegirEn(cliente, factura, proveedor.id, ordenCompraId, ordenCompraAutomaticaId);
 
     const { rows: compraRows } = await cliente.query(
       `INSERT INTO compra (

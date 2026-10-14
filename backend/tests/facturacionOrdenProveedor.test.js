@@ -51,7 +51,7 @@ describe('Factura del proveedor revisada → orden exacta, automática sólo si 
   const contar=async(id)=>(await c.query('SELECT COUNT(*)::int n FROM compra WHERE factura_proveedor_id=$1',[id])).rows[0].n;
 
   caso('sin orden enviada registra normalmente y no inventa un vínculo',async()=>{
-    const id=await factura(),lista=await facturacion.candidatas(id);assert.deepEqual(lista,{ordenes:[],automatica:null,vinculada:null});
+    const id=await factura(),lista=await facturacion.candidatas(id);assert.deepEqual(lista,{ordenes:[],automatica:null,vinculada:null,requiereSeleccion:false});
     const r=await compras.registrarCompra(id,{},actor);assert.equal(r.ordenCompraId,null);assert.equal(await contar(id),1);
     assert.equal((await c.query('SELECT COUNT(*)::int n FROM orden_compra_ciclo_factura WHERE factura_id=$1',[id])).rows[0].n,0);
   });
@@ -108,6 +108,84 @@ describe('Factura del proveedor revisada → orden exacta, automática sólo si 
     assert.ok((await resumen.comparacionEn(c,o.id)).every(p=>p.estado==='por_identificar'&&p.cantidadFacturada===null));
     await c.query("UPDATE compra SET estado='anulada' WHERE id=$1",[r.compra.id]);
     assert.ok((await resumen.comparacionEn(c,o.id)).every(p=>p.estado==='sin_revisar'&&p.cantidadFacturada===null));
+  });
+  caso('factura6 + factura4 completan la misma orden10, sin cambiar su fotografía',async()=>{
+    const o=await enviada(),pdf=(await env.descargar(o.id,o.envio_id)).pdf;
+    const primera=await factura([[0,6],[1,5],[2,2]]);await compras.registrarCompra(primera,{},actor);
+    const segunda=await factura([[0,4]]),lista=await facturacion.candidatas(segunda);
+    assert.equal(lista.automatica,o.id);assert.equal(lista.ordenes[0].facturacion,'parcial');assert.equal(lista.requiereSeleccion,false);
+    assert.equal((await compras.registrarCompra(segunda,{},actor)).ordenCompraId,o.id);
+    assert.equal((await c.query("SELECT COUNT(*)::int n FROM orden_compra_ciclo_factura WHERE orden_id=$1 AND estado='vigente'",[o.id])).rows[0].n,2);
+    assert.ok((await resumen.comparacionEn(c,o.id)).every(p=>p.estado==='facturado'));
+    assert.deepEqual(await ordenes.obtener(o.id),o);assert.deepEqual((await env.descargar(o.id,o.envio_id)).pdf,pdf);
+    assert.equal((await facturacion.candidatas(await factura())).ordenes.length,0);
+  });
+  caso('parcial anterior y orden nueva exigen elegir; factura4 no se desvía a la nueva',async()=>{
+    const anterior=await enviada();await compras.registrarCompra(await factura([[0,6],[1,5],[2,2]]),{},actor);
+    const nueva=await enviada(1),id=await factura([[0,4]]),lista=await facturacion.candidatas(id);
+    assert.deepEqual(new Set(lista.ordenes.map(o=>o.id)),new Set([anterior.id,nueva.id]));assert.equal(lista.automatica,null);assert.equal(lista.requiereSeleccion,true);
+    await assert.rejects(compras.registrarCompra(id,{},actor),e=>e.status===409);assert.equal(await contar(id),0);
+    assert.equal((await compras.registrarCompra(id,{},actor,{ordenCompraId:anterior.id})).ordenCompraId,anterior.id);
+    assert.ok((await resumen.comparacionEn(c,nueva.id)).every(p=>p.estado==='sin_revisar'));
+    assert.deepEqual((await facturacion.candidatas(await factura())).ordenes.map(o=>o.id),[nueva.id]);
+  });
+  caso('si la automática anterior se completó no se desvía a la nueva candidata única',async()=>{
+    const o=await enviada();await compras.registrarCompra(await factura([[0,6],[1,5],[2,2]]),{},actor);
+    const pendiente=await factura([[0,4]]);assert.equal((await facturacion.candidatas(pendiente)).automatica,o.id);
+    await compras.registrarCompra(await factura([[0,4]]),{},actor);
+    const nueva=await enviada(1);assert.equal((await facturacion.candidatas(pendiente)).automatica,nueva.id);
+    await assert.rejects(compras.registrarCompra(pendiente,{},actor,{ordenCompraAutomaticaId:o.id}),e=>e.status===409&&/automática cambió/.test(e.message));
+    assert.equal(await contar(pendiente),0);assert.ok((await resumen.comparacionEn(c,nueva.id)).every(p=>p.estado==='sin_revisar'));
+  });
+  caso('sin automática en la revisión exige actualizar si apareció una orden enviada',async()=>{
+    const id=await factura();assert.equal((await facturacion.candidatas(id)).automatica,null);await enviada();
+    await assert.rejects(compras.registrarCompra(id,{},actor,{ordenCompraAutomaticaId:null}),e=>e.status===409);assert.equal(await contar(id),0);
+  });
+  caso('orden totalmente facturada queda fuera incluso si su recepción física sigue abierta',async()=>{
+    const o=await enviada();await compras.registrarCompra(await factura([[0,10],[1,5],[2,2]]),{},actor);
+    const id=await factura();assert.equal((await ordenes.obtener(o.id)).estado,'enviada');
+    assert.equal((await facturacion.candidatas(id)).ordenes.length,0);
+    await assert.rejects(compras.registrarCompra(id,{},actor,{ordenCompraId:o.id}),e=>e.status===409);assert.equal(await contar(id),0);
+  });
+  caso('una fuente alterada nunca se declara completa ni se elige automáticamente',async()=>{
+    const o=await enviada(),r=await compras.registrarCompra(await factura([[0,10],[1,5],[2,2]]),{},actor);
+    await c.query('UPDATE compra_linea SET cantidad=11 WHERE compra_id=$1 AND producto_id=$2',[r.compra.id,f.productos[0]]);
+    const id=await factura(),lista=await facturacion.candidatas(id);assert.equal(lista.ordenes.length,1);assert.equal(lista.ordenes[0].id,o.id);
+    assert.equal(lista.ordenes[0].facturacion,'por_revisar');assert.equal(lista.automatica,null);assert.equal(lista.requiereSeleccion,true);
+    await assert.rejects(compras.registrarCompra(id,{},actor),e=>e.status===409);assert.equal(await contar(id),0);
+    await compras.registrarCompra(id,{},actor,{ordenCompraId:o.id});
+    assert.ok((await resumen.comparacionEn(c,o.id)).every(p=>p.estado==='por_identificar'));
+  });
+  caso('comprobante vinculado todavía sin registrar requiere elección, aun si sólo hay una orden',async()=>{
+    const o=await enviada(),buzon=await factura(),s=require('../src/modules/orders-whatsapp/ordenesCicloFactura.service'),p=await s.proponer(o.id,buzon);
+    await s.vincular(o.id,{clave:randomUUID(),facturaId:buzon,version:p.version,revision:p.revision,confirmar:true},actor);
+    const id=await factura(),lista=await facturacion.candidatas(id);assert.equal(lista.requiereSeleccion,true);assert.equal(lista.automatica,null);
+    assert.equal(lista.ordenes[0].facturasPorRevisar,true);await assert.rejects(compras.registrarCompra(id,{},actor),e=>e.status===409);
+    const otra=await enviada(1),vinculada=await facturacion.candidatas(buzon);assert.equal(vinculada.vinculada,o.id);assert.equal(vinculada.requiereSeleccion,false);
+    await assert.rejects(compras.registrarCompra(buzon,{},actor,{ordenCompraId:otra.id}),e=>e.status===409);
+    assert.equal((await compras.registrarCompra(buzon,{},actor)).ordenCompraId,o.id);
+  });
+  caso('vínculos históricos de varias facturas se conservan y suman una vez al registrar',async()=>{
+    const o=await enviada(),ids=[await factura([[0,6],[1,5],[2,2]]),await factura([[0,4]])];
+    const s=require('../src/modules/orders-whatsapp/ordenesCicloFactura.service');
+    for(const facturaId of ids){const p=await s.proponer(o.id,facturaId);await s.vincular(o.id,{clave:randomUUID(),facturaId,version:p.version,revision:p.revision,confirmar:true},actor)}
+    for(const id of ids)assert.equal((await compras.registrarCompra(id,{},actor)).ordenCompraId,o.id);
+    assert.equal((await c.query('SELECT COUNT(*)::int n FROM orden_compra_ciclo_factura WHERE orden_id=$1',[o.id])).rows[0].n,2);
+    assert.ok((await resumen.comparacionEn(c,o.id)).every(p=>p.estado==='facturado'));
+    assert.equal((await facturacion.candidatas(await factura())).ordenes.length,0);
+  });
+  caso('recibida físicamente conserva el parcial comercial y su protección SQL de nuevos vínculos',async()=>{
+    const o=await enviada();await compras.registrarCompra(await factura([[0,6],[1,5],[2,2]]),{},actor);
+    const recepcion=require('../src/modules/orders-whatsapp/ordenesCicloRecepcion.service');let p=await recepcion.consultar(o.id);
+    const parcial=await recepcion.registrar(o.id,{clave:randomUUID(),version:p.version,revision:p.revision,confirmar:true,final:false,
+      motivos:[],lineas:p.lineas.map(l=>({lineaId:l.id,cantidad:l.producto_id===f.productos[0]?2:l.cantidad_propia}))},actor);
+    assert.equal(parcial.orden.estado,'parcialmente_recibida');assert.equal((await facturacion.candidatas(await factura([[0,4]]))).automatica,o.id);
+    p=await recepcion.consultar(o.id);
+    const recibida=await recepcion.registrar(o.id,{clave:randomUUID(),version:p.version,revision:p.revision,confirmar:true,final:true,
+      motivos:[{productoId:f.productos[0],tipo:'agotado_confirmado',detalle:'ZZ cuatro pendientes no llegarán'}],
+      lineas:p.lineas.map(l=>({lineaId:l.id,cantidad:l.pendiente}))},actor);
+    assert.equal(recibida.orden.estado,'recibida');assert.equal((await resumen.comparacionEn(c,o.id)).find(p=>p.productoId===f.productos[0]).estado,'parcial');
+    assert.equal((await facturacion.candidatas(await factura())).ordenes.length,0);
   });
   caso('lector no bloquea filas y ruta requiere Revisión de precios, sin pedir Reporte Proveedores',async()=>{
     const o=await enviada(),id=await factura();await compras.registrarCompra(id,{},actor);

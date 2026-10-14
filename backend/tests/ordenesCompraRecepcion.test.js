@@ -67,8 +67,11 @@ const pdf=()=>require('../src/modules/orders-whatsapp/ordenesCicloFactura.pdf').
 const protegido=async(sql,p,patron)=>{await c.query('SAVEPOINT prohibido');try{await assert.rejects(c.query(sql,p),patron)}finally{await c.query('ROLLBACK TO SAVEPOINT prohibido')}};
 
 async function preparado({q=10,factor=1,cantidad=q/factor,anterior=false}={}){
- await mapping(d.producto,'ZZ-BASE',factor);if(q*factor>10)await c.query('UPDATE faltantes SET cantidad_faltante=$2 WHERE id=$1',[d.faltantes[0].id,q*factor]);const o=await orden(d.ciclo,q),a=await factura({cantidad,factor});
+ await mapping(d.producto,'ZZ-BASE',factor);if(q*factor>10)await c.query('UPDATE faltantes SET cantidad_faltante=$2 WHERE id=$1',[d.faltantes[0].id,q*factor]);const a=await factura({cantidad,factor});
+ // La compra anterior debe nacer antes de existir una orden enviada posible:
+ // registrar después de enviarla ya la vincula automáticamente, como la UI.
  if(anterior)await compras.registrarCompra(a.id);
+ const o=await orden(d.ciclo,q);
  await vincular(o,a);if(!anterior)await compras.registrarCompra(a.id);
  const p=await rcp.consultar(o.id);assert.equal(p.bloqueos.length,0);return{o,a,p,l:p.lineas[0]};
 }

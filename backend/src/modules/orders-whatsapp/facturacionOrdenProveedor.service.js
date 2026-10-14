@@ -6,9 +6,11 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { interno: { entero } } = require('./ordenesCiclo.service');
 const { comparar, interno: { uuid, identidad, hash, fuenteEn } } = require('./ordenesCicloFactura.service');
 
-/** Una factura se asigna sola únicamente cuando tiene una orden posible.
- * La cédula y la ficha propia fijan identidad; fechas, nombres y parecidos de
- * producto no deciden qué pedido facturó el proveedor. */
+/** Una factura se asigna sola únicamente cuando tiene una orden posible y
+ * confiable. Un comprobante parcial no cierra el pedido: puede haber varios.
+ * Sólo la cobertura comercial completa lo retira de candidatas; una fuente
+ * incierta exige elegir. La recepción física no prueba facturación completa.
+ * Cédula/ficha fijan identidad, nunca fechas, nombres o parecidos de producto. */
 async function candidatasEn(db, facturaId, proveedorId) {
   let factura;
   if (typeof facturaId === 'object') factura = { ...facturaId, proveedor_id: proveedorId };
@@ -18,14 +20,26 @@ async function candidatasEn(db, facturaId, proveedorId) {
   if (!factura) throw httpError(404, 'Factura no encontrada.');
   if (proveedorId != null && factura.proveedor_id !== proveedorId) throw httpError(409, 'La ficha del proveedor cambió. Revisá la factura.');
   const { rows: [vinculo] } = await db.query("SELECT orden_id FROM orden_compra_ciclo_factura WHERE factura_id=$1 AND estado='vigente'", [factura.id]);
-  const { rows: ordenes } = await db.query(`SELECT o.id, 'OC-'||o.id referencia, o.enviada_en AS "enviadaEn",
-    (SELECT COUNT(*)::int FROM orden_compra_ciclo_linea l WHERE l.orden_id=o.id) AS "totalProductos"
+  const { rows: posibles } = await db.query(`SELECT o.id, 'OC-'||o.id referencia, o.enviada_en AS "enviadaEn",
+    (SELECT COUNT(*)::int FROM orden_compra_ciclo_linea l WHERE l.orden_id=o.id) AS "totalProductos",
+    EXISTS(SELECT 1 FROM orden_compra_ciclo_factura v WHERE v.orden_id=o.id AND v.estado='vigente'
+      AND NOT EXISTS(SELECT 1 FROM compra c WHERE c.factura_proveedor_id=v.factura_id
+        AND c.estado='registrada' AND c.proveedor_id=o.proveedor_id)) AS "facturasPorRevisar"
     FROM orden_compra_ciclo o
     WHERE o.proveedor_id=$1 AND regexp_replace(upper(o.proveedor_cedula),'[^A-Z0-9]','','g')=$2
       AND o.estado IN ('enviada','parcialmente_recibida') AND o.enviada_en IS NOT NULL
-      AND NOT EXISTS (SELECT 1 FROM orden_compra_ciclo_factura v WHERE v.orden_id=o.id AND v.estado='vigente')
     ORDER BY o.enviada_en DESC, o.id DESC`, [factura.proveedor_id, identidad(factura.proveedor_cedula)]);
-  return { ordenes, automatica: !vinculo && ordenes.length === 1 ? ordenes[0].id : null, vinculada: vinculo?.orden_id || null };
+  const ordenes = [];
+  for (const o of posibles) {
+    const comparacion = await comparacionEn(db, o.id);
+    const incierta = o.facturasPorRevisar || comparacion.requiereRevision || !comparacion.productos.length;
+    const completa = !incierta && comparacion.productos.every(p => p.facturado != null && p.facturado >= p.solicitado);
+    if (completa) continue;
+    ordenes.push({ ...o, facturacion: incierta ? 'por_revisar' : comparacion.facturas.length ? 'parcial' : 'pendiente' });
+  }
+  const requiereSeleccion = !vinculo && (ordenes.length > 1 || ordenes.some(o => o.facturacion === 'por_revisar'));
+  return { ordenes, automatica: !vinculo && !requiereSeleccion && ordenes.length === 1 ? ordenes[0].id : null,
+    vinculada: vinculo?.orden_id || null, requiereSeleccion };
 }
 
 async function candidatas(facturaId) {
@@ -37,15 +51,21 @@ async function candidatas(facturaId) {
 
 /** Se ejecuta bajo el mismo advisory/tx que registrarCompra: entre revisar
  * y guardar puede aparecer otra orden; esa carrera exige elegir de nuevo. */
-async function elegirEn(db, factura, proveedorId, ordenCompraId) {
+async function elegirEn(db, factura, proveedorId, ordenCompraId, ordenCompraAutomaticaId) {
   const seleccion = ordenCompraId == null || ordenCompraId === '' ? null : entero(ordenCompraId, 'Orden de compra');
+  const esperada = ordenCompraAutomaticaId == null ? ordenCompraAutomaticaId : entero(ordenCompraAutomaticaId, 'Orden automática revisada');
   const lista = await candidatasEn(db, factura, proveedorId);
   if (lista.vinculada) {
     if (seleccion && seleccion !== lista.vinculada) throw httpError(409, 'La factura ya está vinculada a otra orden de compra.');
     return { ordenId: lista.vinculada, existente: true };
   }
   if (seleccion && !lista.ordenes.some(o => o.id === seleccion)) throw httpError(409, 'La orden seleccionada ya no está disponible para esta factura. Revisá la selección.');
-  if (!seleccion && lista.ordenes.length > 1) throw httpError(409, 'Hay varias órdenes enviadas de este proveedor. Elegí la orden de compra en Revisión de precios.');
+  if (!seleccion && lista.requiereSeleccion) throw httpError(409, lista.ordenes.length > 1
+    ? 'Hay varias órdenes enviadas de este proveedor. Elegí la orden de compra en Revisión de precios.'
+    : 'La orden tiene una factura pendiente de revisar. Elegí la orden de compra en Revisión de precios.');
+  // Una orden parcial puede completarse mientras esta revisión está abierta.
+  // Si ahora queda otra única candidata, no desviar allí la factura en silencio.
+  if (!seleccion && esperada !== undefined && esperada !== lista.automatica) throw httpError(409, 'La orden automática cambió. Actualizá la revisión antes de registrar esta compra.');
   return { ordenId: seleccion || lista.automatica, existente: false };
 }
 

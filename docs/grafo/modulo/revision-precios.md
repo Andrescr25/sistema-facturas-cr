@@ -35,10 +35,12 @@ medido: 2026-10-14
 ## Orden de compra en la revisión (2026-10-14)
 
 `GET /revision-precios/facturas/:facturaId/ordenes-compra` consulta, con el permiso
-de esta pantalla, pedidos con envío confirmado del proveedor exacto y sin vínculo
-vigente. READ ONLY/REPEATABLE READ, sin preparar nada. Si hay una candidata se
-asigna automáticamente al Registrar compra; si hay varias aparece un único
-selector junto al encabezado. No obliga a entrar a paneles de pedidos en Reporte
+de esta pantalla, pedidos con envío confirmado del proveedor exacto cuya
+facturación comercial no esté completa y confiable. READ ONLY/REPEATABLE READ,
+sin preparar nada. Una factura parcial conserva la orden como candidata para
+otras facturas. Si hay una candidata confiable se asigna automáticamente al
+Registrar compra; si hay varias o la única conserva una fuente incierta aparece
+un único selector junto al encabezado. No obliga a entrar a paneles en Reporte
 Proveedores. Si no hay candidatas, la compra se registra como siempre.
 
 El hook separado usa la identidad de la factura para ignorar consultas tardías.
@@ -50,6 +52,15 @@ nuevo sin perder precios. Hacienda continúa después del COMMIT, como antes.
 La comparación comercial usa el vínculo por UUID/ficha propia y compra_linea;
 detalle en [[modulo/facturas-ordenes-compra]]. Facturado/Parcial/No facturado se
 muestra sólo tras el registro revisado, sin afirmar llegada física de mercancía.
+
+Una orden de 10 facturada primero por 6 admite después el comprobante de 4. Si
+además hay una nueva orden sin factura, la persona elige: no se usa FIFO, fecha
+ni parecido de productos para desviar el comprobante. Una compra anterior
+alterada o un vínculo del buzón todavía sin registrar requieren elección y no
+prueban que el pedido esté completo. Un vínculo previo de la factura que se está
+revisando muestra y conserva su propia OC, aunque existan otras candidatas.
+La identidad automática mostrada viaja también al guardar: una parcial completada
+por otro registro no desvía en silencio la factura hacia otra candidata única.
 
 Las facturas de los proveedores llegan al buzón, se relacionan línea por
 línea ([[modulo/relacionar-productos]]) y acá se mira cómo cambió el costo y

@@ -9,6 +9,8 @@ export function useOrdenCompraRevision(factura) {
   const [ordenId, setOrdenId] = useState('')
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(false)
+  const [requiereSeleccion, setRequiereSeleccion] = useState(false)
+  const [vinculada, setVinculada] = useState(null)
   const lectura = useContextoConsulta(factura?.id || '')
   const { esActual, confirmar } = lectura
   const consulta = useRef(0)
@@ -24,6 +26,8 @@ export function useOrdenCompraRevision(factura) {
       if (!data.success) throw new Error(data.message || data.error || 'No se pudo consultar la orden de compra')
       setOrdenes(data.data.ordenes)
       setOrdenId(data.data.vinculada || data.data.automatica || '')
+      setRequiereSeleccion(data.data.requiereSeleccion === true || data.data.requiereSeleccion == null && data.data.ordenes.length > 1)
+      setVinculada(data.data.vinculada || null)
       confirmar()
     } catch (err) {
       if (esActual() && propia === consulta.current) setError(err.response?.data?.message || err.message)
@@ -36,12 +40,15 @@ export function useOrdenCompraRevision(factura) {
     setOrdenes([])
     setOrdenId('')
     setError(null)
+    setRequiereSeleccion(false)
+    setVinculada(null)
     cargar()
   }, [cargar])
 
   const vigente = lectura.vigente || factura?.estado === 'ENVIADA'
   return { ordenes: vigente ? ordenes : [], ordenId: vigente ? ordenId : '', setOrdenId,
-    seleccionExplicita: vigente && ordenes.length > 1,
+    vinculada: vigente ? vinculada : null, requiereSeleccion: vigente && requiereSeleccion,
+    seleccionExplicita: vigente && requiereSeleccion,
     cargando: Boolean(factura?.id && factura.estado !== 'ENVIADA' && (!vigente && !error || cargando)),
-    error, cargar, bloqueada: Boolean(factura?.id && factura.estado !== 'ENVIADA' && (!vigente || cargando || error || ordenes.length > 1 && !ordenId)) }
+    error, cargar, bloqueada: Boolean(factura?.id && factura.estado !== 'ENVIADA' && (!vigente || cargando || error || requiereSeleccion && !ordenId)) }
 }

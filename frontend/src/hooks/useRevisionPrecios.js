@@ -274,6 +274,7 @@ export function useRevisionPrecios() {
     // Una candidata única se decide otra vez en el servidor al guardar. Si
     // apareció otro pedido, requiere elegir y no confirma la orden antigua.
     const ordenCompraId = ordenCompra.seleccionExplicita ? ordenCompra.ordenId : undefined
+    const ordenCompraAutomaticaId = ordenCompra.seleccionExplicita ? undefined : ordenCompra.ordenId || null
 
     // Mantener la revisión hasta confirmar: un conflicto en la orden permite
     // volver a elegir sin perder los precios que la persona acaba de revisar.
@@ -287,7 +288,8 @@ export function useRevisionPrecios() {
       const response = await api.post('/compras/registrar', {
         facturaId: facturaId,
         preciosAjustados: preciosAjustados,
-        ordenCompraId
+        ordenCompraId,
+        ordenCompraAutomaticaId
       })
 
       if (response.data.success) {

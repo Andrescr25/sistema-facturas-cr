@@ -25,15 +25,23 @@ medido: 2026-10-14
 ## Revisión de precios → indicación en la lista de proveedores (2026-10-14)
 
 El usuario permite vincular automáticamente únicamente cuando hay **una orden
-enviada posible** del proveedor propio exacto, todavía sin comprobante vigente.
-Si hay varias, elige una en Revisión de precios antes de Registrar compra.
+enviada posible y confiable** del proveedor propio exacto. Un comprobante parcial
+no cierra la facturación del pedido: 6 + 4 puede completar la misma orden de 10.
+Sólo las cantidades registradas que cubren todos los productos, sin fuentes
+inciertas, retiran la orden de candidatas. Si hay varias, elige una en Revisión de
+precios antes de Registrar compra; una sola con fuente incierta también exige
+selección explícita. Una orden nueva al lado de una parcialmente facturada nunca
+recibe automáticamente el comprobante destinado a la anterior.
 Con cero candidatas la compra sigue normal. No elegir por parecido de producto,
 nombre, fecha ni total. Un vínculo explícito anterior conserva su identidad e
 historia. No reasignar una factura completa ni repartirla entre pedidos.
 
 Registrar compra revalida candidatas bajo el advisory común 46005/1. Una candidata
 única en pantalla se vuelve a decidir al guardar: si apareció otra, 409 exige
-elección y la pantalla conserva sus precios. El vínculo se inserta en la misma
+elección y la pantalla conserva sus precios. `ordenCompraAutomaticaId` conserva
+la identidad mostrada (NULL si no había candidata): si la parcial anterior se
+completó y ahora queda otra única orden, exige actualizar antes de guardar.
+No desviar automáticamente ese comprobante al pedido nuevo. El vínculo se inserta en la misma
 transacción, después del estado final ENVIADA, desde compra_linea y su conversión
 histórica. Un fallo revierte también compra, costos, precios, CxP y kardex. El PDF,
 líneas y cantidades del pedido enviado quedan idénticos. No hay SQL nuevo.
@@ -50,11 +58,23 @@ La nueva asociación después de crear la compra conserva su modalidad comercial
 de inventario (false). Un vínculo físico anterior conserva la modalidad true
 establecida por SQL049. Ninguna consulta ni asociación cambia esa decisión fija.
 
-Verificación: nueve casos con PostgreSQL local y ROLLBACK cubren única/múltiple,
+La selección comercial considera enviadas y parcialmente_recibidas. Recibida y
+cerrada conservan sus comparaciones y vínculos; SQL052 impide insertar vínculos
+nuevos en esos estados, y este cambio no altera esa protección. Recibida con seis
+facturadas de diez sigue diciendo parcial, aunque el evento físico haya finalizado.
+`requiereSeleccion` en el DTO permite elegir también una única fuente incierta.
+Un vínculo vigente previo prevalece sobre cualquier candidata; no se reasigna.
+
+Verificación: dieciocho casos con PostgreSQL local y ROLLBACK cubren única/múltiple,
 proveedor ajeno/borrador, conversiones, faltantes, cantidades históricas, fuente
 alterada, compra anulada, permisos, fallo del vínculo y READ ONLY real. Chromium
 390/1440 recorre selección, registro real local, carrera, conservación de precios
-y error/reintento de consulta; transporte y Hacienda simulados, sin salidas.
+y error/reintento de consulta; transporte y Hacienda simulados, sin salidas. La
+ampliación cubre 6+4, parcial junto a una nueva, completa sin recepción, fuentes
+alteradas, buzón pendiente, varios vínculos históricos y recepción física final
+con facturación parcial. También verifica la carrera parcial completada → otra
+candidata única y ninguna candidata → nueva enviada. No necesita migración ni
+modifica pedidos enviados.
 
 Los apartados siguientes conservan el contrato histórico del vínculo explícito.
 
