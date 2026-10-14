@@ -23,8 +23,8 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   `developer`; [evidencia](informes/preventa-agenda-2026-10-13.md).
 - [x] ROT-05 — Carga/entrega por ruta: todas las facturas pendientes, Bodega
   pendiente visible, físico sin exigir ciclos, parciales/descarga/recarga,
-  ruta fijada al primer evento e historial conservado. SQL 057 local;
-  **producción pendiente antes de main**. Publicado solo developer.
+  ruta fijada al primer evento e historial conservado. SQL 057 aplicada en
+  **producción el 13/10 a las 19:31**, despliegue a main autorizado.
   [Evidencia y límites](informes/entregas-por-ruta-2026-10-13.md).
 - [ ] ROT-06 — Impresos en la vista activa hasta cumplir **24 horas sin
   movimiento** después de enviarse a Impresión (aclaración del usuario).
@@ -35,8 +35,7 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   Bodega y exportaciones, conservando historia, tablas y FK existentes.
   **Proveedores completado por separado:** Faltantes como main y fichas,
   sin áreas/paneles de ciclos. Una abierta por proveedor; enviada/incierta
-  inmutable y siguiente faltante crea otra orden. SQL 058 local, pendiente
-  producción. [Evidencia](informes/proveedores-simplificados-2026-10-13.md).
+  inmutable y siguiente faltante crea otra orden. SQL 058 aplicada en producción el 13/10 a las 19:31. [Evidencia](informes/proveedores-simplificados-2026-10-13.md).
 
 ## Antecedente: implementación por ciclos
 
@@ -367,7 +366,7 @@ Sin SQL nuevo; pruebas en copia desechable, consulta de solo lectura y navegador
 **Simplificación posterior solicitada:** quedan únicamente Faltantes (consulta
 igual a main) y fichas. Órdenes en modal del proveedor, sin semanas; SQL 058
 local retira la igualdad de ciclo conservando datos/guardas. Backend histórico
-conservado; frontend sobrante eliminado. Producción espera 058 antes de main.
+conservado; frontend sobrante eliminado. 058 aplicada en producción el 13/10 a las 19:31.
 [Resultado vigente](informes/proveedores-simplificados-2026-10-13.md).
 Los párrafos siguientes describen las etapas históricas.
 
@@ -683,4 +682,14 @@ Vista 5173/3000 con clon propio conservada para revisión; `main` pendiente.
 de SQL 055 y subida recuperada al aplicarla en PostgreSQL desechable. Compresión
 adaptada a la escena de pantalla completa y recorte móvil vertical; límites de
 descarga, carga diferida y caché conservados. [Evidencia](informes/catalogo-imagen-calidad-2026-10-11.md).
-SQL 055 en producción pendiente; no modifica los IDs anteriores.
+SQL 055 aplicada en producción por Codex el 13/10 a las 19:31; no modifica los IDs anteriores.
+
+
+## Despliegue completo autorizado — 2026-10-13
+
+El usuario pide «despliega todo a main». 055/057/058 aplicadas en producción
+por Codex con respaldo y 144 huellas conservadas; 056 ya aplicada. Ensayo con
+copia restaurada y 200 pruebas PostgreSQL correctas; suite/build/navegador
+vigentes. Se llevan las partes implementadas y verificadas a main, incluido
+201d07b de Claude. ROT-06/07 y resto de ROT-08 siguen pendientes.
+[Registro](informes/despliegue-main-2026-10-13.md).

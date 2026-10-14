@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Gestión de Catálogo — el rediseño de main, sobre el maestro propio
 estado: vigente
 archivos:
+  - docs/informes/despliegue-main-2026-10-13.md
   - backend/migrations/independencia/030_subcategoria_en_producto.sql
   - backend/src/modules/productos/taxonomia.service.js
   - backend/src/modules/productos/productos.routes.js
@@ -155,3 +156,14 @@ Facturación igual (antes no, ver [[modulo/facturacion-offline]], "LA COPIA DEL
 CATÁLOGO SE RENUEVA SOLA"), y para que vuelva a los catálogos hay que tocar
 «Mostrar».
 
+
+
+## Despliegue autorizado — 2026-10-13
+
+El usuario pide llevar todo a main. Codex aplica 055/057/058 en producción
+con respaldo restaurable y ensayo local: 144 tablas conservadas y los seis
+cuerpos de función verificados. 056 ya estaba aplicada. El bloqueo anterior
+por migraciones queda resuelto; la publicación incluye rotación, Reporte
+Clientes, Preventa, Carga/entregas y Proveedores. Ver
+[registro del despliegue](../../informes/despliegue-main-2026-10-13.md).
+Los párrafos de entregas previas describen su estado histórico al publicarlas.

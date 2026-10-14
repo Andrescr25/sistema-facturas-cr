@@ -995,3 +995,14 @@ la vista, estados ligados a posición, navegación y movimiento reducido.
 [Validación](informes/catalogo-foco-scroll-2026-10-11.md). Solo presentación:
 sin SQL adicional ni cambio de los IDs históricos **133/14** y operativos **96/3**.
 Vista 5173/3000 con clon propio conservada para revisión; `main` pendiente.
+
+
+## Despliegue del conjunto a main — 2026-10-13
+
+Usuario: «perfecto, despliega todo a main», luego «continua». Codex aplica
+055/057/058 en producción con respaldo probado y 144 tablas conservadas;
+056 ya aplicada. La falta de 055 que daba 503 al subir imágenes queda resuelta.
+200 pruebas con copia local restaurada, más suite/build/navegador vigentes.
+Incluye rotación de Claude y cambios de Reporte Clientes/Preventa/Carga/
+Proveedores de Codex; no cambia pendientes funcionales ni los conteos de
+independencia. [Registro](informes/despliegue-main-2026-10-13.md).

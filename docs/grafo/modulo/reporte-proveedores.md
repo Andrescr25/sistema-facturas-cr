@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - docs/informes/despliegue-main-2026-10-13.md
   - docs/informes/proveedores-simplificados-2026-10-13.md
   - backend/migrations/independencia/058_ordenes_proveedor_sin_ciclos.sql
   - backend/src/modules/orders-whatsapp/ordenesProveedor.service.js
@@ -82,6 +83,16 @@ Diseño conserva Boton, Insignia y Modal con la paleta por rol.
 
 [Verificación y límites](../../informes/proveedores-simplificados-2026-10-13.md):
 copia local con ROLLBACK, comparación contra el reporte de main y transporte
-simulado. SQL 058 aplicada localmente; producción pendiente antes de subir main,
-igual que 057 de Carga/entregas. Las partes ROT-06/07 y el resto de ROT-08 siguen
+simulado. SQL 055/057/058 ya aplicadas en producción con el despliegue autorizado. Las partes ROT-06/07 y el resto de ROT-08 siguen
 pendientes; esta entrega solo simplifica proveedores.
+
+
+## Despliegue autorizado — 2026-10-13
+
+El usuario pide llevar todo a main. Codex aplica 055/057/058 en producción
+con respaldo restaurable y ensayo local: 144 tablas conservadas y los seis
+cuerpos de función verificados. 056 ya estaba aplicada. El bloqueo anterior
+por migraciones queda resuelto; la publicación incluye rotación, Reporte
+Clientes, Preventa, Carga/entregas y Proveedores. Ver
+[registro del despliegue](../../informes/despliegue-main-2026-10-13.md).
+Los párrafos de entregas previas describen su estado histórico al publicarlas.

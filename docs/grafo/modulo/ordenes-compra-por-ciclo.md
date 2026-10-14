@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Órdenes por proveedor — envío inmutable, origen e historia conservada
 estado: vigente
 archivos:
+  - docs/informes/despliegue-main-2026-10-13.md
   - docs/informes/proveedores-simplificados-2026-10-13.md
   - backend/migrations/independencia/058_ordenes_proveedor_sin_ciclos.sql
   - backend/src/modules/orders-whatsapp/ordenesProveedor.service.js
@@ -63,8 +64,7 @@ Una nueva copia PDF y la propuesta de mensaje omiten ciclos; los bytes y mensaje
 ya guardados no se regeneran. /por-ciclo y tablas conservan su nombre por
 compatibilidad histórica; GET /proveedor/ordenes no escribe y POST /proveedor/preparar
 es explícito. Las recepciones/facturas/cierres existentes siguen en backend,
-retirados de la pantalla por el pedido del usuario. SQL 058 local, pendiente
-producción. Evidencia vigente: docs/informes/proveedores-simplificados-2026-10-13.md.
+retirados de la pantalla por el pedido del usuario. SQL 058 aplicada en producción en el despliegue autorizado del 13 de octubre. Evidencia vigente: docs/informes/proveedores-simplificados-2026-10-13.md.
 
 ## Etapas históricas anteriores a esta simplificación
 
@@ -230,3 +230,14 @@ faltantes anteriores o liberados; nunca se invoca en segundo plano al consultar.
 Cancelar sin enviar conserva el estado histórico cerrada y se rotula Cancelada;
 cerrar enviada sigue su revisión comercial. Sin cambio de esquema ni mensajes
 reales en pruebas. Ver el informe de 2026-10-13; etapas anteriores históricas.
+
+
+## Despliegue autorizado — 2026-10-13
+
+El usuario pide llevar todo a main. Codex aplica 055/057/058 en producción
+con respaldo restaurable y ensayo local: 144 tablas conservadas y los seis
+cuerpos de función verificados. 056 ya estaba aplicada. El bloqueo anterior
+por migraciones queda resuelto; la publicación incluye rotación, Reporte
+Clientes, Preventa, Carga/entregas y Proveedores. Ver
+[registro del despliegue](../../informes/despliegue-main-2026-10-13.md).
+Los párrafos de entregas previas describen su estado histórico al publicarlas.

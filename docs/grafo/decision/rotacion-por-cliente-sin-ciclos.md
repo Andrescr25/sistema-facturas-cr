@@ -97,8 +97,8 @@ Estados: `sin_rotacion` (no se le definió: no se inventa una), `sin_facturas`
   facturas pendientes, Bodega pendiente visible pero físico bloqueado hasta
   revisión, carga/entrega sin promoción de semana, entregada pasa al historial.
   Carga registrada conserva ruta/Maps/orden; nueva factura entra sin modificar
-  historia. **SQL 057 local/verificada; pendiente de aplicar en producción.**
-  Publicación solo developer; main espera esa SQL. Los eventos históricos
+  historia. **SQL 057 aplicada en producción el 13/10 a las 19:31.**
+  El usuario autoriza llevar ahora todo lo implementado a main. Los eventos históricos
   no se reescriben y las cantidades/UUID/versión/admin siguen protegidos.
 - [ ] **ROT-06 / ROT-07 — impresos 24 horas sin movimiento e historial.**
   **Aclaración del usuario al continuar ROT-04:** después de enviar una
@@ -159,3 +159,12 @@ inmutable y nuevos faltantes en otra orden. SQL 058 aplicada solo localmente;
 pendiente en producción antes de main, además de 057. Se mantiene ROT-08 abierto
 por Facturación/pedidos/rutas/Bodega/exportaciones y ROT-06/07 por impresión.
 Evidencia: [[modulo/reporte-proveedores]] y su informe de simplificación.
+
+
+## Cambio de destino autorizado — 2026-10-13
+
+«Perfecto, despliega todo a main» reemplaza el destino solo developer del
+relevo anterior. Codex aplica 055/057/058 con respaldo y conserva las 144
+huellas; 056 ya presente. Se despliegan las partes implementadas, con el
+trabajo firmado de Claude incluido. ROT-06/07 y el resto de ROT-08 no se
+acreditan por desplegar. Registro: docs/informes/despliegue-main-2026-10-13.md.

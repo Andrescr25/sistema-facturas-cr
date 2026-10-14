@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Carga y entregas — todas las facturas pendientes de la ruta sin semanas
 estado: vigente
 archivos:
+  - docs/informes/despliegue-main-2026-10-13.md
   - backend/migrations/independencia/057_entregas_por_ruta.sql
   - backend/src/modules/entregas/entregas.controller.js
   - backend/src/modules/entregas/entregas.routes.js
@@ -119,6 +120,17 @@ plan **sin desmontar un registro incierto**. Una respuesta perdida conserva
 UUID/cuerpo y bloquea otro registro hasta reintentar el mismo.
 
 Pruebas y despliegue: [informe](../../informes/entregas-por-ruta-2026-10-13.md).
-**057 solo aplicada/verificada localmente; falta en producción.** No subir
-este commit a main mientras no esté aplicada allá. Publicación de esta parte
-solo developer según el destino del relevo.
+**057 aplicada/verificada en producción en el despliegue autorizado del 13
+de octubre a las 19:31, junto a 055/058.** El relevo anterior se publicó solo
+en developer; ahora el usuario pide llevar el conjunto a main.
+
+
+## Despliegue autorizado — 2026-10-13
+
+El usuario pide llevar todo a main. Codex aplica 055/057/058 en producción
+con respaldo restaurable y ensayo local: 144 tablas conservadas y los seis
+cuerpos de función verificados. 056 ya estaba aplicada. El bloqueo anterior
+por migraciones queda resuelto; la publicación incluye rotación, Reporte
+Clientes, Preventa, Carga/entregas y Proveedores. Ver
+[registro del despliegue](../../informes/despliegue-main-2026-10-13.md).
+Los párrafos de entregas previas describen su estado histórico al publicarlas.

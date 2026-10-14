@@ -691,3 +691,15 @@ conservada y faltante nuevo en otra orden. SQL 058 local; producción pendiente
 antes de main. [Implementación y verificación](grafo/modulo/reporte-proveedores.md).
 Publicación solo developer, como el relevo; el historial de impresión 24 h
 sin movimiento y el resto del retiro de ciclos siguen pendientes.
+
+
+## 2026-10-13 — Desplegar todo lo implementado a main
+
+Textual: «perfecto, despliega todo a main». Después confirma «continua».
+Reemplaza el destino solo developer del relevo. Codex aplica primero las
+migraciones pendientes 055/057/058 en producción, con respaldo y ensayo
+local; 056 ya presente. Se publica el conjunto verificado, incluido el
+trabajo integrado de Claude, por avance sin fusión. No autoriza pruebas que
+escriban registros ficticios ni mensajes reales en producción. Los impresos
+24 h SIN MOVIMIENTO y el resto del retiro de ciclos siguen pendientes.
+[Registro](informes/despliegue-main-2026-10-13.md).
