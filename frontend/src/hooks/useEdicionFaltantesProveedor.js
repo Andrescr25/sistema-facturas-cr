@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import api from '../services/api'
+import { claveProductoReporte, claveTemporalProducto, agregarProductoManual, cantidadProveedorExacta } from '../utils/reporteProveedoresUtils'
 
 /** Edición del reporte conservada de main, separada de las órdenes enviadas. */
 export function useEdicionFaltantesProveedor({ prompt, showToast }) {
@@ -24,15 +25,15 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
   }, [])
 
   const restaurarProducto = useCallback(async (proveedorNombre, productoCodigo) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
+    const codigos = Array.isArray(productoCodigo) ? productoCodigo : [productoCodigo]
     setProductosEliminados(prev => {
       const nuevosEliminados = new Set(prev)
-      nuevosEliminados.delete(key)
+      codigos.forEach(codigo => nuevosEliminados.delete(`${proveedorNombre}-${codigo}`))
       return nuevosEliminados
     })
 
     try {
-      await api.delete('/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo } })
+      for (const codigo of codigos) await api.delete('/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo: codigo } })
     } catch (error) {
       console.error('No se pudo restaurar el producto:', error)
       showToast('El producto se restauró en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -66,15 +67,19 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
 
   const agregarProductoAOrden = useCallback(async (producto, cantidad) => {
     if (!proveedorParaAgregar || cantidad <= 0) return
+    try { cantidadProveedorExacta(cantidad, 1) } catch (error) { showToast(error.message, 'error'); return }
     const keyProv = proveedorParaAgregar.nombre
     const nuevosAgregados = new Map(productosAgregados)
-    const list = nuevosAgregados.get(keyProv) || []
-    list.push({ productoId: producto.id, codigo: producto.reference, nombre: producto.name, cantidad: parseInt(cantidad), agregadoManual: true })
+    const clave = claveProductoReporte(producto)
+    if (!clave) { showToast('Seleccioná un producto del catálogo.', 'error'); return }
+    const nuevo = { productoId: producto.id, claveAlmacenada: clave, codigo: producto.reference, nombre: producto.name, cantidad: Number(cantidad), agregadoManual: true }
+    const list = agregarProductoManual(nuevosAgregados.get(keyProv) || [], nuevo)
+    const agregado = list.find(p => claveProductoReporte(p) === clave)
     nuevosAgregados.set(keyProv, list)
     setProductosAgregados(nuevosAgregados)
 
     try {
-      await api.post('/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: producto.reference, productoNombre: producto.name, cantidad: parseInt(cantidad) })
+      await api.post('/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: claveTemporalProducto(agregado), productoNombre: producto.name, cantidad: agregado.cantidad })
     } catch (error) {
       console.error('No se pudo registrar el producto agregado:', error)
       showToast('El producto se agregó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -84,21 +89,21 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
 
   const solicitarCantidadYAgregar = useCallback(async (producto, reference) => {
     const q = await prompt(`${producto.name}\n¿Cantidad a añadir a la orden?`, { inputDefaultValue: '1' })
-    if (q && parseInt(q) > 0) {
+    if (q && Number(q) > 0) {
       await agregarProductoAOrden({ ...producto, reference }, q)
     }
   }, [prompt, agregarProductoAOrden])
 
   const eliminarProductoAgregado = useCallback(async (proveedorNombre, index) => {
     const nuevos = new Map(productosAgregados)
-    const list = nuevos.get(proveedorNombre) || []
+    const list = [...(nuevos.get(proveedorNombre) || [])]
     const prod = list[index]
     list.splice(index, 1)
     if (list.length === 0) nuevos.delete(proveedorNombre); else nuevos.set(proveedorNombre, list)
     setProductosAgregados(nuevos)
 
     try {
-      await api.delete('/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: prod.codigo } })
+      await api.delete('/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: claveTemporalProducto(prod) } })
     } catch (e) {
       console.error('No se pudo quitar el producto agregado:', e)
       showToast('El cambio NO se guardó. Recargue antes de enviar el pedido.', 'error')
@@ -106,17 +111,18 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
   }, [productosAgregados])
 
   const actualizarCantidadAgregado = useCallback(async (proveedorNombre, index, nuevaCantidad) => {
-    const cant = parseInt(nuevaCantidad)
+    const cant = Number(nuevaCantidad)
     if (isNaN(cant) || cant <= 0) return
+    try { cantidadProveedorExacta(cant, 1) } catch (error) { showToast(error.message, 'error'); return }
     const nuevos = new Map(productosAgregados)
-    const list = nuevos.get(proveedorNombre) || []
+    const list = [...(nuevos.get(proveedorNombre) || [])]
     if (list[index]) {
       list[index] = { ...list[index], cantidad: cant }
       nuevos.set(proveedorNombre, list)
       setProductosAgregados(nuevos)
 
       try {
-        await api.post('/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: list[index].codigo, productoNombre: list[index].nombre, cantidad: cant })
+        await api.post('/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: claveTemporalProducto(list[index]), productoNombre: list[index].nombre, cantidad: cant })
       } catch (e) {
         console.error('No se pudo guardar la cantidad:', e)
         showToast('La cantidad NO se guardó. Recargue antes de enviar el pedido.', 'error')

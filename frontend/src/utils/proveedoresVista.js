@@ -37,6 +37,7 @@ export function cuerpoEnvioProveedor(proveedor, productos, preferirDatosProveedo
     proveedorId: proveedor.proveedor_id || null,
     cedula: proveedor.cedula || null,
     nombre: proveedor.nombre,
+    fechaInicio: proveedor.fechaInicio || null,
     revisionReporte: proveedor.revisionReporte,
     productos: productos.map(p => {
       const copia = { ...p, cantidadOriginal: p.cantidadOriginal ?? p.cantidad }
@@ -52,8 +53,18 @@ export function cuerpoEnvioProveedor(proveedor, productos, preferirDatosProveedo
 
 export function resultadoEnvioProveedor(resultado) {
   if (resultado?.envioEstado === 'confirmado') return 'confirmado'
+  if (resultado?.envioEstado === 'no_enviado') return 'no_enviado'
   if (resultado?.envioEstado === 'incierto' || resultado?.envioEstado === 'enviando') return 'incierto'
   return 'pendiente'
+}
+
+/** Otra revisión sólo libera el intento que ya conocemos y que el servidor
+ * muestra como una compra separada. Una respuesta perdida no demuestra eso. */
+export function intentoSeparadoDelProveedor(intento, proveedor, compras) {
+  return Boolean(proveedor && proveedor.revisionReporte != null) && intento?.estado === 'incierto' && intento.ordenId != null && !proveedorEnviado(proveedor) &&
+    proveedor?.revisionReporte !== intento.cuerpo.revisionReporte && compras.some(compra =>
+      compra.enviada === true && String(compra.orden_id) === String(intento.ordenId) &&
+      ['incierto', 'enviada'].includes(compra.estado_envio))
 }
 
 /** El producto puede estar en compras de proveedores distintos. Su nota y

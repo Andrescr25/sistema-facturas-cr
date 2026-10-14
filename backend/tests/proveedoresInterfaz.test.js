@@ -5,8 +5,8 @@ const path = require('node:path');
 const frente = path.join(__dirname, '../../frontend/src');
 const leer = archivo => fs.readFileSync(path.join(frente, archivo), 'utf8');
 const cargar = (archivo, nombres) => new Function(leer(`utils/${archivo}`).replace(/^export /gm, '') + `\nreturn {${nombres}}`)();
-const vista = cargar('proveedoresVista.js', 'proveedorEnviado,ordenarFaltantesProveedores,indicacionFacturacion,cuerpoEnvioProveedor,resultadoEnvioProveedor,notasDelProveedor');
-const { construirProductosParaOrden } = cargar('reporteProveedoresUtils.js', 'construirProductosParaOrden');
+const vista = cargar('proveedoresVista.js', 'proveedorEnviado,ordenarFaltantesProveedores,indicacionFacturacion,cuerpoEnvioProveedor,resultadoEnvioProveedor,notasDelProveedor,intentoSeparadoDelProveedor');
+const { construirProductosParaOrden, claveProductoReporte, keyProductoProveedor, clavesProductoProveedor, getCantidadFinal, productoAgregadoGuardado, agregarProductoManual, cantidadProveedorExacta } = cargar('reporteProveedoresUtils.js', 'construirProductosParaOrden,claveProductoReporte,keyProductoProveedor,clavesProductoProveedor,getCantidadFinal,productoAgregadoGuardado,agregarProductoManual,cantidadProveedorExacta');
 const { fechaHoraEnCostaRica } = cargar('fechaCR.js', 'fechaHoraEnCostaRica');
 const proveedor = { id: 'p-1', proveedor_id: 1, nombre: 'zz-Proveedor', cedula: 'zz-cedula', revisionReporte: 'revision-1' };
 const producto = { productoId: 7, codigoInterno: 'zz-A', nombreInterno: 'zz-Producto A', cantidadOriginal: 3, cantidad: 2, factorConversion: 2 };
@@ -59,6 +59,8 @@ test('el envío toma la cantidad revisada en pantalla y conserva conversión e i
   const cuerpo = vista.cuerpoEnvioProveedor(p, productos, true);
   assert.equal(cuerpo.revisionReporte, 'revision-1');
   assert.equal(cuerpo.proveedorId, 1);
+  assert.equal(cuerpo.fechaInicio, null);
+  assert.equal(vista.cuerpoEnvioProveedor({ ...p, fechaInicio: '2026-10-14' }, productos, true).fechaInicio, '2026-10-14');
   assert.equal(cuerpo.productos[0].productoId, 7);
   assert.equal(cuerpo.productos[0].cantidadOriginal, 3);
   assert.equal(cuerpo.productos[0].cantidad, 2);
@@ -76,6 +78,66 @@ test('una compra enviada no usa las cantidades editadas de una compra nueva', ()
   for (const cantidad of [0, -3, NaN, Infinity]) assert.throws(() => vista.cuerpoEnvioProveedor(proveedor, [{ ...producto, cantidad }], true), /cantidades/);
   for (const estado of ['incierto', 'enviando']) assert.equal(vista.resultadoEnvioProveedor({ envioEstado: estado }), 'incierto');
   assert.equal(vista.resultadoEnvioProveedor({ envioEstado: 'confirmado' }), 'confirmado');
+  assert.equal(vista.resultadoEnvioProveedor({ envioEstado: 'no_enviado' }), 'no_enviado');
+});
+
+test('referencias repetidas: editar, eliminar y seleccionar un id propio conserva independiente el otro producto', () => {
+  const productos = [{ producto_id: 7, codigo: 'zz-A', nombre: 'zz-Tornillo', cantidad_faltante: 6 }, { producto_id: 8, codigo: 'zz-A', nombre: 'zz-Perno', cantidad_faltante: 9 }];
+  const p = { ...proveedor, productos_faltantes: productos };
+  const guardadas = new Map([['zz-Proveedor-zz-A', { cantidad_modificada: 99 }]]);
+  const modificadas = new Map([['zz-Proveedor-id:7', 3]]);
+  assert.equal(getCantidadFinal(p.nombre, productos[0], 6, modificadas, guardadas, productos), 3);
+  assert.equal(getCantidadFinal(p.nombre, productos[1], 9, modificadas, guardadas, productos), 9);
+  const opciones = { cantidadesModificadas: modificadas, cantidadesGuardadas: guardadas, productosEliminados: new Set(['zz-Proveedor-zz-A']), productosAgregados: new Map() };
+  assert.deepEqual(construirProductosParaOrden(p, opciones).map(x => [x.productoId, x.cantidadOriginal]), [[7, 3], [8, 9]], 'se ignora la eliminación legada ambigua');
+  opciones.productosEliminados = new Set(['zz-Proveedor-id:7']);
+  assert.deepEqual(construirProductosParaOrden(p, opciones).map(x => x.productoId), [8]);
+  const seleccionados = new Set([keyProductoProveedor(p.nombre, productos[0])]);
+  assert.equal(seleccionados.has(keyProductoProveedor(p.nombre, productos[1])), false);
+  assert.equal(seleccionados.has(keyProductoProveedor('zz-Otro proveedor', productos[0])), false);
+});
+
+test('temporales legados sólo aplican por una referencia única y los cambios nuevos por id tienen prioridad', () => {
+  const p = { producto_id: 7, codigo: 'zz-A' }, productos = [p];
+  const antigua = new Map([['zz-Proveedor-zz-A', { cantidad_modificada: 4 }]]);
+  assert.equal(getCantidadFinal(proveedor.nombre, p, 6, new Map(), antigua, productos), 4);
+  antigua.set('zz-Proveedor-id:7', { cantidad_modificada: 2 });
+  assert.equal(getCantidadFinal(proveedor.nombre, p, 6, new Map(), antigua, productos), 2);
+  assert.deepEqual(clavesProductoProveedor(proveedor.nombre, p, productos), ['zz-Proveedor-id:7', 'zz-Proveedor-zz-A']);
+  assert.equal(claveProductoReporte({ producto_id: 8, codigo: 'zz-A' }), 'id:8');
+});
+
+test('extras con la misma referencia conservan ids distintos y recargar conserva identidad y código visible', () => {
+  const a = { productoId: 7, codigo: 'zz-A', nombre: 'zz-Tornillo', cantidad: 2 };
+  const b = { productoId: 8, codigo: 'zz-A', nombre: 'zz-Perno', cantidad: 3 };
+  const lista = agregarProductoManual(agregarProductoManual([], a), b);
+  assert.equal(lista.length, 2);
+  const aumentada = agregarProductoManual(lista, { ...a, cantidad: 1 });
+  assert.deepEqual(aumentada.map(p => [p.productoId, p.cantidad]), [[7, 3], [8, 3]]);
+  assert.equal(lista[0].cantidad, 2);
+  const recuperado = productoAgregadoGuardado({ producto_codigo: 'id:7', producto_nombre: 'zz-Tornillo', cantidad_modificada: 3, codigo_interno: 'zz-A' });
+  assert.equal(recuperado.productoId, 7); assert.equal(recuperado.claveAlmacenada, 'id:7'); assert.equal(recuperado.codigo, 'zz-A');
+  assert.equal(productoAgregadoGuardado({ producto_codigo: 'id:8', producto_nombre: 'zz-Perno', cantidad_modificada: 3 }).codigo, '', 'el id interno nunca se presenta como referencia');
+  assert.equal(productoAgregadoGuardado({ producto_codigo: 'zz-A', producto_nombre: 'zz-Tornillo', cantidad_modificada: 3 }).claveAlmacenada, 'zz-A');
+});
+
+test('paquetes con seis decimales exactos: .07/.01 pide siete y una conversión inválida nunca se envía', () => {
+  assert.equal(cantidadProveedorExacta(0.07, 0.01), 7);
+  assert.equal(cantidadProveedorExacta('0.0700000', '0.0100000'), 7);
+  assert.equal(cantidadProveedorExacta(0.07, 1), 1);
+  assert.equal(cantidadProveedorExacta(0.08, 0.03), 3);
+  assert.equal(cantidadProveedorExacta(0.000001, 0.000001), 1);
+  for (const invalido of [false, true, null, 0, -1, NaN, Infinity, 0.0000001]) {
+    assert.throws(() => cantidadProveedorExacta(invalido, 1));
+    assert.throws(() => cantidadProveedorExacta(1, invalido));
+  }
+  const p = { ...proveedor, productos_faltantes: [{ producto_id: 7, codigo: 'zz-A', nombre: 'zz-Pequeño', cantidad_faltante: 0.07, factor_conversion: 0.01 }] };
+  const opciones = { productosEliminados: new Set(), cantidadesModificadas: new Map(), cantidadesGuardadas: new Map(), productosAgregados: new Map() };
+  assert.equal(construirProductosParaOrden(p, opciones)[0].cantidad, 7);
+  opciones.cantidadesModificadas.set('zz-Proveedor-id:7', 0);
+  assert.equal(construirProductosParaOrden(p, opciones).length, 0, 'cero mantiene la exclusión explícita de una línea');
+  const a = { productoId: 7, cantidad: 0.1 };
+  assert.equal(agregarProductoManual([a], { productoId: 7, cantidad: 0.2 })[0].cantidad, 0.3);
 });
 
 /** Se ejecuta el gancho real con estado React y API controlados. No hay
@@ -96,8 +158,8 @@ function montar(api, almacen = new Map()) {
   };
   const sessionStorage = { getItem: clave => almacen.get(clave) || null, setItem: (clave, valor) => almacen.set(clave, valor), removeItem: clave => almacen.delete(clave) };
   const codigo = leer('hooks/useEnvioOrdenProveedor.js').replace(/^import .*$/gm, '').replace(/^export /gm, '');
-  const hook = new Function('useState', 'useRef', 'useEffect', 'api', 'useAuth', 'sessionStorage', 'crypto', 'cuerpoEnvioProveedor', 'resultadoEnvioProveedor', codigo + '\nreturn useEnvioOrdenProveedor')(
-    useState, useRef, useEffect, api, () => ({ usuario: { id: 50 } }), sessionStorage, { randomUUID: () => `clave-${++serial}` }, vista.cuerpoEnvioProveedor, vista.resultadoEnvioProveedor);
+  const hook = new Function('useState', 'useRef', 'useEffect', 'api', 'useAuth', 'sessionStorage', 'crypto', 'cuerpoEnvioProveedor', 'resultadoEnvioProveedor', 'intentoSeparadoDelProveedor', codigo + '\nreturn useEnvioOrdenProveedor')(
+    useState, useRef, useEffect, api, () => ({ usuario: { id: 50 } }), sessionStorage, { randomUUID: () => `clave-${++serial}` }, vista.cuerpoEnvioProveedor, vista.resultadoEnvioProveedor, vista.intentoSeparadoDelProveedor);
   const render = (datos = {}) => {
     indice = 0;
     const resultado = hook({ proveedor, productos: [producto], preferirDatosProveedor: true, onEnviada: async () => {}, showToast() {}, ...datos });
@@ -132,8 +194,9 @@ test('respuesta 503: al recargar consulta con la misma clave y el cuerpo origina
   await antes.render().enviar();
   assert.equal(antes.render().estado, 'por_verificar');
   const despues = montar({ post: async (ruta, cuerpo) => { llamadas.push(structuredClone(cuerpo)); return { data: { success: true, data: { envioEstado: 'confirmado' } } }; } }, antes.almacen);
-  despues.render({ productos: [{ ...producto, cantidadOriginal: 20, cantidad: 10 }] });
-  await despues.render({ productos: [{ ...producto, cantidadOriginal: 20, cantidad: 10 }] }).enviar();
+  const nueva = { productos: [{ ...producto, cantidadOriginal: 20, cantidad: 10 }], proveedor: { ...proveedor, revisionReporte: 'nueva-revision' }, comprasEnviadas: [{ enviada: true, orden_id: 22, estado_envio: 'incierto' }] };
+  despues.render(nueva);
+  await despues.render(nueva).enviar();
   assert.deepEqual(llamadas[1], llamadas[0]);
   assert.equal(despues.almacen.size, 0);
 });
@@ -158,4 +221,51 @@ test('una revisión rechazada antes del transporte se puede corregir y enviar co
   assert.equal(m.render().estado, 'pendiente');
   assert.equal(m.render().error, 'El reporte cambió');
   assert.equal(m.almacen.size, 0);
+});
+
+test('no_enviado permite otro clic explícito con clave nueva sin retirar cantidades de la compra', async () => {
+  const cuerpos = []; let refrescos = 0;
+  const api = { post: async (ruta, cuerpo) => { cuerpos.push(cuerpo); return { data: { success: true, data: { envioEstado: cuerpos.length === 1 ? 'no_enviado' : 'confirmado' } } }; } };
+  const m = montar(api), datos = { onEnviada: async () => { refrescos++; } };
+  await m.render(datos).enviar();
+  assert.equal(m.render(datos).estado, 'pendiente'); assert.equal(m.almacen.size, 0); assert.equal(refrescos, 0);
+  await m.render(datos).enviar();
+  assert.notEqual(cuerpos[1].clave, cuerpos[0].clave);
+  assert.deepEqual(cuerpos[1].productos, cuerpos[0].productos); assert.equal(refrescos, 1);
+});
+
+test('un cálculo inválido se informa al pulsar enviar y permite corregir sin romper el render ni hacer POST', async () => {
+  let llamadas = 0;
+  const m = montar({ post: async () => { llamadas++; } });
+  const datos = { productos: () => { throw new Error('Conversión inválida'); } };
+  const inicial = m.render(datos);
+  assert.equal(inicial.estado, 'pendiente');
+  await inicial.enviar();
+  assert.equal(m.render(datos).estado, 'pendiente'); assert.equal(m.render(datos).error, 'Conversión inválida');
+  assert.equal(llamadas, 0); assert.equal(m.almacen.size, 0);
+});
+
+test('un intento guardado ilegible no se descarta ni genera un segundo envío', async () => {
+  let llamadas = 0;
+  const almacen = new Map([['orden-proveedor:50:1', '{roto']]);
+  const m = montar({ post: async () => { llamadas++; } }, almacen);
+  m.render(); await m.render().enviar();
+  assert.equal(m.render().estado, 'por_verificar'); assert.equal(llamadas, 0);
+  assert.equal(almacen.get('orden-proveedor:50:1'), '{roto');
+});
+
+test('incierto conocido con snapshot independiente permite la compra nueva y conserva el cuerpo anterior en historial', async () => {
+  const cuerpos = [];
+  const m = montar({ post: async (ruta, cuerpo) => { cuerpos.push(cuerpo); return { data: { success: true, data: { envioEstado: cuerpos.length === 1 ? 'incierto' : 'confirmado', orden: { id: 22 } } } }; } });
+  await m.render().enviar();
+  assert.equal(m.render().estado, 'incierto');
+  const nueva = { proveedor: { ...proveedor, revisionReporte: 'nueva-revision' }, productos: [{ ...producto, cantidadOriginal: 8, cantidad: 4 }], comprasEnviadas: [{ enviada: true, orden_id: 23, estado_envio: 'incierto' }] };
+  m.render(nueva); await m.render(nueva).enviar();
+  assert.equal(cuerpos.length, 1, 'otro snapshot no prueba la separación de este intento');
+  nueva.comprasEnviadas = [{ enviada: true, orden_id: 22, estado_envio: 'incierto' }];
+  m.render(nueva); await m.render(nueva).enviar();
+  assert.equal(cuerpos.length, 2); assert.notEqual(cuerpos[1].clave, cuerpos[0].clave);
+  assert.equal(cuerpos[1].revisionReporte, 'nueva-revision'); assert.equal(cuerpos[1].productos[0].cantidadOriginal, 8);
+  assert.deepEqual(JSON.parse([...m.almacen.values()][0]).cuerpo, cuerpos[0]);
+  assert.match([...m.almacen.keys()][0], /historial:clave-1$/);
 });

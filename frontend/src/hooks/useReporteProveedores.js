@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useContextoConsulta } from './useContextoConsulta'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
+import { claveProductoReporte, keyProductoProveedor, clavesProductoProveedor, productoAgregadoGuardado } from '../utils/reporteProveedoresUtils'
 import { useDialog } from './useDialog'
 import { useToast } from './useToast'
 import { useEdicionFaltantesProveedor } from './useEdicionFaltantesProveedor'
@@ -122,12 +123,7 @@ export function useReporteProveedores({activo=true}={}) {
         result.data?.agregadas?.forEach(item => {
           const proveedorNombre = item.proveedor_nombre
           const productosDelProveedor = agregados.get(proveedorNombre) || []
-          productosDelProveedor.push({
-            codigo: item.producto_codigo,
-            nombre: item.producto_nombre,
-            cantidad: item.cantidad_modificada,
-            agregadoManual: true
-          })
+          productosDelProveedor.push(productoAgregadoGuardado(item))
           agregados.set(proveedorNombre, productosDelProveedor)
         })
         setProductosAgregados(agregados)
@@ -156,7 +152,7 @@ export function useReporteProveedores({activo=true}={}) {
 
   const handleCantidadChange = useCallback((proveedorNombre, productoCodigo, nuevaCantidad) => {
     const key = `${proveedorNombre}-${productoCodigo}`
-    const cantidadNum = parseInt(nuevaCantidad) || 0
+    const cantidadNum = Number(nuevaCantidad) || 0
     setCantidadesModificadas(prev => {
       const nuevasCantidades = new Map(prev)
       nuevasCantidades.set(key, cantidadNum)
@@ -175,12 +171,12 @@ export function useReporteProveedores({activo=true}={}) {
       const cantidadesParaGuardar = []
       proveedores.filter(proveedor => !proveedor.enviada && !proveedor.orden_id).forEach(proveedor => {
         proveedor.productos_faltantes.forEach(producto => {
-          const key = `${proveedor.nombre}-${producto.codigo}`
+          const key = keyProductoProveedor(proveedor.nombre, producto)
           const cantidadModificada = cantidadesModificadas.get(key)
           if (cantidadModificada !== undefined) {
             cantidadesParaGuardar.push({
               proveedor_nombre: proveedor.nombre,
-              producto_codigo: producto.codigo,
+              producto_codigo: claveProductoReporte(producto),
               producto_nombre: producto.nombre,
               cantidad_original: producto.cantidad_faltante,
               cantidad_modificada: cantidadModificada
@@ -214,7 +210,7 @@ export function useReporteProveedores({activo=true}={}) {
   }, [])
 
   const toggleTodosProductos = useCallback((proveedor) => {
-    const todosCodigos = proveedor.productos_faltantes.map(p => p.codigo)
+    const todosCodigos = proveedor.productos_faltantes.map(p => keyProductoProveedor(proveedor.nombre, p)).filter(Boolean)
     setProductosSeleccionados(prev => {
       const todosSeleccionados = todosCodigos.every(codigo => prev.has(codigo))
       const nuevaSeleccion = new Set(prev)
@@ -263,7 +259,7 @@ export function useReporteProveedores({activo=true}={}) {
       setLoading(true)
       const productosAAsignar = []
       proveedores.filter(proveedor => !proveedor.enviada && !proveedor.orden_id).forEach(proveedor => {
-        const prod = proveedor.productos_faltantes.filter(p => productosSeleccionados.has(p.codigo))
+        const prod = proveedor.productos_faltantes.filter(p => productosSeleccionados.has(keyProductoProveedor(proveedor.nombre, p)))
         prod.forEach(p => productosAAsignar.push({ producto: p, proveedorActual: proveedor.nombre }))
       })
 
@@ -325,7 +321,7 @@ export function useReporteProveedores({activo=true}={}) {
     if (proveedorNombre) {
       // El servidor retira la edición de la compra confirmada; una nueva
       // compra del mismo proveedor no puede heredar la cantidad anterior.
-      const claves = new Set(proveedores.filter(p => !p.enviada && !p.orden_id && p.nombre === proveedorNombre).flatMap(p => p.productos_faltantes.map(producto => `${proveedorNombre}-${producto.codigo}`)))
+      const claves = new Set(proveedores.filter(p => !p.enviada && !p.orden_id && p.nombre === proveedorNombre).flatMap(p => p.productos_faltantes.flatMap(producto => clavesProductoProveedor(proveedorNombre, producto, p.productos_faltantes))))
       const sinProveedor = mapa => new Map([...mapa].filter(([key]) => !claves.has(key)))
       setCantidadesModificadas(sinProveedor)
       setCantidadesGuardadas(sinProveedor)

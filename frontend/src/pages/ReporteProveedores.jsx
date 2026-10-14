@@ -122,7 +122,8 @@ export default function ReporteProveedores() {
   const proveedorActivo = proveedores.find(p => p.id === proveedorActivoId)
   const envio = useEnvioOrdenProveedor({
     proveedor: proveedorActivo,
-    productos: proveedorActivo ? construirProductosParaOrden(proveedorActivo, {
+    comprasEnviadas: proveedores,
+    productos: () => proveedorActivo ? construirProductosParaOrden(proveedorActivo, {
       productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados
     }) : [],
     preferirDatosProveedor: proveedorActivo ? usaDatosProveedor(proveedorActivo.nombre, preferenciasDatosProveedor) : true,
