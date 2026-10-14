@@ -39,6 +39,15 @@ Revisión de precios relaciona una única orden automáticamente; varias exigen
 selección. Tarjetas de Reporte Clientes dejan la agenda a Preventa. Sin SQL
 nuevo; no cambia los IDs históricos. [Evidencia](informes/proveedores-correccion-2026-10-14.md).
 
+**Continuación del 2026-10-14:** facturas parciales acumuladas en una misma
+orden, selección segura y automática revalidada; cantidades ingresadas enteras
+por confirmación del usuario. Agregados del mismo producto conservan un único
+total al recargar y se consolidan con prueba de versión. La edición nueva
+pertenece a la revisión del reporte que se vio; cambia origen/fecha, se revisa
+de nuevo. Envío incierto oculto por fecha no contamina ni bloquea el pedido
+nuevo que el servidor ya separó. Reutiliza bitácora/SQL existentes; no altera
+el conteo de independencia ni los pendientes de impresos24h.
+
 Cada sección dice qué depende hoy de Alegra y cuándo se da por lista. Se
 marca `- [x]` al terminar.
 

@@ -98,11 +98,11 @@ class OrdersWhatsappController {
         return ResponseHelper.validationError(res, { cantidades: ['Se requiere un array de cantidades'] });
       }
 
-      const guardadas = await this.ordersService.guardarCantidades(cantidades);
+      const guardadas = await this.ordersService.guardarCantidades(cantidades, req.usuario?.id);
       return ResponseHelper.success(res, { cantidades_guardadas: guardadas }, 'Cantidades guardadas correctamente', 201);
     } catch (error) {
       console.error('❌ Error guardando cantidades:', error);
-      return ResponseHelper.error(res, error.message, 500);
+      return ResponseHelper.error(res, error.message, error.status || 500);
     }
   };
 
@@ -117,7 +117,7 @@ class OrdersWhatsappController {
 
   registrarProductoEliminado = async (req, res) => {
     try {
-      const { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal } = req.body;
+      const { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal, producto_id, revisionReporte, fechaInicio } = req.body;
 
       if (!proveedorNombre || !productoCodigo) {
         return ResponseHelper.validationError(res, {
@@ -130,19 +130,20 @@ class OrdersWhatsappController {
         proveedorNombre,
         productoCodigo,
         productoNombre,
-        cantidadOriginal
+        cantidadOriginal,
+        { productoId: producto_id, usuarioId: req.usuario?.id, revisionReporte, fechaInicio }
       );
 
       return ResponseHelper.success(res, {}, 'Producto eliminado registrado correctamente');
     } catch (error) {
       console.error('❌ Error registrando producto eliminado:', error);
-      return ResponseHelper.error(res, error.message, 500);
+      return ResponseHelper.error(res, error.message, error.status || 500);
     }
   };
 
   registrarProductoAgregado = async (req, res) => {
     try {
-      const { proveedorNombre, productoCodigo, productoNombre, cantidad } = req.body;
+      const { proveedorNombre, productoCodigo, productoNombre, cantidad, producto_id, revisionReporte, fechaInicio } = req.body;
 
       if (!proveedorNombre || !productoCodigo || !productoNombre || !cantidad) {
         return ResponseHelper.validationError(res, {
@@ -157,13 +158,14 @@ class OrdersWhatsappController {
         proveedorNombre,
         productoCodigo,
         productoNombre,
-        cantidad
+        cantidad,
+        { productoId: producto_id, usuarioId: req.usuario?.id, revisionReporte, fechaInicio }
       );
 
       return ResponseHelper.success(res, {}, 'Producto agregado registrado correctamente');
     } catch (error) {
       console.error('❌ Error registrando producto agregado:', error);
-      return ResponseHelper.error(res, error.message, 500);
+      return ResponseHelper.error(res, error.message, error.status || 500);
     }
   };
 
@@ -177,11 +179,11 @@ class OrdersWhatsappController {
           productoCodigo: !productoCodigo ? ['productoCodigo es requerido'] : []
         });
       }
-      const borrados = await this.ordersService.eliminarRegistroTemporal(proveedorNombre, productoCodigo, 'eliminado');
+      const borrados = await this.ordersService.eliminarRegistroTemporal(proveedorNombre, productoCodigo, 'eliminado', req.body);
       return ResponseHelper.success(res, { borrados }, 'Producto restaurado a la orden');
     } catch (error) {
       console.error('❌ Error restaurando producto:', error);
-      return ResponseHelper.error(res, error.message, 500);
+      return ResponseHelper.error(res, error.message, error.status || 500);
     }
   };
 
@@ -195,11 +197,11 @@ class OrdersWhatsappController {
           productoCodigo: !productoCodigo ? ['productoCodigo es requerido'] : []
         });
       }
-      const borrados = await this.ordersService.eliminarRegistroTemporal(proveedorNombre, productoCodigo, 'agregado');
+      const borrados = await this.ordersService.eliminarRegistroTemporal(proveedorNombre, productoCodigo, 'agregado', req.body);
       return ResponseHelper.success(res, { borrados }, 'Producto agregado quitado');
     } catch (error) {
       console.error('❌ Error quitando producto agregado:', error);
-      return ResponseHelper.error(res, error.message, 500);
+      return ResponseHelper.error(res, error.message, error.status || 500);
     }
   };
 

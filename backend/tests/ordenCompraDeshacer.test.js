@@ -27,7 +27,7 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE = path.join(__dirname, '..', 'src', 'modules', 'orders-whatsapp');
-const SERVICIO = fs.readFileSync(path.join(BASE, 'orders-whatsapp.service.js'), 'utf8');
+const SERVICIO = fs.readFileSync(path.join(BASE, 'temporalesProveedor.service.js'), 'utf8');
 const RUTAS = fs.readFileSync(path.join(BASE, 'orders-whatsapp.routes.js'), 'utf8');
 const CONTROLADOR = fs.readFileSync(path.join(BASE, 'orders-whatsapp.controller.js'), 'utf8');
 const HOOK = fs.readFileSync(path.join(__dirname, '..', '..', 'frontend', 'src', 'hooks', 'useEdicionFaltantesProveedor.js'), 'utf8');
@@ -62,16 +62,16 @@ describe('las rutas que el frontend llama existen', () => {
 
 describe('borrar el registro correcto y solo ese', () => {
   test('el borrado filtra por accion', () => {
-    assert.match(SERVICIO, /DELETE FROM orden_compra_temporal[\s\S]*?AND accion = \$3/,
+    assert.match(SERVICIO, /DELETE FROM orden_compra_temporal[\s\S]*?AND accion=\$3/,
       'sin filtrar por accion, deshacer una eliminación borraría una cantidad modificada');
   });
 
   test('restaurar borra solo lo marcado como eliminado', () => {
-    assert.match(CONTROLADOR, /eliminarRegistroTemporal\(proveedorNombre, productoCodigo, 'eliminado'\)/);
+    assert.match(CONTROLADOR, /eliminarRegistroTemporal\(proveedorNombre, productoCodigo, 'eliminado', req.body\)/);
   });
 
   test('quitar un agregado borra solo lo marcado como agregado', () => {
-    assert.match(CONTROLADOR, /eliminarRegistroTemporal\(proveedorNombre, productoCodigo, 'agregado'\)/);
+    assert.match(CONTROLADOR, /eliminarRegistroTemporal\(proveedorNombre, productoCodigo, 'agregado', req.body\)/);
   });
 
   test('faltando datos se responde error de validación, no un borrado a ciegas', () => {

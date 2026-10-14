@@ -4,7 +4,7 @@ import { proveedorEnviado, notasDelProveedor } from '../../utils/proveedoresVist
 import Boton from '../ui/Boton'
 import PanelSeccion from '../ui/PanelSeccion'
 import { Users, Package, RefreshCw, FileText, Trash2, ArrowLeft, Send } from 'lucide-react'
-import { getCantidadFinal, usaDatosProveedor, claveProductoReporte, keyProductoProveedor, clavesProductoProveedor } from '../../utils/reporteProveedoresUtils'
+import { getCantidadFinal, usaDatosProveedor, claveProductoReporte, keyProductoProveedor, clavesProductoProveedor, edicionCantidadProducto, cantidadEnteraValida } from '../../utils/reporteProveedoresUtils'
 import NotasDelProducto from './NotasDelProducto'
 import PanelNotasProveedor from './PanelNotasProveedor'
 
@@ -123,6 +123,8 @@ export default function ProveedorDetalle({
             const key = keyProductoProveedor(proveedor.nombre, producto)
             const claves = clavesProductoProveedor(proveedor.nombre, producto, proveedor.productos_faltantes)
             const cantidadFinal = getCantidadFinal(proveedor.nombre, producto, producto.cantidad_faltante, cantidadesModificadas, cantidadesGuardadas, proveedor.productos_faltantes)
+            const edicionCantidad = edicionCantidadProducto(proveedor.nombre, producto, cantidadesModificadas, cantidadesGuardadas, proveedor.productos_faltantes)
+            const cantidadInvalida = edicionCantidad && !cantidadEnteraValida(edicionCantidad.cantidad)
             const tieneModificacion = claves.some(c => cantidadesModificadas.has(c) || cantidadesGuardadas.has(c))
             const estaEliminado = claves.some(c => productosEliminados.has(c))
             const seleccionado = productosSeleccionados.has(key)
@@ -153,22 +155,23 @@ export default function ProveedorDetalle({
                     <input
                       type="number"
                       min="0"
-                      step="0.000001"
+                      step="1"
                       value={cantidadFinal === undefined ? '' : cantidadFinal}
                       onChange={(e) => handleCantidadChange(proveedor.nombre, pClave, e.target.value)}
                       aria-label={`Cantidad a pedir de ${producto.nombre}`}
                       className="w-full max-w-[120px] min-h-12 px-3 py-2 border border-neutro-300 rounded focus:ring-2 focus:ring-primario-500 outline-none transition-shadow"
                       disabled={bloqueado || estaEliminado || !pClave}
                     />
+                    {cantidadInvalida && <p role="alert" className="mt-1 text-xs text-peligro-700">Ingresá una cantidad entera.</p>}
                   </div>
 
                   <div className="flex items-center gap-2">
                     {estaEliminado ? (
-                      <button disabled={bloqueado} onClick={() => restaurarProducto(proveedor.nombre, claves.map(c => c.slice(proveedor.nombre.length + 1)))} className="text-xs bg-neutro-200 hover:bg-neutro-300 text-neutro-700 px-3 py-1.5 rounded transition">
+                      <button disabled={bloqueado} onClick={() => restaurarProducto(proveedor.nombre, claves.map(c => c.slice(proveedor.nombre.length + 1)), producto.producto_id)} className="text-xs bg-neutro-200 hover:bg-neutro-300 text-neutro-700 px-3 py-1.5 rounded transition">
                         Restaurar
                       </button>
                     ) : (
-                      <button disabled={bloqueado || !pClave} onClick={() => eliminarProductoDeOrden(proveedor.nombre, pClave, producto.nombre, producto.cantidad_faltante)} aria-label={`Retirar ${producto.nombre} de la lista`} className="min-h-11 min-w-11 text-neutro-400 hover:text-peligro-600 p-2 rounded transition">
+                      <button disabled={bloqueado || !pClave} onClick={() => eliminarProductoDeOrden(proveedor.nombre, pClave, producto.nombre, producto.cantidad_faltante, producto.producto_id)} aria-label={`Retirar ${producto.nombre} de la lista`} className="min-h-11 min-w-11 text-neutro-400 hover:text-peligro-600 p-2 rounded transition">
                         <Trash2 size={18} />
                       </button>
                     )}
@@ -192,7 +195,7 @@ export default function ProveedorDetalle({
                 <div className="flex-1 px-4 border-l border-neutro-200">
                   <p className="text-xs text-neutro-500 uppercase tracking-wider mb-1">Pedir Cantidad</p>
                   <input
-                    type="number" min="0.000001" step="0.000001" disabled={bloqueado} value={producto.cantidad}
+                    type="number" min="1" step="1" disabled={bloqueado} value={producto.cantidad}
                     onChange={(e) => actualizarCantidadAgregado(proveedor.nombre, idx, e.target.value)}
                     aria-label={`Cantidad del producto agregado ${producto.nombre}`}
                     className="w-full max-w-[120px] min-h-12 px-3 py-2 border border-neutro-300 rounded focus:ring-2 focus:ring-primario-500 outline-none"

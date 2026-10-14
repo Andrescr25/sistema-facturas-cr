@@ -6,7 +6,7 @@ const frente = path.join(__dirname, '../../frontend/src');
 const leer = archivo => fs.readFileSync(path.join(frente, archivo), 'utf8');
 const cargar = (archivo, nombres) => new Function(leer(`utils/${archivo}`).replace(/^export /gm, '') + `\nreturn {${nombres}}`)();
 const vista = cargar('proveedoresVista.js', 'proveedorEnviado,ordenarFaltantesProveedores,indicacionFacturacion,cuerpoEnvioProveedor,resultadoEnvioProveedor,notasDelProveedor,intentoSeparadoDelProveedor');
-const { construirProductosParaOrden, claveProductoReporte, keyProductoProveedor, clavesProductoProveedor, getCantidadFinal, productoAgregadoGuardado, agregarProductoManual, cantidadProveedorExacta } = cargar('reporteProveedoresUtils.js', 'construirProductosParaOrden,claveProductoReporte,keyProductoProveedor,clavesProductoProveedor,getCantidadFinal,productoAgregadoGuardado,agregarProductoManual,cantidadProveedorExacta');
+const { construirProductosParaOrden, claveProductoReporte, keyProductoProveedor, clavesProductoProveedor, getCantidadFinal, productoAgregadoGuardado, agregarProductoManual, cantidadProveedorExacta, cantidadEnteraValida, construirCantidadGuardada, proveedoresConRevisionCambiada, temporalVigenteProveedor, retirarEdicionesDeProveedores } = cargar('reporteProveedoresUtils.js', 'construirProductosParaOrden,claveProductoReporte,keyProductoProveedor,clavesProductoProveedor,getCantidadFinal,productoAgregadoGuardado,agregarProductoManual,cantidadProveedorExacta,cantidadEnteraValida,construirCantidadGuardada,proveedoresConRevisionCambiada,temporalVigenteProveedor,retirarEdicionesDeProveedores');
 const { fechaHoraEnCostaRica } = cargar('fechaCR.js', 'fechaHoraEnCostaRica');
 const proveedor = { id: 'p-1', proveedor_id: 1, nombre: 'zz-Proveedor', cedula: 'zz-cedula', revisionReporte: 'revision-1' };
 const producto = { productoId: 7, codigoInterno: 'zz-A', nombreInterno: 'zz-Producto A', cantidadOriginal: 3, cantidad: 2, factorConversion: 2 };
@@ -115,10 +115,81 @@ test('extras con la misma referencia conservan ids distintos y recargar conserva
   const aumentada = agregarProductoManual(lista, { ...a, cantidad: 1 });
   assert.deepEqual(aumentada.map(p => [p.productoId, p.cantidad]), [[7, 3], [8, 3]]);
   assert.equal(lista[0].cantidad, 2);
-  const recuperado = productoAgregadoGuardado({ producto_codigo: 'id:7', producto_nombre: 'zz-Tornillo', cantidad_modificada: 3, codigo_interno: 'zz-A' });
+  const recuperado = productoAgregadoGuardado({ producto_codigo: 'id:7', producto_id: 7, clave_producto: 'id:7', producto_nombre: 'zz-Tornillo', cantidad_modificada: 3, codigo_interno: 'zz-A' });
   assert.equal(recuperado.productoId, 7); assert.equal(recuperado.claveAlmacenada, 'id:7'); assert.equal(recuperado.codigo, 'zz-A');
   assert.equal(productoAgregadoGuardado({ producto_codigo: 'id:8', producto_nombre: 'zz-Perno', cantidad_modificada: 3 }).codigo, '', 'el id interno nunca se presenta como referencia');
   assert.equal(productoAgregadoGuardado({ producto_codigo: 'zz-A', producto_nombre: 'zz-Tornillo', cantidad_modificada: 3 }).claveAlmacenada, 'zz-A');
+});
+
+test('sólo ediciones y extras enteros: no truncar .07, vacío, booleanos o NaN; el saldo calculado conserva sus decimales', () => {
+  for (const invalida of [0.07, NaN, Infinity, '', null, false, '3.2', 'NaN']) assert.equal(cantidadEnteraValida(invalida), false);
+  for (const valida of [0, 1, 7, '7']) assert.equal(cantidadEnteraValida(valida), true);
+  assert.equal(cantidadEnteraValida(0, 1), false);
+  const p = { ...proveedor, productos_faltantes: [{ producto_id: 7, codigo: 'zz-A', nombre: 'zz-Saldo', cantidad_faltante: 0.07, factor_conversion: 0.01 }] };
+  const opciones = { productosEliminados: new Set(), cantidadesModificadas: new Map(), cantidadesGuardadas: new Map(), productosAgregados: new Map() };
+  assert.equal(construirProductosParaOrden(p, opciones)[0].cantidad, 7);
+  opciones.cantidadesGuardadas.set('zz-Proveedor-id:7', { cantidad_modificada: 0.07 });
+  assert.equal(getCantidadFinal(p.nombre, p.productos_faltantes[0], 0.07, opciones.cantidadesModificadas, opciones.cantidadesGuardadas, p.productos_faltantes), '');
+  assert.throws(() => construirProductosParaOrden(p, opciones), /enteros/);
+  assert.throws(() => agregarProductoManual([], { productoId: 9, cantidad: 0.07 }), /entero/);
+});
+
+test('original más extra del mismo id produce una sola línea; producto distinto con el mismo código sigue independiente', () => {
+  const p = { ...proveedor, productos_faltantes: [{ producto_id: 7, codigo: 'zz-A', nombre: 'zz-Tornillo', cantidad_faltante: 10, factor_conversion: 2 }] };
+  const opciones = { productosEliminados: new Set(), cantidadesModificadas: new Map([['zz-Proveedor-id:7', 7]]), cantidadesGuardadas: new Map(), productosAgregados: new Map([[p.nombre, [{ productoId: 7, codigo: 'zz-A', nombre: 'zz-Tornillo', cantidad: 3 }, { productoId: 8, codigo: 'zz-A', nombre: 'zz-Perno', cantidad: 2 }]]]) };
+  const lineas = construirProductosParaOrden(p, opciones);
+  assert.deepEqual(lineas.map(l => [l.productoId, l.cantidadOriginal, l.cantidad]), [[7, 10, 5], [8, 2, 2]]);
+  assert.equal(lineas[0].agregadoManual, undefined);
+  assert.equal(lineas[1].agregadoManual, true);
+  opciones.productosEliminados.add('zz-Proveedor-id:7');
+  const excluidas = construirProductosParaOrden(p, opciones);
+  assert.equal(excluidas[0].agregadoManual, true); assert.equal(excluidas[0].cantidadOriginal, 3);
+  assert.equal(Object.hasOwn(excluidas[0], 'descripcionFactura'), false, 'el manual no hereda los orígenes del producto excluido');
+});
+
+test('guardar 7 más extra3 y recargar conserva 10; excluir 0 conserva extra manual en otra clave', () => {
+  const original = { producto_id: 7, codigo: 'zz-A', nombre: 'zz-Tornillo', cantidad_faltante: 10, factor_conversion: 2 };
+  const p = { ...proveedor, productos_faltantes: [original] };
+  const extras = new Map([[p.nombre, [{ productoId: 7, claveAlmacenada: 'id:7', codigo: 'zz-A', nombre: 'zz-Tornillo', cantidad: 3, actualizado: '2026-10-14 12:00:00.123456+00' }]]]);
+  const cambio = construirCantidadGuardada(p, original, 7, extras, new Set());
+  assert.equal(cambio.producto_id, 7); assert.equal(cambio.cantidad_modificada, 10); assert.deepEqual(cambio.extras_sustituidos, ['id:7']);
+  assert.equal(cambio.revisionReporte, 'revision-1'); assert.equal(cambio.fechaInicio, null);
+  assert.deepEqual(cambio.extras_revisados, [{ codigo: 'id:7', actualizado: '2026-10-14 12:00:00.123456+00', cantidad: 3 }]);
+  const guardadas = new Map([['zz-Proveedor-id:7', { cantidad_modificada: cambio.cantidad_modificada }]]);
+  assert.equal(construirProductosParaOrden(p, { cantidadesModificadas: new Map(), cantidadesGuardadas: guardadas, productosAgregados: new Map(), productosEliminados: new Set() })[0].cantidadOriginal, 10);
+  const excluido = construirCantidadGuardada(p, original, 0, extras, new Set());
+  assert.equal(excluido.cantidad_modificada, 0);
+  assert.deepEqual(excluido.extra_conservado, { cantidad: 3, productoCodigo: 'extra:id:7', clavesOrigen: ['id:7'] });
+  assert.throws(() => construirCantidadGuardada(p, original, 0.07, extras, new Set()), /enteros/);
+});
+
+test('un saldo calculado 1.7 más extra3 entero conserva 4.7 con procedencia y cantidadAdicional verificable', () => {
+  const p = { ...proveedor, productos_faltantes: [{ producto_id: 7, codigo: 'zz-A', nombre: 'zz-Saldo', cantidad_faltante: 1.7, factor_conversion: 0.01 }] };
+  const opciones = { productosEliminados: new Set(), cantidadesModificadas: new Map(), cantidadesGuardadas: new Map(), productosAgregados: new Map([[p.nombre, [{ productoId: 7, codigo: 'zz-A', nombre: 'zz-Saldo', cantidad: 3 }]]]) };
+  const lineas = construirProductosParaOrden(p, opciones);
+  assert.equal(lineas.length, 1); assert.equal(lineas[0].cantidadOriginal, 4.7); assert.equal(lineas[0].cantidad, 470);
+  assert.equal(lineas[0].cantidadAdicional, 3); assert.equal(lineas[0].agregadoManual, undefined);
+});
+
+test('el GET valida la identidad legada: prefijo id literal nunca implica escoger otro producto', () => {
+  const a = { producto_id: 1, codigo: 'id:2', cantidad_faltante: 10 }, b = { producto_id: 2, codigo: 'zz-B', cantidad_faltante: 20 };
+  const editadas = new Map([['zz-Proveedor-id:2', 5]]);
+  assert.equal(getCantidadFinal(proveedor.nombre, a, 10, editadas, new Map(), [a, b]), 10);
+  assert.equal(getCantidadFinal(proveedor.nombre, b, 20, editadas, new Map(), [a, b]), 5);
+  const ambiguo = productoAgregadoGuardado({ producto_codigo: 'id:2', producto_nombre: 'zz-Antiguo', cantidad_modificada: 3, producto_id: null });
+  assert.equal(ambiguo.productoId, null);
+  const p = { ...proveedor, productos_faltantes: [] };
+  assert.throws(() => construirProductosParaOrden(p, { cantidadesModificadas: new Map(), cantidadesGuardadas: new Map(), productosEliminados: new Set(), productosAgregados: new Map([[p.nombre, [ambiguo]]]) }), /catálogo/);
+});
+
+test('incierto anterior filtrado por fecha se comprueba con DTO propio y UUID exacta, nunca con una respuesta desconocida', () => {
+  const intento = { estado: 'incierto', ordenId: 22, cuerpo: { revisionReporte: 'vieja', clave: 'uuid-22' } };
+  const actual = { ...proveedor, comprobacionEnvios: [{ orden_id: 22, envio_id: 'uuid-22', enviada: true, estado_envio: 'incierto' }] };
+  assert.equal(vista.intentoSeparadoDelProveedor(intento, actual, []), true);
+  actual.comprobacionEnvios[0].envio_id = 'otra-uuid';
+  assert.equal(vista.intentoSeparadoDelProveedor(intento, actual, [{ orden_id: 22, enviada: true, estado_envio: 'incierto' }]), false);
+  actual.comprobacionEnvios[0].envio_id = 'uuid-22';
+  assert.equal(vista.intentoSeparadoDelProveedor({ ...intento, estado: 'por_verificar' }, actual, []), false);
 });
 
 test('paquetes con seis decimales exactos: .07/.01 pide siete y una conversión inválida nunca se envía', () => {
@@ -137,7 +208,7 @@ test('paquetes con seis decimales exactos: .07/.01 pide siete y una conversión 
   opciones.cantidadesModificadas.set('zz-Proveedor-id:7', 0);
   assert.equal(construirProductosParaOrden(p, opciones).length, 0, 'cero mantiene la exclusión explícita de una línea');
   const a = { productoId: 7, cantidad: 0.1 };
-  assert.equal(agregarProductoManual([a], { productoId: 7, cantidad: 0.2 })[0].cantidad, 0.3);
+  assert.throws(() => agregarProductoManual([a], { productoId: 7, cantidad: 0.2 }), /entero/);
 });
 
 /** Se ejecuta el gancho real con estado React y API controlados. No hay
@@ -268,4 +339,91 @@ test('incierto conocido con snapshot independiente permite la compra nueva y con
   assert.equal(cuerpos[1].revisionReporte, 'nueva-revision'); assert.equal(cuerpos[1].productos[0].cantidadOriginal, 8);
   assert.deepEqual(JSON.parse([...m.almacen.values()][0]).cuerpo, cuerpos[0]);
   assert.match([...m.almacen.keys()][0], /historial:clave-1$/);
+});
+
+function montarEdicion(api, datos = {}) {
+  const slots = [], avisos = [];
+  let indice = 0, modificadas = datos.cantidadesModificadas || new Map();
+  const useState = inicial => {
+    const i = indice++;
+    slots[i] ??= { valor: inicial };
+    return [slots[i].valor, nuevo => { slots[i].valor = typeof nuevo === 'function' ? nuevo(slots[i].valor) : nuevo; }];
+  };
+  const utils = cargar('reporteProveedoresUtils.js', 'claveProductoReporte,claveTemporalProducto,agregarProductoManual,cantidadEnteraValida,clavesProductoProveedor,keyProductoProveedor,getCantidadFinal,edicionCantidadProducto,construirCantidadGuardada,contextoEdicionProveedor');
+  const codigo = leer('hooks/useEdicionFaltantesProveedor.js').replace(/^import .*$/gm, '').replace(/^export /gm, '');
+  const hook = new Function('useState', 'useCallback', 'api', ...Object.keys(utils), codigo + '\nreturn useEdicionFaltantesProveedor')(useState, fn => fn, api, ...Object.values(utils));
+  const render = (otros = {}) => {
+    indice = 0;
+    return hook({ proveedores: [{ ...proveedor, productos_faltantes: [] }], prompt: async () => datos.respuestaPrompt || '3', showToast: texto => avisos.push(texto), cantidadesGuardadas: new Map(), ...datos, cantidadesModificadas: modificadas, setCantidadesModificadas: nuevo => { modificadas = typeof nuevo === 'function' ? nuevo(modificadas) : nuevo; }, ...otros });
+  };
+  return { render, avisos, modificadas: () => modificadas };
+}
+
+test('gancho: cantidad revisada7 más nuevo agregado3 se guarda como modificado10 y recarga sin duplicar', async () => {
+  const llamadas = [], p = { ...proveedor, productos_faltantes: [{ producto_id: 7, codigo: 'zz-A', nombre: 'zz-Tornillo', cantidad_faltante: 10, factor_conversion: 2 }] };
+  const m = montarEdicion({ post: async (ruta, cuerpo) => { llamadas.push({ ruta, cuerpo }); return { data: { success: true } }; } }, { proveedores: [p], cantidadesGuardadas: new Map([['zz-Proveedor-id:7', { cantidad_modificada: 7 }]]) });
+  m.render().abrirModalAgregarProducto(p);
+  await m.render().solicitarCantidadYAgregar({ id: 7, name: 'zz-Tornillo' }, 'zz-A');
+  assert.equal(llamadas.length, 1); assert.equal(llamadas[0].ruta, '/orden-compra/cantidades');
+  const guardada = llamadas[0].cuerpo.cantidades[0];
+  assert.equal(guardada.producto_id, 7); assert.equal(guardada.cantidad_modificada, 10); assert.deepEqual(guardada.extras_sustituidos, []);
+  assert.equal(m.modificadas().get('zz-Proveedor-id:7'), 10); assert.deepEqual(m.render().productosAgregados.get(p.nombre), []);
+  const opciones = { productosEliminados: new Set(), cantidadesGuardadas: new Map([['zz-Proveedor-id:7', guardada]]), cantidadesModificadas: new Map(), productosAgregados: new Map() };
+  assert.deepEqual(construirProductosParaOrden(p, opciones).map(l => [l.productoId, l.cantidadOriginal]), [[7, 10]]);
+});
+
+test('gancho: agregado entero de un producto excluido usa clave separada y nunca revive sus orígenes', async () => {
+  const llamadas = [], p = { ...proveedor, productos_faltantes: [{ producto_id: 7, codigo: 'zz-A', nombre: 'zz-Tornillo', cantidad_faltante: 10, factor_conversion: 2, origenes: [{ facturaId: 99, cliente: 'zz-Cliente original' }] }] };
+  const m = montarEdicion({ post: async (ruta, cuerpo) => { llamadas.push({ ruta, cuerpo }); return { data: { success: true } }; } }, { proveedores: [p] });
+  m.render().setProductosEliminados(new Set(['zz-Proveedor-id:7'])); m.render().abrirModalAgregarProducto(p);
+  await m.render().solicitarCantidadYAgregar({ id: 7, name: 'zz-Tornillo' }, 'zz-A');
+  assert.equal(llamadas[0].ruta, '/orden-compra/producto-agregado'); assert.equal(llamadas[0].cuerpo.productoCodigo, 'extra:id:7'); assert.equal(llamadas[0].cuerpo.producto_id, 7);
+  assert.equal(llamadas[0].cuerpo.revisionReporte, p.revisionReporte); assert.equal(llamadas[0].cuerpo.fechaInicio, null);
+  const extra = productoAgregadoGuardado({ producto_codigo: 'extra:id:7', clave_producto: 'id:7', producto_id: 7, codigo_interno: 'zz-A', producto_nombre: 'zz-Tornillo', cantidad_modificada: 3 });
+  const lineas = construirProductosParaOrden(p, { productosEliminados: new Set(['zz-Proveedor-id:7']), productosAgregados: new Map([[p.nombre, [extra]]]), cantidadesGuardadas: new Map(), cantidadesModificadas: new Map() });
+  assert.equal(lineas.length, 1); assert.equal(lineas[0].agregadoManual, true); assert.equal(lineas[0].cantidadOriginal, 3); assert.equal(Object.hasOwn(lineas[0], 'descripcionFactura'), false);
+});
+
+test('gancho: prompt decimal o ilegible no agrega, no guarda y explica que se requieren enteros', async () => {
+  let llamadas = 0;
+  for (const respuestaPrompt of ['0.07', 'NaN', '', '2.5', '-1']) {
+    const m = montarEdicion({ post: async () => { llamadas++; } }, { respuestaPrompt });
+    m.render().abrirModalAgregarProducto({ ...proveedor, productos_faltantes: [] });
+    await m.render({ prompt: async () => respuestaPrompt }).solicitarCantidadYAgregar({ id: 7, name: 'zz-Tornillo' }, 'zz-A');
+    assert.equal(m.render().productosAgregados.size, 0); assert.match(m.avisos[0], /entera/);
+  }
+  assert.equal(llamadas, 0);
+});
+
+test('revisión cambiada o proveedor desaparecido retira buffers; GET no aplica temporales de otra revisión o fecha', () => {
+  const a = { ...proveedor, nombre: 'zz-A' }, b = { ...proveedor, nombre: 'zz-A-B' };
+  const siguientes = [{ ...a, revisionReporte: 'nueva' }, { ...b }];
+  const nombres = proveedoresConRevisionCambiada([a, b], siguientes);
+  assert.deepEqual([...nombres], ['zz-A']);
+  assert.deepEqual([...retirarEdicionesDeProveedores(new Map([['zz-A-id:7', 99], ['zz-A-B-id:7', 3]]), nombres, [a, b])], [['zz-A-B-id:7', 3]]);
+  assert.deepEqual([...retirarEdicionesDeProveedores(new Set(['zz-A-id:7', 'zz-A-B-id:7']), nombres, [a, b])], ['zz-A-B-id:7']);
+  assert.deepEqual([...proveedoresConRevisionCambiada([a, b], [])], ['zz-A', 'zz-A-B']);
+  assert.equal(temporalVigenteProveedor({ proveedor_nombre: a.nombre, revision_reporte: a.revisionReporte }, siguientes), false);
+  assert.equal(temporalVigenteProveedor({ proveedor_nombre: a.nombre }, siguientes), true, 'compatibilidad sin tag no inventa una revisión');
+  assert.equal(temporalVigenteProveedor({ proveedor_nombre: a.nombre, revision_reporte: 'nueva', fecha_inicio: '2026-10-14' }, siguientes), false);
+  assert.equal(temporalVigenteProveedor({ proveedor_nombre: a.nombre, revision_reporte: 'nueva', fecha_inicio: null }, siguientes), true);
+  assert.equal(temporalVigenteProveedor({ proveedor_nombre: a.nombre }, [{ ...a, enviada: true }]), false);
+});
+
+test('gancho: exclusión legada con referencia literal id:2 se restaura por su clave almacenada e identidad validada1', async () => {
+  const llamadas = [], p = { ...proveedor, productos_faltantes: [{ producto_id: 1, codigo: 'id:2', nombre: 'zz-Literal', cantidad_faltante: 1 }] };
+  const m = montarEdicion({ delete: async (ruta, cuerpo) => { llamadas.push({ ruta, cuerpo }); } }, { proveedores: [p] });
+  m.render().setClavesEliminadasGuardadas(new Map([['zz-Proveedor-id:1', 'id:2']]));
+  m.render().setProductosEliminados(new Set(['zz-Proveedor-id:1']));
+  await m.render().restaurarProducto(p.nombre, ['id:1'], 1);
+  assert.equal(llamadas[0].cuerpo.data.productoCodigo, 'id:2'); assert.equal(llamadas[0].cuerpo.data.producto_id, 1); assert.equal(llamadas[0].cuerpo.data.revisionReporte, p.revisionReporte);
+  assert.equal(m.render().productosEliminados.size, 0);
+});
+
+test('gancho: conflicto409 al agregar retira el cambio optimista y actualiza el proveedor, sin guardar con revisión nueva', async () => {
+  let rechazados = 0;
+  const p = { ...proveedor, productos_faltantes: [] };
+  const m = montarEdicion({ post: async () => { throw { response: { status: 409, data: { message: 'Cambió el reporte' } } }; } }, { proveedores: [p], onRevisionInvalida: () => { rechazados++; } });
+  m.render().abrirModalAgregarProducto(p); await m.render().solicitarCantidadYAgregar({ id: 7, name: 'zz-Tornillo' }, 'zz-A');
+  assert.equal(rechazados, 1); assert.equal(m.render().productosAgregados.size, 0); assert.match(m.avisos[0], /reporte cambió/);
 });

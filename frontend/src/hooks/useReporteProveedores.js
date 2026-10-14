@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useContextoConsulta } from './useContextoConsulta'
 import { alegraService } from '../services/alegraService'
 import api from '../services/api'
-import { claveProductoReporte, keyProductoProveedor, clavesProductoProveedor, productoAgregadoGuardado } from '../utils/reporteProveedoresUtils'
+import { keyProductoProveedor, clavesProductoProveedor, productoAgregadoGuardado, cantidadEnteraValida, construirCantidadGuardada, proveedoresConRevisionCambiada, temporalVigenteProveedor, retirarEdicionesDeProveedores } from '../utils/reporteProveedoresUtils'
 import { useDialog } from './useDialog'
 import { useToast } from './useToast'
 import { useEdicionFaltantesProveedor } from './useEdicionFaltantesProveedor'
@@ -19,6 +19,7 @@ import { useEdicionFaltantesProveedor } from './useEdicionFaltantesProveedor'
  */
 export function useReporteProveedores({activo=true}={}) {
   const peticion = useRef(0), peticionNotas = useRef(0)
+  const proveedoresActuales = useRef([]), peticionCantidades = useRef(0)
   const { prompt, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
 
@@ -50,11 +51,23 @@ export function useReporteProveedores({activo=true}={}) {
   const [productosSeleccionados, setProductosSeleccionados] = useState(new Set())
   const [preferenciasDatosProveedor, setPreferenciasDatosProveedor] = useState({})
 
-  const { productosEliminados, setProductosEliminados, productosAgregados, setProductosAgregados,
+  const { productosEliminados, setProductosEliminados, setClavesEliminadasGuardadas, productosAgregados, setProductosAgregados,
     modalAgregarProducto, setModalAgregarProducto, proveedorParaAgregar, busquedaProducto,
     setBusquedaProducto, productosEncontrados, loadingProductos, eliminarProductoDeOrden,
     restaurarProducto, abrirModalAgregarProducto, buscarProductos, solicitarCantidadYAgregar,
-    eliminarProductoAgregado, actualizarCantidadAgregado } = useEdicionFaltantesProveedor({ prompt, showToast })
+    eliminarProductoAgregado, actualizarCantidadAgregado } = useEdicionFaltantesProveedor({ prompt, showToast, cantidadesModificadas, cantidadesGuardadas, setCantidadesModificadas, proveedores,
+      onTemporalesGuardados: () => loadCantidadesGuardadas(),
+      onRevisionInvalida: nombre => { retirarBuffers(new Set([nombre]), proveedoresActuales.current); loadReporte() } })
+
+  const retirarBuffers = (nombres, todos) => {
+    setCantidadesModificadas(prev => retirarEdicionesDeProveedores(prev, nombres, todos))
+    setCantidadesGuardadas(prev => retirarEdicionesDeProveedores(prev, nombres, todos))
+    setProductosEliminados(prev => retirarEdicionesDeProveedores(prev, nombres, todos))
+    setClavesEliminadasGuardadas(prev => retirarEdicionesDeProveedores(prev, nombres, todos))
+    setProductosAgregados(prev => new Map([...prev].filter(([nombre]) => !nombres.has(nombre))))
+    setProductosSeleccionados(prev => retirarEdicionesDeProveedores(prev, nombres, todos))
+    setModalAgregarProducto(false)
+  }
 
   const loadReporte = useCallback(async () => {
     if (!activo || !lectura.esActual()) return
@@ -68,6 +81,10 @@ export function useReporteProveedores({activo=true}={}) {
       if (result.success) {
         // Filtrar proveedores que NO tienen productos para limpiar la vista principal
         const proveedoresConProductos = result.data.filter(p => p.productos_faltantes && p.productos_faltantes.length > 0)
+        const anteriores = proveedoresActuales.current
+        const cambiados = proveedoresConRevisionCambiada(anteriores, proveedoresConProductos)
+        if (cambiados.size) retirarBuffers(cambiados, [...anteriores, ...proveedoresConProductos])
+        proveedoresActuales.current = proveedoresConProductos
         setProveedores(proveedoresConProductos)
         setResumen(result.resumen)
       } else {
@@ -99,12 +116,15 @@ export function useReporteProveedores({activo=true}={}) {
   }, [activo, fechaInicio, notas.esActual, notas.confirmar])
 
   const loadCantidadesGuardadas = useCallback(async () => {
+    const actual = ++peticionCantidades.current
     try {
       const result = await alegraService.getCantidadesModificadas()
+      if (actual !== peticionCantidades.current) return
       if (result.success) {
         const cantidadesMap = new Map()
         result.data?.modificadas?.forEach(item => {
-          const key = `${item.proveedor_nombre}-${item.producto_codigo}`
+          if (!item.producto_id || !item.clave_producto || !temporalVigenteProveedor(item, proveedoresActuales.current)) return
+          const key = `${item.proveedor_nombre}-${item.clave_producto}`
           cantidadesMap.set(key, {
             cantidad_original: item.cantidad_original,
             cantidad_modificada: item.cantidad_modificada
@@ -113,14 +133,19 @@ export function useReporteProveedores({activo=true}={}) {
         setCantidadesGuardadas(cantidadesMap)
 
         const eliminados = new Set()
+        const clavesEliminadas = new Map()
         result.data?.eliminadas?.forEach(item => {
-          const key = `${item.proveedor_nombre}-${item.producto_codigo}`
+          if (!item.producto_id || !item.clave_producto || !temporalVigenteProveedor(item, proveedoresActuales.current)) return
+          const key = `${item.proveedor_nombre}-${item.clave_producto}`
           eliminados.add(key)
+          clavesEliminadas.set(key, item.producto_codigo)
         })
         setProductosEliminados(eliminados)
+        setClavesEliminadasGuardadas(clavesEliminadas)
 
         const agregados = new Map()
         result.data?.agregadas?.forEach(item => {
+          if (!temporalVigenteProveedor(item, proveedoresActuales.current)) return
           const proveedorNombre = item.proveedor_nombre
           const productosDelProveedor = agregados.get(proveedorNombre) || []
           productosDelProveedor.push(productoAgregadoGuardado(item))
@@ -139,9 +164,10 @@ export function useReporteProveedores({activo=true}={}) {
     if(!activo){++peticion.current;++peticionNotas.current;return}
     loadReporte()
     loadNotas()
-    loadCantidadesGuardadas()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaInicio,activo])
+
+  useEffect(() => { if (activo) loadCantidadesGuardadas() }, [proveedores, activo, loadCantidadesGuardadas])
 
   const togglePreferenciaProveedor = useCallback((proveedorNombre, value) => {
     setPreferenciasDatosProveedor(prev => ({
@@ -152,13 +178,14 @@ export function useReporteProveedores({activo=true}={}) {
 
   const handleCantidadChange = useCallback((proveedorNombre, productoCodigo, nuevaCantidad) => {
     const key = `${proveedorNombre}-${productoCodigo}`
-    const cantidadNum = Number(nuevaCantidad) || 0
+    if (nuevaCantidad !== '' && !cantidadEnteraValida(nuevaCantidad)) { showToast('Ingresá una cantidad entera de 0 a 1000000.', 'error'); return }
+    const cantidadNum = nuevaCantidad === '' ? '' : Number(nuevaCantidad)
     setCantidadesModificadas(prev => {
       const nuevasCantidades = new Map(prev)
       nuevasCantidades.set(key, cantidadNum)
       return nuevasCantidades
     })
-  }, [])
+  }, [showToast])
 
   const handleGuardarCantidades = useCallback(async () => {
     if (cantidadesModificadas.size === 0) {
@@ -173,19 +200,13 @@ export function useReporteProveedores({activo=true}={}) {
         proveedor.productos_faltantes.forEach(producto => {
           const key = keyProductoProveedor(proveedor.nombre, producto)
           const cantidadModificada = cantidadesModificadas.get(key)
-          if (cantidadModificada !== undefined) {
-            cantidadesParaGuardar.push({
-              proveedor_nombre: proveedor.nombre,
-              producto_codigo: claveProductoReporte(producto),
-              producto_nombre: producto.nombre,
-              cantidad_original: producto.cantidad_faltante,
-              cantidad_modificada: cantidadModificada
-            })
+          if (cantidadModificada !== undefined && !clavesProductoProveedor(proveedor.nombre, producto, proveedor.productos_faltantes).some(k => productosEliminados.has(k))) {
+            cantidadesParaGuardar.push(construirCantidadGuardada(proveedor, producto, cantidadModificada, productosAgregados, productosEliminados))
           }
         })
       })
 
-      const result = await alegraService.guardarCantidadesModificadas(cantidadesParaGuardar)
+      const { data: result } = await api.post('/orden-compra/cantidades', { cantidades: cantidadesParaGuardar })
       if (result.success) {
         await loadCantidadesGuardadas()
         setCantidadesModificadas(new Map())
@@ -194,11 +215,15 @@ export function useReporteProveedores({activo=true}={}) {
         showToast(`Error guardando cantidades: ${result.message}`, 'error')
       }
     } catch (error) {
-      showToast(`Error guardando cantidades: ${error.message}`, 'error')
+      if (error.response?.status === 409) {
+        retirarBuffers(new Set(proveedores.filter(p => !p.enviada && !p.orden_id).map(p => p.nombre)), proveedores)
+        await loadReporte()
+        showToast('El reporte cambió. Se actualizó la compra; revisá las cantidades antes de continuar.', 'error')
+      } else showToast(`Error guardando cantidades: ${error.message}`, 'error')
     } finally {
       setLoading(false)
     }
-  }, [cantidadesModificadas, proveedores, loadCantidadesGuardadas, showToast])
+  }, [cantidadesModificadas, proveedores, productosAgregados, productosEliminados, loadCantidadesGuardadas, loadReporte, showToast])
 
   // Selección de Múltiples Productos
   const toggleProductoSeleccionado = useCallback((codigo) => {

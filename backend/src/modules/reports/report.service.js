@@ -152,6 +152,8 @@ class ReportService {
         aliases: proveedor.aliases && proveedor.aliases.length > 0 ? proveedor.aliases : undefined
       }));
 
+      if (incluirEnviadas) await require('../orders-whatsapp/comprobacionEnviosReporte.service').comprobarEn(db,proveedoresArray);
+
       const totalProductos = new Set(faltantesResult.rows.map(f => f.producto_id)).size;
       const productosConAsignacion = new Set(faltantesResult.rows.filter(f => f.proveedor_asignado && f.proveedor_asignado !== 'Sin_Proveedor').map(f => f.producto_id)).size;
       const productosAsignacionManual = faltantesResult.rows.filter(f => f.asignacion_tipo === 'manual').length;

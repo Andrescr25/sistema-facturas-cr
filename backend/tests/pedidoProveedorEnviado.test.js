@@ -23,6 +23,7 @@ const path = require('path');
 const FRONT = path.join(__dirname, '..', '..', 'frontend', 'src');
 const rutaDb = require.resolve('../config/database');
 const rutaServicio = require.resolve('../src/modules/orders-whatsapp/orders-whatsapp.service');
+const rutaHistorial = require.resolve('../src/modules/orders-whatsapp/historialEnviosProveedor.service');
 
 /** Monta el servicio con una base falsa que devuelve las filas indicadas. */
 function montar(filas) {
@@ -37,6 +38,9 @@ function montar(filas) {
     }
   };
   delete require.cache[rutaServicio];
+  // El historial separado captura la conexión al cargarse: cada escenario
+  // debe usar su propia base falsa, sin conservar las filas del anterior.
+  delete require.cache[rutaHistorial];
   const Servicio = require(rutaServicio);
   return { servicio: new Servicio(), registro };
 }

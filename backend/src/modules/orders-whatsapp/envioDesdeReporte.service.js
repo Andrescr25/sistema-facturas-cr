@@ -98,7 +98,10 @@ async function revisarEn(db,datos,actor) {
       return (origen[k] || null) !== (revisado[claves[k]] || null);
     }))) throw httpError(409,'Los datos del producto cambiaron. Actualizá el reporte.');
     const propia = Number(l.cantidadOriginal);
+    const adicional = l.cantidadAdicional == null ? 0 : Number(l.cantidadAdicional);
+    if (!Number.isSafeInteger(adicional) || adicional < 0 || adicional > 1000000) throw httpError(400,'La cantidad agregada debe ser un entero mayor o igual a cero.');
     if (!Number.isFinite(propia) || propia <= 0 || propia > 1000000 || Number(propia.toFixed(6)) !== propia) throw httpError(400,'Cantidad propia positiva de hasta seis decimales requerida.');
+    if (!Number.isSafeInteger(propia) && (manual || micros(propia.toFixed(6)) !== micros(Number(revisado?.cantidad_faltante || 0).toFixed(6)) + BigInt(adicional)*1000000n)) throw httpError(400,'Ingresá cantidades enteras. Los decimales solo corresponden al saldo calculado por conversión.');
     if (!Number.isFinite(origen.factorConversion) || origen.factorConversion < 0.000001 || origen.factorConversion > 1000000) throw httpError(409,'La conversión del proveedor no es válida. Revisá su ficha.');
     const unidades = micros(propia.toFixed(6)), factor = micros(origen.factorConversion.toFixed(6));
     const esperada = Number((unidades + factor - 1n) / factor);

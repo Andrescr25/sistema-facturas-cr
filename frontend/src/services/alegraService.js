@@ -97,19 +97,6 @@ export const alegraService = {
     }
   },
 
-  // Guardar cantidades modificadas
-  async guardarCantidadesModificadas(cantidades) {
-    try {
-      console.log('💾 Frontend: Guardando cantidades modificadas:', cantidades.length);
-      const response = await api.post('/orden-compra/cantidades', { cantidades })
-      console.log('✅ Frontend: Cantidades guardadas:', response.data);
-      return response.data
-    } catch (error) {
-      console.error('❌ Frontend: Error guardando cantidades:', error);
-      throw new Error(`Error guardando cantidades: ${error.message}`)
-    }
-  },
-
   async guardarAjusteFaltante({ faltanteId, cantidadEntregada, estado, requiereActualizacion, revisado }) {
     try {
       const payload = {

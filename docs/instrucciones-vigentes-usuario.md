@@ -55,6 +55,14 @@ por el usuario). Quitar rotación/próxima visita de cards de Reporte Clientes;
 son información de Preventa. Esta decisión sustituye los pasos adicionales
 de órdenes de entregas anteriores. [Implementación y evidencia](informes/proveedores-correccion-2026-10-14.md).
 
+**Cantidades, confirmación del 2026-10-14:** «No, mantener cantidades enteras.»
+Guardar, editar y agregar manualmente aceptan enteros; cero permite excluir.
+No truncar una fracción escrita. Los saldos calculados por una conversión
+siguen exactos y la compra se convierte a unidades enteras del proveedor.
+Una edición pertenece a los faltantes revisados, no se arrastra a la siguiente
+factura al actualizar la pantalla. Varias facturas parciales pueden completar
+la misma orden enviada; una parcial anterior y otra nueva requieren elegir.
+
 ## Decisiones anteriores que siguen vigentes
 
 - **Inventario y auditorías desde cero.** El físico está desordenado: iniciar

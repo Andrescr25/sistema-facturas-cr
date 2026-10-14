@@ -61,9 +61,11 @@ export function resultadoEnvioProveedor(resultado) {
 /** Otra revisión sólo libera el intento que ya conocemos y que el servidor
  * muestra como una compra separada. Una respuesta perdida no demuestra eso. */
 export function intentoSeparadoDelProveedor(intento, proveedor, compras) {
+  const comprobaciones = Array.isArray(proveedor?.comprobacionEnvios) ? proveedor.comprobacionEnvios : compras
   return Boolean(proveedor && proveedor.revisionReporte != null) && intento?.estado === 'incierto' && intento.ordenId != null && !proveedorEnviado(proveedor) &&
-    proveedor?.revisionReporte !== intento.cuerpo.revisionReporte && compras.some(compra =>
+    proveedor?.revisionReporte !== intento.cuerpo.revisionReporte && comprobaciones.some(compra =>
       compra.enviada === true && String(compra.orden_id) === String(intento.ordenId) &&
+      (!compra.envio_id || compra.envio_id === intento.cuerpo.clave) &&
       ['incierto', 'enviada'].includes(compra.estado_envio))
 }
 

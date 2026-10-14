@@ -4,6 +4,12 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - backend/src/modules/orders-whatsapp/temporalesProveedor.service.js
+  - backend/src/modules/orders-whatsapp/revisionTemporalesProveedor.service.js
+  - backend/src/modules/orders-whatsapp/historialEnviosProveedor.service.js
+  - backend/src/modules/orders-whatsapp/comprobacionEnviosReporte.service.js
+  - backend/tests/temporalesProveedores.test.js
+  - frontend/src/utils/reporteProveedoresUtils.js
   - docs/informes/proveedores-correccion-2026-10-14.md
   - backend/tests/proveedoresCritico.test.js
   - backend/src/modules/orders-whatsapp/envioDesdeReporte.service.js
@@ -72,9 +78,34 @@ Procedencia usa producto/factura/cliente propios; notas se recortan a las
 facturas de ese producto en ese proveedor, sin mezclar clientes homónimos ni
 necesidades históricas. Consultar nunca asigna proveedor ni crea compras.
 Tras Revisión de precios, indicadores mínimos Facturado/parcial/No facturado
-comparan la compra registrada con la orden enviada. Una candidata se vincula
-automáticamente; varias requieren elegir en Revisión de precios. No se
-infiere por orden de llegada. [[modulo/facturas-ordenes-compra]].
+comparan la compra registrada con la orden enviada. Una candidata confiable
+se vincula automáticamente; varias o una comparación incierta requieren elegir
+en Revisión de precios. Una factura parcial mantiene su orden como candidata
+hasta completar las cantidades; no se infiere por orden de llegada. La identidad
+automática mostrada se vuelve a comprobar al registrar, sin perder precios ante
+un cambio concurrente. [[modulo/facturas-ordenes-compra]].
+
+**Cantidades enteras confirmadas por el usuario:** edición/guardado/manuales
+rechazan fracciones sin truncar; cero excluye. Un saldo calculado fraccionario
+por conversión conserva precisión, incluso al sumar un extra entero, mediante
+aritmética de micros. Agregar el mismo producto suma en una línea y persiste el
+total revisado; si la línea original está excluida, el extra queda independiente.
+Consolidar o separar extras es atómico y comprueba su cantidad/timestamp exactos
+para no pisar una edición de otra pestaña. Deshacer conserva la clave almacenada
+y verifica la identidad, también con una referencia literal como «id:2».
+
+Los ajustes nuevos guardan huella/fecha del reporte en la bitácora ya existente.
+La escritura comparte el bloqueo de envío y relee tras bloquear factura/faltante;
+un reporte anterior devuelve409 sin guardar. La pantalla descarta buffers si
+cambia la huella o el proveedor desaparece, y aplica temporales tagueados sólo
+a su revisión. Ediciones legadas sin huella mantienen compatibilidad, siempre
+con identidad resuelta única. Nunca se cambia cuerpo/UUID de un intento incierto.
+Una prueba exacta orden/UUID fuera del filtro de fecha confirma que el servidor
+ya separó un envío anterior, permitiendo enviar la necesidad nueva sin mostrar
+una orden oculta ni desbloquear/retransmitir la incierta.
+
+Las reglas temporales e historial se separan del servicio de PDF; éste vuelve
+al tope de700 líneas y sale de la deuda estructural. No hay SQL nuevo.
 
 Sin SQL nuevo. Ver [evidencia y límites](../../informes/proveedores-correccion-2026-10-14.md).
 

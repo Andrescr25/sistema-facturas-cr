@@ -6,12 +6,10 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 const { query } = require('../../../config/database');
-const { TEMPORAL_VIGENTE } = require('./temporalesVisibles.sql');
 // La conversación con Evolution vive en un solo lugar: acá solo se arma el
 // PDF y se pide el envío. El traductor de errores se mudó con ella.
 const whatsapp = require('../../integrations/whatsapp');
 const enviosWhatsapp = require('../envios-whatsapp/envios.service');
-const cicloPedidos = require('./cicloPedidos');
 const { httpError } = require('../../utils/validacion');
 
 /**
@@ -586,167 +584,13 @@ class OrdersWhatsappService {
     });
   }
 
-  /**
-   * A qué proveedores ya se les mandó el pedido, desde una fecha.
-   *
-   * Acotado por fecha a propósito: el reporte de faltantes trabaja sobre un
-   * período, y una orden mandada el mes pasado no dice nada sobre la de esta
-   * semana. Se usa la misma fecha de inicio que el reporte, así la marca
-   * responde exactamente a "¿ya pedí lo de este período?".
-   *
-   * Solo cuenta lo que salió bien: un intento fallido —número sin WhatsApp,
-   * instancia caída— no es un pedido enviado, y marcarlo como tal sería peor
-   * que no marcarlo.
-   */
-  async getOrdenesEnviadas(desde) {
-    // Conservar el corte histórico explícito y la fecha del reporte;
-    // nunca reiniciar por cambio de semana ni crear tablas en una consulta.
-    const result = await query(`
-      SELECT referencia,
-             MAX(creado_en) AS ultimo_envio,
-             COUNT(*)::int  AS veces
-      FROM envio_whatsapp
-      WHERE tipo = 'orden_compra'
-        AND exito = TRUE
-        AND referencia IS NOT NULL
-        AND creado_en >= GREATEST($1::timestamp, ${cicloPedidos.SQL_INICIO_CICLO})
-      GROUP BY referencia
-      ORDER BY MAX(creado_en) DESC;
-    `, [desde || null]);
-
-    return result.rows.map(r => ({
-      proveedor: r.referencia,
-      ultimoEnvio: r.ultimo_envio,
-      veces: r.veces
-    }));
-  }
-
-  /**
-   * Borra el registro temporal de un producto de la orden de compra.
-   *
-   * POR QUÉ HACÍA FALTA
-   * La pantalla ya ofrecía deshacer —restaurar un producto quitado, o sacar
-   * uno que se había agregado a mano— y llamaba a DELETE. Pero esas rutas
-   * nunca existieron: solo estaban los POST. Cada intento daba 404 y se
-   * perdía dentro de un `catch` vacío, así que la pantalla mostraba el cambio
-   * hecho mientras el servidor seguía guardando lo contrario. Al recargar,
-   * el producto volvía a aparecer quitado.
-   *
-   * `accion` es una guarda, no un adorno: sin ella, deshacer una eliminación
-   * borraría también una cantidad modificada del mismo producto, que es otra
-   * decisión distinta que alguien tomó.
-   */
-  async eliminarRegistroTemporal(proveedorNombre, productoCodigo, accion) {
-    const result = await query(`
-      DELETE FROM orden_compra_temporal
-      WHERE proveedor_nombre = $1 AND producto_codigo = $2 AND accion = $3
-      RETURNING id;
-    `, [proveedorNombre, productoCodigo, accion]);
-
-    return result.rows.length;
-  }
-
-  /**
-   * Obtiene todas las cantidades modificadas temporalmente para una orden de compra
-   */
-  async getCantidadesModificadas() {
-    const result = await query(`
-      SELECT t.*,p.id producto_id,p.referencia codigo_interno
-      FROM orden_compra_temporal t LEFT JOIN producto p ON t.producto_codigo='id:'||p.id::text
-      WHERE ${TEMPORAL_VIGENTE}
-      ORDER BY proveedor_nombre, producto_nombre
-    `);
-
-    const modificadas = result.rows.filter(r => !r.accion || r.accion === 'modificado');
-    const eliminadas = result.rows.filter(r => r.accion === 'eliminado');
-    const agregadas = result.rows.filter(r => r.accion === 'agregado');
-
-    return {
-      rows: result.rows,
-      modificadas,
-      eliminadas,
-      agregadas
-    };
-  }
-
-  /**
-   * Guarda múltiples cantidades modificadas en la base de datos
-   */
-  async guardarCantidades(cantidades) {
-    let cantidadesGuardadas = 0;
-
-    for (const cantidad of cantidades) {
-      const {
-        proveedor_nombre,
-        producto_codigo,
-        producto_nombre,
-        cantidad_original,
-        cantidad_modificada
-      } = cantidad;
-
-      if (!proveedor_nombre || !producto_codigo || !producto_nombre ||
-        cantidad_original === undefined || cantidad_modificada === undefined) {
-        continue;
-      }
-
-      await query(`
-        INSERT INTO orden_compra_temporal (
-          proveedor_nombre, producto_codigo, producto_nombre, 
-          cantidad_original, cantidad_modificada
-        ) VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (proveedor_nombre, producto_codigo) 
-        DO UPDATE SET 
-          producto_nombre = $3,
-          cantidad_original = $4,
-          cantidad_modificada = $5,
-          updated_at = CURRENT_TIMESTAMP
-      `, [proveedor_nombre, producto_codigo, producto_nombre, cantidad_original, cantidad_modificada]);
-
-      cantidadesGuardadas++;
-    }
-
-    return cantidadesGuardadas;
-  }
-
-  /**
-   * Compatibilidad retirada: no borrar el borrador histórico global
-   */
-  async limpiarCantidades() {
-    throw httpError(410, 'La limpieza global fue retirada. Las órdenes conservan su historial.');
-  }
-
-  /**
-   * Registra la eliminación temporal de un producto para un proveedor
-   */
-  async registrarProductoEliminado(proveedorNombre, productoCodigo, productoNombre, cantidadOriginal) {
-    await query(`
-      INSERT INTO orden_compra_temporal 
-        (proveedor_nombre, producto_codigo, producto_nombre, cantidad_original, cantidad_modificada, accion)
-      VALUES ($1, $2, $3, $4, 0, 'eliminado')
-      ON CONFLICT (proveedor_nombre, producto_codigo)
-      DO UPDATE SET 
-        accion = 'eliminado',
-        cantidad_original = EXCLUDED.cantidad_original,
-        updated_at = CURRENT_TIMESTAMP
-    `, [proveedorNombre, productoCodigo, productoNombre || productoCodigo, cantidadOriginal || 0]);
-  }
-
-  /**
-   * Registra la adición temporal de un nuevo producto para un proveedor
-   */
-  async registrarProductoAgregado(proveedorNombre, productoCodigo, productoNombre, cantidad) {
-    await query(`
-      INSERT INTO orden_compra_temporal 
-        (proveedor_nombre, producto_codigo, producto_nombre, cantidad_original, cantidad_modificada, accion)
-      VALUES ($1, $2, $3, 0, $4, 'agregado')
-      ON CONFLICT (proveedor_nombre, producto_codigo)
-      DO UPDATE SET 
-        accion = 'agregado',
-        producto_nombre = EXCLUDED.producto_nombre,
-        cantidad_modificada = EXCLUDED.cantidad_modificada,
-        updated_at = CURRENT_TIMESTAMP
-    `, [proveedorNombre, productoCodigo, productoNombre, cantidad]);
-  }
+  getOrdenesEnviadas(desde) { return require('./historialEnviosProveedor.service').getOrdenesEnviadas(desde); }
+  eliminarRegistroTemporal(...args) { return require('./temporalesProveedor.service').eliminarRegistroTemporal(...args); }
+  getCantidadesModificadas() { return require('./temporalesProveedor.service').getCantidadesModificadas(); }
+  guardarCantidades(...args) { return require('./temporalesProveedor.service').guardarCantidades(...args); }
+  limpiarCantidades() { return require('./temporalesProveedor.service').limpiarCantidades(); }
+  registrarProductoEliminado(...args) { return require('./temporalesProveedor.service').registrarProductoEliminado(...args); }
+  registrarProductoAgregado(...args) { return require('./temporalesProveedor.service').registrarProductoAgregado(...args); }
 
   /**
    * La ficha del proveedor de una orden de compra, o null si no tiene.

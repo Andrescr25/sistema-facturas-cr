@@ -47,6 +47,15 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
 - [x] RP-04 — Compra tras Revisión de precios: candidata única automática,
   múltiples con selección; indicadores por producto de la compra registrada.
 - [x] RP-05 — Tarjetas Reporte Clientes sin rotación ni próxima visita.
+- [x] RP-06 — Varias facturas parciales completan la misma orden; selección
+  explícita cuando hay varias o una comparación incierta, identidad automática
+  revalidada al guardar sin perder precios.
+- [x] RP-07 — Cantidades ingresadas enteras (confirmado por el usuario), un
+  producto manual ya presente suma sin duplicarse y conserva el total; extras
+  consolidados atómicamente con comprobación de su revisión concurrente.
+- [x] RP-08 — Ediciones ligadas al reporte revisado, descartadas tras cambiar
+  origen/fecha; prueba de un envío fuera del filtro permite la compra nueva
+  conservando bloqueados el PDF, cuerpo y UUID anteriores.
 
 Evidencia local y estado de publicación: [corrección de proveedores](informes/proveedores-correccion-2026-10-14.md). No modifica los pendientes ROT-06/07/08.
 

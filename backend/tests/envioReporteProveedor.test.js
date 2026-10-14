@@ -124,10 +124,11 @@ caso('POST directo exige Reporte Proveedores y entrega contrato de la interfaz p
   }finally{await new Promise(r=>server.close(r))}
 });
 
-caso('conversión decimal exacta: .07 con factor .01 pide7 y no8',async()=>{
+caso('cantidades manuales fraccionarias se rechazan conservando borrador y PDF',async()=>{
   await guardar(0,10);await c.query('UPDATE supplier_product_mapping SET factor_conversion=.01 WHERE producto_id=$1',[f.productos[2]]);
   const datos=await pedido();datos.productos.push({agregadoManual:true,productoId:f.productos[2],cantidadOriginal:.07});
-  const r=await s.enviar(datos);assert.equal(r.orden.lineas.find(l=>l.producto_id===f.productos[2]).cantidad_proveedor,7);
+  const antes=await motor.obtener((await motor.listar({proveedorId:f.p.id}))[0].id);
+  await assert.rejects(s.enviar(datos),e=>e.status===400);assert.equal(envios,0);assert.deepEqual(await motor.obtener(antes.id),antes);
 });
 
 caso('borradores históricos separados se reúnen al enviar sin reservas ocultas ni borrar historia',async()=>{
@@ -148,7 +149,7 @@ caso('mapeo con más de seis decimales muestra y guarda la misma conversión',as
   const r=await s.enviar(datos);assert.equal(r.envioEstado,'confirmado');assert.equal(Number(r.orden.lineas[0].factor_conversion),.333333);
 });
 caso('temporales congelados no contaminan el pedido nuevo; fallo no iniciado permite recuperarlos',async()=>{
-  await guardar(0,10);await c.query("INSERT INTO orden_compra_temporal(proveedor_nombre,producto_codigo,producto_nombre,cantidad_original,cantidad_modificada) VALUES($1,$2,'ZZ revisado',10,7)",[f.p.nombre,`id:${f.productos[0]}`]);
+  await guardar(0,10);await require('../src/modules/orders-whatsapp/temporalesProveedor.service').guardarCantidades([{proveedor_nombre:f.p.nombre,producto_codigo:`id:${f.productos[0]}`,producto_id:f.productos[0],producto_nombre:'ZZ revisado',cantidad_original:10,cantidad_modificada:7}]);
   const temporales=new(require('../src/modules/orders-whatsapp/orders-whatsapp.service'))();
   const visibles=async()=> (await temporales.getCantidadesModificadas()).modificadas.filter(t=>t.proveedor_nombre===f.p.nombre);
   const datos=await pedido();datos.productos[0].cantidad=7;datos.productos[0].cantidadOriginal=7;
@@ -157,4 +158,38 @@ caso('temporales congelados no contaminan el pedido nuevo; fallo no iniciado per
   wa.enviarDocumento=async()=>{envios++;throw Error('ZZ incierto')};
   assert.equal((await s.enviar({...datos,clave:randomUUID()})).envioEstado,'incierto');assert.equal((await visibles()).length,0);
   assert.equal((await c.query('SELECT COUNT(*)::int n FROM orden_compra_temporal WHERE proveedor_nombre=$1',[f.p.nombre])).rows[0].n,0);
+});
+caso('incertidumbre anterior al filtro conserva prueba exacta fuera de la lista visible',async()=>{
+  await guardar(0,10);wa.enviarDocumento=async()=>{envios++;throw Error('ZZ incierto fuera de fecha')};
+  const datos=await pedido(),r=await s.enviar(datos);
+  await c.query("UPDATE factura SET fecha=CURRENT_DATE+1 WHERE id=$1",[f.facturas[1]]);await guardar(0,3,1);
+  const fecha=(await c.query("SELECT (CURRENT_DATE+1)::text fecha")).rows[0].fecha;
+  const reporteCompleto=await reportes.getMissingItemsBySupplier(fecha,{db});assert.equal(reporteCompleto.success,true,reporteCompleto.error);
+  assert.equal(reporteCompleto.data.some(p=>p.orden_id===r.orden.id),false);
+  const actual=reporteCompleto.data.find(p=>p.cedula===f.p.identificacion && !p.enviada);
+  assert.equal(actual.productos_faltantes[0].cantidad_faltante,3);
+  assert.deepEqual(actual.comprobacionEnvios,[{orden_id:r.orden.id,envio_id:datos.clave,enviada:true,estado_envio:'incierto'}]);
+});
+caso('saldo de conversión fraccional más un extra entero no redondea demanda ni inventa clientes',async()=>{
+  await c.query('UPDATE supplier_product_mapping SET factor_conversion=.3 WHERE producto_id=$1',[f.productos[0]]);await guardar(0,10);
+  let o=await motor.obtener((await motor.listar({proveedorId:f.p.id}))[0].id);
+  o=await motor.editar(o.id,{version:o.version,lineas:[{productoId:f.productos[0],cantidadProveedor:11}]});
+  o=await motor.cambiarEstado(o.id,{version:o.version,estado:'pendiente_enviar'});
+  o=await env.preparar(o.id,{version:o.version,clave:randomUUID(),telefono:'88888888',mensaje:`ZZ ${o.referencia}`});
+  await env.enviar(o.id,o.envios[0].id,{confirmar:true});
+  const actual=await reporte();assert.equal(actual.productos_faltantes[0].cantidad_faltante,6.7);
+  const datos=await pedido();datos.productos[0].cantidadOriginal=9.7;datos.productos[0].cantidadAdicional=3;datos.productos[0].cantidad=33;
+  const r=await s.enviar(datos);assert.equal(r.orden.lineas[0].cantidad_proveedor,33);assert.equal(r.orden.lineas[0].origenes.reduce((t,o)=>t+Number(o.cantidad),0),6.7);
+});
+caso('saldo 0.14 más extra entero1 se compara con aritmética exacta al enviar',async()=>{
+  await c.query('UPDATE supplier_product_mapping SET factor_conversion=.43 WHERE producto_id=$1',[f.productos[0]]);await guardar(0,1);
+  let o=await motor.obtener((await motor.listar({proveedorId:f.p.id}))[0].id);
+  o=await motor.editar(o.id,{version:o.version,lineas:[{productoId:f.productos[0],cantidadProveedor:2}]});
+  o=await motor.cambiarEstado(o.id,{version:o.version,estado:'pendiente_enviar'});
+  o=await env.preparar(o.id,{version:o.version,clave:randomUUID(),telefono:'88888888',mensaje:`ZZ ${o.referencia}`});
+  await env.enviar(o.id,o.envios[0].id,{confirmar:true});
+  assert.equal((await reporte()).productos_faltantes[0].cantidad_faltante,.14);
+  const datos=await pedido();datos.productos[0].cantidadOriginal=1.14;datos.productos[0].cantidadAdicional=1;datos.productos[0].cantidad=3;
+  const r=await s.enviar(datos);assert.equal(r.orden.lineas[0].cantidad_proveedor,3);
+  assert.equal(r.orden.lineas[0].origenes.reduce((t,o)=>t+Number(o.cantidad),0),.14);
 });

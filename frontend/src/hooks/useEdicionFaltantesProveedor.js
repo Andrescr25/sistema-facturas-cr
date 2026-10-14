@@ -1,31 +1,40 @@
 import { useState, useCallback } from 'react'
 import api from '../services/api'
-import { claveProductoReporte, claveTemporalProducto, agregarProductoManual, cantidadProveedorExacta } from '../utils/reporteProveedoresUtils'
+import { claveProductoReporte, claveTemporalProducto, agregarProductoManual, cantidadEnteraValida, clavesProductoProveedor, keyProductoProveedor, getCantidadFinal, edicionCantidadProducto, construirCantidadGuardada, contextoEdicionProveedor } from '../utils/reporteProveedoresUtils'
 
 /** Edición del reporte conservada de main, separada de las órdenes enviadas. */
-export function useEdicionFaltantesProveedor({ prompt, showToast }) {
+export function useEdicionFaltantesProveedor({ prompt, showToast, cantidadesModificadas, cantidadesGuardadas, setCantidadesModificadas, proveedores = [], onRevisionInvalida = () => {}, onTemporalesGuardados = async () => {} }) {
   // Estados Edición Manual
   const [productosEliminados, setProductosEliminados] = useState(new Set())
+  const [clavesEliminadasGuardadas, setClavesEliminadasGuardadas] = useState(new Map())
   const [productosAgregados, setProductosAgregados] = useState(new Map())
   const [modalAgregarProducto, setModalAgregarProducto] = useState(false)
   const [proveedorParaAgregar, setProveedorParaAgregar] = useState(null)
   const [busquedaProducto, setBusquedaProducto] = useState('')
   const [productosEncontrados, setProductosEncontrados] = useState([])
   const [loadingProductos, setLoadingProductos] = useState(false)
+  const contexto = nombre => contextoEdicionProveedor(proveedores.find(p => p.nombre === nombre && !p.enviada && !p.orden_id))
+  const avisarError = (error, nombre, mensaje) => {
+    if (error.response?.status === 409) { onRevisionInvalida(nombre); showToast('El reporte cambió. Se actualizó la compra; revisá las cantidades antes de continuar.', 'error') }
+    else showToast(error.response?.data?.message || mensaje || error.message, 'error')
+  }
 
-  const eliminarProductoDeOrden = useCallback(async (proveedorNombre, productoCodigo, productoNombre, cantidadOriginal) => {
+  const eliminarProductoDeOrden = useCallback(async (proveedorNombre, productoCodigo, productoNombre, cantidadOriginal, productoId) => {
     const key = `${proveedorNombre}-${productoCodigo}`
     setProductosEliminados(prev => new Set(prev).add(key))
 
     try {
-      await api.post('/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0 })
+      await api.post('/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0, producto_id: productoId, ...contexto(proveedorNombre) })
     } catch (error) {
       console.error('Error:', error)
+      setProductosEliminados(prev => { const siguiente = new Set(prev); siguiente.delete(key); return siguiente })
+      avisarError(error, proveedorNombre, 'No se guardó la exclusión. Actualizá el reporte antes de continuar.')
     }
-  }, [])
+  }, [proveedores, onRevisionInvalida, showToast])
 
-  const restaurarProducto = useCallback(async (proveedorNombre, productoCodigo) => {
+  const restaurarProducto = useCallback(async (proveedorNombre, productoCodigo, productoId) => {
     const codigos = Array.isArray(productoCodigo) ? productoCodigo : [productoCodigo]
+    const almacenados = [...new Set(codigos.map(codigo => clavesEliminadasGuardadas.get(`${proveedorNombre}-${codigo}`) || codigo))]
     setProductosEliminados(prev => {
       const nuevosEliminados = new Set(prev)
       codigos.forEach(codigo => nuevosEliminados.delete(`${proveedorNombre}-${codigo}`))
@@ -33,12 +42,12 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
     })
 
     try {
-      for (const codigo of codigos) await api.delete('/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo: codigo } })
+      for (const codigo of almacenados) await api.delete('/orden-compra/producto-eliminado', { data: { proveedorNombre, productoCodigo: codigo, producto_id: productoId, ...contexto(proveedorNombre) } })
     } catch (error) {
       console.error('No se pudo restaurar el producto:', error)
-      showToast('El producto se restauró en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
+      avisarError(error, proveedorNombre, 'El producto se restauró en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.')
     }
-  }, [])
+  }, [proveedores, clavesEliminadasGuardadas, onRevisionInvalida, showToast])
 
   const abrirModalAgregarProducto = useCallback((proveedor) => {
     setProveedorParaAgregar(proveedor)
@@ -66,30 +75,57 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
   }, [])
 
   const agregarProductoAOrden = useCallback(async (producto, cantidad) => {
-    if (!proveedorParaAgregar || cantidad <= 0) return
-    try { cantidadProveedorExacta(cantidad, 1) } catch (error) { showToast(error.message, 'error'); return }
+    if (!proveedorParaAgregar) return
+    if (!cantidadEnteraValida(cantidad, 1)) { showToast('El producto agregado requiere una cantidad entera de 1 a 1000000.', 'error'); return }
     const keyProv = proveedorParaAgregar.nombre
     const nuevosAgregados = new Map(productosAgregados)
     const clave = claveProductoReporte(producto)
     if (!clave) { showToast('Seleccioná un producto del catálogo.', 'error'); return }
-    const nuevo = { productoId: producto.id, claveAlmacenada: clave, codigo: producto.reference, nombre: producto.name, cantidad: Number(cantidad), agregadoManual: true }
-    const list = agregarProductoManual(nuevosAgregados.get(keyProv) || [], nuevo)
+    const proveedorActual = proveedores.find(p => p.nombre === keyProv && !p.enviada && !p.orden_id)
+    if (!proveedorActual || proveedorActual.revisionReporte !== proveedorParaAgregar.revisionReporte || (proveedorActual.fechaInicio || null) !== (proveedorParaAgregar.fechaInicio || null)) { onRevisionInvalida(keyProv); showToast('El reporte cambió. Volvé a abrir el buscador para esta compra.', 'error'); setModalAgregarProducto(false); return }
+    const nuevo = { productoId: producto.id, claveAlmacenada: `extra:${clave}`, codigo: producto.reference, nombre: producto.name, cantidad: Number(cantidad), agregadoManual: true }
+    const original = proveedorActual.productos_faltantes.find(p => Number(p.producto_id) === Number(producto.id))
+    if (original) {
+      const edicion = edicionCantidadProducto(keyProv, original, cantidadesModificadas, cantidadesGuardadas, proveedorParaAgregar.productos_faltantes)
+      if (edicion && !cantidadEnteraValida(edicion.cantidad)) { showToast('Revisá la cantidad entera del producto antes de agregar más.', 'error'); return }
+      const actual = getCantidadFinal(keyProv, original, original.cantidad_faltante, cantidadesModificadas, cantidadesGuardadas, proveedorParaAgregar.productos_faltantes)
+      const excluido = clavesProductoProveedor(keyProv, original, proveedorParaAgregar.productos_faltantes).some(key => productosEliminados.has(key))
+      if (!excluido && cantidadEnteraValida(actual, 1)) {
+        try {
+          const cambio = construirCantidadGuardada(proveedorParaAgregar, original, actual, productosAgregados, productosEliminados)
+          cambio.cantidad_modificada += Number(cantidad)
+          if (!cantidadEnteraValida(cambio.cantidad_modificada, 1)) throw new Error('La cantidad total debe ser entera y no superar 1000000.')
+          const { data } = await api.post('/orden-compra/cantidades', { cantidades: [cambio] })
+          if (!data.success) throw new Error(data.message || 'No se pudo guardar la cantidad.')
+          setCantidadesModificadas(prev => new Map(prev).set(keyProductoProveedor(keyProv, original), cambio.cantidad_modificada))
+          nuevosAgregados.set(keyProv, (nuevosAgregados.get(keyProv) || []).filter(p => Number(p.productoId) !== Number(producto.id)))
+          setProductosAgregados(nuevosAgregados)
+          setModalAgregarProducto(false)
+        } catch (error) { avisarError(error, keyProv) }
+        return
+      }
+    }
+    let list
+    try { list = agregarProductoManual(nuevosAgregados.get(keyProv) || [], nuevo) }
+    catch (error) { showToast(error.message, 'error'); return }
     const agregado = list.find(p => claveProductoReporte(p) === clave)
     nuevosAgregados.set(keyProv, list)
     setProductosAgregados(nuevosAgregados)
 
     try {
-      await api.post('/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: claveTemporalProducto(agregado), productoNombre: producto.name, cantidad: agregado.cantidad })
+      await api.post('/orden-compra/producto-agregado', { proveedorNombre: keyProv, productoCodigo: claveTemporalProducto(agregado), productoNombre: producto.name, cantidad: agregado.cantidad, producto_id: producto.id, ...contexto(keyProv) })
+      await onTemporalesGuardados()
     } catch (error) {
       console.error('No se pudo registrar el producto agregado:', error)
-      showToast('El producto se agregó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.', 'error')
+      if (error.response?.status === 409) setProductosAgregados(productosAgregados)
+      avisarError(error, keyProv, 'El producto se agregó en pantalla, pero NO se guardó. Recargue antes de enviar el pedido.')
     }
     setModalAgregarProducto(false)
-  }, [proveedorParaAgregar, productosAgregados])
+  }, [proveedorParaAgregar, productosAgregados, productosEliminados, cantidadesModificadas, cantidadesGuardadas, setCantidadesModificadas, proveedores, onRevisionInvalida, onTemporalesGuardados, showToast])
 
   const solicitarCantidadYAgregar = useCallback(async (producto, reference) => {
     const q = await prompt(`${producto.name}\n¿Cantidad a añadir a la orden?`, { inputDefaultValue: '1' })
-    if (q && Number(q) > 0) {
+    if (q !== null && q !== undefined) {
       await agregarProductoAOrden({ ...producto, reference }, q)
     }
   }, [prompt, agregarProductoAOrden])
@@ -103,17 +139,17 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
     setProductosAgregados(nuevos)
 
     try {
-      await api.delete('/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: claveTemporalProducto(prod) } })
+      await api.delete('/orden-compra/producto-agregado', { data: { proveedorNombre, productoCodigo: claveTemporalProducto(prod), producto_id: prod.productoId || null, ...contexto(proveedorNombre) } })
     } catch (e) {
       console.error('No se pudo quitar el producto agregado:', e)
-      showToast('El cambio NO se guardó. Recargue antes de enviar el pedido.', 'error')
+      if (e.response?.status === 409) setProductosAgregados(productosAgregados)
+      avisarError(e, proveedorNombre, 'El cambio NO se guardó. Recargue antes de enviar el pedido.')
     }
-  }, [productosAgregados])
+  }, [productosAgregados, proveedores, onRevisionInvalida, showToast])
 
   const actualizarCantidadAgregado = useCallback(async (proveedorNombre, index, nuevaCantidad) => {
     const cant = Number(nuevaCantidad)
-    if (isNaN(cant) || cant <= 0) return
-    try { cantidadProveedorExacta(cant, 1) } catch (error) { showToast(error.message, 'error'); return }
+    if (!cantidadEnteraValida(nuevaCantidad, 1)) { showToast('El producto agregado requiere una cantidad entera de 1 a 1000000.', 'error'); return }
     const nuevos = new Map(productosAgregados)
     const list = [...(nuevos.get(proveedorNombre) || [])]
     if (list[index]) {
@@ -122,15 +158,17 @@ export function useEdicionFaltantesProveedor({ prompt, showToast }) {
       setProductosAgregados(nuevos)
 
       try {
-        await api.post('/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: claveTemporalProducto(list[index]), productoNombre: list[index].nombre, cantidad: cant })
+        await api.post('/orden-compra/producto-agregado', { proveedorNombre, productoCodigo: claveTemporalProducto(list[index]), productoNombre: list[index].nombre, cantidad: cant, producto_id: list[index].productoId || null, ...contexto(proveedorNombre) })
+        await onTemporalesGuardados()
       } catch (e) {
         console.error('No se pudo guardar la cantidad:', e)
-        showToast('La cantidad NO se guardó. Recargue antes de enviar el pedido.', 'error')
+        if (e.response?.status === 409) setProductosAgregados(productosAgregados)
+        avisarError(e, proveedorNombre, 'La cantidad NO se guardó. Recargue antes de enviar el pedido.')
       }
     }
-  }, [productosAgregados])
+  }, [productosAgregados, proveedores, onRevisionInvalida, onTemporalesGuardados, showToast])
 
-  return { productosEliminados, setProductosEliminados, productosAgregados, setProductosAgregados,
+  return { productosEliminados, setProductosEliminados, clavesEliminadasGuardadas, setClavesEliminadasGuardadas, productosAgregados, setProductosAgregados,
     modalAgregarProducto, setModalAgregarProducto, proveedorParaAgregar, busquedaProducto,
     setBusquedaProducto, productosEncontrados, loadingProductos, eliminarProductoDeOrden,
     restaurarProducto, abrirModalAgregarProducto, buscarProductos, solicitarCantidadYAgregar,
