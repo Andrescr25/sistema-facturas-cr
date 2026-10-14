@@ -10,6 +10,7 @@ import ListaFichasProveedor from '../components/reporte-proveedores/ListaFichasP
 import ModalFichaProveedor from '../components/reporte-proveedores/ModalFichaProveedor'
 import ListaProveedores from '../components/reporte-proveedores/ListaProveedores'
 import ProveedorDetalle from '../components/reporte-proveedores/ProveedorDetalle'
+import ModalEnviarProveedor from '../components/reporte-proveedores/ModalEnviarProveedor'
 import ModalAsignarProveedor from '../components/reporte-proveedores/ModalAsignarProveedor'
 import ModalCrearProveedor from '../components/reporte-proveedores/ModalCrearProveedor'
 import ModalAgregarProducto from '../components/reporte-proveedores/ModalAgregarProducto'
@@ -122,6 +123,7 @@ export default function ReporteProveedores() {
   const proveedorActivo = proveedores.find(p => p.id === proveedorActivoId)
   const envio = useEnvioOrdenProveedor({
     proveedor: proveedorActivo,
+    activo: vista === 'faltantes' && !loading && !error,
     comprasEnviadas: proveedores,
     productos: () => proveedorActivo ? construirProductosParaOrden(proveedorActivo, {
       productosEliminados, cantidadesModificadas, cantidadesGuardadas, productosAgregados
@@ -242,6 +244,9 @@ export default function ReporteProveedores() {
           onCerrar={() => fichas.setEditando(null)}
         />
       )}
+
+      {envio.modal && <ModalEnviarProveedor revision={envio.modal} enviando={envio.enviando}
+        onConfirmar={envio.confirmarEnvio} onReintentar={envio.reintentarRevision} onCerrar={envio.cerrarModal} />}
 
       <ConfirmModal {...dialogFichas} />
 

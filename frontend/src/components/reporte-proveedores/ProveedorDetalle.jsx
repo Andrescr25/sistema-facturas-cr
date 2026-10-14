@@ -41,14 +41,14 @@ export default function ProveedorDetalle({
 }) {
   if (proveedorEnviado(proveedor)) return <OrdenEnviadaDetalle proveedor={proveedor} onVolver={onVolver} />
   const notasProveedor = notasDelProveedor(proveedor, notasPorProducto)
-  const bloqueado = envio.enviando || envio.estado !== 'pendiente'
+  const bloqueado = envio.enviando || Boolean(envio.modal) || envio.estado !== 'pendiente'
   return (
     <div className="space-y-5 animate-fade-in-up">
       {/* Cabecera Activa */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <Boton variante="fantasma" icono={ArrowLeft} onClick={onVolver} disabled={envio.enviando} className="min-h-12 self-start">Volver a proveedores</Boton>
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <Boton onClick={envio.enviar} icono={Send} cargando={envio.enviando} disabled={envio.estado === 'incierto' || envio.estado === 'confirmado'} className="min-h-12">
+          <Boton onClick={envio.enviar} icono={Send} cargando={envio.enviando} disabled={Boolean(envio.modal) || envio.estado === 'incierto' || envio.estado === 'confirmado'} className="min-h-12">
             {envio.estado === 'por_verificar' ? 'Verificar envío' : 'Enviar PDF a WhatsApp'}
           </Boton>
           <button

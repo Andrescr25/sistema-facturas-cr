@@ -211,42 +211,35 @@ test('paquetes con seis decimales exactos: .07/.01 pide siete y una conversión 
   assert.throws(() => agregarProductoManual([a], { productoId: 7, cantidad: 0.2 }), /entero/);
 });
 
-/** Se ejecuta el gancho real con estado React y API controlados. No hay
- * navegador, mensajes ni base: interesa no crear otro envío al perder la
- * respuesta, incluso recreando el gancho con la misma sesión de la pestaña. */
-function montar(api, almacen = new Map()) {
-  const slots = [], efectos = [];
-  let indice = 0, serial = 0;
-  const useState = inicial => {
-    const i = indice++;
-    slots[i] ??= { valor: inicial };
-    return [slots[i].valor, nuevo => { slots[i].valor = typeof nuevo === 'function' ? nuevo(slots[i].valor) : nuevo; }];
+// Estos casos conservan la verificación del transporte/idempotencia. Los
+// pasos del modal se recorren explícitamente antes de simular confirmar.
+const { montar: montarGancho } = require('./dobles/envioProveedorGancho');
+function montar(api, almacen) {
+  const m = montarGancho({ post: (ruta, cuerpo) => ruta === '/orden-compra/proveedor/revisar-envio'
+    ? Promise.resolve({ data: { success: true, data: { destino: { telefono: '50688888888', mensaje: 'zz-Orden de compra' } } } })
+    : api.post(ruta, cuerpo) }, almacen);
+  const render = datos => {
+    const resultado = m.render(datos);
+    return { ...resultado, enviar: async () => {
+      await resultado.enviar();
+      const actualizado = m.render(datos);
+      if (actualizado.modal?.destino) await actualizado.confirmarEnvio();
+    } };
   };
-  const useRef = inicial => { const i = indice++; return slots[i] ??= { current: inicial }; };
-  const useEffect = (efecto, deps) => {
-    const i = indice++, previo = slots[i];
-    if (!previo || deps.some((d, n) => !Object.is(d, previo.deps[n]))) efectos.push(() => { previo?.limpiar?.(); slots[i] = { deps, limpiar: efecto() }; });
-  };
-  const sessionStorage = { getItem: clave => almacen.get(clave) || null, setItem: (clave, valor) => almacen.set(clave, valor), removeItem: clave => almacen.delete(clave) };
-  const codigo = leer('hooks/useEnvioOrdenProveedor.js').replace(/^import .*$/gm, '').replace(/^export /gm, '');
-  const hook = new Function('useState', 'useRef', 'useEffect', 'api', 'useAuth', 'sessionStorage', 'crypto', 'cuerpoEnvioProveedor', 'resultadoEnvioProveedor', 'intentoSeparadoDelProveedor', codigo + '\nreturn useEnvioOrdenProveedor')(
-    useState, useRef, useEffect, api, () => ({ usuario: { id: 50 } }), sessionStorage, { randomUUID: () => `clave-${++serial}` }, vista.cuerpoEnvioProveedor, vista.resultadoEnvioProveedor, vista.intentoSeparadoDelProveedor);
-  const render = (datos = {}) => {
-    indice = 0;
-    const resultado = hook({ proveedor, productos: [producto], preferirDatosProveedor: true, onEnviada: async () => {}, showToast() {}, ...datos });
-    while (efectos.length) efectos.shift()();
-    return resultado;
-  };
-  return { render, almacen };
+  return { ...m, render };
 }
 
-test('el doble clic hace un solo POST y el envío confirmado deja libre la siguiente compra', async () => {
+test('el doble clic en confirmar hace un solo transporte y el confirmado deja libre la siguiente compra', async () => {
   const llamadas = []; let resolver;
-  const api = { post: (ruta, cuerpo) => { llamadas.push({ ruta, cuerpo }); return new Promise(r => { resolver = r; }); } };
-  const m = montar(api);
+  const api = { post: (ruta, cuerpo) => {
+    if (ruta.endsWith('revisar-envio')) return Promise.resolve({ data: { success: true, data: { destino: { telefono: '50688888888', mensaje: 'zz-Orden de compra' } } } });
+    llamadas.push({ ruta, cuerpo }); return new Promise(r => { resolver = r; });
+  } };
+  const m = montarGancho(api);
+  await m.render().enviar();
   const envio = m.render();
-  const primero = envio.enviar();
-  await envio.enviar();
+  const primero = envio.confirmarEnvio();
+  await envio.confirmarEnvio();
   assert.equal(llamadas.length, 1);
   assert.equal(llamadas[0].ruta, '/orden-compra/proveedor/enviar');
   assert.equal(m.render().enviando, true);
