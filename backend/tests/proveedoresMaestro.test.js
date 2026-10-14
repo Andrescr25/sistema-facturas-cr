@@ -107,6 +107,37 @@ describe('crear ficha de proveedor', () => {
     assert.equal(log.length, 0);
   });
 
+  test('varios WhatsApp se guardan separados y normalizados, sin alterar el teléfono principal', async () => {
+    const { servicio, log } = montar(base());
+    const creada = await servicio.crearFicha({
+      ...VALIDO, telefono: '+506 2453-1234', telefono_whatsapp: '+506 8827-2453\r\n 84552056 \r\n(506) 7777 8888'
+    }, 4);
+    assert.equal(creada.telefono, '2453 1234');
+    assert.equal(creada.telefono_whatsapp, '8827 2453\n8455 2056\n7777 8888');
+    const bitacora = params(log, /INSERT INTO bitacora_cambio/);
+    assert.equal(JSON.parse(bitacora[4]).telefono_whatsapp, creada.telefono_whatsapp);
+  });
+
+  test('acepta diez contactos y conserva el formato único anterior', async () => {
+    const { servicio } = montar(base());
+    const diez = Array.from({ length: 10 }, (_, i) => `8888888${i}`);
+    assert.equal((await servicio.crearFicha({ ...VALIDO, telefono_whatsapp: diez.join('\n') }, 4)).telefono_whatsapp.split('\n').length, 10);
+    assert.equal((await servicio.crearFicha(VALIDO, 4)).telefono_whatsapp, '8827 2453');
+  });
+
+  test('no descarta contactos vacíos, repetidos o mal escritos al guardar', async () => {
+    for (const valor of [
+      '88888888\n\n87777777', '88888888\n \n87777777',
+      '88888888\n+506 8888-8888', '88888888\n8777777',
+      '88888888 / 87777777', '88888888\n87777777 JUAN',
+      Array.from({ length: 11 }, (_, i) => String(88888800 + i)).join('\n')
+    ]) {
+      const { servicio, log } = montar(base());
+      await assert.rejects(servicio.crearFicha({ ...VALIDO, telefono_whatsapp: valor }, 4), e => e.status === 400 && /WhatsApp/.test(e.message));
+      assert.equal(log.length, 0, 'un contacto inválido no llega a la base');
+    }
+  });
+
   test('lo que no está en la lista blanca se ignora', async () => {
     const { servicio, log } = montar(base());
     await servicio.crearFicha({ ...VALIDO, activo: false, alegra_id: '999', legacy_id: 3 }, 4);
@@ -124,6 +155,33 @@ describe('crear ficha de proveedor', () => {
 });
 
 describe('editar y desactivar', () => {
+  test('editar WhatsApp guarda todos los contactos y audita sólo ese campo', async () => {
+    const { servicio, log } = montar(base());
+    const editada = await servicio.editarFicha(5, { telefono_whatsapp: '88888888\n+50687777777' }, 4);
+    assert.equal(editada.telefono_whatsapp, '8888 8888\n8777 7777');
+    for (const campo of ['nombre', 'identificacion', 'telefono', 'correo', 'plazo_credito_id', 'alegra_id', 'legacy_id']) {
+      assert.equal(editada[campo], FERRETEROS[campo], campo);
+    }
+    assert.deepEqual(JSON.parse(params(log, /INSERT INTO bitacora_cambio/)[5]), {
+      telefono_whatsapp: ['8455 2056', '8888 8888\n8777 7777']
+    });
+  });
+
+  test('omitir WhatsApp conserva datos antiguos y permite borrar el contacto explícitamente', async () => {
+    const antigua = { ...FERRETEROS, telefono_whatsapp: '88888888 / 87777777 Juan' };
+    const { servicio } = montar(base({ proveedor: antigua }));
+    assert.equal((await servicio.editarFicha(5, { observaciones: 'Llamar antes' }, 4)).telefono_whatsapp, antigua.telefono_whatsapp);
+    assert.equal((await servicio.obtenerFicha(5)).telefono_whatsapp, antigua.telefono_whatsapp);
+    assert.equal((await servicio.editarFicha(5, { telefono_whatsapp: null }, 4)).telefono_whatsapp, null);
+    assert.equal((await servicio.editarFicha(5, { telefono_whatsapp: '  \n  ' }, 4)).telefono_whatsapp, null);
+  });
+
+  test('una edición con contactos repetidos se rechaza antes de consultar', async () => {
+    const { servicio, log } = montar(base());
+    await assert.rejects(servicio.editarFicha(5, { telefono_whatsapp: '88888888\n8888 8888' }, 4), e => e.status === 400 && /repetido/.test(e.message));
+    assert.equal(log.length, 0);
+  });
+
   test('sin datos no hace nada, y un proveedor que no existe da 404', async () => {
     const { servicio, log } = montar(base());
     await assert.rejects(servicio.editarFicha(5, {}, 4), e => e.status === 400);

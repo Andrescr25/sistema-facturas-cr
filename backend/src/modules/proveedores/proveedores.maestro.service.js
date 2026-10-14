@@ -11,8 +11,8 @@
  * - La cédula es única entre proveedores (a diferencia de los clientes, donde
  *   la genérica del consumidor final se repite), y tiene que calzar con su
  *   tipo.
- * - El teléfono de WhatsApp se valida como cualquier otro: es el número al
- *   que sale la orden de compra.
+ * - WhatsApp admite hasta diez números, uno por línea. Se validan por
+ *   separado para que un segundo contacto no se pegue al primero al enviar.
  * - Todo cambio queda en la bitácora, dentro de la misma transacción.
  *
  * El "saldo" del proveedor todavía no vive acá: los pagos están en Alegra y
@@ -26,6 +26,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, texto, numero, booleano, opcion, correo, validar, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
+const { validarWhatsappsProveedor } = require('../../utils/telefonosProveedor');
 const { TIPOS, LARGOS, NOMBRES, limpiar, calza } = require('../clientes/identificacion');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -50,7 +51,7 @@ const CAMPOS = {
   identificacion: { etiqueta: 'Cédula', validar: texto(20) },
   correo: { etiqueta: 'Correo', validar: correo(160) },
   telefono: { etiqueta: 'Teléfono', validar: telefono },
-  telefono_whatsapp: { etiqueta: 'WhatsApp', validar: telefono },
+  telefono_whatsapp: { etiqueta: 'WhatsApp', validar: validarWhatsappsProveedor },
   plazo_credito_id: { etiqueta: 'Plazo de crédito', validar: entero },
   observaciones: { etiqueta: 'Observaciones', validar: texto(2000) }
 };
