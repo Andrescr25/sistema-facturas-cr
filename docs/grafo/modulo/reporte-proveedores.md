@@ -68,6 +68,9 @@ copia preparada en historia, sin envío activo ni mensajes. La preparación se
 puede verificar con las salidas locales bloqueadas; enviar conserva su guarda.
 Un borrador cambiado exige volver a revisar. Un resultado perdido se consulta
 con su mismo cuerpo/UUID, sin preparar ni reenviar otra compra.
+El mensaje de las copias nuevas es exactamente «Hola buenas, adjunto pedido»
+y «gracias» en la siguiente línea, solicitado después por el usuario. Se
+comparte con la propuesta del motor; una copia previa conserva su mensaje.
 El formato comercial anterior se recupera en las copias nuevas: código y
 descripción del proveedor, factor y cantidad destacada. Los documentos
 históricos conservan sus bytes. Generador compartido y paginación en

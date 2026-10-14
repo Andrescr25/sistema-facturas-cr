@@ -118,7 +118,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   }
   await db.query("UPDATE orden_compra_ciclo SET estado='pendiente_enviar',version=version+1,actualizado_en=NOW() WHERE id=$1",[o.id]);
   o = await obtenerEn(db,o.id);
-  const mensaje = `Te enviamos nuestra ORDEN DE COMPRA ${o.referencia} en PDF. Por favor confirmá los productos, cantidades y disponibilidad.`;
+  const mensaje = envio.mensajePredeterminado;
   o = await envio.interno.prepararEn(db,o.id,{version:o.version,clave:datos.clave,telefono:candidatos[0].numero,mensaje,preferirDatosProveedor:datos.preferirDatosProveedor !== false},actor);
   const { rows:temporales } = await db.query(`SELECT id,updated_at::text actualizado FROM orden_compra_temporal
     WHERE proveedor_nombre=ANY($1::text[])`,[[...new Set([p.nombre,actual.nombre,...(actual.aliases || [])])]]);

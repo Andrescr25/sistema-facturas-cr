@@ -57,3 +57,24 @@ del equipo Codex sobre02089d5; no incorpora trabajo nuevo de Claude. Esta
 entrega no cambia los pendientes ROT-06/07/08 del historial de impresos y la
 cadena operativa. Los hashes y la salud del despliegue quedan en el registro
 de memoria compartida al publicar.
+
+## Mensaje posterior solicitado
+
+El usuario cambia el predeterminado a dos líneas exactas:
+
+```text
+Hola buenas, adjunto pedido
+gracias
+```
+
+Reporte y propuesta del motor comparten una sola constante. La preparación
+acepta ese texto sin referencia; ésta sigue en el PDF y en la copia guardada.
+Las copias anteriores mantienen sus mensajes y los reintentos no los reescriben.
+Se ajustan las comprobaciones existentes del mensaje, sin modificar el PDF
+ni añadir SQL o dependencias. Ajuste verificado: suite completa de 2.859 casos
+sin fallos (2.463 aprobados, 396 condicionales omitidos), 50 pruebas dirigidas
+con PostgreSQL aprobadas y Chromium con 39 solicitudes HTTP/PG/ROLLBACK en
+390/700/1440, comprobando exactamente el mensaje de dos líneas en el modal.
+Sin mensajes reales. Revisión independiente sin bloqueantes. El frontend no
+cambia; se verifica con su build existente de32ef6b0. Publicación autorizada
+de un único commit de Codex, sin trabajo ajeno ni migración nueva.

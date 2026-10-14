@@ -71,6 +71,10 @@ Restaurar el formato comercial de PDF que ya estaba: código, descripción,
 factor y cantidad del proveedor. Conservar las cantidades/snapshots y los
 PDF históricos; un cambio de lógica no autoriza cambiar su diseño.
 
+**Mensaje predeterminado, ajuste posterior del mismo día:** usar únicamente
+«Hola buenas, adjunto pedido» y en la siguiente línea «gracias». Sin agregar
+referencia ni indicaciones al texto; la orden sigue identificada en su PDF.
+
 ## Decisiones anteriores que siguen vigentes
 
 - **Inventario y auditorías desde cero.** El físico está desordenado: iniciar

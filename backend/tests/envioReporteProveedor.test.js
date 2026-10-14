@@ -33,7 +33,7 @@ async function pedido(fechaInicio=null){const p=await reporte(fechaInicio);retur
 caso('persiste PDF revisado y manda al WhatsApp de ficha con mensaje predeterminado',async()=>{
   await guardar(0,10);const datos=await pedido();datos.productos[0].cantidad=7;datos.productos[0].cantidadOriginal=7;
   const r=await s.enviar(datos);assert.equal(r.envioEstado,'confirmado');assert.equal(envios,1);assert.equal(ultimo.telefono,'50688888888');
-  assert.match(ultimo.mensaje,new RegExp(r.orden.referencia));assert.match(ultimo.mensaje,/productos, cantidades y disponibilidad/);
+  assert.equal(ultimo.mensaje,'Hola buenas, adjunto pedido\ngracias');
   assert.equal(r.orden.lineas[0].cantidad_proveedor,7);assert.equal(r.orden.lineas[0].origenes.reduce((t,o)=>t+Number(o.cantidad),0),7);
   assert.deepEqual(ultimo.pdf,(await env.descargar(r.orden.id,datos.clave)).pdf);
 });

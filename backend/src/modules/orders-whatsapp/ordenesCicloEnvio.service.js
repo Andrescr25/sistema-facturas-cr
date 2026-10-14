@@ -6,6 +6,7 @@ const {telefonosDe,validarTelefonoEscrito}=require('../../utils/telefonosCliente
 const {registrarCambio}=require('../../utils/bitacora');
 const {generarPdfOrden}=require('./ordenesCiclo.pdf');
 const {interno:{enOrden,obtenerEn,revision,validarPendienteEn}}=require('./ordenesCiclo.service');
+const MENSAJE_PEDIDO='Hola buenas, adjunto pedido\ngracias';
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const uuid=id=>{if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))throw httpError(400,'Identificador de copia revisada inválido.');return id.toLowerCase()};
 const pendiente=o=>{if(o.estado!=='pendiente_enviar'||o.envio_id)throw httpError(409,'La orden debe estar pendiente de enviar, sin intento activo.');};
@@ -18,15 +19,17 @@ async function envioEn(db,ordenId,id){
 async function propuesta(id){return enOrden(async db=>{
   const o=await obtenerEn(db,id),{rows:[p]}=await db.query('SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=$1',[o.proveedor_id]);
   const {candidatos,sinReconocer}=telefonosDe({mobile:p.telefono_whatsapp,phonePrimary:p.telefono});
-  return {telefonos:candidatos,sinReconocer,mensaje:`Te enviamos nuestra ORDEN DE COMPRA ${o.referencia} en PDF. Por favor confirmá los productos, cantidades y disponibilidad.`};
+  return {telefonos:candidatos,sinReconocer,mensaje:MENSAJE_PEDIDO};
 })}
 async function prepararEn(db,id,datos,usuarioId){
   const clave=uuid(datos?.clave),telefono=validarTelefonoEscrito(datos?.telefono);
   if(!telefono.valido)throw httpError(400,telefono.motivo);
   const mensaje=typeof datos.mensaje==='string'?datos.mensaje.trim():'';
-  if(!mensaje||mensaje.length>2000)throw httpError(400,'Escribí un mensaje de hasta 2000 caracteres con la referencia de la orden.');
+  if(!mensaje||mensaje.length>2000)throw httpError(400,'Escribí un mensaje de hasta 2000 caracteres.');
     const o=await obtenerEn(db,id,{bloquear:true});
-    if(!new RegExp(`\\b${o.referencia}\\b`).test(mensaje))throw httpError(400,'Incluí la referencia de esta orden en el mensaje.');
+    // El texto solicitado no lleva referencia; el PDF y la copia guardada
+    // conservan la orden exacta. Los mensajes personalizados mantienen su guarda.
+    if(mensaje!==MENSAJE_PEDIDO&&!new RegExp(`\\b${o.referencia}\\b`).test(mensaje))throw httpError(400,'Incluí la referencia de esta orden en el mensaje.');
     const {rows:[previa]}=await db.query('SELECT orden_id,version_orden,numero,mensaje FROM orden_compra_ciclo_envio WHERE id=$1',[clave]);
     if(previa){
       if(previa.orden_id!==o.id||previa.version_orden!==Number(datos.version)||previa.numero!==telefono.numero||previa.mensaje!==mensaje)
@@ -112,4 +115,4 @@ async function confirmarVerificado(id,copiaId,datos,usuarioId){
     return finalizarEn(db,o,e,{estado:'confirmado',confirmacion:'manual',motivo,usuarioId});
   });
 }
-module.exports={propuesta,preparar,descargar,enviar,confirmarVerificado,interno:{prepararEn}};
+module.exports={propuesta,preparar,descargar,enviar,confirmarVerificado,mensajePredeterminado:MENSAJE_PEDIDO,interno:{prepararEn}};

@@ -31,7 +31,7 @@ async function pedido(){const r=await reportes.getMissingItemsBySupplier(null,{d
 caso('abrir y cancelar sólo prepara; el modal recibe destino y mensaje reales sin transporte',async()=>{
  await faltante(10);const datos=await pedido(),r=await s.revisarEnvio(datos),copia=r.orden.envios.find(e=>e.id===datos.clave);
  assert.equal(transportes,0);assert.equal(r.envioEstado,'revisado');assert.equal(r.orden.envio_id,null);assert.equal(r.orden.enviada_en,null);
- assert.deepEqual(r.destino,{telefono:'50688888888',mensaje:`Te enviamos nuestra ORDEN DE COMPRA ${r.orden.referencia} en PDF. Por favor confirmá los productos, cantidades y disponibilidad.`});
+ assert.deepEqual(r.destino,{telefono:'50688888888',mensaje:'Hola buenas, adjunto pedido\ngracias'});
  assert.equal(copia.numero,r.destino.telefono);assert.equal(copia.mensaje,r.destino.mensaje);assert.ok((await env.descargar(r.orden.id,datos.clave)).pdf.length>0);
  const actual=await reportes.getMissingItemsBySupplier(null,{db,incluirEnviadas:false});assert.equal(actual.data.find(p=>p.cedula===f.p.identificacion).productos_faltantes[0].cantidad_faltante,10);
  assert.equal((await c.query('SELECT COUNT(*)::int n FROM envio_whatsapp WHERE referencia=$1',[r.orden.referencia])).rows[0].n,0);

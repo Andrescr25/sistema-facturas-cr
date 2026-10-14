@@ -66,6 +66,9 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
 - [x] RP-11 — Recuperar el formato comercial del PDF anterior: código,
   descripción, factor visible y cantidad del proveedor; snapshots/PDF
   enviados conservados, comprobación visual y de paginación.
+- [x] RP-12 — Mensaje solicitado de dos líneas: «Hola buenas, adjunto pedido»
+  y «gracias»; modal y transporte usan la copia exacta, sin exigir OC en este
+  texto ni modificar mensajes guardados de órdenes anteriores.
 
 Evidencia local y estado de publicación: [corrección de proveedores](informes/proveedores-correccion-2026-10-14.md). No modifica los pendientes ROT-06/07/08.
 Verificación del ajuste posterior: [modal y PDF comercial](informes/proveedores-modal-pdf-2026-10-14.md).

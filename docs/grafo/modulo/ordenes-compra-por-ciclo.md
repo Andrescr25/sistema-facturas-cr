@@ -61,6 +61,11 @@ conversión decimal exacta de seis decimales, sin procedencia ficticia. La bitá
 y huella del cuerpo; un reintento reutiliza la copia. La reclamación durable
 existente sigue ocurriendo antes del transporte; resultado perdido/incierto
 no habilita retransmitir. Teléfono único de ficha y mensaje predeterminado.
+El texto nuevo solicitado es «Hola buenas, adjunto pedido» y en la siguiente
+línea «gracias», sin referencia en el cuerpo. Una constante común sirve a la
+propuesta y al reporte. Preparar acepta este texto exacto; los mensajes
+personalizados conservan la validación de referencia. La copia y el PDF
+identifican la orden, y las copias ya guardadas no cambian su mensaje.
 El botón abre un modal para confirmar el número y el mensaje exactos. Revisar
 prepara y guarda el PDF sin transportar; confirmar reutiliza el mismo
 UUID/cuerpo y snapshot, sin reconstruir el pedido.
