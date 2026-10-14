@@ -60,8 +60,15 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   sólo de borradores/pendientes sin envío que conservaban faltantes reasignados;
   líneas/PDF históricos y necesidades restantes conservados. Identidad/mapping
   legados coherentes, sin cambiar las claves de intentos guardados.
+- [x] RP-10 — Confirmación solicitada: modal del botón de envío con número
+  y mensaje exactos; cancelar sin transporte, confirmar misma copia/UUID y
+  conservar la verificación de resultados perdidos.
+- [x] RP-11 — Recuperar el formato comercial del PDF anterior: código,
+  descripción, factor visible y cantidad del proveedor; snapshots/PDF
+  enviados conservados, comprobación visual y de paginación.
 
 Evidencia local y estado de publicación: [corrección de proveedores](informes/proveedores-correccion-2026-10-14.md). No modifica los pendientes ROT-06/07/08.
+Verificación del ajuste posterior: [modal y PDF comercial](informes/proveedores-modal-pdf-2026-10-14.md).
 
 ## Antecedente: implementación por ciclos
 

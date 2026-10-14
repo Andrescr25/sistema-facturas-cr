@@ -39,7 +39,7 @@ async function limpiarBorradorEn(db,o) {
   await db.query('DELETE FROM orden_compra_ciclo_origen WHERE linea_id IN (SELECT id FROM orden_compra_ciclo_linea WHERE orden_id=$1)',[o.id]);
   await db.query('DELETE FROM orden_compra_ciclo_linea WHERE orden_id=$1',[o.id]);
 }
-async function revisarEn(db,datos,actor) {
+async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   const { rows:[previa] } = await db.query('SELECT orden_id FROM orden_compra_ciclo_envio WHERE id=$1',[datos.clave]);
   if (previa) {
     const { rows:[registro] } = await db.query(`SELECT despues FROM bitacora_cambio
@@ -48,7 +48,7 @@ async function revisarEn(db,datos,actor) {
     if (registro?.despues?.firma !== firma(datos)) throw httpError(409,'Este intento ya corresponde a otro pedido.');
     return obtenerEn(db,previa.orden_id);
   }
-  if (salidasBloqueadas()) throw errorSalidaBloqueada('enviar la orden de compra');
+  if (!soloPreparar && salidasBloqueadas()) throw errorSalidaBloqueada('enviar la orden de compra');
   const p = await resolverProveedorEn(db,datos);
   const { rows:[contacto] } = await db.query('SELECT telefono_whatsapp,telefono FROM proveedor WHERE id=$1 FOR SHARE',[p.id]);
   const campo = contacto.telefono_whatsapp?.trim() ? { mobile:contacto.telefono_whatsapp } : { phonePrimary:contacto.telefono };
@@ -132,4 +132,19 @@ async function enviar(datos,actor) {
   const estado = orden.envios.find(e => e.id === datos.clave)?.estado;
   return { orden, envioEstado:estado };
 }
-module.exports = { enviar };
+/** El modal muestra el destino y mensaje de la copia guardada, no una
+ * propuesta que podría cambiar al confirmar. Preparar jamás reclama el
+ * canal ni manda mensajes; cancelar deja la copia en su historial.
+ */
+async function revisarEnvio(datos,actor) {
+  datos=validar(datos);
+  const orden=await enOrden(async db=>{
+    const o=await revisarEn(db,datos,actor,{soloPreparar:true});
+    const copia=o.envios.find(e=>e.id===datos.clave);
+    if (o.estado!=='pendiente_enviar' || o.envio_id || copia?.estado!=='revisado' || copia.version_orden!==o.version) throw httpError(409,'La compra cambió o ya tiene un envío por verificar. Actualizá el reporte.');
+    return o;
+  });
+  const copia=orden.envios.find(e=>e.id===datos.clave);
+  return { orden,destino:{telefono:copia.numero,mensaje:copia.mensaje},envioEstado:copia.estado };
+}
+module.exports = { enviar,revisarEnvio };

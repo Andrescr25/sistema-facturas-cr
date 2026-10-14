@@ -4,6 +4,10 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - docs/informes/proveedores-modal-pdf-2026-10-14.md
+  - frontend/src/components/reporte-proveedores/ModalEnviarProveedor.jsx
+  - backend/tests/modalEnvioProveedor.test.js
+  - backend/tests/confirmacionEnvioProveedor.test.js
   - backend/src/modules/orders-whatsapp/reservasBorradorReporte.service.js
   - frontend/src/services/api.js
   - docs/informes/proveedores-envio-409-2026-10-14.md
@@ -55,6 +59,20 @@ medido: 2026-10-14
 
 ## Corrección vigente — 2026-10-14
 
+**Confirmación solicitada después de la corrección:** el botón abre un modal
+con destino/mensaje exactos. POST /proveedor/revisar-envio prepara la copia
+desde las cantidades revisadas, devuelve número normalizado y mensaje de esa
+copia, sin reclamar el canal. Confirmar usa el mismo cuerpo/UUID en /enviar;
+no reconstruye ni cambia destino/PDF entre ambas acciones. Cancelar deja la
+copia preparada en historia, sin envío activo ni mensajes. La preparación se
+puede verificar con las salidas locales bloqueadas; enviar conserva su guarda.
+Un borrador cambiado exige volver a revisar. Un resultado perdido se consulta
+con su mismo cuerpo/UUID, sin preparar ni reenviar otra compra.
+El formato comercial anterior se recupera en las copias nuevas: código y
+descripción del proveedor, factor y cantidad destacada. Los documentos
+históricos conservan sus bytes. Generador compartido y paginación en
+[[modulo/ordenes-compra-por-ciclo]]. [Verificación conjunta](../../informes/proveedores-modal-pdf-2026-10-14.md).
+
 **409 al enviar, confirmado después de la entrega:** «Un producto ya no tiene
 faltantes libres». Un borrador de otro proveedor podía conservar la reserva de
 un faltante reasignado: GET lo mostraba actual, pero preparar descontaba esa
@@ -75,9 +93,10 @@ La cobertura enviada se descuenta; el borrador sigue editable en la pantalla.
 Tarjetas Sin enviar arriba; cada enviada abajo, tachada e independiente, con
 cantidades/códigos de su snapshot. Sin ciclos, modal de órdenes, preparación
 adicional ni descarga global duplicada. Solo **Enviar PDF a WhatsApp** desde
-el detalle ya revisado. POST /orden-compra/proveedor/enviar toma ese contenido,
-comprueba la revisión del reporte, guarda PDF y mensaje predeterminado y usa
-un único teléfono de la ficha. Manuales derivan conversión desde el proveedor,
+el detalle ya revisado: el modal posterior solicitado sólo confirma número
+y mensaje. POST /orden-compra/proveedor/revisar-envio toma ese contenido,
+comprueba la revisión del reporte y guarda PDF, mensaje predeterminado y un
+único teléfono de la ficha. /enviar confirma esa copia. Manuales derivan conversión desde el proveedor,
 sin inventar un cliente. La UUID/cuerpo sobreviven a una respuesta perdida;
 el mismo intento solo consulta el resultado, nunca retransmite. Un resultado
 incierto conserva su fotografía bloqueada; nuevas necesidades separadas pueden

@@ -63,6 +63,14 @@ Una edición pertenece a los faltantes revisados, no se arrastra a la siguiente
 factura al actualizar la pantalla. Varias facturas parciales pueden completar
 la misma orden enviada; una parcial anterior y otra nueva requieren elegir.
 
+**Ajuste posterior del 2026-10-14:** el botón «Enviar PDF a WhatsApp» ahora
+debe abrir un modal con el número de destino y el mensaje predeterminado,
+antes de confirmar el envío. Sustituye únicamente el envío inmediato; no
+reintroduce la lista de órdenes ni la segunda revisión de productos.
+Restaurar el formato comercial de PDF que ya estaba: código, descripción,
+factor y cantidad del proveedor. Conservar las cantidades/snapshots y los
+PDF históricos; un cambio de lógica no autoriza cambiar su diseño.
+
 ## Decisiones anteriores que siguen vigentes
 
 - **Inventario y auditorías desde cero.** El físico está desordenado: iniciar
