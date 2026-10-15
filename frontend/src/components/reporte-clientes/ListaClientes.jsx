@@ -47,7 +47,7 @@ const ESTILO_SIN_CAJA = {
  * Conserva el orden del servidor dentro de pendientes y listos. Las cards
  * muestran la revisión del pedido; la agenda de visitas se consulta en Preventa.
  */
-export default function ListaClientes({ clientes, resumen, facturasEstado, entregasAjustadas, contarAjustes, filtros, onFiltrosChange, onSelectCliente, onRefresh }) {
+export default function ListaClientes({ historial = false, clientes, resumen, facturasEstado, entregasAjustadas, contarAjustes, filtros, onFiltrosChange, onSelectCliente, onRefresh }) {
   const [showProveedorDropdown, setShowProveedorDropdown] = useState(false)
   const proveedoresFiltro = new Set(filtros.proveedores)
   const cambiar = (cambio) => onFiltrosChange({ ...filtros, ...cambio })
@@ -74,8 +74,8 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
       coincidencias: productosQueCoinciden(cliente, filtros.producto)
     }))
 
-  const clientesPendientes = clientesFiltrados.filter(({ progreso }) => progreso.estado !== CLIENTE_ESTADO.LISTA)
-  const clientesListos = clientesFiltrados.filter(({ progreso }) => progreso.estado === CLIENTE_ESTADO.LISTA)
+  const clientesPendientes = historial ? clientesFiltrados : clientesFiltrados.filter(({ progreso }) => progreso.estado !== CLIENTE_ESTADO.LISTA)
+  const clientesListos = historial ? [] : clientesFiltrados.filter(({ progreso }) => progreso.estado === CLIENTE_ESTADO.LISTA)
 
   const toggleProveedor = (prov) => {
     cambiar({ proveedores: proveedoresFiltro.has(prov) ? filtros.proveedores.filter(p => p !== prov) : [...filtros.proveedores, prov] })
@@ -175,8 +175,8 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
       {clientesFiltrados.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-neutro-100 text-center py-16">
           <User className="mx-auto text-neutro-300 mb-4" size={64} />
-          <h3 className="text-xl font-bold text-neutro-900 mb-2">{filtrando ? 'Ningún cliente coincide con la búsqueda' : 'No hay entregas pendientes'}</h3>
-          <p className="text-neutro-500">{filtrando ? 'Probá con otro texto u otros proveedores, o limpiá los filtros.' : 'Cuando registres faltantes en las facturas, aparecerán aquí.'}</p>
+          <h3 className="text-xl font-bold text-neutro-900 mb-2">{filtrando ? 'Ningún cliente coincide con la búsqueda' : historial ? 'Todavía no hay facturas en el historial' : 'No hay entregas pendientes'}</h3>
+          <p className="text-neutro-500">{filtrando ? 'Probá con otro texto u otros proveedores, o limpiá los filtros.' : historial ? 'Aparecerán aquí tras 24 horas sin movimientos después de enviarse a Impresión.' : 'Cuando registres faltantes en las facturas, aparecerán aquí.'}</p>
         </div>
       ) : (
         <>
@@ -185,6 +185,7 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
             {clientesPendientes.map(({ cliente, progreso, coincidencias }) => (
               <ClienteCard
                 key={getClienteKey(cliente)}
+                historial={historial}
                 cliente={cliente}
                 progreso={progreso}
                 coincidencias={coincidencias}
@@ -207,7 +208,8 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
                 {clientesListos.map(({ cliente, progreso, coincidencias }) => (
                   <ClienteCard
                     key={getClienteKey(cliente)}
-                    cliente={cliente}
+                    historial={historial}
+                cliente={cliente}
                     progreso={progreso}
                     coincidencias={coincidencias}
                     onSelectCliente={onSelectCliente}
@@ -224,7 +226,7 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
         <div className="mt-8 pt-6 border-t border-neutro-200 grid grid-cols-1 md:grid-cols-4 gap-4 opacity-70">
           <div className="text-center"><p className="text-sm text-neutro-500">Clientes</p><p className="text-xl font-bold text-neutro-800">{clientes.length}</p></div>
           <div className="text-center"><p className="text-sm text-neutro-500">Facturas Afectadas</p><p className="text-xl font-bold text-neutro-800">{resumen.total_facturas_afectadas}</p></div>
-          <div className="text-center"><p className="text-sm text-neutro-500">Productos Pendientes</p><p className="text-xl font-bold text-neutro-800">{resumen.total_cantidad_faltante}</p></div>
+          <div className="text-center"><p className="text-sm text-neutro-500">{historial ? 'Unidades registradas' : 'Productos Pendientes'}</p><p className="text-xl font-bold text-neutro-800">{resumen.total_cantidad_faltante}</p></div>
           <div className="text-center"><p className="text-sm text-neutro-500">Ajustes Hechos</p><p className="text-xl font-bold text-neutro-800">{contarAjustes()}</p></div>
         </div>
       )}
@@ -237,7 +239,7 @@ export default function ListaClientes({ clientes, resumen, facturasEstado, entre
  * revisión, para que de un vistazo se sepa si hay que entrarle, si solo falta
  * enviarla a impresión, o si ya está terminada.
  */
-function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente }) {
+function ClienteCard({ historial = false, cliente, progreso, coincidencias = [], onSelectCliente }) {
   const estilo = progreso.esSinCaja
     ? ESTILO_SIN_CAJA
     : (ESTILO_ESTADO[progreso.estado] || ESTILO_ESTADO[CLIENTE_ESTADO.SIN_EMPEZAR])
@@ -282,7 +284,7 @@ function ClienteCard({ cliente, progreso, coincidencias = [], onSelectCliente })
           </span>
         )}
         {esLista && (
-          <span className="text-[11px] bg-exito-100 text-exito-800 px-2.5 py-0.5 rounded-full font-semibold">✓ Lista</span>
+          <span className="text-[11px] bg-exito-100 text-exito-800 px-2.5 py-0.5 rounded-full font-semibold">{historial ? 'Historial' : '✓ Lista'}</span>
         )}
       </div>
 

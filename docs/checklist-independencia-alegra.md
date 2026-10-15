@@ -1052,3 +1052,13 @@ No modifica los IDs ni los conteos históricos de independencia.
 
 No altera conteos de independencia ni pendientes operativos.
 [Evidencia](informes/catalogo-proveedores-producto-2026-10-14.md).
+
+
+## Historial de Reporte Clientes — 2026-10-15
+
+ROT-06/07 completados: Activos/Historial por factura tras 24 h sin gestión
+después del envío. No cambia la cola de Impresión ni borra faltantes/ajustes.
+Recuperación y reenvío probados; Excel usa la pestaña elegida, instantes CR
+sin depender de la zona del pooler. Sin SQL nuevo ni acceso de prueba a
+producción. No altera conteos de independencia ni acredita ROT-08.
+[Evidencia](informes/reporte-clientes-historial-2026-10-15.md).

@@ -42,7 +42,7 @@ describe('la hora de la nota sale de la base', () => {
 
   test('el reporte devuelve la hora de envío de la fila más reciente de la cola', () => {
     const servicio = leer('src', 'modules', 'reports', 'reporteClientes.service.js');
-    assert.match(servicio, /fr\.fecha_creacion as enviada_a_impresion_en/);
+    assert.match(servicio, /fr\.fecha_creacion AT TIME ZONE 'America\/Costa_Rica' as enviada_a_impresion_en/);
     assert.match(servicio, /LEFT JOIN LATERAL \(\s*SELECT r\.id, r\.estado, r\.fecha_creacion, r\.fecha_procesamiento/);
     assert.match(servicio, /enviada_a_impresion_en: row\.enviada_a_impresion_en \|\| null/);
   });
@@ -89,9 +89,13 @@ describe('contra la base, sin escribir', { skip: hayBase ? false : 'sin DATABASE
 
   test('la consulta del reporte es SQL válido para Postgres', async () => {
     const servicio = leer('src', 'modules', 'reports', 'reporteClientes.service.js');
-    const i = servicio.indexOf('fr.fecha_creacion as enviada_a_impresion_en');
+    const i = servicio.indexOf("fr.fecha_creacion AT TIME ZONE");
     const { COLUMNAS_CICLO, JOIN_CICLO } = require('../src/modules/rutas/operacionCiclo.service');
+    const { MOVIMIENTOS_REPORTE, JOIN_HISTORIAL_REPORTE } = require('../src/modules/reports/historialClientes.sql');
     const sql = servicio.slice(servicio.lastIndexOf('`', i) + 1, servicio.indexOf('`', i))
+      .split('${MOVIMIENTOS_REPORTE}').join(MOVIMIENTOS_REPORTE)
+      .split('${JOIN_HISTORIAL_REPORTE}').join(JOIN_HISTORIAL_REPORTE)
+      .split("${vista === 'historial' ? 'archivo.en_historial' : 'NOT archivo.en_historial'}").join('NOT archivo.en_historial')
       .split('${COLUMNAS_CICLO}').join(COLUMNAS_CICLO)
       .split("${JOIN_CICLO('fa')}").join(JOIN_CICLO('fa'))
       .split('${whereRuta}').join('');

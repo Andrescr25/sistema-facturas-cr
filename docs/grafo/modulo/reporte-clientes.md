@@ -23,9 +23,14 @@ archivos:
   - backend/tests/dobles/reporteClientesPorRuta.js
   - backend/tests/validacionPermisosCadena.test.js
   - docs/informes/reporte-clientes-por-ruta-2026-10-13.md
+  - backend/src/modules/reports/historialClientes.sql.js
+  - backend/tests/historialReporteClientes.test.js
+  - frontend/src/hooks/useActualizacionReporteClientes.js
+  - frontend/src/components/reporte-clientes/FacturaEnviadaCard.jsx
+  - docs/informes/reporte-clientes-historial-2026-10-15.md
 aristas:
   relacionado: [modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica]
-medido: 2026-10-14
+medido: 2026-10-15
 ---
 
 ROT-03 del pedido del usuario: rutas se mantienen, rotación individual,
@@ -84,5 +89,44 @@ líneas del cliente elegido. Añade ruta actual, frecuencia, última atención,
 próxima visita y estado; distingue ruta histórica del documento.
 
 No hay nueva migración: usa la 056 ya existente en developer. No se
-ejecutan limpiezas ni se modifica el archivo de impresos: ROT-06/07 siguen
-pendientes. [Pruebas y alcance](../../informes/reporte-clientes-por-ruta-2026-10-13.md).
+ejecutan limpiezas. ROT-06/07 estaban pendientes en esa entrega y se completan
+el 2026-10-15, según la sección siguiente. [Pruebas y alcance](../../informes/reporte-clientes-por-ruta-2026-10-13.md).
+
+
+## Historial por factura tras 24 h sin movimiento — 2026-10-15
+
+El reporte no retiraba nunca las listas: no existía regla por antigüedad ni
+pestaña Historial. `vista=activos` (por omisión) y `vista=historial` seleccionan
+documentos distintos ANTES de agrupar por cliente/ruta. Un cliente puede tener
+una factura nueva activa y otra archivada sin mezclar productos ni totales.
+Una vista inválida responde 400; mismo permiso privado de Reporte Clientes.
+
+`historialClientes.sql.js` toma la última gestión entre faltantes, ajustes,
+actualización/despacho de factura, envío y procesamiento en Impresión. Solo
+archiva tras envío comprobado (cola pendiente o todos sus faltantes procesados)
+y **al cumplir 24 horas** desde esa gestión. Un procesado antiguo sin fila de
+cola también conserva historia. Una factura sólo revisada, sin envío, sigue
+activa. Una gestión nueva reinicia el plazo; una lectura no lo cambia.
+
+El archivo se calcula al leer; no mueve ni borra filas, no usa cron y no toca
+la cola de Impresión. Una factura en historial puede estar **En impresión** o
+**Procesada**: nunca se presenta como impresa por el simple paso del tiempo.
+`historial_desde` es el instante en que cumplió las 24 h, y los instantes de
+envío/proceso/gestión/archivo salen con zona explícita de Costa Rica. La zona
+de la sesión UTC/CR no cambia el corte.
+
+La lista se renueva cada minuto visible y al volver a la pestaña del navegador;
+no consulta en segundo plano mientras se edita un detalle. Volver a la lista
+recarga. Ruta, búsquedas y exportación conservan la vista; el detalle histórico
+muestra documentos, productos, cantidades/respuestas, fechas y recuperación,
+sin ruido de rotación/próxima visita. Historial ordena por última gestión.
+
+Recuperar una pendiente quita su cola; recuperar una procesada conserva la
+fila procesada pero reabre sus faltantes. Esta última NO regresa al historial
+por tener una cola vieja: necesita enviarse de nuevo. La interfaz vuelve a
+Activos, y el siguiente envío reinicia el plazo. No se borran documentos,
+respuestas ni cantidades ya rebajadas. No es una bitácora nueva de cada clic:
+conserva el registro y las fechas de gestión disponibles en las tablas propias.
+
+Sin SQL nuevo ni acceso a producción para probar.
+[Verificación](../../informes/reporte-clientes-historial-2026-10-15.md).

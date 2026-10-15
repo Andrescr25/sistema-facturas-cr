@@ -7,17 +7,20 @@ const { COLUMNAS_CICLO, JOIN_CICLO, contextoDocumento } = require('../rutas/oper
 const { ULTIMA_ATENCION_SQL, rotacionDe, ordenPorProximaVisita } = require('../clientes/rotacion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { httpError } = require('../../utils/validacion');
+const { vistaReporteClientes, MOVIMIENTOS_REPORTE, JOIN_HISTORIAL_REPORTE } = require('./historialClientes.sql');
 const { filtroRutaActual, listarRutasActuales: listarRutas } = require('../rutas/rutaActual.service');
 
-async function getMissingItemsByClient({ rutaId, cicloId } = {}) {
+async function getMissingItemsByClient({ rutaId, cicloId, vista: vistaCruda } = {}) {
   try {
     console.log('📋 Generando reporte de faltantes por la ruta del cliente...');
 
+    const vista = vistaReporteClientes(vistaCruda);
     const params = [];
     if (cicloId != null && cicloId !== '') throw httpError(400, 'El Reporte de clientes ahora se filtra solo por ruta. Recargá la pantalla.');
     const whereRuta = filtroRutaActual(rutaId, params);
     const hoy = hoyEnCostaRica();
     const result = await query(`
+      ${MOVIMIENTOS_REPORTE}
       SELECT
         f.id AS faltante_id,
         c.id AS cliente_id, COALESCE(c.nombre, fa.cliente_nombre) AS cliente_nombre,
@@ -41,9 +44,13 @@ async function getMissingItemsByClient({ rutaId, cicloId } = {}) {
         fa.bodega_observaciones AS observaciones_adicionales,
         f.created_at as fecha_registro,
         -- Cuándo la procesó Impresión; si no hay fila, lo de antes.
-        COALESCE(fr.fecha_procesamiento, f.updated_at) as fecha_procesamiento,
+        COALESCE(fr.fecha_procesamiento, f.updated_at) AT TIME ZONE 'America/Costa_Rica' as fecha_procesamiento,
         -- Cuándo se mandó a Impresión: es la hora de la nota "En impresión".
-        fr.fecha_creacion as enviada_a_impresion_en,
+        fr.fecha_creacion AT TIME ZONE 'America/Costa_Rica' as enviada_a_impresion_en,
+        actividad.ultima_gestion AT TIME ZONE 'America/Costa_Rica' AS ultima_gestion_en,
+        archivo.historial_desde AT TIME ZONE 'America/Costa_Rica' AS historial_programado_en,
+        CASE WHEN archivo.en_historial THEN archivo.historial_desde AT TIME ZONE 'America/Costa_Rica' END AS historial_desde,
+        archivo.en_historial,
         aj.cantidad_entregada,
         aj.estado as ajuste_estado,
         aj.requiere_actualizacion,
@@ -67,6 +74,7 @@ async function getMissingItemsByClient({ rutaId, cicloId } = {}) {
          ORDER BY r.fecha_creacion DESC NULLS LAST, r.id DESC
          LIMIT 1
       ) fr ON true
+      ${JOIN_HISTORIAL_REPORTE}
       WHERE f.estado IN ('pendiente', 'procesado')
         AND f.tipo_faltante != 'completo'
         AND (f.cantidad_faltante::numeric > 0)
@@ -75,6 +83,7 @@ async function getMissingItemsByClient({ rutaId, cicloId } = {}) {
         -- Palmares: anulada y todavía en el reporte, parecía un duplicado).
         -- Se excluye por el estado, no se borran los faltantes.
         AND fa.estado <> 'anulada'
+        AND ${vista === 'historial' ? 'archivo.en_historial' : 'NOT archivo.en_historial'}
         ${whereRuta}
       ORDER BY c.id NULLS LAST, fa.cliente_nombre, fa.fecha DESC, fa.id
     `, params);
@@ -119,6 +128,10 @@ async function getMissingItemsByClient({ rutaId, cicloId } = {}) {
           estado_procesamiento: row.estado_procesamiento,
           fecha_procesamiento: row.fecha_procesamiento,
           enviada_a_impresion_en: row.enviada_a_impresion_en || null,
+          ultima_gestion_en: row.ultima_gestion_en || null,
+          historial_programado_en: row.historial_programado_en || null,
+          historial_desde: row.historial_desde || null,
+          en_historial: row.en_historial === true,
           observaciones_adicionales: row.observaciones_adicionales,
           en_cola_impresion: Boolean(row.reimpresion_id) && row.reimpresion_estado === 'pendiente',
           total_items_factura: parseInt(row.total_items_factura) || 0,
@@ -145,27 +158,30 @@ async function getMissingItemsByClient({ rutaId, cicloId } = {}) {
         ajuste_revisado: row.ajuste_revisado === true
       });
 
-      if (row.faltante_estado === 'pendiente') {
+      if (row.faltante_estado === 'pendiente' || vista === 'historial') {
         cliente.total_productos++;
         cliente.total_cantidad += Number(row.cantidad_faltante);
       }
 
-      if (!cliente.ultima_actividad || new Date(row.fecha_registro) > new Date(cliente.ultima_actividad)) {
-        cliente.ultima_actividad = row.fecha_registro;
+      const ultimaGestion = row.ultima_gestion_en || row.fecha_registro;
+      if (!cliente.ultima_actividad || new Date(ultimaGestion) > new Date(cliente.ultima_actividad)) {
+        cliente.ultima_actividad = ultimaGestion;
       }
     });
 
     const clientesArray = Array.from(clientesMap.values()).map(cliente => ({
       ...cliente,
       facturas_con_faltantes: Array.from(cliente.facturas_con_faltantes.values())
-    })).sort(ordenPorProximaVisita);
+    })).sort(vista === 'historial'
+      ? (a, b) => new Date(b.ultima_actividad) - new Date(a.ultima_actividad) || a.nombre.localeCompare(b.nombre)
+      : ordenPorProximaVisita);
 
     return {
       success: true,
       data: clientesArray,
       total_clientes: clientesArray.length,
       resumen: {
-        total_productos_faltantes: result.rows.filter(r => r.faltante_estado === 'pendiente').length,
+        total_productos_faltantes: result.rows.filter(r => r.faltante_estado === 'pendiente' || vista === 'historial').length,
         total_cantidad_faltante: clientesArray.reduce((sum, c) => sum + c.total_cantidad, 0),
         total_facturas_afectadas: Array.from(new Set(result.rows.map(r => r.factura_id))).length
       }

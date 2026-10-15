@@ -25,7 +25,8 @@ import { useToast } from './useToast'
  */
 export function useReporteClientes() {
   const filtroRuta = useFiltroRutaReporteCliente()
-  const { vigente, esActual, confirmar: confirmarLectura } = useContextoConsulta(JSON.stringify(filtroRuta.params))
+  const [vista, cambiarVista] = useState('activos')
+  const { vigente, esActual, confirmar: confirmarLectura } = useContextoConsulta(JSON.stringify({ ...filtroRuta.params, vista }))
   const peticion = useRef(0)
   const { confirm, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
@@ -61,7 +62,7 @@ export function useReporteClientes() {
     try {
       setLoading(true)
       setError(null)
-      const result = await alegraService.getReporteFaltantesCliente(filtroRuta.params)
+      const result = await alegraService.getReporteFaltantesCliente({ ...filtroRuta.params, vista })
       if (!esActual() || actual !== peticion.current) return
 
       if (result.success) {
@@ -126,7 +127,7 @@ export function useReporteClientes() {
     } finally {
       if (esActual() && actual === peticion.current) { confirmarLectura(); setLoading(false) }
     }
-  }, [filtroRuta.params, esActual, confirmarLectura, setError, setFacturasEstado, setEntregasAjustadas, setHistorialCambios])
+  }, [filtroRuta.params, vista, esActual, confirmarLectura, setError, setFacturasEstado, setEntregasAjustadas, setHistorialCambios])
 
   useEffect(() => {
     loadReporte()
@@ -207,11 +208,13 @@ export function useReporteClientes() {
       await colaImpresionService.recuperarDesdeReporte(factura.factura_id)
       if (!esActual()) return
       setFacturasEstado(prev => { const nuevosEstados = new Map(prev); nuevosEstados.delete(facturaKey); return nuevosEstados })
+      if (vista === 'historial') cambiarVista('activos')
+      else await loadReporte()
       showToast(`Factura #${factura.numero_factura} recuperada.`, 'success')
     } catch (error) {
       showToast(`Error recuperando factura: ${error.message}`, 'error')
     }
-  }, [confirm, showToast, esActual, setFacturasEstado])
+  }, [confirm, showToast, esActual, setFacturasEstado, vista, loadReporte])
 
   // ==================== AJUSTES DE ENTREGA POR PRODUCTO ====================
 
@@ -382,7 +385,7 @@ export function useReporteClientes() {
   const contarClientesSinCaja = useCallback(() => clientes.filter(c => clienteTieneSinCaja(c, facturasEstado)).length, [clientes, facturasEstado])
 
   return {
-    filtroRuta,
+    filtroRuta, vista, cambiarVista,
     clientes: vigente ? clientes : [],
     resumen: vigente ? resumen : null,
     loading: loading || !vigente,

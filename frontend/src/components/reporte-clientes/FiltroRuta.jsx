@@ -1,6 +1,6 @@
 import Boton from '../ui/Boton'
 
-export default function FiltroRuta({ filtro }) {
+export default function FiltroRuta({ filtro, historial = false }) {
   const nombre = filtro.rutas.find(r => String(r.id) === filtro.rutaId)?.nombre
   return (
     <div className="mb-5 rounded-2xl border border-neutro-200 bg-white p-5">
@@ -13,7 +13,7 @@ export default function FiltroRuta({ filtro }) {
         </select>
       </label>
       <p className="mt-3 text-sm text-neutro-600" aria-live="polite">
-        {filtro.rutaId === 'sin-ruta' ? 'Clientes sin ruta asignada.' : nombre ? `Clientes de ${nombre}.` : 'Clientes de todas las rutas.'} Ordenados por próxima visita; las fichas sin fecha aparecen al final.
+        {filtro.rutaId === 'sin-ruta' ? 'Clientes sin ruta asignada.' : nombre ? `Clientes de ${nombre}.` : 'Clientes de todas las rutas.'} {historial ? 'Historial ordenado por la gestión más reciente.' : 'Ordenados por próxima visita; las fichas sin fecha aparecen al final.'}
       </p>
       {filtro.cargando && <p role="status" className="mt-2 text-sm text-neutro-500">Consultando rutas…</p>}
       {filtro.error && <div role="alert" className="mt-3 text-sm text-peligro-700">

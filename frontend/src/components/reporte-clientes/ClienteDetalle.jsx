@@ -1,8 +1,8 @@
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
+import FacturaEnviadaCard from './FacturaEnviadaCard'
 import VisitaCliente from './VisitaCliente'
-import { User, Mail, Clock, Check, RotateCcw, ArrowLeft, AlertTriangle } from 'lucide-react'
+import { User, Mail, Clock, Check, ArrowLeft, AlertTriangle } from 'lucide-react'
 import FacturaActivaCard from './FacturaActivaCard'
-import { getFacturaKey, getFacturaEstado, getClienteProgreso, clienteTieneSinCaja, formatDate, formatDateTime } from '../../utils/reporteClientesUtils'
+import { getFacturaKey, getFacturaEstado, getClienteProgreso, clienteTieneSinCaja, formatDateTime } from '../../utils/reporteClientesUtils'
 
 /**
  * Vista de detalle de un cliente: header con stats, facturas activas
@@ -11,6 +11,7 @@ import { getFacturaKey, getFacturaEstado, getClienteProgreso, clienteTieneSinCaj
  */
 export default function ClienteDetalle({
   cliente,
+  historial = false,
   facturasEstado,
   entregasAjustadas,
   onVolver,
@@ -59,22 +60,24 @@ export default function ClienteDetalle({
               {esSinCaja && <span className="text-[10px] bg-peligro-500 text-white px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">📦 Sin Caja</span>}
             </div>
             {cliente.email && <p className="text-neutro-500 flex items-center mt-1"><Mail size={14} className="mr-1.5" /> {cliente.email}</p>}
-            <VisitaCliente cliente={cliente} />
+            {historial
+              ? <p className="mt-1 text-sm font-semibold text-neutro-600">{cliente.ruta?.nombre || 'Sin ruta asignada'}</p>
+              : <VisitaCliente cliente={cliente} />}
             <p className="text-xs text-neutro-400 mt-1"><Clock size={12} className="inline mr-1" /> Última actividad: {formatDateTime(cliente.ultima_actividad)}</p>
           </div>
         </div>
         <div className="flex bg-neutro-50 p-4 rounded-xl divide-x divide-neutro-200">
           <div className="px-5 text-center">
             <p className="text-sm text-neutro-500 font-medium">Facturas</p>
-            <p className="text-2xl font-bold text-neutro-900">{facturasActivas.length}</p>
+            <p className="text-2xl font-bold text-neutro-900">{cliente.facturas_con_faltantes.length}</p>
           </div>
           <div className="px-5 text-center">
-            <p className="text-sm text-neutro-500 font-medium">Por revisar</p>
-            <p className="text-2xl font-bold text-neutro-800">{progreso.porRevisar}</p>
+            <p className="text-sm text-neutro-500 font-medium">{historial ? 'Productos' : 'Por revisar'}</p>
+            <p className="text-2xl font-bold text-neutro-800">{historial ? cliente.total_productos : progreso.porRevisar}</p>
           </div>
           <div className="px-5 text-center">
-            <p className="text-sm text-neutro-500 font-medium">Revisados</p>
-            <p className="text-2xl font-bold text-neutro-900">{progreso.revisados}</p>
+            <p className="text-sm text-neutro-500 font-medium">{historial ? 'Unidades' : 'Revisados'}</p>
+            <p className="text-2xl font-bold text-neutro-900">{historial ? cliente.total_cantidad : progreso.revisados}</p>
           </div>
         </div>
       </div>
@@ -88,10 +91,10 @@ export default function ClienteDetalle({
       )}
 
       {/* Facturas activas */}
-      {facturasActivas.length === 0 && (
+      {!historial && facturasActivas.length === 0 && (
         <div className="bg-white border border-neutro-200 rounded-xl p-6 text-center mb-6">
           <Check className="mx-auto text-neutro-400 mb-2" size={32} />
-          <p className="text-neutro-800 font-medium">Todas las facturas de este cliente han sido procesadas.</p>
+          <p className="text-neutro-800 font-medium">Las facturas están en Impresión o ya fueron procesadas.</p>
         </div>
       )}
 
@@ -121,34 +124,15 @@ export default function ClienteDetalle({
           <div className="flex items-center gap-3 mb-4">
             <div className="h-[1px] flex-1 bg-neutro-200"></div>
             <span className="text-xs text-neutro-400 uppercase tracking-widest font-semibold flex items-center gap-1.5">
-              <Check size={12} /> {facturasProcesadas.length} procesada{facturasProcesadas.length > 1 ? 's' : ''}
+              <Check size={12} /> {facturasProcesadas.length} {historial ? 'en historial' : 'enviadas a Impresión'}
             </span>
             <div className="h-[1px] flex-1 bg-neutro-200"></div>
           </div>
           <div className="space-y-3">
-            {facturasProcesadas.map((factura) => {
-              const estadoFactura = getFacturaEstado(factura, facturasEstado)
-              const productosValidos = factura.productos_faltantes.filter(p => Number(p.cantidad_faltante) > 0)
-              return (
-                <div key={getFacturaKey(factura)} className="bg-neutro-50 rounded-xl border border-neutro-200 overflow-hidden opacity-60 hover:opacity-80 transition-opacity">
-                  <div className="p-4 flex items-center justify-between">
-                    <div>
-                      <h5 className="font-medium text-neutro-400 line-through">
-                        <Check size={14} className="inline text-neutro-400 mr-1" />
-                        Factura #{factura.numero_factura}
-                        <span className="ml-2 px-2 py-0.5 text-[10px] bg-neutro-100 text-neutro-600 rounded-full no-underline inline-block">✓ Procesada</span>
-                      </h5>
-                      <p className="text-xs text-neutro-400 mt-0.5">{formatDate(factura.fecha_emision)} • {productosValidos.length} producto{productosValidos.length !== 1 ? 's' : ''}</p>
-                      <ContextoCicloDocumento documento={factura} maps />
-                      {estadoFactura.timestamp && <p className="text-[10px] text-neutro-500 mt-0.5">{estadoFactura.requiere_reimpresion ? '🖨️ En impresión' : '📚 Historial'} — {formatDateTime(estadoFactura.timestamp)}</p>}
-                    </div>
-                    <button onClick={() => onRecuperarFactura(factura)} className="btn btn-sm btn-outline whitespace-nowrap">
-                      <RotateCcw size={13} className="mr-1" /> Recuperar
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
+            {facturasProcesadas.map(factura => (
+              <FacturaEnviadaCard key={getFacturaKey(factura)} factura={factura}
+                estado={getFacturaEstado(factura, facturasEstado)} onRecuperar={onRecuperarFactura} />
+            ))}
           </div>
         </div>
       )}

@@ -26,11 +26,13 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   ruta fijada al primer evento e historial conservado. SQL 057 aplicada en
   **producción el 13/10 a las 19:31**, despliegue a main autorizado.
   [Evidencia y límites](informes/entregas-por-ruta-2026-10-13.md).
-- [ ] ROT-06 — Impresos en la vista activa hasta cumplir **24 horas sin
-  movimiento** después de enviarse a Impresión (aclaración del usuario).
-  Una gestión nueva reinicia el plazo; una lectura no. Sin limpieza semanal.
-- [ ] ROT-07 — Historial que conserva esos impresos y sus movimientos;
-  presentación de próxima visita pendiente, sin elección expresa de foto.
+- [x] ROT-06 — Facturas en Activos hasta cumplir **24 horas sin movimiento**
+  después de enviarse a Impresión. Una gestión nueva reinicia el plazo; leer
+  no. SQL calculado al consultar, lista renovada cada minuto, sin cron/limpieza.
+- [x] ROT-07 — Pestaña Historial conserva facturas, productos/respuestas y
+  fechas de envío, última gestión y archivo. Recuperar vuelve a Activos y
+  permite reenviar. No inventa una fotografía de próxima visita; agenda en
+  Preventa. [Evidencia](informes/reporte-clientes-historial-2026-10-15.md).
 - [ ] ROT-08 — Retirar ciclos de Facturación, pedidos, rutas,
   Bodega y exportaciones, conservando historia, tablas y FK existentes.
   **Proveedores completado por separado:** Faltantes como main y fichas,

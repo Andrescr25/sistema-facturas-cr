@@ -817,3 +817,12 @@ El usuario pide recuperar en Gestión de Catálogo una pestaña **Proveedores**:
 a quién se compra el producto, costo y nombre tal como lo escribe cada proveedor.
 Mostrar además código, moneda/fecha del costo y factor cuando cambia la unidad;
 la consulta no modifica compras ni relaciones. Ver [implementación y pruebas](informes/catalogo-proveedores-producto-2026-10-14.md).
+
+
+## Corrección de historial de Reporte Clientes — 2026-10-15
+
+El usuario pide investigar por qué las facturas listas siguen tras 24 h y crear
+la pestaña Historial. Sigue vigente su aclaración de **24 h sin movimiento
+tras enviarse a Impresión**. Se implementa por factura para conservar pedidos
+nuevos del mismo cliente en Activos; consultar no reinicia el plazo y no se
+borra información. [Implementación y pruebas](informes/reporte-clientes-historial-2026-10-15.md).

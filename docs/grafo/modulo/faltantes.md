@@ -55,7 +55,7 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-14
+medido: 2026-10-15
 ---
 
 **2026-10-14, compra actual y procedencia exacta:** Reporte Proveedores y sus
@@ -396,3 +396,10 @@ conexión Prisma separada no ve un faltante sin COMMIT. Las consultas filtradas
 siguen sin asignar/preparar. Guardar de nuevo no repone exclusiones manuales.
 Órdenes enviadas e inciertas preservan cantidades, PDF y cobertura. Las nuevas
 necesidades usan un borrador independiente. Ver [[modulo/ordenes-compra-por-ciclo]].
+
+
+2026-10-15 — El archivo visual de [[modulo/reporte-clientes]] separa cada factura
+tras 24 h sin movimientos desde el envío a Impresión. No modifica faltantes,
+ajustes ni la cola, y no ejecuta limpieza semanal. Recuperar reabre el trabajo;
+un procesado recuperado no se archiva otra vez hasta reenviarse. Fechas de
+historial normalizadas por zona CR y consulta/exportación sin escritura.

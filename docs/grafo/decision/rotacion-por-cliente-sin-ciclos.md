@@ -22,7 +22,7 @@ archivos:
 aristas:
   reemplaza: [decision/ciclo-de-ruta-como-contexto]
   relacionado: [modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/registro-carga-entrega, modulo/pedidos-por-ciclo, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/faltantes, modulo/facturacion, modulo/facturas-bodega, modulo/reporte-proveedores, modulo/preventa-por-enlace]
-medido: 2026-10-13
+medido: 2026-10-15
 ---
 
 **Decisión del usuario, 2026-10-13.** «Quiero eliminar completamente la
@@ -168,3 +168,14 @@ relevo anterior. Codex aplica 055/057/058 con respaldo y conserva las 144
 huellas; 056 ya presente. Se despliegan las partes implementadas, con el
 trabajo firmado de Claude incluido. ROT-06/07 y el resto de ROT-08 no se
 acreditan por desplegar. Registro: docs/informes/despliegue-main-2026-10-13.md.
+
+
+## ROT-06/07 completados — 2026-10-15
+
+[[modulo/reporte-clientes]] agrega Activos/Historial por factura, con 24 h sin
+movimiento después del envío y recuperación. El archivo es una lectura SQL,
+sin cron, sin eliminación ni migración. Consulta, resumen y Excel usan la
+misma vista; una factura nueva del cliente sigue activa. Validación PostgreSQL
+en ROLLBACK y navegador con corte, actualización automática y reenvío. Los
+párrafos anteriores que dicen pendiente describen las entregas de esas fechas.
+No acredita el resto de ROT-08 ni redefine la agenda de Preventa.

@@ -1,6 +1,7 @@
 const ReportService = require('./report.service');
 const { generarExcel, fechaValida } = require('../../utils/exportarExcel');
 
+const horaCR = valor => valor ? new Date(valor).toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' }) : '';
 const normalizar = v => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 function texto(v, nombre) {
   if (v === undefined) return '';
@@ -85,12 +86,13 @@ async function exportarClientes(filtros = {}) {
   return generarExcel({
     titulo: 'Faltantes por cliente', prefijo: 'faltantes-clientes',
     informacion: [['Ruta del cliente ID', filtros.rutaId || 'Todas'], ['Cliente ID', filtros.clienteId || 'Todos'], ['Factura ID', filtros.facturaId || 'Todas'], ['Cliente', filtros.cliente_nombre || filtros.cliente || 'Todos'], ['Buscar producto', filtros.producto || 'Todos'],
-      ['Proveedores', (filtros.proveedores || []).join(', ') || 'Todos'], ['Selección', 'Todos los faltantes de los clientes que coinciden con los filtros.']],
+      ['Proveedores', (filtros.proveedores || []).join(', ') || 'Todos'], ['Vista', filtros.vista === 'historial' ? 'Historial' : 'Activos'], ['Selección', 'Todos los faltantes de los clientes que coinciden con los filtros.']],
     hojas: [{ nombre: 'Faltantes', columnas: [col('cliente', 'Cliente', 'texto', 35), col('clienteId', 'ID cliente', 'numero'),
       col('rutaCliente', 'Ruta del cliente', 'texto', 30), col('rotacionDias', 'Rotación (días)', 'numero'),
       col('ultimaAtencion', 'Última atención', 'fecha'), col('proximaVisita', 'Próxima visita', 'fecha'), col('visitaEstado', 'Estado de visita'),
       col('facturaId', 'ID factura', 'numero'),
       col('factura', 'Factura'), col('fecha', 'Fecha factura', 'fecha'), col('estadoFactura', 'Estado factura'),
+      col('ultimaGestion', 'Última gestión'), col('historialDesde', 'En historial desde'),
       ...contexto.map(c => c.clave === 'ruta' ? { ...c, titulo: 'Ruta histórica del documento' } : c), ...producto, col('proveedor', 'Proveedor', 'texto', 35), col('faltante', 'Cantidad faltante', 'numero'),
       col('entregada', 'Cantidad entregada', 'numero'), col('respuesta', 'Respuesta de entrega'), col('revisado', 'Revisado'),
       col('observaciones', 'Observaciones', 'texto', 50)],
@@ -100,6 +102,7 @@ async function exportarClientes(filtros = {}) {
       visitaEstado: { atrasado: 'Atrasado', hoy: 'Le toca hoy', proximo: 'Próximo', sin_facturas: 'Sin facturas', sin_rotacion: 'Sin rotación' }[c.rotacion?.estado] || 'Sin rotación',
       ruta: f.ciclo?.rutaNombre || 'Sin ciclo', semana: f.ciclo?.semana, cicloId: f.ciclo?.id, orden: f.ciclo?.orden, anticipado: f.anticipado ? 'Sí' : 'No',
       facturaId: f.factura_id, factura: f.numero_factura, fecha: f.fecha_emision,
+      ultimaGestion: horaCR(f.ultima_gestion_en), historialDesde: horaCR(f.historial_desde),
       estadoFactura: f.estado_procesamiento === 'procesado' ? 'Procesada' : f.en_cola_impresion ? 'En impresión' : 'Pendiente',
       productoId: p.producto_id, codigo: p.codigo, producto: p.nombre, proveedor: p.proveedor_asignado || p.proveedor,
       faltante: p.cantidad_faltante, entregada: p.cantidad_entregada, respuesta: p.ajuste_estado,

@@ -1,6 +1,8 @@
 import FiltroRuta from '../components/reporte-clientes/FiltroRuta'
 import { useState, useEffect } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, History, ClipboardList } from 'lucide-react'
+import Pestanas from '../components/ui/Pestanas'
+import { useActualizacionReporteClientes } from '../hooks/useActualizacionReporteClientes'
 import { useReporteClientes } from '../hooks/useReporteClientes'
 import ListaClientes from '../components/reporte-clientes/ListaClientes'
 import ClienteDetalle from '../components/reporte-clientes/ClienteDetalle'
@@ -11,7 +13,7 @@ import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 export default function ReporteClientes() {
   const {
-    filtroRuta,
+    filtroRuta, vista, cambiarVista,
     clientes,
     resumen,
     loading,
@@ -41,7 +43,9 @@ export default function ReporteClientes() {
   // al entrar a un cliente, y al volver los filtros aparecían vacíos.
   const [filtros, setFiltros] = useState(FILTROS_VACIOS)
 
-  useEffect(() => { setClienteActivoClave(null) }, [filtroRuta.rutaId])
+  useEffect(() => { setClienteActivoClave(null) }, [filtroRuta.rutaId, vista])
+
+  useActualizacionReporteClientes(!clienteActivoClave && !loading && !error, loadReporte)
 
   const clienteActivo = clientes.find(c => getClienteKey(c) === clienteActivoClave)
 
@@ -53,11 +57,20 @@ export default function ReporteClientes() {
         <p className="text-neutro-500 mt-2 text-lg">Ajusta entregas, procesa facturas y controla el estado de los pedidos.</p>
         </div>
         <BotonExportarExcel ruta="/reportes/faltantes/cliente/exportar"
-          params={{ ...filtroRuta.params, ...(clienteActivo ? (clienteActivo.id ? { clienteId: clienteActivo.id } : { facturaId: clienteActivo.facturas_con_faltantes[0].factura_id }) : filtros) }}
+          params={{ ...filtroRuta.params, vista, ...(clienteActivo ? (clienteActivo.id ? { clienteId: clienteActivo.id } : { facturaId: clienteActivo.facturas_con_faltantes[0].factura_id }) : filtros) }}
           disabled={loading || Boolean(error)} title="Descarga los faltantes y las respuestas guardadas de los clientes visibles." />
       </div>
 
-      <FiltroRuta filtro={filtroRuta} />
+      <Pestanas activa={vista} onCambiar={cambiarVista} className="mb-4" pestanas={[
+        { clave: 'activos', texto: 'Activos', icono: ClipboardList },
+        { clave: 'historial', texto: 'Historial', icono: History }
+      ]} />
+      <p className="mb-4 text-sm text-neutro-500">
+        {vista === 'historial'
+          ? 'Facturas enviadas a Impresión con 24 horas sin movimientos. Podés consultarlas o recuperarlas.'
+          : 'Las facturas enviadas a Impresión pasan al historial tras 24 horas sin movimientos.'}
+      </p>
+      <FiltroRuta filtro={filtroRuta} historial={vista === 'historial'} />
       {loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta…</p>}
 
       {error && (
@@ -69,6 +82,7 @@ export default function ReporteClientes() {
 
       {loading || error ? null : !clienteActivo ? (
         <ListaClientes
+          historial={vista === 'historial'}
           clientes={clientes}
           resumen={resumen}
           facturasEstado={facturasEstado}
@@ -81,10 +95,11 @@ export default function ReporteClientes() {
         />
       ) : (
         <ClienteDetalle
+          historial={vista === 'historial'}
           cliente={clienteActivo}
           facturasEstado={facturasEstado}
           entregasAjustadas={entregasAjustadas}
-          onVolver={() => setClienteActivoClave(null)}
+          onVolver={() => { setClienteActivoClave(null); loadReporte() }}
           onFacturaLista={handleFacturaLista}
           onRecuperarFactura={handleRecuperarFactura}
           onCantidadEntregadaChange={handleCantidadEntregadaChange}
