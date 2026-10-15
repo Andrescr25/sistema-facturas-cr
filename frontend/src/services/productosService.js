@@ -21,6 +21,11 @@ export const productosService = {
     return data.data
   },
 
+  async proveedoresDeProducto(id, signal) {
+    const { data } = await api.get(`/maestro/productos/${id}/proveedores`, { signal })
+    return data.data
+  },
+
   async crear(valores) {
     const { data } = await api.post('/maestro/productos', valores)
     return data.data

@@ -55,6 +55,7 @@ routes.get('/productos/proveedores', controller.proveedores);
 // Antes de `/productos/:id`, o "siguiente-referencia" se tomaría por un id.
 routes.get('/productos/siguiente-referencia', controller.siguienteReferencia);
 routes.get('/productos/:id', controller.obtener);
+routes.get('/productos/:id/proveedores', controller.proveedoresDeProducto);
 routes.post('/productos', controller.crear);
 routes.put('/productos/:id', controller.editar);
 routes.patch('/productos/:id/estado', controller.cambiarEstado);

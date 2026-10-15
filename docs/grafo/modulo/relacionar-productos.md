@@ -7,6 +7,7 @@ archivos:
   - backend/src/modules/productos-revision/relacionPropia.js
   - backend/src/modules/productos-revision/productoDesdeLinea.js
   - backend/src/modules/productos-revision/productos-revision.service.js
+  - backend/src/modules/productos/proveedoresProducto.service.js
   - backend/src/modules/productos-revision/productos-revision.controller.js
   - backend/src/modules/productos-revision/productos-revision.routes.js
   - backend/services/databaseService.js
@@ -28,7 +29,7 @@ aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
   bloqueado_por: [bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
   relacionado: [modulo/revision-precios, modulo/compras, modulo/rentabilidad, modulo/gestion-catalogo, decision/el-avance-de-la-factura-sale-de-sus-lineas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/el-doble-de-prisma-no-valida-tipos, leccion/proveedor-por-cedula]
-medido: 2026-10-04
+medido: 2026-10-14
 ---
 
 Dos pantallas: **Relacionar Productos** (`/relacionar-productos/:facturaId`,
@@ -171,3 +172,14 @@ Se vuelve a contar desde las líneas cada vez que una cambia:
 Nada de este módulo depende ya de Alegra. La búsqueda de fotos sugeridas,
 que colgaba del prefijo adaptador, pasó a `/catalogos/imagenes-sugeridas` el
 2026-10-04, al retirarse la Gestión de Catálogo vieja.
+
+
+## Consulta compartida de proveedores — 2026-10-14
+
+`getRelacionesDeProducto` conserva el contrato usado por Gestionar Relaciones,
+pero vive en `productos/proveedoresProducto.service.js`, compartido con la nueva
+pestaña de [[modulo/gestion-catalogo]]. SQL directo por id propio, sin Prisma:
+costos de líneas RELACIONADAS que coincidan en producto/cédula/código, sin
+regalías ni compras anuladas. Fotografía de compra cuando existe, moneda/fecha
+explícitas para el catálogo. El servicio de este módulo baja de 831 a 700 líneas
+y sale de la lista de deuda de estructura.

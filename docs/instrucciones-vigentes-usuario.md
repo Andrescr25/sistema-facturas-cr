@@ -809,3 +809,11 @@ Se publica el cambio funcional propio 1dead1f y el registro de despliegue,
 sin commits nuevos de Claude. Pruebas que escriben solo en copias locales;
 la comprobación de Render usa lecturas, sin mensajes ni comprobantes reales.
 [Registro](informes/descuento-global-cliente-2026-10-14.md).
+
+
+## Proveedores dentro de Editar producto — 2026-10-14
+
+El usuario pide recuperar en Gestión de Catálogo una pestaña **Proveedores**:
+a quién se compra el producto, costo y nombre tal como lo escribe cada proveedor.
+Mostrar además código, moneda/fecha del costo y factor cuando cambia la unidad;
+la consulta no modifica compras ni relaciones. Ver [implementación y pruebas](informes/catalogo-proveedores-producto-2026-10-14.md).

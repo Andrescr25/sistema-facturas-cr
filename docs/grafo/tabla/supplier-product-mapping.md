@@ -7,11 +7,12 @@ archivos:
   - backend/prisma/schema.prisma
   - backend/src/modules/productos-revision/relacionPropia.js
   - backend/src/modules/productos/productos.service.js
+  - backend/src/modules/productos/proveedoresProducto.service.js
   - backend/src/modules/proveedores/proveedores.maestro.service.js
   - backend/migrations/independencia/038_relacion_de_compra_por_producto_propio.sql
 aristas:
   relacionado: [leccion/proveedor-por-cedula, modulo/revision-precios, modulo/relacionar-productos, leccion/el-doble-de-prisma-no-valida-tipos]
-medido: 2026-10-03
+medido: 2026-10-14
 ---
 
 `supplier_product_mapping`: `supplier_cedula` + `supplier_code` (el código del
@@ -42,3 +43,10 @@ está en [[leccion/el-doble-de-prisma-no-valida-tipos]].
 `created_date` y `last_used_date` no tienen zona y van en UTC, que es como
 los escribe Prisma; lo que se escribe por SQL usa `NOW() AT TIME ZONE 'UTC'`
 para no mezclar dos relojes al ordenar por último uso.
+
+
+Desde el 2026-10-14 la pestaña **Proveedores** en Editar producto consulta estas
+relaciones por `producto.id`. El costo requiere una línea RELACIONADA con el
+mismo producto, cédula y código, no solo `mapeo_id`; cuando hay compra registrada,
+su factor/importes prevalecen. Regalías y compras anuladas se excluyen. Ver
+[[modulo/gestion-catalogo]].

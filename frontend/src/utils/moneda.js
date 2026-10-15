@@ -14,3 +14,16 @@
 export function redondearDinero(v) {
   return Math.round((Number(v) || 0) * 100) / 100
 }
+
+/** Código visible para que un costo en USD nunca parezca un importe en CRC. */
+export function formatearMoneda(valor, moneda = 'CRC') {
+  if (valor === null || valor === undefined || !Number.isFinite(Number(valor))) return '—'
+  const codigo = String(moneda || 'CRC').trim().toUpperCase()
+  try {
+    return new Intl.NumberFormat('es-CR', { style: 'currency', currency: codigo,
+      currencyDisplay: 'code', maximumFractionDigits: 2 }).format(Number(valor))
+  } catch {
+    return `${codigo} ${new Intl.NumberFormat('es-CR', { minimumFractionDigits: 2,
+      maximumFractionDigits: 2 }).format(Number(valor))}`
+  }
+}

@@ -1040,3 +1040,15 @@ No modifica los IDs ni los conteos históricos de independencia.
       Usuario autoriza publicar la función y su registro en main.
 
 [Evidencia y estado](informes/descuento-global-cliente-2026-10-14.md).
+
+
+## Función posterior al corte: proveedores del producto — 2026-10-14
+
+- [x] Pestaña Proveedores en Editar producto: proveedor, descripción/código y costo.
+- [x] Costo por unidad propia, IVA/descuento/factor reales, fecha/moneda; desconocido explícito.
+- [x] Consulta por id propio y cédula/código; no hereda costos de otro producto.
+- [x] Carga al abrir, conserva formulario, error/reintento y vista móvil.
+- [x] SQL real local en ROLLBACK, navegador y suite; sin migración nueva.
+
+No altera conteos de independencia ni pendientes operativos.
+[Evidencia](informes/catalogo-proveedores-producto-2026-10-14.md).

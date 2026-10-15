@@ -33,6 +33,15 @@ archivos:
   - backend/tests/rotacionMensual.test.js
   - docs/informes/rotacion-productos-2026-10-14.md
   - docs/informes/rotacion-reciente-2026-10-14.md
+  - backend/src/modules/productos/proveedoresProducto.service.js
+  - backend/tests/proveedoresProducto.test.js
+  - backend/tests/formatearMoneda.test.js
+  - frontend/src/components/gestion-catalogo/ModalProducto.jsx
+  - frontend/src/components/gestion-catalogo/ProveedoresProducto.jsx
+  - frontend/src/hooks/useProveedoresProducto.js
+  - frontend/src/services/productosService.js
+  - frontend/src/utils/moneda.js
+  - docs/informes/catalogo-proveedores-producto-2026-10-14.md
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
@@ -177,3 +186,27 @@ por migraciones queda resuelto; la publicación incluye rotación, Reporte
 Clientes, Preventa, Carga/entregas y Proveedores. Ver
 [registro del despliegue](../../informes/despliegue-main-2026-10-13.md).
 Los párrafos de entregas previas describen su estado histórico al publicarlas.
+
+
+## Proveedores en Editar producto — 2026-10-14
+
+`ModalProducto` recupera las pestañas **Datos del producto / Proveedores**.
+Cada relación muestra proveedor por cédula, nombre/código como se facturó,
+último costo pagado por unidad propia **con descuento e IVA real**, moneda y
+fecha. Si vende por caja o con factor fraccionario, se muestra además el costo
+en su unidad y el factor. No hay costo inventado para relaciones sin facturas.
+
+La carga ocurre solo al abrir Proveedores; conserva resultado y formulario al
+volver a Datos, cancela lecturas al cerrar y permite reintentar. En un producto
+nuevo no hay pestaña. Componentes dibujan, gancho carga y servicio consulta.
+
+`GET /maestro/productos/:id/proveedores` exige Gestión de Catálogo. Reutiliza
+la misma lectura que Gestionar Relaciones, ahora SQL por `producto.id`:
+dos consultas independientemente del número de proveedores. La última línea
+debe coincidir en producto, cédula y código y estar RELACIONADA; cambiar el
+mapeo no transfiere el costo de otro producto. No se limita a cinco líneas:
+regalías recientes no tapan el costo pagado anterior. Una compra registrada
+aporta su fotografía de factor/importes; una anulada no aporta costo.
+Sin SQL nuevo ni consultas/escrituras a producción.
+
+[Pruebas y alcance](../../informes/catalogo-proveedores-producto-2026-10-14.md).

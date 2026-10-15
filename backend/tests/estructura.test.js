@@ -141,7 +141,6 @@ describe('ningún archivo crece sin que alguien lo decida', () => {
   };
   const DEUDA_BACK = {
     'modules/reporte-contador/reporte-contador.service.js': 964,
-    'modules/productos-revision/productos-revision.service.js': 831,
     'modules/pagos-recurrentes/pagos-recurrentes.service.js': 767
   };
 

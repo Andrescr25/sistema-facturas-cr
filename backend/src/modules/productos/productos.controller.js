@@ -3,6 +3,7 @@
  */
 
 const servicio = require('./productos.service');
+const proveedoresProducto = require('./proveedoresProducto.service');
 const imagenes = require('./productos.imagenes');
 const imagenesCategorias = require('./categorias.imagenes');
 const taxonomia = require('./taxonomia.service');
@@ -29,6 +30,7 @@ module.exports = {
   crear: (req, res) => responder(res, servicio.crearProducto(req.body, usuario(req)), 'crear', 201),
   editar: (req, res) => responder(res, servicio.editarProducto(req.params.id, req.body, usuario(req)), 'editar'),
   cambiarEstado: (req, res) => responder(res, servicio.cambiarEstadoProducto(req.params.id, req.body, usuario(req)), 'estado'),
+  proveedoresDeProducto: (req, res) => responder(res, proveedoresProducto.getRelacionesDeProducto(req.params.id), 'proveedores del producto'),
   proveedores: (req, res) => responder(res, servicio.proveedoresConProductos(), 'proveedores'),
   /** GET /maestro/productos/siguiente-referencia?base= — el código de la marca que sigue. */
   siguienteReferencia: (req, res) => servicio.siguienteReferenciaDeMarca(req.query.base)

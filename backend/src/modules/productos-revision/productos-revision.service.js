@@ -10,8 +10,7 @@
  *
  * LA RELACIÓN SE ESCRIBE POR `producto.id` (migración 038, 2026-10-03): ver
  * relacionPropia.js. Crear un producto nuevo desde una línea está en
- * productoDesdeLinea.js y lo crea en el maestro propio. En este archivo ya no
- * queda nada que le hable a Alegra.
+ * productoDesdeLinea.js lo crea en el maestro propio, sin hablarle a Alegra.
  */
 
 const prisma = require('../../../lib/prisma');
@@ -19,6 +18,7 @@ const {
   productoPropio, guardarMapeo, cambiarProductoDelMapeo, relacionarLineas, soltarLineas, recalcularAvance
 } = require('./relacionPropia');
 const { query } = require('../../../config/database');
+const { getRelacionesDeProducto } = require('../productos/proveedoresProducto.service');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { calcularPrecioSugerido } = require('../precios/motor');
 const { obtenerConfigPrecios, resolverConfig } = require('../precios/config');
@@ -223,137 +223,6 @@ async function getRelacionados({ proveedor, busqueda, page = 1, limit = 20 }) {
     page: parseInt(page),
     limit: parseInt(limit),
     totalPages: Math.ceil(total / limit)
-  };
-}
-
-/**
- * Obtener todas las relaciones de un producto PROPIO (con sus distintos
- * proveedores), con el último costo real de cada proveedor (descuento + IVA
- * real de la línea).
- */
-async function getRelacionesDeProducto(productoPropioId) {
-  const producto = await productoPropio(productoPropioId);
-  console.log(`🔍 Obteniendo todas las relaciones del producto ${producto.id}`);
-
-  // `producto_id` no está en el esquema de Prisma: los ids de los mapeos se
-  // traen aparte y Prisma arma el resto.
-  const { rows: suyos } = await query('SELECT id FROM supplier_product_mapping WHERE producto_id = $1', [producto.id]);
-
-  const relaciones = await prisma.supplierProductMapping.findMany({
-    where: {
-      id: { in: suyos.map(m => m.id) }
-    },
-    orderBy: [
-      { confidence: 'desc' },
-      { lastUsedDate: 'desc' }
-    ],
-    include: {
-      productos: {
-        select: {
-          id: true,
-          codigoProveedor: true,
-          descripcion: true,
-          precioUnitario: true,
-          descuento: true,
-          impuesto: true,
-          totalLinea: true,
-          cantidad: true,
-          factura: {
-            select: {
-              proveedorNombre: true,
-              proveedorCedula: true,
-              fechaEmision: true
-            }
-          }
-        },
-        orderBy: {
-          factura: {
-            fechaEmision: 'desc'
-          }
-        },
-        take: 5 // Solo los últimos 5 productos para no sobrecargar
-      }
-    }
-  });
-
-  const relacionesFormateadas = relaciones.map((mapeo) => {
-    // Último costo de ESTE PROVEEDOR desde facturas (con descuento e IVA real).
-    //
-    // Se devuelven DOS cifras y la que manda es `precioCosto`, ya dividido por
-    // el factor de conversión: es el costo de UNA unidad mía. Antes se
-    // mostraba solo el costo en la unidad del proveedor, y como cada
-    // proveedor vende en presentaciones distintas (uno la caja de 60, otro la
-    // unidad), los números de esta pantalla no eran comparables entre sí —
-    // que es justo para lo que se abre.
-    //
-    // `precioCostoProveedor` se mantiene aparte para poder cotejar contra el
-    // papel de la factura, donde aparece el precio de la caja.
-    let precioCosto = null;
-    let precioCostoProveedor = null;
-    const factor = parseFloat(mapeo.factorConversion) || 1;
-
-    if (mapeo.productos && mapeo.productos.length > 0) {
-      // Los productos ya están ordenados por fecha descendente (más reciente primero)
-      const productoConPrecio = mapeo.productos.find(p => p.precioUnitario && p.precioUnitario > 0);
-      if (productoConPrecio) {
-        const { costoConIva, costoUnitario, descuentoPorcentaje } =
-          calcularCostoUnitarioPropio(productoConPrecio, factor);
-
-        precioCostoProveedor = Math.round(costoConIva * 100) / 100;
-        precioCosto = Math.round(costoUnitario * 100) / 100;
-
-        console.log(`   💰 Costo calculado para ${mapeo.supplierName}:`);
-        console.log(`      Precio sin IVA: ₡${parseFloat(productoConPrecio.precioUnitario).toFixed(2)}`);
-        console.log(`      Descuento: ${descuentoPorcentaje.toFixed(2)}% (₡${(parseFloat(productoConPrecio.descuento) || 0).toFixed(2)})`);
-        console.log(`      Costo unidad proveedor: ₡${precioCostoProveedor.toFixed(2)} · factor ${factor} → costo unidad mía: ₡${precioCosto.toFixed(2)}`);
-      }
-    }
-
-    return {
-      mapeoId: mapeo.id,
-      proveedor: {
-        nombre: mapeo.supplierName,
-        cedula: mapeo.supplierCedula
-      },
-      codigoProveedor: mapeo.supplierCode,
-      descripcionProveedor: mapeo.supplierDesc,
-      producto: {
-        id: producto.id,
-        reference: producto.referencia,
-        name: producto.nombre
-      },
-      confianza: mapeo.confidence,
-      factorConversion: factor,
-      vecesUsado: mapeo.timesUsed,
-      // `precio` = costo de UNA unidad mía (con descuento, IVA y factor).
-      // Es el que se muestra y por el que se ordena.
-      precio: precioCosto,
-      // Costo en la unidad en que factura el proveedor (la caja, el fardo),
-      // para poder cotejar contra el papel.
-      precioProveedor: precioCostoProveedor
-    };
-  });
-
-  // Ordenar por costo por unidad propia. Antes se ordenaba por el costo en
-  // unidad de proveedor, así que "el más barato" salía mal en cuanto dos
-  // proveedores facturaban en presentaciones distintas: una caja de 60 a
-  // ₡3.551 se veía más cara que una unidad suelta a ₡80, cuando en realidad
-  // sale a ₡59 la unidad.
-  relacionesFormateadas.sort((a, b) => {
-    if (a.precio === null && b.precio === null) return 0;
-    if (a.precio === null) return 1;
-    if (b.precio === null) return -1;
-    return a.precio - b.precio;
-  });
-
-  return {
-    producto: {
-      id: producto.id,
-      reference: producto.referencia || null,
-      name: producto.nombre
-    },
-    relaciones: relacionesFormateadas,
-    total: relacionesFormateadas.length
   };
 }
 
