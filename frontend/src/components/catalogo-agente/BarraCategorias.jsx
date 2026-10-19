@@ -15,7 +15,7 @@ export default function BarraCategorias({ categorias, activa, onElegir }) {
 
   return (
     <nav aria-label="Categorías"
-      className="sticky top-[57px] z-20 border-b border-neutro-200 bg-white/95 backdrop-blur">
+      className="sticky top-[57px] z-20 border-b border-neutro-200 bg-white">
       {/* scrollbar-none: en la tablet la barra de scroll horizontal tapaba la
           fila de chips y no aporta nada — se arrastra con el dedo. */}
       <div className="scrollbar-none flex gap-1.5 overflow-x-auto px-3 py-2">

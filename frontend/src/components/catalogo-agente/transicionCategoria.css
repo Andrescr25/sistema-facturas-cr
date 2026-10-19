@@ -1,7 +1,9 @@
 .catalogo-recorrido { isolation: isolate; }
-.catalogo-oscurecer { position: fixed; inset: 0; z-index: 40; background: theme('colors.primario.950'); opacity: 0; pointer-events: none; }
+.catalogo-oscurecer { position: fixed; inset: 0; z-index: 40; background: theme('colors.primario.950'); opacity: 0; pointer-events: none; will-change: opacity; }
+.catalogo-recorrido[data-presentando] .catalogo-oscurecer__seguir { visibility: hidden; }
 .catalogo-oscurecer__seguir { position: absolute; bottom: 36px; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: theme('colors.primario.200'); font-size: 12px; font-weight: 500; }
-.transicion-categoria[data-inmersiva] { min-height: clamp(440px, 85vh, 900px); min-height: clamp(440px, 85svh, 900px); }
+/* Recorrido más corto que antes (85 svh): menos tramo oscuro por cruzar. */
+.transicion-categoria[data-inmersiva] { min-height: clamp(400px, 70vh, 760px); min-height: clamp(400px, 70svh, 760px); }
 .transicion-categoria[data-inmersiva] .transicion-categoria__escena {
   position: fixed; inset: 0; z-index: 41; display: flex; flex-direction: column;
   align-items: center; justify-content: center; padding: 24px 12px;
@@ -9,7 +11,9 @@
   transform: translateY(var(--foco-y, 40px)) scale(var(--foco-escala, .97));
   visibility: hidden;
 }
-.transicion-categoria[data-foco] .transicion-categoria__escena { visibility: visible; }
+/* Capa propia desde que empieza a oscurecer: la foto se pinta una vez,
+   antes de verse, y después solo se mueve y se funde. */
+.transicion-categoria[data-foco] .transicion-categoria__escena { visibility: visible; will-change: transform, opacity; }
 .transicion-categoria[data-inmersiva] .introduccion-categoria { width: min(100%, 1000px); min-height: min(58vh, 550px); min-height: min(58svh, 550px); margin-bottom: 0; border: 1px solid theme('colors.white / 7%'); border-radius: 24px; }
 .transicion-categoria[data-inmersiva] .introduccion-categoria__contenido { padding: 30px 24px; }
 .transicion-categoria[data-inmersiva] .introduccion-categoria__nombre { font-size: clamp(32px, 6vw, 72px); line-height: 1.05; max-width: 85%; margin: 22px 0 16px; }

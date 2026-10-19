@@ -12,7 +12,7 @@ function TransicionCategoria(props) {
     <div ref={elemento} className="transicion-categoria">
       <Titulo className="sr-only">{props.nombre}</Titulo>
       <div className="transicion-categoria__escena" aria-hidden="true">
-        <IntroduccionCategoria {...props} imagen={preparada ? props.imagen : null} animar={false} tituloDecorativo />
+        <IntroduccionCategoria {...props} imagen={preparada ? props.imagen : null} animar={false} tituloDecorativo cargarYa />
       </div>
     </div>
   )

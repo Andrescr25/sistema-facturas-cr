@@ -23,7 +23,7 @@ export default function BarraSuperior({
   clienteActivo, onElegirCliente, onSalirDeCliente
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-neutro-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-neutro-200 bg-white">
       <div className="flex items-center gap-2 px-3 py-2">
         <img src="/tachi-logo.png" alt="Tachi Distribuidora"
           className="hidden h-7 w-auto shrink-0 sm:block" />

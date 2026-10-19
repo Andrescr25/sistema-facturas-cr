@@ -826,3 +826,16 @@ la pestaña Historial. Sigue vigente su aclaración de **24 h sin movimiento
 tras enviarse a Impresión**. Se implementa por factura para conservar pedidos
 nuevos del mismo cliente en Activos; consultar no reinicia el plazo y no se
 borra información. [Implementación y pruebas](informes/reporte-clientes-historial-2026-10-15.md).
+
+## 2026-10-18 — El cambio de categoría del catálogo del agente, fluido
+
+Textual: «hay un error en el catálogo agente, se supone que este tiene que ir
+súper fluido pero se le agregó unas imágenes en las categorías, cuando el
+cliente va por un cambio de categoría la animación es muy brusca y se queda
+pegado. Haz que sea más fluido».
+
+Se conserva la secuencia que pidió el 2026-10-11 (oscuro → nombre y foto →
+claro con productos). Ahora sigue al dedo con fundidos, nunca queda negra si
+se detiene, y tocar una categoría la presenta sola y deja en sus productos.
+Detalle y mediciones: [catálogo del agente](grafo/modulo/catalogo-agente.md).
+

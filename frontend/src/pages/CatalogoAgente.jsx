@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Link } from 'react-router-dom'
 import {
   Flame, Star, RotateCcw, PackageOpen,
@@ -15,6 +16,7 @@ import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
 import TransicionCategoria from '../components/catalogo-agente/TransicionCategoria'
 import RecorridoCategorias from '../components/catalogo-agente/RecorridoCategorias'
 import { imagenDeCategoria } from '../utils/imagenesCategoriaCatalogo'
+import { entrarACategoria, oscuridadActual } from '../utils/focoCategoria'
 
 /**
  * El catálogo que el agente lleva en la tablet.
@@ -175,10 +177,13 @@ export default function CatalogoAgente() {
 
       {!buscando && !vacio && (
         <BarraCategorias categorias={categorias} activa={categoria} onElegir={clave => {
-          setCategoria(clave)
-          // El filtro abre otra colección; desde el fondo de una categoría
-          // larga debe verse su introducción y sus primeros productos.
-          window.scrollTo({ top:0,behavior:'auto' })
+          // La colección nueva se arma YA, para poder llevar la vista a ella.
+          const previa = oscuridadActual()
+          flushSync(() => setCategoria(clave))
+          // Una categoría se presenta sola (oscuro → nombre y foto → claro) y
+          // deja al agente en sus productos: antes quedaba la pantalla negra
+          // hasta que alguien siguiera bajando. Sin el efecto, arriba de todo.
+          if (!filteredData.sortedKeys.includes(clave) || !entrarACategoria(previa)) window.scrollTo({ top: 0, behavior: 'auto' })
         }} />
       )}
 

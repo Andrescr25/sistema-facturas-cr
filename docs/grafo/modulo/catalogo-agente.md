@@ -10,6 +10,7 @@ archivos:
   - frontend/src/utils/buscarCatalogoAgente.js
   - frontend/src/components/catalogo-agente/TarjetaProductoAgente.jsx
   - frontend/src/components/catalogo-agente/BarraSuperior.jsx
+  - frontend/src/components/catalogo-agente/BarraCategorias.jsx
   - backend/tests/subgruposCatalogoAgente.test.js
   - backend/tests/busquedaCatalogoAgente.test.js
   - backend/tests/catalogoClienteNuevo.test.js
@@ -46,7 +47,7 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-11
+medido: 2026-10-18
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar; el pedido
@@ -232,3 +233,59 @@ arreglo está en producción (`main` `e19c3e5`).
 2026-10-05: ciclo explícito en portal/pedido de agente y facturación presencial;
 al facturar se conserva el recorrido original. Colas antiguas intactas,
 filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].
+
+## Cambio de categoría fluido — 2026-10-18
+
+El usuario: «hay un error en el catálogo agente, se supone que este tiene que
+ir súper fluido pero se le agregó unas imágenes en las categorías, cuando el
+cliente va por un cambio de categoría la animación es muy brusca y se queda
+pegado. Haz que sea más fluido». Se conserva su secuencia (oscuro → nombre y
+foto → claro con productos); cambia cómo se mueve.
+
+LO QUE SE MIDIÓ, en Chromium a tamaño de tablet (768×1024, densidad 2, CPU
+4× más lenta), con 14 categorías con foto puesta por el mismo proceso de
+Gestión de Catálogo sobre una copia desechable:
+- **Tocar una categoría** dejaba la pantalla NEGRA: el oscurecido saltaba de
+  0 a 1 en un cuadro y a los 2 s seguía negro con la escena al 22 %, hasta
+  que alguien siguiera bajando. Es el «se queda pegado».
+- **Detenerse en lo oscuro** dejaba la pantalla al 75 % negra y vacía.
+- **Bajar a gestos** cambiaba hasta 29 % de opacidad por cuadro, y una pasada
+  rápida 72–87 %: un destello.
+
+QUÉ CAMBIÓ (`utils/focoCategoria.js`):
+- Lo que se ve SIGUE al scroll con una curva exponencial por tiempo
+  (`acercar`, 110 ms), en vez de copiarlo: los saltos del dedo se vuelven
+  fundidos. Un cuadro lento cuenta como mucho 50 ms, así una foto que se
+  decodifica no produce un salto. Al llegar, deja de pedir cuadros.
+- **Nunca queda a medias**: quieto 260 ms dentro de un separador, termina en
+  el estado estable más cercano (`alQuedarseQuieto`): la categoría entera a
+  la vista o el catálogo claro.
+- **Tocar una categoría** (`entrarACategoria`) lleva la vista a sus productos
+  y reproduce la presentación sola (`enPresentacion`: oscuro, nombre y foto
+  a los 220 ms, claro desde los 1.250 ms), sin decir «Seguí bajando». Mover
+  el dedo la interrumpe y devuelve el mando al scroll. Sigue desde la
+  oscuridad que ya había (`oscuridadActual`), para que tocar otra categoría
+  con una escena a la vista no parpadee a claro. «Todo», las secciones
+  especiales y el movimiento reducido suben al principio como antes.
+- Si el último separador se aleja con la escena a la vista, termina de
+  apagarse sola en lugar de cortarse.
+
+Y ALREDEDOR:
+- La foto de la escena se carga apenas se prepara (`cargarYa`), se
+  decodifica con `decode()` y entra con un fundido (`data-lista`): ya no se
+  decodifica en el cuadro en que aparece. La vista previa de Gestión de
+  Catálogo usa lo mismo.
+- La escena tiene capa propia (`will-change`) desde que empieza a oscurecer,
+  y el velo también: se pinta una vez y después solo se funde y se mueve.
+- Las dos barras fijas dejaron el desenfoque (`backdrop-blur`) por fondo
+  blanco: se recalculaba en cada cuadro del scroll y no se distinguía.
+- El tramo de cada separador bajó de 85 a 70 svh (400–760 px).
+
+DESPUÉS, mismas pruebas: tocar una categoría termina claro sobre sus
+productos (6 fichas a la vista, ~1,6 s); quieto en lo oscuro termina con la
+categoría entera; a gestos ≤ 8 % por cuadro; pasada rápida ≤ 19 %. 390,
+768 y 1440 px sin desborde ni errores; movimiento reducido sin escenas.
+Queda un cuadro de ~130 ms al tocar (armar la colección nueva), igual que
+antes, ANTES de que empiece la animación. Pruebas en
+`backend/tests/focoCategoria.test.js`.
+
