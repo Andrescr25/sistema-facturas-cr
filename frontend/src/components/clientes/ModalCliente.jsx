@@ -5,6 +5,7 @@ import { clientesService } from '../../services/clientesService'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
 import CampoRotacion from './CampoRotacion'
+import { useSalirSinGuardar } from '../../hooks/useSalirSinGuardar'
 
 /**
  * Crear o editar la ficha de un cliente.
@@ -112,7 +113,7 @@ function SeccionFormulario({ id, titulo, columnas = 'sm:grid-cols-2', children }
   </section>
 }
 
-export default function ModalCliente({ cliente, plazos, rutas = [], guardando, onGuardar, onCerrar }) {
+export default function ModalCliente({ cliente, plazos, rutas = [], guardando, onGuardar, onCerrar, confirm }) {
   const formulario = useRef(null)
   const irA = id => {
     const titulo = formulario.current?.querySelector(`[data-seccion="${id}"]`)
@@ -181,6 +182,9 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
     CAMPOS.filter(c => valores[c] !== base[c]).map(c => [c, listo(c, valores[c])])
   ), [valores, base])
   const hayCambios = Object.keys(cambios).length > 0
+  // Cerrar con algo escrito pregunta antes: un descuento puesto y la hoja
+  // cerrada con la X se perdía sin aviso.
+  const cerrar = useSalirSinGuardar({ cambios: Object.keys(cambios).length, confirm, onCerrar })
 
   const enviar = async (e) => {
     e.preventDefault()
@@ -194,7 +198,7 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
       titulo={editando ? 'Editar cliente' : 'Nuevo cliente'}
       subtitulo={editando ? cliente.nombre : undefined}
       ancho="sm:max-w-2xl"
-      onCerrar={onCerrar}
+      onCerrar={cerrar}
     >
       <form ref={formulario} onSubmit={enviar} className="space-y-5">
         <nav aria-label="Ir a una sección del formulario" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -397,7 +401,7 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
 
         <div className="flex flex-wrap items-center justify-end gap-3 border-t border-neutro-100 pt-4">
           {editando && hayCambios && <span className="mr-auto text-sm text-neutro-500">{Object.keys(cambios).length} cambios sin guardar</span>}
-          <Boton type="button" variante="secundario" tamano="lg" onClick={onCerrar}>Cancelar</Boton>
+          <Boton type="button" variante="secundario" tamano="lg" onClick={cerrar}>Cancelar</Boton>
           <Boton type="submit" tamano="lg" cargando={guardando} disabled={editando && !hayCambios}>
             <Save size={16} /> {editando ? 'Guardar cambios' : 'Crear cliente'}
           </Boton>

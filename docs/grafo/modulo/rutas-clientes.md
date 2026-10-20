@@ -24,6 +24,8 @@ archivos:
   - backend/tests/rutasAsignarClientes.test.js
   - backend/tests/asignacionRutaPantalla.test.js
   - frontend/src/components/clientes/ModalCliente.jsx
+  - frontend/src/hooks/useSalirSinGuardar.js
+  - backend/tests/salirSinGuardar.test.js
   - frontend/src/components/clientes/FichaCliente.jsx
   - frontend/src/hooks/useRutas.js
   - frontend/src/hooks/useClientes.js
@@ -43,7 +45,7 @@ archivos:
 aristas:
   relacionado: [modulo/facturacion, modulo/preventa-agenda, modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, decision/rotacion-por-cliente-sin-ciclos, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-14
+medido: 2026-10-19
 ---
 
 Primera parte implementada y aplicada solo en la copia local. Rutas y ciclos
@@ -253,3 +255,24 @@ y conservación de ventas anteriores: [[modulo/facturacion]]. SQL 060
 aplicada por Codex en producción el 2026-10-14 a las 15:31:43 CR con respaldo
 restaurado y 144 tablas conservadas; 250 clientes comienzan en 0 %. Usuario
 autoriza expresamente el despliegue a main.
+
+## Cerrar la ficha con cambios pregunta antes — 2026-10-19
+
+El usuario: «el descuento global que le pongo a x cliente, no se le aplica
+cuando lo factura, tampoco veo el descuento en el pdf — ejemplo real: Buen
+Precio». Leído en producción: SUPER BUEN PRECIO (id 188) seguía en 0 %, su
+ficha no cambiaba desde el 11/10 y la bitácora no tenía ningún cambio de
+descuento; ningún cliente tenía descuento guardado. Por eso la factura de
+ese día (001000015061, 49 líneas) salió sin descuento: con 5 % la regla se
+lo daba a 28 líneas. En una copia con los mismos datos, guardar el descuento
+funciona y la factura y su PDF lo llevan (columna DESCUENTO con «−₡100»).
+
+Lo que se encontró en la pantalla: escribir un dato y cerrar la hoja con la
+X, «Cancelar» o Escape lo descartaba sin aviso; el «1 cambios sin guardar»
+del pie no lo impedía. Ahora `useSalirSinGuardar` pregunta «¿Salir sin
+guardar?» (Seguir editando / Salir sin guardar) con el diálogo de la página,
+una sola vez aunque se apriete Escape dos veces; sin cambios, o al guardar,
+cierra directo. Vale igual para un cliente nuevo a medio escribir.
+Comprobado en Chromium a 820 px sobre la copia. Las fichas de producto y de
+proveedor y el formulario de la empresa tienen la misma trampa; no se tocaron.
+

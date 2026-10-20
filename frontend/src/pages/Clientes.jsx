@@ -156,6 +156,7 @@ export default function Clientes() {
           guardando={fichas.guardando}
           onGuardar={async datos => { const ok = await fichas.guardar(datos); if (ok) await rutas.refrescar(); return ok }}
           onCerrar={() => fichas.setEditando(null)}
+          confirm={confirm}
         />
       )}
 

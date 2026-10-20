@@ -851,3 +851,14 @@ con su tarjeta de foto y nombre dentro del recorrido, que pasa con el scroll.
 No volver a fijar nada en pantalla al cambiar de categoría.
 [Detalle](grafo/modulo/catalogo-agente.md).
 
+## 2026-10-19 — El descuento global del cliente no se aplicaba
+
+Textual: «el descuento global que le pongo a x cliente, no se le aplica cuando
+lo factura, tampoco veo el descuento en el pdf. Ejemplo real: buen precio».
+
+En producción el descuento nunca quedó guardado (SUPER BUEN PRECIO en 0 %,
+sin rastro de guardado). La regla de facturación y el PDF funcionan con el
+descuento guardado. Cerrar la ficha con cambios sin guardar ahora pregunta
+antes. Hay que volver a poner el descuento y tocar «Guardar cambios».
+[Detalle](grafo/modulo/rutas-clientes.md).
+
