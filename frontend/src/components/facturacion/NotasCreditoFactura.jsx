@@ -1,5 +1,6 @@
-import { Undo2, FileText, Loader2 } from 'lucide-react'
+import { Undo2, FileText } from 'lucide-react'
 import Insignia from '../ui/Insignia'
+import Boton from '../ui/Boton'
 import { colones } from '../../utils/colones'
 import { fechaCorta } from '../../utils/fechaCR'
 import {
@@ -83,16 +84,10 @@ function TarjetaNota({ nota: n, factura: f, onCambio, onPdf, abriendoPdf }) {
               : <Insignia tono="nota">Aplicada</Insignia>}
           </div>
           {onPdf && (
-            <button
-              type="button"
-              data-pdf-nota={n.id}
-              disabled={abriendoPdf === `nota-${n.id}`}
-              onClick={() => onPdf(n.id)}
-              className="btn btn-outline btn-sm mt-2 inline-flex items-center gap-1.5 disabled:opacity-50"
-            >
-              {abriendoPdf === `nota-${n.id}` ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+            <Boton variante="secundario" tamano="sm" icono={FileText} data-pdf-nota={n.id} className="mt-2"
+              cargando={abriendoPdf === `nota-${n.id}`} onClick={() => onPdf(n.id)}>
               Ver PDF
-            </button>
+            </Boton>
           )}
         </div>
       </div>

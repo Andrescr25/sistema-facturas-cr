@@ -1,8 +1,9 @@
 import {
-  ArrowLeft, FileText, Ban, Undo2, Loader2, Building2,
+  ArrowLeft, FileText, Ban, Undo2, Building2,
   PencilLine, Save, X, MessageCircle, Mail
 } from 'lucide-react'
 import Insignia from '../ui/Insignia'
+import Boton from '../ui/Boton'
 import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import ClienteFactura from './ClienteFactura'
 import LineasFactura from './LineasFactura'
@@ -100,12 +101,14 @@ export default function VistaFactura({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ---------- Barra de acciones ---------- */}
+      {/* ---------- Barra de acciones ----------
+          Con el botón del sistema (ui/Boton), según lo que hace cada uno, y
+          no con la clase genérica: el usuario pidió botones «más acordes al
+          sistema» (2026-10-19). Editando, arriba queda solo qué se edita;
+          Cancelar y Guardar van al final, debajo de lo que se corrige. */}
       <div className="flex flex-wrap items-center gap-2">
         {!editando ? (
-          <button onClick={onVolver} className="btn btn-outline flex items-center gap-2">
-            <ArrowLeft size={16} /> Volver
-          </button>
+          <Boton variante="fantasma" icono={ArrowLeft} onClick={onVolver}>Volver</Boton>
         ) : (
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-alerta-600">Editando</p>
@@ -113,78 +116,44 @@ export default function VistaFactura({
           </div>
         )}
 
-        <div className="ml-auto flex flex-wrap gap-2">
-          {editando ? (
-            <>
-              <button onClick={onCancelarEdicion} className="btn btn-outline flex items-center gap-2">
-                <X size={16} /> Cancelar
-              </button>
-              <button
-                onClick={edicion.guardar}
-                disabled={edicion.guardando}
-                className="btn btn-primary flex items-center gap-2 disabled:opacity-50"
-              >
-                {edicion.guardando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                Guardar cambios
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => onPdf(f.id)} className="btn btn-outline flex items-center gap-2">
-                {abriendoPdf === f.id ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                Ver PDF
-              </button>
+        {!editando && (
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Boton variante="secundario" icono={FileText} cargando={abriendoPdf === f.id} onClick={() => onPdf(f.id)}>Ver PDF</Boton>
 
-              {/* Mandarle la factura al cliente con nuestro PDF. Una anulada
-                  no se manda: es un documento sin valor y mandarlo invita a
-                  que lo paguen. */}
-              {f.estado !== 'anulada' && (
-                <button onClick={() => onEnviar(f)} className="btn btn-outline flex items-center gap-2 text-exito-700">
-                  <MessageCircle size={16} /> WhatsApp
-                </button>
-              )}
+            {/* Mandarle la factura al cliente con nuestro PDF. Una anulada
+                no se manda: es un documento sin valor y mandarlo invita a
+                que lo paguen. */}
+            {f.estado !== 'anulada' && (
+              <Boton variante="secundario" icono={MessageCircle} onClick={() => onEnviar(f)}>WhatsApp</Boton>
+            )}
 
-              {f.estado === 'emitida' && onCorreo && (
-                <button onClick={() => onCorreo(f)} disabled={cargandoCorreo} className="btn btn-outline flex items-center gap-2 disabled:opacity-50">
-                  {cargandoCorreo ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />} Correo
-                </button>
-              )}
+            {f.estado === 'emitida' && onCorreo && (
+              <Boton variante="secundario" icono={Mail} cargando={cargandoCorreo} onClick={() => onCorreo(f)}>Correo</Boton>
+            )}
 
-              <button
-                onClick={onEditar}
-                disabled={Boolean(razonNoEditable)}
-                title={razonNoEditable || 'Corregir esta factura'}
-                className="btn btn-outline flex items-center gap-2 disabled:opacity-40"
-              >
-                <PencilLine size={16} /> Editar factura
-              </button>
+            <Boton variante="secundario" icono={PencilLine} onClick={onEditar}
+              disabled={Boolean(razonNoEditable)} title={razonNoEditable || 'Corregir esta factura'}>
+              Editar factura
+            </Boton>
 
-              {/* Un clic firma, envía y consulta; el avance se ve en el
-                  panel de abajo. El estado aceptado viene siempre de la
-                  consulta autenticada ante Hacienda. */}
-              <BotonEmitirFactura emision={emision} />
+            {/* Un clic firma, envía y consulta; el avance se ve en el
+                panel de abajo. El estado aceptado viene siempre de la
+                consulta autenticada ante Hacienda. */}
+            <BotonEmitirFactura emision={emision} />
 
-              {f.estado === 'emitida' && (
-                <>
-                  <button onClick={() => onNotaCredito(f)} className="btn btn-outline flex items-center gap-2 text-nota-700">
-                    <Undo2 size={16} /> Nota de crédito
-                  </button>
-                  {/* Anular es de administradores (decisión del usuario,
-                      2026-10-03). El servidor lo hace valer; acá solo no se
-                      ofrece un botón que va a responder que no. */}
-                  {puedeAnular && (
-                    <button onClick={() => onAnular(f)} className="btn btn-outline flex items-center gap-2 text-peligro-600">
-                      <Ban size={16} /> Anular
-                    </button>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </div>
+            {f.estado === 'emitida' && (
+              <>
+                <Boton variante="secundario" icono={Undo2} onClick={() => onNotaCredito(f)}>Nota de crédito</Boton>
+                {/* Anular es de administradores (decisión del usuario,
+                    2026-10-03). El servidor lo hace valer; acá solo no se
+                    ofrece un botón que va a responder que no. */}
+                {puedeAnular && <Boton variante="peligro" icono={Ban} onClick={() => onAnular(f)}>Anular</Boton>}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      {edicion.error && <p className="rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700">{edicion.error}</p>}
 
       {!editando && razonNoEditable && f.estado === 'emitida' && (
         <p className="rounded-xl bg-neutro-100 px-3 py-2 text-sm text-neutro-600">
@@ -327,6 +296,17 @@ export default function VistaFactura({
           </div>
         )}
       </div>
+
+      {/* Al final de la factura, no al principio (pedido del usuario,
+          2026-10-19): se corrige de arriba abajo y se guarda donde termina.
+          El error sale al lado del botón que lo provocó. */}
+      {editando && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          {edicion.error && <p role="alert" className="rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700 sm:mr-auto">{edicion.error}</p>}
+          <Boton variante="secundario" tamano="lg" icono={X} onClick={onCancelarEdicion} className="w-full sm:w-auto">Cancelar</Boton>
+          <Boton tamano="lg" icono={Save} cargando={edicion.guardando} onClick={edicion.guardar} className="w-full sm:w-auto">Guardar cambios</Boton>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import {
   ShieldCheck, Check, Loader2, Circle, X, AlertTriangle, Minus, Download, Mail
 } from 'lucide-react'
 import Insignia from '../ui/Insignia'
+import Boton from '../ui/Boton'
 import DatosPendientesEmision from './DatosPendientesEmision'
 import { pasosDe, resumenDe, nombreDeTipo } from '../../utils/emisionPasos'
 
@@ -111,25 +112,15 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
             Clave: <span className="font-mono text-neutro-700">{c.clave}</span>
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" disabled={bajando} onClick={() => bajar(false)} className="btn btn-outline btn-sm flex items-center gap-1.5 disabled:opacity-50">
-              <Download size={14} /> XML del comprobante
-            </button>
+            <Boton variante="secundario" tamano="sm" icono={Download} disabled={bajando} onClick={() => bajar(false)}>XML del comprobante</Boton>
             {c.tieneRespuesta && (
-              <button type="button" disabled={bajando} onClick={() => bajar(true)} className="btn btn-outline btn-sm flex items-center gap-1.5 disabled:opacity-50">
-                <Download size={14} /> Respuesta de Hacienda
-              </button>
+              <Boton variante="secundario" tamano="sm" icono={Download} disabled={bajando} onClick={() => bajar(true)}>Respuesta de Hacienda</Boton>
             )}
             {c.estado === 'aceptada' && enProduccion && emision.enviarAlCliente && (
-              <button
-                type="button"
-                data-enviar-cliente
-                disabled={emision.enviandoCorreo}
-                onClick={emision.enviarAlCliente}
-                className="btn btn-outline btn-sm flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {emision.enviandoCorreo ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
+              <Boton variante="secundario" tamano="sm" icono={Mail} data-enviar-cliente
+                cargando={emision.enviandoCorreo} onClick={emision.enviarAlCliente}>
                 {yaEnviado ? 'Volver a enviar al cliente' : 'Enviar al cliente'}
-              </button>
+              </Boton>
             )}
           </div>
           {errorDescarga && <p role="alert" className="mt-2 text-sm text-peligro-700">{errorDescarga}</p>}

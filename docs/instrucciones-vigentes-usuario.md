@@ -884,3 +884,11 @@ las facturas que salen en editar sean por orden de llegada y no al azar».
 Hecho: la última que entró, arriba (por día y, dentro del día, por llegada).
 [Detalle](grafo/modulo/facturacion-offline.md).
 
+## 2026-10-19 — Botones de la factura: al final y del sistema
+
+Textual: «ahora en editar facturas dentro de facturas haz que estos btns
+salgan al final de la factura y NO al principio: Cancelar, Guardar cambios.
+Haz que todo el diseño de btns sea más acorde al sistema y no tan genéricos,
+recuerda reciclar código». Hecho con `ui/Boton`.
+[Detalle](grafo/modulo/facturacion.md).
+

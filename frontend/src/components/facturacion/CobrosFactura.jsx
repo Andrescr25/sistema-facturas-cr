@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
 import Insignia from '../ui/Insignia'
+import Boton from '../ui/Boton'
 import { colones, colonesExacto } from '../../utils/colones'
 import { fechaCorta } from '../../utils/fechaCR'
 import { medio } from '../../utils/facturaVista'
@@ -80,16 +80,12 @@ export default function CobrosFactura({ cobros = [], puedeAnular = false, onAnul
           />
           {errorCobro && <p className="text-xs text-peligro-700">{errorCobro}</p>}
           <div className="flex gap-2">
-            <button onClick={() => setCobroAnulando(null)} disabled={anulandoCobro} className="btn btn-outline flex-1 text-sm">
+            <Boton variante="secundario" ancho disabled={anulandoCobro} onClick={() => setCobroAnulando(null)}>
               Dejarlo como está
-            </button>
-            <button
-              onClick={confirmarAnularCobro}
-              disabled={anulandoCobro}
-              className="btn flex flex-1 items-center justify-center gap-2 bg-peligro-600 text-sm font-bold text-white hover:bg-peligro-700 disabled:opacity-50"
-            >
-              {anulandoCobro && <Loader2 size={14} className="animate-spin" />} Anular el cobro
-            </button>
+            </Boton>
+            <Boton variante="peligro" ancho cargando={anulandoCobro} onClick={confirmarAnularCobro}>
+              Anular el cobro
+            </Boton>
           </div>
         </div>
       )}

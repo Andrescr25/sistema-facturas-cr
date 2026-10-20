@@ -353,3 +353,19 @@ pdf donde la puedo editar» (`VistaFactura` → `TotalesFactura`) muestra los
 mismos renglones con `renglonesDeTotales` de `utils/facturaVista.js`, al verla
 y al editarla.
 
+## Botones de la factura abierta — 2026-10-19
+
+El usuario: «en editar facturas dentro de facturas haz que estos btns salgan al
+final de la factura y NO al principio: Cancelar, Guardar cambios. Haz que todo
+el diseño de btns sea más acorde al sistema y no tan genéricos, recuerda
+reciclar código». En `VistaFactura`, editando, arriba queda solo «Editando
+<número>»; **Cancelar y Guardar cambios van al final**, debajo de los términos,
+con el error de guardado al lado (antes salía arriba, lejos del botón). Todos
+los botones de la factura —Volver, Ver PDF, WhatsApp, Correo, Editar, Emitir
+electrónicamente, Nota de crédito, Anular, los XML y «Enviar al cliente» del
+panel de emisión, «Ver PDF» de la nota y la confirmación de anular un cobro—
+usan `ui/Boton` con la variante de lo que hacen (secundario; peligro para
+anular; fantasma para volver; primario para guardar). Prueba:
+`backend/tests/botonesFactura.test.js`. La cabecera de Facturación
+(«Actualizar») es de todas las pestañas y no se tocó.
+
