@@ -27,6 +27,13 @@ import PanelEmisionFactura from './PanelEmisionFactura'
  * Los textos se deciden en utils/notaCreditoTexto.js.
  *
  * «Ver PDF» abre el papel de la nota: el mismo que recibe el cliente.
+ *
+ * EL ORDEN DE LA TARJETA (2026-10-20, el usuario: «cuando la nota de
+ * crédito se haga, haz que se acomode mejor ahí; se ve muy desordenado»).
+ * El monto, la insignia y «Ver PDF» iban apilados a la derecha —en el
+ * teléfono, sueltos a la izquierda— y el texto del motivo pegado a la fecha.
+ * Ahora: una franja con el número, su estado y el monto; el motivo escrito
+ * en su renglón; los tres recuadros; y «Ver PDF» al pie.
  */
 
 const TONO = {
@@ -61,58 +68,74 @@ function TarjetaNota({ nota: n, factura: f, onCambio, onPdf, abriendoPdf }) {
   const destino = aplicadaA(f)
   const hacienda = haciendaDeNota(n, f, emision.estado)
   const enCurso = Boolean(emision.estado?.comprobante || emision.fase || emision.pidiendoDatos || emision.error)
+  const anulada = n.estado === 'anulada'
 
   return (
-    <article data-nota-credito={n.id} className="card rounded-2xl border-l-4 border-l-nota-400 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-nota-700">
-            <Undo2 size={14} /> Nota de crédito
-          </p>
-          <p className="text-lg font-extrabold text-neutro-900">{n.numero}</p>
-          <p className="text-sm text-neutro-600">
-            {fechaCorta(n.fecha)} · {motivoDeNota(n.motivo)}{n.motivoTexto ? ` — «${n.motivoTexto}»` : ''}
-          </p>
+    <article data-nota-credito={n.id} className="card !p-0 overflow-hidden rounded-2xl">
+      {/* Quién es y cuánto acreditó, en una sola franja: a la izquierda el
+          número con su estado, a la derecha el monto. */}
+      <header className="flex items-start gap-3 border-b border-nota-100 bg-nota-50/60 px-4 py-4 sm:px-5">
+        <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-nota-600 ring-1 ring-nota-100 sm:flex">
+          <Undo2 size={20} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-nota-700">Nota de crédito</p>
+            {anulada ? <Insignia tono="peligro">Anulada</Insignia> : <Insignia tono="nota">Aplicada</Insignia>}
+          </div>
+          <p className="mt-0.5 text-lg font-extrabold leading-tight text-neutro-900">{n.numero}</p>
+          <p className="text-sm text-neutro-600">{fechaCorta(n.fecha)} · {motivoDeNota(n.motivo)}</p>
         </div>
         <div className="shrink-0 text-right">
-          <p className={`text-xl font-extrabold ${n.estado === 'anulada' ? 'text-neutro-400 line-through' : 'text-nota-700'}`}>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutro-500">Monto</p>
+          <p className={`text-xl font-extrabold ${anulada ? 'text-neutro-400 line-through' : 'text-nota-700'}`}>
             {colones(n.monto)}
           </p>
-          <div className="mt-1 flex justify-end">
-            {n.estado === 'anulada'
-              ? <Insignia tono="peligro">Anulada</Insignia>
-              : <Insignia tono="nota">Aplicada</Insignia>}
-          </div>
-          {onPdf && (
-            <Boton variante="secundario" tamano="sm" icono={FileText} data-pdf-nota={n.id} className="mt-2"
-              cargando={abriendoPdf === `nota-${n.id}`} onClick={() => onPdf(n.id)}>
-              Ver PDF
-            </Boton>
+        </div>
+      </header>
+
+      <div className="flex flex-col gap-3 p-4 sm:p-5">
+        {/* Lo que escribió quien la hizo, en su propio renglón y entre
+            comillas: antes iba pegado a la fecha y al motivo. */}
+        {n.motivoTexto && (
+          <p className="break-words rounded-xl border-l-4 border-nota-200 bg-neutro-50 px-3 py-2 text-sm italic text-neutro-700">
+            «{n.motivoTexto}»
+          </p>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Recuadro dato="efecto" etiqueta="Qué hizo" tono={efecto.tono} titulo={efecto.titulo}
+            detalle={[efecto.detalle, inventario].filter(Boolean).join(' ')} />
+          <Recuadro dato="destino" etiqueta="Se aplicó a" tono={destino.electronica ? 'exito' : 'neutro'}
+            titulo={destino.tipo} detalle={`${destino.numero} · ${destino.nota}`} />
+          {hacienda && (
+            <Recuadro dato="hacienda" etiqueta="Ante Hacienda" tono={hacienda.tono} titulo={hacienda.titulo} detalle={hacienda.detalle}>
+              {hacienda.emitible && !enCurso && (
+                <div className="mt-2"><BotonEmitirFactura emision={emision} /></div>
+              )}
+            </Recuadro>
           )}
         </div>
-      </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <Recuadro dato="efecto" etiqueta="Qué hizo" tono={efecto.tono} titulo={efecto.titulo}
-          detalle={[efecto.detalle, inventario].filter(Boolean).join(' ')} />
-        <Recuadro dato="destino" etiqueta="Se aplicó a" tono={destino.electronica ? 'exito' : 'neutro'}
-          titulo={destino.tipo} detalle={`${destino.numero} · ${destino.nota}`} />
-        {hacienda && (
-          <Recuadro dato="hacienda" etiqueta="Ante Hacienda" tono={hacienda.tono} titulo={hacienda.titulo} detalle={hacienda.detalle}>
-            {hacienda.emitible && !enCurso && (
-              <div className="mt-2"><BotonEmitirFactura emision={emision} /></div>
-            )}
-          </Recuadro>
+        {/* El avance de la emisión, con los mismos pasos que la factura. Si
+            quedó a medias o fue rechazada, el botón para seguir va con él. */}
+        {enCurso && (
+          <div className="flex flex-col gap-2">
+            <PanelEmisionFactura emision={emision} incrustado />
+            <div><BotonEmitirFactura emision={emision} /></div>
+          </div>
         )}
       </div>
 
-      {/* El avance de la emisión, con los mismos pasos que la factura. Si
-          quedó a medias o fue rechazada, el botón para seguir va con él. */}
-      {enCurso && (
-        <div className="mt-3 flex flex-col gap-2">
-          <PanelEmisionFactura emision={emision} incrustado />
-          <div><BotonEmitirFactura emision={emision} /></div>
-        </div>
+      {/* Las acciones, al final y con el color de la factura: «Ver PDF» es
+          el mismo botón naranja de arriba. */}
+      {onPdf && (
+        <footer className="flex justify-end border-t border-neutro-100 px-4 py-3 sm:px-5">
+          <Boton variante="acento" icono={FileText} data-pdf-nota={n.id} className="w-full sm:w-auto"
+            cargando={abriendoPdf === `nota-${n.id}`} onClick={() => onPdf(n.id)}>
+            Ver PDF de la nota
+          </Boton>
+        </footer>
       )}
     </article>
   )

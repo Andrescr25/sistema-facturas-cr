@@ -29,6 +29,8 @@ archivos:
   - backend/tests/facturaVista.test.js
   - frontend/src/components/facturacion/NotasCreditoFactura.jsx
   - frontend/src/components/facturacion/ModalNotaCredito.jsx
+  - frontend/src/components/ui/Contador.jsx
+  - backend/tests/notaCreditoDiseno.test.js
   - frontend/src/utils/notaCreditoTexto.js
   - backend/src/modules/facturacion/notaCredito.service.js
   - backend/src/modules/facturacion/notaCredito.controller.js
@@ -58,7 +60,7 @@ archivos:
   - frontend/src/utils/impresionUtils.js
 aristas:
   relacionado: [modulo/rutas-clientes, modulo/rentabilidad, leccion/precio-sin-iva-costo-con-iva, modulo/hacienda, leccion/la-estructura-se-cuida-con-una-prueba, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
-medido: 2026-10-19
+medido: 2026-10-20
 ---
 
 Ventas ya vive sobre la base propia (sección 6 del checklist). Se
@@ -395,4 +397,36 @@ en edición: sin desbordes ni controles chicos.
   teléfono iba con `position: absolute` sin un padre posicionado y se salía al
   borde de la tarjeta; el campo es ahora su referencia.
 Pruebas en `backend/tests/botonesFactura.test.js`.
+
+## Nota de crédito: el modal y la tarjeta, ordenados — 2026-10-20
+
+«Haz el modal de nota crédito más acorde al sistema, y cuando la nota de
+crédito se haga haz que se acomode mejor ahí; actualmente se ve muy
+desordenado».
+- `ModalNotaCredito`: el contenido iba pegado a los bordes, con chips chicos,
+  un campo de número suelto por línea y botones genéricos en un azul ajeno a
+  la paleta. Ahora: la factura a la que se le acredita arriba; tres pasos con
+  aire (motivo, por qué, qué se devuelve); cada línea con el contador, con
+  tope en lo facturado, y lo que acredita; y en el pie del `ui/Modal`, siempre
+  a la vista, el error, «Se acredita ₡…», Cancelar y «Crear nota» con
+  `ui/Boton`. Los motivos salen de `MOTIVOS_NOTA` (utils/notaCreditoTexto),
+  la misma lista con la que la tarjeta los nombra; el monto por línea, de
+  `acreditadoDe` (utils/facturaVista), con la cuenta del servidor.
+- **`ui/Contador`** («− 1 +»): estaba copiado en `LineaFactura` y
+  `ModalCantidad`, y la nota iba a ser la tercera copia. Es uno solo y lo usan
+  los tres.
+- `NotasCreditoFactura`: monto, insignia y «Ver PDF» iban apilados a la
+  derecha (en el teléfono, sueltos a la izquierda) y el texto del motivo
+  pegado a la fecha. Ahora: una franja morada con el número, su estado y el
+  monto; el motivo escrito en su renglón; los tres recuadros; y «Ver PDF de
+  la nota» al pie, en el naranja del «Ver PDF» de la factura.
+- Barra de acciones: en dos grupos —mandar (PDF, WhatsApp, Correo) y
+  gestionar (Editar, Emitir, Nota de crédito, Anular)— que bajan enteros: a
+  1280 px «Anular» bajaba sola a un segundo renglón. En el teléfono siguen en
+  dos columnas (`contents`).
+- `card !p-0` en la tarjeta de la nota y en la del documento: la regla
+  global `.mobile-device .card` les sumaba 16 px de relleno en el teléfono a
+  secciones que ya traen el suyo.
+Medido a 320, 390, 768 y 1280 px sin desbordes ni controles chicos. Prueba:
+`backend/tests/notaCreditoDiseno.test.js`.
 

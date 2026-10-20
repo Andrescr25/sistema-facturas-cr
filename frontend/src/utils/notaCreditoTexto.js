@@ -18,10 +18,12 @@
 /** Medio colón de tolerancia: los montos se guardan con céntimos. */
 const cubre = (monto, total) => Number(monto) > 0 && Number(monto) >= Number(total) - 0.5
 
-const MOTIVOS = {
-  devolucion: 'Devolución', error: 'Error en la factura', anulacion: 'Anulación',
-  descuento: 'Descuento posterior', otro: 'Otro'
-}
+/** Los motivos de una nota, en el orden en que se ofrecen al hacerla. */
+export const MOTIVOS_NOTA = [
+  ['devolucion', 'Devolución'], ['error', 'Error en la factura'], ['anulacion', 'Anulación'],
+  ['descuento', 'Descuento posterior'], ['otro', 'Otro']
+]
+const MOTIVOS = Object.fromEntries(MOTIVOS_NOTA)
 /** El motivo que eligió quien hizo la nota, en palabras. */
 export const motivoDeNota = (clave) => MOTIVOS[clave] || 'Sin motivo'
 

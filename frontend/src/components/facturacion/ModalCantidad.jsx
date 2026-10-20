@@ -1,4 +1,5 @@
-import { Minus, Plus, Check, X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
+import Contador from '../ui/Contador'
 import { getReference } from '../../utils/facturacionUtils'
 import { useModal } from '../../hooks/useModal'
 
@@ -56,42 +57,16 @@ export default function ModalCantidad({
         <label className="label mb-2 block text-xs font-bold uppercase tracking-wider text-neutro-600">
           Cantidad
         </label>
-        <div className="mb-5 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            aria-label="Quitar uno"
-            onClick={() => valor > 1 && setCantidad(String(valor - 1))}
-            disabled={valor <= 1}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-neutro-100 text-neutro-700 transition-colors hover:bg-neutro-200 active:bg-neutro-300 disabled:opacity-40"
-          >
-            <Minus size={24} strokeWidth={3} />
-          </button>
-
-          <input
-            ref={cantidadInputRef}
-            type="number"
-            min="1"
-            value={cantidad}
-            onChange={(e) => setCantidad(e.target.value)}
-            onFocus={(e) => e.target.select()}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); onConfirmar() }
-            }}
-            placeholder="1"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            aria-label="Cantidad"
-            className="h-14 w-20 shrink-0 rounded-2xl border-2 border-neutro-300 text-center text-2xl font-extrabold focus:border-primario-500 focus:outline-none"
+        <div className="mb-5 flex justify-center">
+          <Contador
+            tamano="lg"
+            valor={cantidad}
+            min={1}
+            onCambiar={(v) => setCantidad(String(v))}
+            onEnter={onConfirmar}
+            inputRef={cantidadInputRef}
+            etiqueta="Cantidad"
           />
-
-          <button
-            type="button"
-            aria-label="Agregar uno"
-            onClick={() => setCantidad(String(valor + 1))}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primario-600 text-white transition-colors hover:bg-primario-700 active:bg-primario-800"
-          >
-            <Plus size={24} strokeWidth={3} />
-          </button>
         </div>
 
         <div className="flex gap-3">

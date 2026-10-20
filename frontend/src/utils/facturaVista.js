@@ -62,6 +62,13 @@ export const lineaDeProducto = (p) => ({
 export const baseDe = (l) => l.cantidad * l.precioUnitario * (1 - (l.descuentoPorcentaje || 0) / 100)
 
 /**
+ * Lo que acredita devolver `cantidad` de una línea en una nota de crédito:
+ * con el precio, el descuento y la tarifa DE LA FACTURA, igual que el
+ * servidor. Lo que el modal anuncia es lo que va a salir.
+ */
+export const acreditadoDe = (l, cantidad) => baseDe({ ...l, cantidad }) * (1 + num(l.tarifa) / 100)
+
+/**
  * Los totales de lo que está en pantalla. En edición se recalculan con la
  * copia de trabajo; si no, son los guardados en el documento.
  *

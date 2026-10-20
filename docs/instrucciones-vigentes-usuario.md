@@ -897,3 +897,13 @@ Correo, Editar factura, Emitir electrónicamente, Nota de crédito, y este
 módulo hazlo completamente responsive». Hecho: colores por significado con
 `ui/Boton` y Facturación comprobada de 320 a 1440 px.
 
+## 2026-10-20 — La nota de crédito, más acorde al sistema
+
+Textual: «perfecto, ahora haz el modal de nota crédito más acorde al sistema
+y cuando la nota de crédito se haga haz que se acomode mejor ahí,
+actualmente se ve muy desordenado». Hecho: el modal en pasos con el pie del
+sistema y el contador compartido (`ui/Contador`, que ya no está copiado), la
+tarjeta de la nota en una franja con número, estado y monto, y las acciones
+de la factura en dos grupos.
+[Detalle](grafo/modulo/facturacion.md).
+

@@ -1,4 +1,5 @@
-import { Minus, Plus, Trash2, StickyNote, ChevronUp } from 'lucide-react'
+import { Trash2, StickyNote, ChevronUp } from 'lucide-react'
+import Contador from '../ui/Contador'
 import { getReference, montosLineaFacturacion } from '../../utils/facturacionUtils'
 
 const colones = (n) => `₡${(Number(n) || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -36,7 +37,6 @@ export default function LineaFactura({
   onCambiarDescripcion,
   DESCRIPCION_MAX
 }) {
-  const cantidad = parseInt(item.quantity) || 0
   const subtotal = montosLineaFacturacion(item).base
   const detalleAbierto = mostrarDetalle || Boolean(item.description)
 
@@ -59,36 +59,13 @@ export default function LineaFactura({
 
       {/* Cantidad y subtotal, la fila que de verdad se usa */}
       <div className="mt-3 flex items-center justify-between gap-3">
-        <div className="flex items-center overflow-hidden rounded-xl border border-neutro-300 bg-white">
-          <button
-            type="button"
-            aria-label="Quitar uno"
-            onClick={() => cantidad > 1 && onCambiarCantidad(index, cantidad - 1)}
-            disabled={cantidad <= 1}
-            className="flex h-11 w-11 items-center justify-center text-neutro-700 transition-colors hover:bg-neutro-100 active:bg-neutro-200 disabled:opacity-40"
-          >
-            <Minus size={18} strokeWidth={3} />
-          </button>
-          <input
-            type="number"
-            min="1"
-            value={item.quantity}
-            onChange={(e) => onCambiarCantidad(index, e.target.value)}
-            onBlur={() => onValidarCantidad(index)}
-            onFocus={(e) => e.target.select()}
-            aria-label={`Cantidad de ${item.name}`}
-            inputMode="numeric"
-            className="h-11 w-14 border-0 bg-transparent text-center text-lg font-extrabold text-neutro-900 focus:outline-none"
-          />
-          <button
-            type="button"
-            aria-label="Agregar uno"
-            onClick={() => onCambiarCantidad(index, cantidad + 1)}
-            className="flex h-11 w-11 items-center justify-center bg-primario-600 text-white transition-colors hover:bg-primario-700 active:bg-primario-800"
-          >
-            <Plus size={18} strokeWidth={3} />
-          </button>
-        </div>
+        <Contador
+          valor={item.quantity}
+          min={1}
+          onCambiar={(v) => onCambiarCantidad(index, v)}
+          onBlur={() => onValidarCantidad(index)}
+          etiqueta={`Cantidad de ${item.name}`}
+        />
 
         <div className="min-w-0 text-right">
           <p className="text-xs text-neutro-500">

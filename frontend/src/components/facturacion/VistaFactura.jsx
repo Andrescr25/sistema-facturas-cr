@@ -71,6 +71,8 @@ function Dato({ etiqueta, children }) {
 
 /** Los botones de acción ocupan su columna en el teléfono y su ancho en pantalla ancha. */
 const ANCHO_MOVIL = 'w-full sm:w-auto'
+/** Un grupo de acciones: en el teléfono no existe (sus botones van a la grilla); en pantalla ancha no se parte. */
+const GRUPO_ACCIONES = 'contents sm:flex sm:gap-2'
 
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
@@ -109,7 +111,7 @@ export default function VistaFactura({
           no con la clase genérica: el usuario pidió botones «más acordes al
           sistema» (2026-10-19). Editando, arriba queda solo qué se edita;
           Cancelar y Guardar van al final, debajo de lo que se corrige. */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-start gap-2">
         {!editando ? (
           <Boton variante="fantasma" icono={ArrowLeft} onClick={onVolver}>Volver</Boton>
         ) : (
@@ -120,40 +122,46 @@ export default function VistaFactura({
         )}
 
         {!editando && (
-          /* En el teléfono, dos columnas parejas; en pantalla ancha, en fila. */
-          <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
-            <Boton variante="acento" className={ANCHO_MOVIL} icono={FileText} cargando={abriendoPdf === f.id} onClick={() => onPdf(f.id)}>Ver PDF</Boton>
+          /* En el teléfono, dos columnas parejas; en pantalla ancha, en fila
+             y en dos grupos —mandar y gestionar— que bajan enteros cuando no
+             caben: antes bajaba «Anular» sola a un segundo renglón. */
+          <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-1 sm:flex-wrap sm:justify-end">
+            <div className={GRUPO_ACCIONES}>
+              <Boton variante="acento" className={ANCHO_MOVIL} icono={FileText} cargando={abriendoPdf === f.id} onClick={() => onPdf(f.id)}>Ver PDF</Boton>
 
-            {/* Mandarle la factura al cliente con nuestro PDF. Una anulada
-                no se manda: es un documento sin valor y mandarlo invita a
-                que lo paguen. */}
-            {f.estado !== 'anulada' && (
-              <Boton variante="exito" className={ANCHO_MOVIL} icono={MessageCircle} onClick={() => onEnviar(f)}>WhatsApp</Boton>
-            )}
+              {/* Mandarle la factura al cliente con nuestro PDF. Una anulada
+                  no se manda: es un documento sin valor y mandarlo invita a
+                  que lo paguen. */}
+              {f.estado !== 'anulada' && (
+                <Boton variante="exito" className={ANCHO_MOVIL} icono={MessageCircle} onClick={() => onEnviar(f)}>WhatsApp</Boton>
+              )}
 
-            {f.estado === 'emitida' && onCorreo && (
-              <Boton variante="activo" className={ANCHO_MOVIL} icono={Mail} cargando={cargandoCorreo} onClick={() => onCorreo(f)}>Correo</Boton>
-            )}
+              {f.estado === 'emitida' && onCorreo && (
+                <Boton variante="activo" className={ANCHO_MOVIL} icono={Mail} cargando={cargandoCorreo} onClick={() => onCorreo(f)}>Correo</Boton>
+              )}
+            </div>
 
-            <Boton variante="alerta" className={ANCHO_MOVIL} icono={PencilLine} onClick={onEditar}
-              disabled={Boolean(razonNoEditable)} title={razonNoEditable || 'Corregir esta factura'}>
-              Editar factura
-            </Boton>
+            <div className={GRUPO_ACCIONES}>
+              <Boton variante="alerta" className={ANCHO_MOVIL} icono={PencilLine} onClick={onEditar}
+                disabled={Boolean(razonNoEditable)} title={razonNoEditable || 'Corregir esta factura'}>
+                Editar factura
+              </Boton>
 
-            {/* Un clic firma, envía y consulta; el avance se ve en el
-                panel de abajo. El estado aceptado viene siempre de la
-                consulta autenticada ante Hacienda. */}
-            <BotonEmitirFactura emision={emision} className="col-span-2 w-full sm:col-span-1 sm:w-auto" />
+              {/* Un clic firma, envía y consulta; el avance se ve en el
+                  panel de abajo. El estado aceptado viene siempre de la
+                  consulta autenticada ante Hacienda. */}
+              <BotonEmitirFactura emision={emision} className="col-span-2 w-full sm:col-span-1 sm:w-auto" />
 
-            {f.estado === 'emitida' && (
-              <>
-                <Boton variante="nota" className={ANCHO_MOVIL} icono={Undo2} onClick={() => onNotaCredito(f)}>Nota de crédito</Boton>
-                {/* Anular es de administradores (decisión del usuario,
-                    2026-10-03). El servidor lo hace valer; acá solo no se
-                    ofrece un botón que va a responder que no. */}
-                {puedeAnular && <Boton variante="peligro" className={ANCHO_MOVIL} icono={Ban} onClick={() => onAnular(f)}>Anular</Boton>}
-              </>
-            )}
+              {f.estado === 'emitida' && (
+                <>
+                  <Boton variante="nota" className={ANCHO_MOVIL} icono={Undo2} onClick={() => onNotaCredito(f)}>Nota de crédito</Boton>
+                  {/* Anular es de administradores (decisión del usuario,
+                      2026-10-03). El servidor lo hace valer; acá solo no se
+                      ofrece un botón que va a responder que no. */}
+                  {puedeAnular && <Boton variante="peligro" className={ANCHO_MOVIL} icono={Ban} onClick={() => onAnular(f)}>Anular</Boton>}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -173,8 +181,11 @@ export default function VistaFactura({
         <NotasCreditoFactura factura={f} onCambio={onFiscalCambio} onPdf={onPdfNota} abriendoPdf={abriendoPdf} />
       )}
 
-      {/* ---------- El documento ---------- */}
-      <div className={`card overflow-hidden rounded-2xl ${editando ? 'ring-2 ring-primario-200' : ''}`}>
+      {/* ---------- El documento ----------
+          `!p-0`: en el teléfono la regla global `.mobile-device .card` le
+          suma 16 px de relleno a una tarjeta cuyas secciones ya traen el
+          suyo; los separadores no llegaban al borde. */}
+      <div className={`card !p-0 overflow-hidden rounded-2xl ${editando ? 'ring-2 ring-primario-200' : ''}`}>
         {/* Emisor y documento — no se editan desde acá: viven en Configuración */}
         <div className="flex flex-col gap-4 border-b border-neutro-100 p-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
