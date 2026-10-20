@@ -1,7 +1,8 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 const {
-  generarPdfFactura, impuestoPorTarifa, importeLinea, tarifaTexto, columnas, detalleLinea, subtotalMostrado
+  generarPdfFactura, impuestoPorTarifa, importeLinea, tarifaTexto, columnas, detalleLinea, subtotalMostrado,
+  subtotalAntesDeDescuento, renglonesDeTotales
 } = require('../src/modules/facturacion/factura.pdf');
 const { fechaLarga } = require('../src/utils/marcaPdf');
 
@@ -117,6 +118,8 @@ describe('el importe de la línea', () => {
 describe('los totales cierran con la calculadora', () => {
   // El papel decía "Subtotal 1.469 / Descuento −36 / IVA 191 / TOTAL 1.660",
   // y 1.469 − 36 + 191 no es 1.660: el subtotal ya traía el descuento restado.
+  // Desde el 2026-10-19 el usuario pide «subtotal / descuento / impuesto /
+  // total»: el Subtotal impreso es el de ANTES del descuento, y así cierra.
   const CON_DESCUENTO = {
     ...FACTURA, subtotal: 1469, descuento: 36, impuesto: 190.97, total: 1659.97,
     lineas: [
@@ -126,18 +129,41 @@ describe('los totales cierran con la calculadora', () => {
     ]
   };
 
-  test('el subtotal impreso es la suma de la columna de importes', () => {
+  test('la base (lo que suman los importes) es la suma de la columna de importes', () => {
     const suma = CON_DESCUENTO.lineas.reduce((s, l) => s + importeLinea(l), 0);
     assert.equal(Math.round(subtotalMostrado(CON_DESCUENTO)), Math.round(suma));
   });
 
-  test('subtotal + impuesto da el total: el descuento no se vuelve a restar', () => {
-    assert.ok(Math.abs(subtotalMostrado(CON_DESCUENTO) + CON_DESCUENTO.impuesto - CON_DESCUENTO.total) < 0.01);
+  test('subtotal − descuento + impuesto da el total', () => {
+    const bruto = subtotalAntesDeDescuento(CON_DESCUENTO);
+    assert.equal(bruto, 1505, 'el subtotal impreso es el de antes del descuento');
+    assert.ok(Math.abs(bruto - CON_DESCUENTO.descuento + CON_DESCUENTO.impuesto - CON_DESCUENTO.total) < 0.01);
   });
 
   test('una copiada de Alegra, que guarda el subtotal ANTES del descuento, también cierra', () => {
     const deAlegra = { ...CON_DESCUENTO, subtotal: 1505 };
-    assert.ok(Math.abs(subtotalMostrado(deAlegra) + deAlegra.impuesto - deAlegra.total) < 0.01);
+    assert.equal(subtotalAntesDeDescuento(deAlegra), 1505);
+    assert.ok(Math.abs(subtotalAntesDeDescuento(deAlegra) - deAlegra.descuento + deAlegra.impuesto - deAlegra.total) < 0.01);
+  });
+
+  test('los renglones salen en el orden pedido: Subtotal, Descuento, Impuesto por tarifa', () => {
+    const r = renglonesDeTotales(CON_DESCUENTO);
+    assert.deepEqual(r.map(([e]) => e), ['Subtotal', 'Descuento', 'Impuesto 13 %']);
+    assert.match(r[1][1], /^−₡/, 'el descuento se lee como resta');
+    // El caso real del 2026-10-19 (SUPER BUEN PRECIO, 5 % en 28 de 49 líneas).
+    const real = { ...FACTURA, subtotal: 227512.47, descuento: 7516.76, impuesto: 29576.64, total: 257089.11,
+      lineas: [{ ...LINEA, tarifa: 13, impuestoMonto: 29576.64 }] };
+    assert.equal(subtotalAntesDeDescuento(real), 235029.23);
+    assert.ok(Math.abs(235029.23 - 7516.76 + 29576.64 - 257089.11) < 0.01);
+  });
+
+  test('sin descuento el renglón Descuento sale en ₡0, y una tarifa por renglón', () => {
+    const r = renglonesDeTotales({ ...FACTURA, lineas: [LINEA, { ...LINEA, numeroLinea: 2, tarifa: 1, impuestoMonto: 30 }] });
+    assert.deepEqual(r.map(([e]) => e), ['Subtotal', 'Descuento', 'Impuesto 1 %', 'Impuesto 13 %']);
+    assert.equal(r[0][1], r.find(([e]) => e === 'Subtotal')[1]);
+    assert.doesNotMatch(r[1][1], /−/);
+    assert.deepEqual(renglonesDeTotales({ ...FACTURA, impuesto: 0, lineas: [{ ...LINEA, tarifa: 0, impuestoMonto: 0 }] }).map(([e]) => e),
+      ['Subtotal', 'Descuento', 'Impuesto'], 'exento: un renglón Impuesto en ₡0');
   });
 
   test('sin descuento se imprime el subtotal guardado, tal cual', () => {

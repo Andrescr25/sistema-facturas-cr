@@ -56,8 +56,8 @@ const num = (v) => Number(v) || 0;
 
 /**
  * Lo que cuesta una línea antes del impuesto: cantidad × precio, menos el
- * descuento. Es lo que va en la columna IMPORTE, y la suma de todas tiene que
- * dar el Subtotal de los totales.
+ * descuento. Es lo que va en la columna IMPORTE; la suma de todas es el
+ * Subtotal menos el Descuento de los totales.
  */
 function importeLinea(l) {
   return num(l.cantidad) * num(l.precioUnitario) - num(l.descuentoMonto);
@@ -81,13 +81,18 @@ function detalleLinea(l) {
 }
 
 /**
- * El Subtotal que se imprime: la suma de la columna de importes, que ya trae
- * el descuento restado. Con descuento se saca del total, porque las facturas
+ * La base imponible: la suma de la columna de importes, que ya trae el
+ * descuento restado. Con descuento se saca del total, porque las facturas
  * copiadas de Alegra guardan el subtotal ANTES del descuento y las propias,
  * después; sin descuento, es el guardado.
  */
 function subtotalMostrado(f) {
   return num(f.descuento) > 0 ? num(f.total) - num(f.impuesto) : num(f.subtotal);
+}
+
+/** El Subtotal que se imprime: lo de antes del descuento (base + descuento). */
+function subtotalAntesDeDescuento(f) {
+  return Math.round((subtotalMostrado(f) + num(f.descuento)) * 100) / 100;
 }
 
 /** "13 %", "1 %", "0 %" — sin decimales cuando no los necesita. */
@@ -461,10 +466,35 @@ function impuestoPorTarifa(lineas) {
     .sort((a, b) => a[0] - b[0]);
 }
 
-function totales(doc, f, ancho, y, F, observacion) {
+/**
+ * Los renglones de los totales, en el orden que pidió el usuario el
+ * 2026-10-19: «subtotal xx / descuento xx / impuesto %x / total xx». El TOTAL
+ * va debajo, en su recuadro.
+ *
+ * EL SUBTOTAL ES EL DE ANTES DEL DESCUENTO, para que la cuenta cierre en el
+ * papel: subtotal − descuento + impuesto = total. Antes el subtotal ya traía
+ * el descuento restado y se avisaba con «Ya incluye ₡X de descuento»; un
+ * renglón «Descuento» debajo de ESE subtotal no cerraba (1.469 − 36 + 191 no
+ * es 1.660), y por eso no estaba. El Descuento sale siempre, en ₡0 si no hay.
+ * El impuesto va por tarifa ("Impuesto 13 %", "Impuesto 1 %"): acá se vende
+ * con varias.
+ */
+function renglonesDeTotales(f) {
+  const descuento = num(f.descuento);
   const desglose = impuestoPorTarifa(f.lineas);
+  return [
+    ['Subtotal', colones(subtotalAntesDeDescuento(f))],
+    ['Descuento', descuento > 0 ? `−${colones(descuento)}` : colones(0)],
+    ...(desglose.length
+      ? desglose.map(([tarifa, monto]) => [`Impuesto ${tarifaTexto(tarifa)}`, colones(monto)])
+      : [['Impuesto', colones(0)]])
+  ];
+}
+
+function totales(doc, f, ancho, y, F, observacion) {
+  const renglones = renglonesDeTotales(f);
   const conPagos = num(f.cobrado) > 0 || num(f.acreditado) > 0;
-  const alto = 120 + desglose.length * 15 + (conPagos ? 34 : 0);
+  const alto = 105 + renglones.length * 15 + (conPagos ? 34 : 0);
 
   if (y + alto > doc.page.height - M - PIE_RESERVADO) {
     doc.addPage();
@@ -502,24 +532,8 @@ function totales(doc, f, ancho, y, F, observacion) {
     yy += 15;
   };
 
-  // EL SUBTOTAL ES LA SUMA DE LA COLUMNA DE IMPORTES, que ya trae el descuento
-  // restado. Debajo salía "Descuento −₡36" como un renglón más de la cuenta,
-  // y entonces el papel no cerraba: 1.469 − 36 + 191 no es 1.660, y el
-  // cliente saca la calculadora con razón. El descuento se informa en una
-  // nota, sin columna de monto, para que no se lea como otra resta. Con
-  // descuento, el subtotal se saca del total (ver subtotalMostrado).
-  const hayDescuento = num(f.descuento) > 0;
-  renglon('Subtotal', colones(subtotalMostrado(f)));
-  if (hayDescuento) {
-    doc.font(F.normal).fontSize(7).fillColor(MARCA.naranjaOscuro)
-      .text(`Ya incluye ${colones(f.descuento)} de descuento`, xCaja, yy - 3, { width: anchoCaja, align: 'right' });
-    yy += 10;
-  }
-
-  // Una línea por tarifa: "IVA 13 %", "IVA 1 %". Si todo va a la misma, sale
-  // una sola y se lee igual que antes.
-  for (const [tarifa, monto] of desglose) renglon(`IVA ${tarifaTexto(tarifa)}`, colones(monto));
-  if (desglose.length === 0) renglon('IVA', colones(0));
+  // Subtotal, Descuento e Impuesto: ver renglonesDeTotales.
+  for (const [etiqueta, valor] of renglones) renglon(etiqueta, valor);
 
   yy += 5;
   const anulada = f.estado === 'anulada';
@@ -658,5 +672,5 @@ function generarPdfFactura(f, empresa = null, papel = null) {
 
 module.exports = {
   generarPdfFactura, papelDeFactura, leyenda, datosEmisor, medioDePago, impuestoPorTarifa, importeLinea,
-  tarifaTexto, columnas, detalleLinea, subtotalMostrado
+  tarifaTexto, columnas, detalleLinea, subtotalMostrado, subtotalAntesDeDescuento, renglonesDeTotales
 };

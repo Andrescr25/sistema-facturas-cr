@@ -862,3 +862,13 @@ descuento guardado. Cerrar la ficha con cambios sin guardar ahora pregunta
 antes. Hay que volver a poner el descuento y tocar «Guardar cambios».
 [Detalle](grafo/modulo/rutas-clientes.md).
 
+## 2026-10-19 — Los totales del PDF: subtotal, descuento, impuesto, total
+
+Textual: «ok, pero el formato de pdf no me gusta, quiero que diga subtotal xx
+/ descuento xx / impuesto %x / total xx». Antes, el mismo día: «sí, edítala
+por mí, recuerda que ese descuento es solo a los productos con más de 21 % de
+margen» (5 %, también en la ficha): la factura 001000015061 quedó en
+₡257.089,11. El PDF ahora imprime esos cuatro renglones, con el subtotal de
+antes del descuento para que la cuenta cierre.
+[Detalle](grafo/modulo/facturacion.md).
+

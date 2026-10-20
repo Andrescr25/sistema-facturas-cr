@@ -58,7 +58,7 @@ archivos:
   - frontend/src/utils/impresionUtils.js
 aristas:
   relacionado: [modulo/rutas-clientes, modulo/rentabilidad, leccion/precio-sin-iva-costo-con-iva, modulo/hacienda, leccion/la-estructura-se-cuida-con-una-prueba, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
-medido: 2026-10-14
+medido: 2026-10-19
 ---
 
 Ventas ya vive sobre la base propia (sección 6 del checklist). Se
@@ -323,3 +323,22 @@ El descuento produce centavos: la vista redondea descuento, base e IVA por
 línea, igual que el servidor. `utils/moneda.js` reúne el redondeo compartido
 con Impresión y Revisión de precios; la prueba compara pantalla y escritura
 para precios decimales y descuentos, evitando diferencias de un centavo.
+
+## Totales del PDF: subtotal, descuento, impuesto, total — 2026-10-19
+
+El usuario, al ver el PDF de la factura de SUPER BUEN PRECIO con descuento:
+«el formato de pdf no me gusta, quiero que diga subtotal xx / descuento xx /
+impuesto %x / total xx». El pie decía «Subtotal ₡227.512 · Ya incluye ₡7.517
+de descuento · IVA 13 % ₡29.577 · TOTAL ₡257.089»: el subtotal ya traía el
+descuento restado, y por eso el descuento iba como nota y no como renglón.
+
+Ahora (`renglonesDeTotales` en `factura.pdf.js`): **Subtotal** de ANTES del
+descuento (`subtotalAntesDeDescuento`: la base más el descuento, también en
+las copiadas de Alegra), **Descuento** como resta (₡0 si no hay), **Impuesto
+13 %** —un renglón por tarifa— y el **TOTAL** en su recuadro. Así la cuenta
+cierra en el papel: ₡235.029 − ₡7.517 + ₡29.577 = ₡257.089. La columna
+IMPORTE de cada línea sigue siendo después del descuento. Vale para la
+factura, la electrónica y la nota de crédito (el mismo papel), y para el PDF
+que va por correo. La pantalla de Facturación conserva su «Ya incluye».
+Pruebas en `backend/tests/facturaPdf.test.js`.
+
