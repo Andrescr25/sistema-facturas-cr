@@ -3,6 +3,7 @@ import api from '../services/api'
 import useDescuentoClienteFacturacion from './useDescuentoClienteFacturacion'
 import useLineasFacturacion from './useLineasFacturacion'
 import { hoyEnCostaRica } from '../utils/fechaCR'
+import { combinarBusqueda } from '../utils/facturasLocales'
 import facturacionService from '../services/facturacionService'
 import { abrirPdfFacturaPropia } from '../services/facturaPdf'
 import {
@@ -626,12 +627,8 @@ export function useFacturacion() {
       // Si hay conexión, también buscar online
       if (isOnline) {
         try {
-          const facturasOnline = await facturacionService.buscarFacturas({ numero: termino })
-
-          // Combinar resultados evitando duplicados
-          const idsLocales = new Set(facturasLocales.map(f => f.id))
-          const facturasNuevas = facturasOnline.filter(f => !idsLocales.has(f.id))
-          facturasLocales = [...facturasLocales, ...facturasNuevas]
+          // Sin repetir y en orden de llegada, como la lista sin búsqueda.
+          facturasLocales = combinarBusqueda(facturasLocales, await facturacionService.buscarFacturas({ numero: termino }))
         } catch (error) {
           console.warn('⚠️ Error buscando online, mostrando solo resultados locales:', error.message)
         }

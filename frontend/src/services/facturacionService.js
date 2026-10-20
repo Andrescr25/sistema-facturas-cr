@@ -11,7 +11,7 @@
 import api, { TOKEN_KEY } from './api';
 import indexedDBService from './indexedDBService'
 import { nuevaClaveFactura } from './dispositivo';
-import { facturaEscrita, facturaConsultada, combinarCopiaFactura } from '../utils/facturasLocales';
+import { facturaEscrita, facturaConsultada, combinarCopiaFactura, ordenDeLlegada } from '../utils/facturasLocales';
 import { hoyEnCostaRica } from '../utils/fechaCR';
 
 // Lo que se le dice a quien intenta editar una factura que no está marcada
@@ -1409,9 +1409,8 @@ class FacturacionService {
         }
       }
 
-      // Ordenar por fecha descendente (más recientes primero)
-      facturasUnicas.sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
-      return facturasUnicas;
+      // En orden de llegada: la última que entró, arriba (ver ordenDeLlegada).
+      return ordenDeLlegada(facturasUnicas);
     } catch (error) {
       console.error('❌ Error obteniendo facturas precargadas:', error);
       throw error;

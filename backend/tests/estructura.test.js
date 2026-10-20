@@ -135,7 +135,7 @@ describe('ningún archivo crece sin que alguien lo decida', () => {
   const TOPE_FRONT = 500;
   const TOPE_BACK = 700;
   const DEUDA_FRONT = {
-    'hooks/useFacturacion.js': 1352, 'services/facturacionService.js': 1425, 'services/indexedDBService.js': 950,
+    'hooks/useFacturacion.js': 1349, 'services/facturacionService.js': 1424, 'services/indexedDBService.js': 950,
     'utils/formasFarmaceuticas.js': 917, 'hooks/useInventarioAuditoria.js': 877, 'hooks/useRelacionarProductos.js': 668,
     'components/relacionar-productos/ModalCrearProducto.jsx': 555
   };

@@ -33,7 +33,7 @@ archivos:
   - backend/tests/descuentoClientePg.test.js
 aristas:
   relacionado: [leccion/lo-que-mueve-plata-no-va-por-omision, modulo/historicos-contexto-documentos, modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
-medido: 2026-10-14
+medido: 2026-10-19
 ---
 
 SECCIÓN 16. Se retiró `facturaPropiaAdaptador.js`: la copia de facturas y
@@ -214,3 +214,19 @@ condiciones al sincronizar produce rechazo revisable, sin convertirlo en
 otra venta ni reescribir una cola antigua. Editar una venta ya persistida
 no reaplica el descuento actual de la ficha. Chromium comprobó guardar
 sin conexión con 5 %, porcentaje base 0 y cola conservada.
+
+## «Editar facturas» en orden de llegada — 2026-10-19
+
+El usuario: «el editar factura que es para móvil no está bien hecho, ocupo que
+las facturas que salen en editar sean por orden de llegada y no al azar». La
+copia del teléfono (`getFacturasPrecargadas`) se ordenaba solo por día; las
+del mismo día quedaban en el orden interno de IndexedDB, y el servidor
+desempata por consecutivo, que es distinto entre electrónicas y normales.
+
+`ordenDeLlegada` (`utils/facturasLocales.js`): por día y, dentro del día, por
+id propio descendente (crece con cada factura guardada, en cualquier serie);
+las que todavía no subieron (id local) van primero en su día, por su hora.
+La búsqueda mezcla teléfono y servidor con `combinarBusqueda`, sin repetir y
+en el mismo orden. Comprobado en Chromium a 390 px sobre una copia: las 60
+facturas de la lista y una búsqueda por cliente en el orden real de llegada.
+

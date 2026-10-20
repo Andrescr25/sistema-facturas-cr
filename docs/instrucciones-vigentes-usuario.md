@@ -877,3 +877,10 @@ siete mil ochenta y nueve con 11/100 colones costarricenses» → eligió «haz 
 el monto en letras sea redondeado»; y «la vista previa del pdf donde la puedo
 editar, también quiero que le apliques esos cambios ahí». Hechos los dos.
 
+## 2026-10-19 — «Editar facturas» del teléfono, en orden de llegada
+
+Textual: «el editar factura que es para móvil no está bien hecho, ocupo que
+las facturas que salen en editar sean por orden de llegada y no al azar».
+Hecho: la última que entró, arriba (por día y, dentro del día, por llegada).
+[Detalle](grafo/modulo/facturacion-offline.md).
+

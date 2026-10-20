@@ -261,3 +261,37 @@ test('mirar las facturas emitidas NO borra la venta en curso', () => {
   const bloque = fuente.slice(fuente.indexOf('const cambiarTab'), fuente.indexOf('const cambiarTab') + 700);
   assert.match(bloque, /if \(tab === 'facturas'\) \{\s*\n\s*setTabActiva\('facturas'\)\s*\n\s*return/);
 });
+
+// «Que las facturas que salen en editar sean por orden de llegada y no al
+// azar» (el usuario, 2026-10-19). Se ordenaban solo por día.
+test('editar facturas: la última que llegó va arriba, también dentro del mismo día', () => {
+  const lista = [
+    { id: 5610, numero: '001000015060', fecha: '2026-10-19' },
+    { id: 5598, numero: '001000015055', fecha: '2026-10-18' },
+    { id: 5615, numero: '00100001010000002490', fecha: '2026-10-19', electronica: true },
+    { id: 5612, numero: '001000015061', fecha: '2026-10-19' },
+    { id: 'local-7', numero: 'LOCAL-1', fecha: '2026-10-19', updatedAtLocal: 1000 },
+    { id: 'local-9', numero: 'LOCAL-2', fecha: '2026-10-19', updatedAtLocal: 2000 },
+    { id: 5600, numero: '001000015057', fecha: '2026-10-18' }
+  ];
+  assert.deepEqual(copias.ordenDeLlegada(lista).map(f => f.id),
+    ['local-9', 'local-7', 5615, 5612, 5610, 5600, 5598],
+    'las que no subieron primero; después por id, sin importar la serie electrónica o normal');
+  assert.deepEqual(lista.map(f => f.id)[0], 5610, 'no cambia la lista que recibe');
+  // Un id que vino como texto se ordena como número.
+  assert.deepEqual(copias.ordenDeLlegada([{ id: '99', fecha: '2026-10-19' }, { id: '100', fecha: '2026-10-19' }]).map(f => f.id), ['100', '99']);
+});
+
+test('editar facturas: buscar mezcla teléfono y servidor sin repetir, en el mismo orden', () => {
+  const locales = [{ id: 5612, fecha: '2026-10-19' }, { id: 5600, fecha: '2026-10-18' }];
+  const servidor = [{ id: '5612', fecha: '2026-10-19' }, { id: 5605, fecha: '2026-10-18' }, { id: 5000, fecha: '2026-09-30' }];
+  assert.deepEqual(copias.combinarBusqueda(locales, servidor).map(f => f.id), [5612, 5605, 5600, 5000]);
+  assert.deepEqual(copias.combinarBusqueda(locales).map(f => f.id), [5612, 5600], 'sin conexión, solo lo del teléfono');
+});
+
+test('editar facturas: la copia del teléfono y la búsqueda usan ese orden', () => {
+  const leer = (...p) => require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'frontend', 'src', ...p), 'utf8');
+  assert.match(leer('services', 'facturacionService.js'), /return ordenDeLlegada\(facturasUnicas\);/);
+  assert.match(leer('hooks', 'useFacturacion.js'), /facturasLocales = combinarBusqueda\(facturasLocales, await facturacionService\.buscarFacturas\(\{ numero: termino \}\)\)/);
+});
+

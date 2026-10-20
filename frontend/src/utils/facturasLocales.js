@@ -82,3 +82,36 @@ export function combinarCopiaFactura(anterior, nueva) {
     lineas: completa ? nueva.lineas : (anterior?.lineas ?? nueva.lineas),
     detalleDisponible: completa ? nueva.lineas.length > 0 : Boolean(anterior?.detalleDisponible || Array.isArray(anterior?.lineas)) }
 }
+
+/**
+ * Las facturas en orden de llegada: la última que entró, arriba. Pedido del
+ * usuario, 2026-10-19: «que las facturas que salen en editar sean por orden de
+ * llegada y no al azar». Se ordenaban solo por día, y las del mismo día
+ * quedaban en el orden interno del navegador.
+ *
+ * Primero el día; dentro del día, la que entró después. El id propio crece
+ * con cada factura guardada, también entre electrónicas y normales, que llevan
+ * consecutivos distintos y por eso no sirven para esto. Las que todavía no
+ * subieron (id local) son las más nuevas de su día, por la hora en que se
+ * hicieron.
+ */
+export function ordenDeLlegada(facturas) {
+  const llegada = (f) => {
+    const id = Number(f.id)
+    return Number.isFinite(id) && id > 0 ? [0, id] : [1, numero(f.updatedAtLocal ?? f.timestamp)]
+  }
+  return [...facturas].sort((a, b) => {
+    const porDia = String(b.fecha || '').localeCompare(String(a.fecha || ''))
+    if (porDia) return porDia
+    const [tipoA, valorA] = llegada(a)
+    const [tipoB, valorB] = llegada(b)
+    return tipoB - tipoA || valorB - valorA
+  })
+}
+
+/** Lo que encontró una búsqueda en el teléfono y en el servidor: sin repetir, en orden de llegada. */
+export function combinarBusqueda(locales, delServidor = []) {
+  const ids = new Set(locales.map(f => String(f.id)))
+  return ordenDeLlegada([...locales, ...delServidor.filter(f => !ids.has(String(f.id)))])
+}
+
