@@ -157,9 +157,11 @@ describe('los totales cierran con la calculadora', () => {
     assert.ok(Math.abs(235029.23 - 7516.76 + 29576.64 - 257089.11) < 0.01);
   });
 
-  test('sin descuento el renglón Descuento sale en ₡0, y una tarifa por renglón', () => {
-    const r = renglonesDeTotales({ ...FACTURA, lineas: [LINEA, { ...LINEA, numeroLinea: 2, tarifa: 1, impuestoMonto: 30 }] });
-    assert.deepEqual(r.map(([e]) => e), ['Subtotal', 'Descuento', 'Impuesto 1 %', 'Impuesto 13 %']);
+  test('sin descuento el renglón Descuento sale en ₡0, y una tarifa por renglón, de la mayor a la menor', () => {
+    // «impuesto 13 % xx / impuesto 2 % xx» (el usuario, 2026-10-19).
+    const r = renglonesDeTotales({ ...FACTURA, lineas: [{ ...LINEA, numeroLinea: 2, tarifa: 2, impuestoMonto: 30 }, LINEA, { ...LINEA, numeroLinea: 3, tarifa: 1, impuestoMonto: 5 }] });
+    assert.deepEqual(r.map(([e]) => e), ['Subtotal', 'Descuento', 'Impuesto 13 %', 'Impuesto 2 %', 'Impuesto 1 %']);
+    assert.deepEqual(r.slice(2).map(([, v]) => v), ['₡390', '₡30', '₡5']);
     assert.equal(r[0][1], r.find(([e]) => e === 'Subtotal')[1]);
     assert.doesNotMatch(r[1][1], /−/);
     assert.deepEqual(renglonesDeTotales({ ...FACTURA, impuesto: 0, lineas: [{ ...LINEA, tarifa: 0, impuestoMonto: 0 }] }).map(([e]) => e),

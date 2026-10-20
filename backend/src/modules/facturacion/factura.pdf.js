@@ -476,8 +476,9 @@ function impuestoPorTarifa(lineas) {
  * el descuento restado y se avisaba con «Ya incluye ₡X de descuento»; un
  * renglón «Descuento» debajo de ESE subtotal no cerraba (1.469 − 36 + 191 no
  * es 1.660), y por eso no estaba. El Descuento sale siempre, en ₡0 si no hay.
- * El impuesto va por tarifa ("Impuesto 13 %", "Impuesto 1 %"): acá se vende
- * con varias.
+ * El impuesto va por tarifa, un renglón cada una y de la mayor a la menor,
+ * como lo escribió el usuario: «impuesto 13 % xx / impuesto 2 % xx». Acá se
+ * vende con varias (0, 1, 2, 4, 8 y 13 %).
  */
 function renglonesDeTotales(f) {
   const descuento = num(f.descuento);
@@ -486,7 +487,7 @@ function renglonesDeTotales(f) {
     ['Subtotal', colones(subtotalAntesDeDescuento(f))],
     ['Descuento', descuento > 0 ? `−${colones(descuento)}` : colones(0)],
     ...(desglose.length
-      ? desglose.map(([tarifa, monto]) => [`Impuesto ${tarifaTexto(tarifa)}`, colones(monto)])
+      ? [...desglose].reverse().map(([tarifa, monto]) => [`Impuesto ${tarifaTexto(tarifa)}`, colones(monto)])
       : [['Impuesto', colones(0)]])
   ];
 }

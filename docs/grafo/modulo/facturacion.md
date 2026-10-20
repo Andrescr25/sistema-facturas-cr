@@ -335,7 +335,8 @@ descuento restado, y por eso el descuento iba como nota y no como renglón.
 Ahora (`renglonesDeTotales` en `factura.pdf.js`): **Subtotal** de ANTES del
 descuento (`subtotalAntesDeDescuento`: la base más el descuento, también en
 las copiadas de Alegra), **Descuento** como resta (₡0 si no hay), **Impuesto
-13 %** —un renglón por tarifa— y el **TOTAL** en su recuadro. Así la cuenta
+13 %** —un renglón por tarifa, de la mayor a la menor, como lo escribió él:
+«impuesto 13 % xx / impuesto 2 % xx»— y el **TOTAL** en su recuadro. Así la cuenta
 cierra en el papel: ₡235.029 − ₡7.517 + ₡29.577 = ₡257.089. La columna
 IMPORTE de cada línea sigue siendo después del descuento. Vale para la
 factura, la electrónica y la nota de crédito (el mismo papel), y para el PDF
