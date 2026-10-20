@@ -369,3 +369,30 @@ anular; fantasma para volver; primario para guardar). Prueba:
 `backend/tests/botonesFactura.test.js`. La cabecera de Facturación
 («Actualizar») es de todas las pestañas y no se tocó.
 
+## Color en las acciones y Facturación responsive — 2026-10-19
+
+«Ponle color a estos btn: Ver PDF, WhatsApp, Correo, Editar factura, Emitir
+electrónicamente, Nota de crédito» y «este módulo hazlo completamente
+responsive». `ui/Boton` suma variantes de color suave por significado, los
+tonos de `ui/Insignia`: `activo` (azul: Correo), `exito` (verde: WhatsApp),
+`alerta` (ámbar: Editar), `nota` (morado: Nota de crédito), `acento` (naranja
+de la marca: Ver PDF); Emitir electrónicamente va en `primario` sólido y
+Anular en `peligro`.
+
+Responsive, medido en Chromium a 320, 360, 390, 768, 1024 y 1440 px (desborde
+horizontal, elementos fuera de pantalla y controles de menos de 36 px en el
+teléfono), en Nueva factura, Editar facturas, la lista y la factura vista y
+en edición: sin desbordes ni controles chicos.
+- `LineasFactura`: en el teléfono, una tarjeta por línea (la tabla de seis
+  columnas cortaba precio, descuento, impuesto y total); cada campo es un
+  componente que usan la tabla y la tarjeta.
+- `CELDA`: campos altos y con letra de 16 px en el teléfono (sin zoom).
+- Acciones de la factura en dos columnas parejas en el teléfono.
+- Pestañas en tres columnas con el ícono arriba; «Actualizar», paginación y
+  anular factura con `ui/Boton`; filtros, fechas, «Cambiar» cliente,
+  «Agregar detalle» y quitar línea con tamaño de dedo.
+- `index.css`: el ícono del calendario de TODOS los campos de fecha en el
+  teléfono iba con `position: absolute` sin un padre posicionado y se salía al
+  borde de la tarjeta; el campo es ahora su referencia.
+Pruebas en `backend/tests/botonesFactura.test.js`.
+

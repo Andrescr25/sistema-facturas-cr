@@ -51,7 +51,7 @@ export default function LineaFactura({
         <button
           onClick={() => onEliminar(index)}
           aria-label={`Quitar ${item.name}`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-neutro-400 transition-colors hover:bg-peligro-50 hover:text-peligro-600"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutro-400 transition-colors hover:bg-peligro-50 hover:text-peligro-600"
         >
           <Trash2 size={18} />
         </button>
@@ -173,7 +173,7 @@ export default function LineaFactura({
         <button
           type="button"
           onClick={() => onToggleDetalle(item.id)}
-          className="mt-3 flex items-center gap-1.5 text-xs font-bold text-primario-600 hover:text-primario-800"
+          className="mt-2 flex min-h-10 items-center gap-1.5 text-sm font-bold text-primario-600 hover:text-primario-800 md:mt-3 md:min-h-0 md:text-xs"
         >
           <StickyNote size={14} /> Agregar detalle
         </button>

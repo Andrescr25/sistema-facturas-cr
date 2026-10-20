@@ -19,7 +19,7 @@ export default function ClienteFactura({ factura: f, editando, edicion }) {
               <span className="text-lg font-bold text-neutro-900">{edicion.cliente?.nombre}</span>
               <button
                 onClick={() => edicion.setTextoCliente('')}
-                className="text-xs font-semibold text-primario-600 hover:underline"
+                className="inline-flex min-h-10 items-center rounded-lg px-2 text-sm font-semibold text-primario-600 hover:bg-primario-50 md:min-h-0 md:px-0 md:text-xs md:hover:bg-transparent md:hover:underline"
               >
                 Cambiar
               </button>
@@ -40,13 +40,13 @@ export default function ClienteFactura({ factura: f, editando, edicion }) {
                 <button
                   key={c.id}
                   onClick={() => edicion.elegirCliente(c)}
-                  className="rounded-lg border border-neutro-200 bg-white px-2.5 py-1.5 text-left text-sm hover:border-primario-300"
+                  className="min-h-11 rounded-lg border border-neutro-200 bg-white px-2.5 py-1.5 text-left text-sm hover:border-primario-300 md:min-h-0"
                 >
                   <span className="font-semibold text-neutro-800">{c.name}</span>
                   {c.identification && <span className="ml-2 text-xs text-neutro-400">{c.identification}</span>}
                 </button>
               ))}
-              <button onClick={() => edicion.setTextoCliente(null)} className="self-start text-xs text-neutro-500 hover:underline">
+              <button onClick={() => edicion.setTextoCliente(null)} className="inline-flex min-h-10 items-center self-start text-sm text-neutro-500 hover:underline md:min-h-0 md:text-xs">
                 Dejar el que está
               </button>
             </div>

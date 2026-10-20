@@ -1,4 +1,5 @@
 import { FileText, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react'
+import Boton from '../ui/Boton'
 
 /**
  * La cabecera de Facturación.
@@ -53,7 +54,7 @@ export default function CabeceraFacturacion({
           <button
             type="button"
             onClick={onVerPendientes}
-            className="flex shrink-0 items-center gap-1 rounded-lg bg-alerta-100 px-2 py-1.5 text-xs font-bold text-alerta-800 hover:bg-alerta-200"
+            className="flex min-h-10 shrink-0 items-center gap-1 rounded-lg bg-alerta-100 px-2 py-1.5 text-xs font-bold text-alerta-800 hover:bg-alerta-200 md:min-h-0"
             title={`${facturasPendientesCount} factura(s) esperando subir: tocá para verlas`}
             aria-label={`${facturasPendientesCount} factura(s) esperando subir: ver`}
           >
@@ -62,15 +63,11 @@ export default function CabeceraFacturacion({
           </button>
         )}
 
-        <button
-          onClick={onActualizarCache}
-          disabled={!isOnline || syncingCache}
-          className="btn btn-outline btn-sm flex shrink-0 items-center gap-1.5 disabled:opacity-50"
-          title="Actualizar catálogo de productos y clientes"
-        >
-          <RefreshCw size={14} className={syncingCache ? 'animate-spin' : ''} />
+        <Boton variante="secundario" icono={RefreshCw} cargando={syncingCache} onClick={onActualizarCache}
+          disabled={!isOnline} className="shrink-0" title="Actualizar catálogo de productos y clientes"
+          aria-label="Actualizar catálogo de productos y clientes">
           <span className="hidden md:inline">{syncingCache ? 'Actualizando…' : 'Actualizar'}</span>
-        </button>
+        </Boton>
       </div>
     </header>
   )

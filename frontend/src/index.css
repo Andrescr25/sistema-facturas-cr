@@ -212,7 +212,14 @@
     overflow-x: hidden;
   }
 
-  /* Asegurar que inputs date no se salgan */
+  /* Asegurar que inputs date no se salgan. El campo es el punto de
+     referencia del ícono: sin `position: relative` el ícono absoluto se iba
+     al borde de la tarjeta, fuera de su campo (2026-10-19). El relleno de la
+     derecha le deja su lugar para que no tape la fecha. */
+  input[type="date"] {
+    position: relative;
+    padding-right: 2rem !important;
+  }
   input[type="date"]::-webkit-calendar-picker-indicator {
     position: absolute;
     right: 8px;

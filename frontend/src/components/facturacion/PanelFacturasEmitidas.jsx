@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Loader2, Ban, ChevronRight, ChevronLeft, Receipt, CalendarDays } from 'lucide-react'
 import Insignia from '../ui/Insignia'
+import Boton from '../ui/Boton'
 import Vacio from '../ui/Vacio'
 import Modal from '../ui/Modal'
 import ModalNotaCredito from './ModalNotaCredito'
@@ -80,15 +81,8 @@ function ModalAnular({ factura, onCerrar, onAnular }) {
         />
         {error && <p className="rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700">{error}</p>}
         <div className="flex gap-2">
-          <button onClick={onCerrar} className="btn btn-outline flex-1">Cancelar</button>
-          <button
-            onClick={confirmar}
-            disabled={guardando}
-            className="btn flex flex-1 items-center justify-center gap-2 bg-peligro-600 text-white hover:bg-peligro-700 disabled:opacity-50"
-          >
-            {guardando ? <Loader2 size={18} className="animate-spin" /> : <Ban size={18} />}
-            Anular
-          </button>
+          <Boton variante="secundario" tamano="lg" ancho onClick={onCerrar}>Cancelar</Boton>
+          <Boton variante="peligro" tamano="lg" ancho icono={Ban} cargando={guardando} onClick={confirmar}>Anular</Boton>
         </div>
       </div>
     </Modal>
@@ -180,7 +174,7 @@ export default function PanelFacturasEmitidas({ f }) {
             <button
               key={e.clave}
               onClick={() => f.setEstado(e.clave)}
-              className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`min-h-10 rounded-xl border px-3 py-1.5 text-sm font-semibold transition-all sm:min-h-0 sm:text-xs ${
                 f.estado === e.clave
                   ? 'border-primario-300 bg-primario-50 text-primario-700'
                   : 'border-neutro-200 bg-white text-neutro-600 hover:border-neutro-300'
@@ -190,13 +184,19 @@ export default function PanelFacturasEmitidas({ f }) {
             </button>
           ))}
 
-          <div className="ml-auto flex items-center gap-1.5">
-            <CalendarDays size={15} className="shrink-0 text-neutro-400" />
-            <input type="date" value={f.desde} onChange={(e) => f.setDesde(e.target.value)}
-              className="input w-[8.5rem] px-2 py-1.5 text-xs" />
-            <span className="text-xs text-neutro-400">a</span>
-            <input type="date" value={f.hasta} onChange={(e) => f.setHasta(e.target.value)}
-              className="input w-[8.5rem] px-2 py-1.5 text-xs" />
+          {/* En el teléfono, las dos fechas en columnas con su rótulo y letra
+              de 16 px (menos que eso y el teléfono hace zoom al tocarlas): con
+              el ícono y la «a» en medio no cabían. Debajo de 380 px, una
+              debajo de la otra. */}
+          <div className="grid w-full grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:ml-auto sm:flex sm:w-auto sm:items-center sm:gap-1.5">
+            <CalendarDays size={15} className="hidden shrink-0 text-neutro-400 sm:block" />
+            {[['Desde', f.desde, f.setDesde], ['Hasta', f.hasta, f.setHasta]].map(([rotulo, valor, poner], i) => (
+              <label key={rotulo} className="min-w-0 text-[11px] font-semibold text-neutro-500 sm:flex sm:items-center sm:gap-1.5">
+                <span className={i === 0 ? 'sm:sr-only' : 'sm:font-normal sm:text-neutro-400'}>{i === 0 ? rotulo : <><span className="sm:hidden">{rotulo}</span><span className="hidden sm:inline">a</span></>}</span>
+                <input type="date" value={valor} onChange={(e) => poner(e.target.value)} aria-label={rotulo}
+                  className="input mt-1 min-h-10 w-full px-2 py-1.5 text-base sm:mt-0 sm:min-h-0 sm:w-[8.5rem] sm:text-xs" />
+              </label>
+            ))}
           </div>
         </div>
       </div>
@@ -256,20 +256,10 @@ export default function PanelFacturasEmitidas({ f }) {
             {f.paginacion.total} facturas · página {f.paginacion.pagina} de {f.paginacion.paginas}
           </span>
           <div className="flex gap-1">
-            <button
-              onClick={() => f.setPagina(p => Math.max(1, p - 1))}
-              disabled={f.paginacion.pagina <= 1}
-              className="btn btn-outline p-2 disabled:opacity-40"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={() => f.setPagina(p => p + 1)}
-              disabled={f.paginacion.pagina >= f.paginacion.paginas}
-              className="btn btn-outline p-2 disabled:opacity-40"
-            >
-              <ChevronRight size={16} />
-            </button>
+            <Boton variante="secundario" icono={ChevronLeft} aria-label="Página anterior"
+              onClick={() => f.setPagina(p => Math.max(1, p - 1))} disabled={f.paginacion.pagina <= 1} />
+            <Boton variante="secundario" icono={ChevronRight} aria-label="Página siguiente"
+              onClick={() => f.setPagina(p => p + 1)} disabled={f.paginacion.pagina >= f.paginacion.paginas} />
           </div>
         </div>
       )}

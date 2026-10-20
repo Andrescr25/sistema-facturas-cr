@@ -436,7 +436,7 @@ describe('cómo quedó conectada la pantalla', () => {
   const gancho = codigo('hooks', 'useEmisionFactura.js');
 
   test('la factura usa el botón de un clic, no el modal', () => {
-    assert.match(vista, /<BotonEmitirFactura emision=\{emision\} \/>/);
+    assert.match(vista, /<BotonEmitirFactura emision=\{emision\}[^>]*\/>/);
     assert.doesNotMatch(vista, /<DocumentoFiscal documento=\{f\}/, 'la factura volvió a abrir el modal');
     // Tampoco las notas de crédito: tienen su tarjeta con el mismo botón
     // (ver notaCreditoSeguimiento.test.js).

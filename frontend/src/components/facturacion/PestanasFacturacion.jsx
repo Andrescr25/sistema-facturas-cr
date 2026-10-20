@@ -33,7 +33,7 @@ export default function PestanasFacturacion({
   // tres se apretaban hasta chocar ("Nueva factura⁄Editar facturas") en un
   // teléfono de 400 px.
   return (
-    <div className="mb-4 flex max-w-2xl flex-wrap gap-1 rounded-2xl bg-neutro-100 p-1.5 md:mb-6 md:flex-nowrap">
+    <div className="mb-4 grid max-w-2xl auto-cols-fr grid-flow-col gap-1 rounded-2xl bg-neutro-100 p-1.5 md:mb-6 md:flex">
       {pestanas.map((p) => {
         const Icono = p.icono
         const activa = tabActiva === p.clave
@@ -41,7 +41,7 @@ export default function PestanasFacturacion({
           <button
             key={p.clave}
             onClick={() => onCambiarTab(p.clave)}
-            className={`${p.soloMovil ? 'md:hidden ' : ''}flex min-w-[7.5rem] flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-sm font-semibold transition-all ${
+            className={`${p.soloMovil ? 'md:hidden ' : ''}flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-xs font-semibold transition-all sm:flex-row sm:gap-2 sm:px-2 sm:text-sm md:min-w-[7.5rem] md:flex-1 ${
               activa
                 ? 'bg-white text-primario-600 shadow-md ring-1 ring-black/5'
                 : 'text-neutro-600 hover:text-neutro-900'

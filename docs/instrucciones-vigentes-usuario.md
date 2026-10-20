@@ -892,3 +892,8 @@ Haz que todo el diseño de btns sea más acorde al sistema y no tan genéricos,
 recuerda reciclar código». Hecho con `ui/Boton`.
 [Detalle](grafo/modulo/facturacion.md).
 
+Y luego: «esta perfecto, pero ponle color a estos btn: Ver PDF, WhatsApp,
+Correo, Editar factura, Emitir electrónicamente, Nota de crédito, y este
+módulo hazlo completamente responsive». Hecho: colores por significado con
+`ui/Boton` y Facturación comprobada de 320 a 1440 px.
+

@@ -9,13 +9,13 @@ import { botonDe } from '../../utils/emisionPasos'
  * factura. Cuando el clic va al ambiente de pruebas el botón lo dice, para
  * que nadie crea que emitió una factura con validez.
  */
-export default function BotonEmitirFactura({ emision }) {
+export default function BotonEmitirFactura({ emision, className = '' }) {
   if (!emision.activo) return null
   const boton = botonDe(emision)
   if (!boton) return null
   const { estado, fase } = emision
   return (
-    <Boton variante="secundario" icono={ShieldCheck} data-emitir-electronica
+    <Boton variante="primario" icono={ShieldCheck} data-emitir-electronica className={className}
       onClick={() => emision.emitir()} cargando={Boolean(fase)} disabled={Boolean(boton.ocupado)}>
       {boton.texto}
       {estado?.ambiente === 'pruebas' && !estado.comprobante && !fase && (

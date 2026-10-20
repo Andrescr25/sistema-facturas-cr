@@ -69,6 +69,9 @@ function Dato({ etiqueta, children }) {
   )
 }
 
+/** Los botones de acción ocupan su columna en el teléfono y su ancho en pantalla ancha. */
+const ANCHO_MOVIL = 'w-full sm:w-auto'
+
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
   onVolver, onPdf, onPdfNota, onAnular, onNotaCredito, onEditar, onEnviar, onCorreo, cargandoCorreo,
@@ -117,21 +120,22 @@ export default function VistaFactura({
         )}
 
         {!editando && (
-          <div className="ml-auto flex flex-wrap gap-2">
-            <Boton variante="secundario" icono={FileText} cargando={abriendoPdf === f.id} onClick={() => onPdf(f.id)}>Ver PDF</Boton>
+          /* En el teléfono, dos columnas parejas; en pantalla ancha, en fila. */
+          <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+            <Boton variante="acento" className={ANCHO_MOVIL} icono={FileText} cargando={abriendoPdf === f.id} onClick={() => onPdf(f.id)}>Ver PDF</Boton>
 
             {/* Mandarle la factura al cliente con nuestro PDF. Una anulada
                 no se manda: es un documento sin valor y mandarlo invita a
                 que lo paguen. */}
             {f.estado !== 'anulada' && (
-              <Boton variante="secundario" icono={MessageCircle} onClick={() => onEnviar(f)}>WhatsApp</Boton>
+              <Boton variante="exito" className={ANCHO_MOVIL} icono={MessageCircle} onClick={() => onEnviar(f)}>WhatsApp</Boton>
             )}
 
             {f.estado === 'emitida' && onCorreo && (
-              <Boton variante="secundario" icono={Mail} cargando={cargandoCorreo} onClick={() => onCorreo(f)}>Correo</Boton>
+              <Boton variante="activo" className={ANCHO_MOVIL} icono={Mail} cargando={cargandoCorreo} onClick={() => onCorreo(f)}>Correo</Boton>
             )}
 
-            <Boton variante="secundario" icono={PencilLine} onClick={onEditar}
+            <Boton variante="alerta" className={ANCHO_MOVIL} icono={PencilLine} onClick={onEditar}
               disabled={Boolean(razonNoEditable)} title={razonNoEditable || 'Corregir esta factura'}>
               Editar factura
             </Boton>
@@ -139,15 +143,15 @@ export default function VistaFactura({
             {/* Un clic firma, envía y consulta; el avance se ve en el
                 panel de abajo. El estado aceptado viene siempre de la
                 consulta autenticada ante Hacienda. */}
-            <BotonEmitirFactura emision={emision} />
+            <BotonEmitirFactura emision={emision} className="col-span-2 w-full sm:col-span-1 sm:w-auto" />
 
             {f.estado === 'emitida' && (
               <>
-                <Boton variante="secundario" icono={Undo2} onClick={() => onNotaCredito(f)}>Nota de crédito</Boton>
+                <Boton variante="nota" className={ANCHO_MOVIL} icono={Undo2} onClick={() => onNotaCredito(f)}>Nota de crédito</Boton>
                 {/* Anular es de administradores (decisión del usuario,
                     2026-10-03). El servidor lo hace valer; acá solo no se
                     ofrece un botón que va a responder que no. */}
-                {puedeAnular && <Boton variante="peligro" icono={Ban} onClick={() => onAnular(f)}>Anular</Boton>}
+                {puedeAnular && <Boton variante="peligro" className={ANCHO_MOVIL} icono={Ban} onClick={() => onAnular(f)}>Anular</Boton>}
               </>
             )}
           </div>

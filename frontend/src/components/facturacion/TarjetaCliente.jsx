@@ -25,7 +25,8 @@ export default function TarjetaCliente({ cliente, onCambiarCliente }) {
 
       <button
         onClick={onCambiarCliente}
-        className="flex shrink-0 items-center gap-1.5 rounded-xl border border-exito-300 bg-white px-3 py-2 text-xs font-bold text-exito-800 transition-colors hover:bg-exito-100"
+        aria-label="Cambiar cliente"
+        className="flex min-h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-exito-300 bg-white px-3 py-2 text-xs font-bold text-exito-800 transition-colors hover:bg-exito-100"
       >
         <RefreshCcw size={14} />
         <span className="hidden sm:inline">Cambiar</span>
