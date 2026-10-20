@@ -1,5 +1,5 @@
-import { Plus, Printer, Trash2, AlertTriangle, Loader2 } from 'lucide-react'
-import { formatDate, totalDeItems, subtotalDeItem } from '../../utils/impresionUtils'
+import { Plus, Printer, Trash2, AlertTriangle, Loader2, ShieldCheck } from 'lucide-react'
+import { formatDate, totalDeItems, subtotalDeItem, DESPUES } from '../../utils/impresionUtils'
 import BuscadorProductoNuevo from './BuscadorProductoNuevo'
 import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
@@ -46,7 +46,8 @@ export default function FormularioEdicionFactura({
   onIniciarBusqueda,
   onCambiarTermino,
   onSeleccionarProducto,
-  onGuardar
+  onGuardar,
+  emitible = false
 }) {
 
   // El total de la factura que se va a imprimir, con el impuesto de cada
@@ -85,14 +86,21 @@ export default function FormularioEdicionFactura({
             <Boton variante="secundario" onClick={onCancelar} disabled={procesando}>
               Cancelar
             </Boton>
-            <Boton variante="secundario" onClick={() => onGuardar(false)}
+            <Boton variante="secundario" onClick={() => onGuardar(DESPUES.GUARDAR)}
               cargando={procesando} disabled={cargandoItems}>
               Solo guardar
             </Boton>
-            <Boton variante="primario" icono={Printer} onClick={() => onGuardar(true)}
+            <Boton variante={emitible ? 'secundario' : 'primario'} icono={Printer} onClick={() => onGuardar(DESPUES.IMPRIMIR)}
               cargando={procesando} disabled={cargandoItems}>
               Guardar e imprimir
             </Boton>
+            {/* Con correo: guarda los ajustes, emite y después imprime. */}
+            {emitible && (
+              <Boton variante="primario" icono={ShieldCheck} onClick={() => onGuardar(DESPUES.EMITIR)}
+                cargando={procesando} disabled={cargandoItems}>
+                Imprimir y emitir
+              </Boton>
+            )}
           </div>
         </div>
       }

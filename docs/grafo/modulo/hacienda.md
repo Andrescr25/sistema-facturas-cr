@@ -53,8 +53,8 @@ archivos:
   - docs/plan-integracion-hacienda.md
   - docs/informes/hacienda-2026-10-05.md
 aristas:
-  relacionado: [modulo/facturacion, leccion/la-estructura-se-cuida-con-una-prueba, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera]
-medido: 2026-10-12
+  relacionado: [modulo/facturacion, leccion/la-estructura-se-cuida-con-una-prueba, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera, modulo/faltantes]
+medido: 2026-10-20
 ---
 
 El usuario autorizó desarrollar Hacienda sin pedir nuevas confirmaciones,
@@ -523,3 +523,11 @@ desechable) y un caso en `revisionPreciosPropia.test.js`. Chromium real con
 Hacienda simulada: sin condición elegida, elegirla en Configuración, aceptar
 con un clic, registrar y que salga sola, sin XML y subirlo, rechazo y
 reenvío, y la lista de Registradas.
+
+## También se emite desde Impresión — 2026-10-20
+
+«Imprimir y emitir» ([[modulo/faltantes]]): las facturas con correo se emiten
+en Impresión DESPUÉS de guardar sus ajustes (faltantes y precios), con el
+mismo gancho, panel y botón de la factura —no hay una segunda forma de
+emitir—. `PanelEmisionFactura` suma `angosto` (dos columnas como mucho dentro
+de un modal) y `DatosPendientesEmision` usa los botones del sistema.

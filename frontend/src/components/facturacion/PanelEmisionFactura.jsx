@@ -41,14 +41,20 @@ function Paso({ paso }) {
         <t.Icono size={18} className={t.gira ? 'animate-spin' : ''} />
       </span>
       <div className="min-w-0">
-        <p className={`text-sm font-semibold leading-snug ${t.tenue ? 'text-neutro-500' : 'text-neutro-900'}`}>{paso.titulo}</p>
+        <p className={`break-words text-sm font-semibold leading-snug ${t.tenue ? 'text-neutro-500' : 'text-neutro-900'}`}>{paso.titulo}</p>
         {paso.detalle && <p className="mt-0.5 break-words text-xs text-neutro-600">{paso.detalle}</p>}
       </div>
     </li>
   )
 }
 
-export default function PanelEmisionFactura({ emision, incrustado = false }) {
+/**
+ * `angosto`: dentro de un modal (Impresión, «Imprimir y emitir»). Las cuatro
+ * columnas dependen del ancho de la PANTALLA, no del lugar que tiene el
+ * panel: en un modal de 672 px a pantalla grande el correo y el consecutivo
+ * se salían de su recuadro. Ahí son dos como mucho.
+ */
+export default function PanelEmisionFactura({ emision, incrustado = false, angosto = false }) {
   const { estado, fase, error, pidiendoDatos, bajar, bajando, errorDescarga } = emision
   const c = estado?.comprobante || null
   if (!emision.activo || !(c || fase || error || pidiendoDatos)) return null
@@ -79,7 +85,7 @@ export default function PanelEmisionFactura({ emision, incrustado = false }) {
       </div>
 
       {(c || fase) && (
-        <ol className={`mt-4 grid gap-3 ${pasos.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4'}`}>
+        <ol className={`mt-4 grid gap-3 ${angosto ? 'sm:grid-cols-2' : pasos.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 xl:grid-cols-4'}`}>
           {pasos.map(p => <Paso key={p.clave} paso={p} />)}
         </ol>
       )}

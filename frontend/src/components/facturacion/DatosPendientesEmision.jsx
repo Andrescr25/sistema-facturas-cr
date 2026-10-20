@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
+import Boton from '../ui/Boton'
 import { MOTIVOS_DESCUENTO, REFERENCIAS_NOTA, faltaContestar, respuestaDe } from '../../utils/emisionPasos'
 
 const CAMPO = 'mt-1 w-full rounded-lg border border-neutro-300 bg-white px-3 py-2 text-sm'
@@ -155,10 +156,8 @@ export default function DatosPendientesEmision({ estado, onEmitir, onCancelar })
 
       {aviso && <p role="alert" className="mt-3 text-sm font-medium text-peligro-700">{aviso}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={emitir} className="btn btn-primary flex items-center gap-2">
-          <ShieldCheck size={16} /> Emitir ahora
-        </button>
-        <button type="button" onClick={onCancelar} className="btn btn-outline">Cancelar</button>
+        <Boton icono={ShieldCheck} onClick={emitir}>Emitir ahora</Boton>
+        <Boton variante="secundario" onClick={onCancelar}>Cancelar</Boton>
       </div>
     </div>
   )

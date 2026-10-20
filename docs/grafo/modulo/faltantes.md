@@ -41,6 +41,9 @@ archivos:
   - backend/tests/impresionPropia.test.js
   - backend/tests/impresionPropiaLocal.test.js
   - backend/tests/impresionHook.test.js
+  - backend/tests/impresionEmitir.test.js
+  - frontend/src/components/impresion/EmitirEImprimir.jsx
+  - frontend/src/components/impresion/ListaFacturasPendientes.jsx
   - backend/tests/ajustesFaltantesImpresion.test.js
   - backend/tests/reporteClientesGuardado.test.js
   - docs/informes/auditoria-impresion-2026-10-11.md
@@ -54,8 +57,8 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores]
-medido: 2026-10-15
+  relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores, modulo/hacienda]
+medido: 2026-10-20
 ---
 
 **2026-10-14, compra actual y procedencia exacta:** Reporte Proveedores y sus
@@ -403,3 +406,39 @@ tras 24 h sin movimientos desde el envío a Impresión. No modifica faltantes,
 ajustes ni la cola, y no ejecuta limpieza semanal. Recuperar reabre el trabajo;
 un procesado recuperado no se archiva otra vez hasta reenviarse. Fechas de
 historial normalizadas por zona CR y consulta/exportación sin escritura.
+
+## «Imprimir y emitir» — 2026-10-20
+
+El usuario: «hay facturas que siempre se emiten, pero se emiten hasta después
+del proceso de impresión; que todas las facturas que tienen correo en
+impresión salga el botón imprimir y emitir; eso sí, que el proceso de
+rebajas y ajustes de precios se haga primero y después se emita».
+
+- **A quién**: `seEmiteAlImprimir` (utils/impresionUtils.js) — la factura
+  tiene correo y no es electrónica, no tiene un comprobante en curso
+  (`hacienda_comprobante_id`) ni es histórica de Alegra. La cola trae esos
+  tres datos (`aFilaDeCola`). Y quien mira tiene que tener Facturación:
+  emitir usa `/api/facturacion/hacienda`, que es de ese módulo (al
+  2026-10-20 todos los que entran a Impresión lo tienen).
+- **Dónde**: en la lista (las que Bodega despachó completas), en la
+  revisión de cambios y en la edición; las de la lista muestran el correo
+  y «se emite al imprimir».
+- **El orden: guardar → emitir → imprimir.** `procesarYSeguir` guarda
+  primero —faltantes rebajados, precios del catálogo, marcada impresa— y
+  recién entonces abre `EmitirEImprimir`, que emite solo con
+  `useEmisionFactura`, `PanelEmisionFactura` y `BotonEmitirFactura`: los
+  mismos pasos y las mismas preguntas que Facturación (motivo de un
+  descuento, con qué paga el cliente). Hacienda recibe la factura ya
+  ajustada (una electrónica no se edita) y el papel sale como «Factura
+  electrónica» con su clave: el PDF solo la muestra aceptada. Por eso se
+  imprime con un clic aparte al aceptarse: el navegador bloquea una pestaña
+  que se abre sola segundos después del clic. Si no se puede emitir, se
+  imprime igual («Imprimir sin emitir») y se emite después desde
+  Facturación. Mientras emite no se cierra: cortar deja un comprobante
+  firmado sin enviar.
+- Probado en una copia desechable con Hacienda apagada (guarda, la
+  emisión se detiene con el motivo y no se crea comprobante) y con Hacienda
+  simulada en el navegador (el precio nuevo se guardó antes del primer POST
+  a Hacienda; orden: procesar → emitir → enviar → consultar).
+Pruebas: `backend/tests/impresionEmitir.test.js` y los casos nuevos de
+`backend/tests/impresionHook.test.js`.

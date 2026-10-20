@@ -3,9 +3,14 @@ import { colaImpresionService } from '../services/colaImpresionService'
 import {
   aItemDeEdicion,
   lineasParaProcesar,
-  validarItemsParaProcesar
+  validarItemsParaProcesar,
+  DESPUES,
+  preguntaAlProcesar
 } from '../utils/impresionUtils'
 import { useDialog } from './useDialog'
+
+/** El buscador de productos cerrado. */
+const BUSQUEDA_VACIA = { index: null, termino: '', resultados: [], cargando: false, error: null }
 
 /**
  * Estado y lógica del centro de impresión, sobre la factura PROPIA (rama
@@ -39,13 +44,9 @@ export function useImpresion() {
   const [procesando, setProcesando] = useState(false)
   const [ajustandoPrecios, setAjustandoPrecios] = useState(false)
   const [mensajeAjuste, setMensajeAjuste] = useState('')
-  const [productoBusqueda, setProductoBusqueda] = useState({
-    index: null,
-    termino: '',
-    resultados: [],
-    cargando: false,
-    error: null
-  })
+  const [productoBusqueda, setProductoBusqueda] = useState(BUSQUEDA_VACIA)
+  // La factura ya guardada que se está emitiendo para imprimirla (EmitirEImprimir).
+  const [porEmitir, setPorEmitir] = useState(null)
   const debounceBusquedaRef = useRef(null)
   const cargaFacturaRef = useRef(0)
 
@@ -147,13 +148,7 @@ export function useImpresion() {
     setFacturaEditando(null)
     setItemsEditados([])
     setModoEdicion(false)
-    setProductoBusqueda({
-      index: null,
-      termino: '',
-      resultados: [],
-      cargando: false,
-      error: null
-    })
+    setProductoBusqueda(BUSQUEDA_VACIA)
   }
 
   const handleAgregarItem = () => {
@@ -172,28 +167,28 @@ export function useImpresion() {
     }
 
     setItemsEditados(prev => [...prev, nuevoItem])
-    setProductoBusqueda({
-      index: nuevoIndice,
-      termino: '',
-      resultados: [],
-      cargando: false,
-      error: null
-    })
+    setProductoBusqueda({ ...BUSQUEDA_VACIA, index: nuevoIndice })
   }
 
-  /** Procesa y, si se pidió, abre el PDF en una pestaña abierta en el clic (si no, el navegador la bloquea). */
-  const procesarEImprimir = async (facturaId, opciones, imprimirDespues) => {
-    const ventana = imprimirDespues ? window.open('', '_blank') : null
+  /**
+   * Guarda (rebaja faltantes, ajusta precios, la marca impresa) y sigue con
+   * lo pedido (`DESPUES`). Imprimir abre la pestaña en el clic: si no, el
+   * navegador la bloquea. Emitir va SIEMPRE después de guardar, y la emisión
+   * con su impresión siguen en EmitirEImprimir (ver utils/impresionUtils.js).
+   */
+  const procesarYSeguir = async (factura, opciones, despues) => {
+    const ventana = despues === DESPUES.IMPRIMIR ? window.open('', '_blank') : null
     try {
-      await colaImpresionService.procesar(facturaId, opciones)
+      await colaImpresionService.procesar(factura.factura_id, opciones)
     } catch (err) {
       ventana?.close()
       throw err
     }
-    if (imprimirDespues) await colaImpresionService.abrirPdf(facturaId, ventana)
+    if (despues === DESPUES.IMPRIMIR) await colaImpresionService.abrirPdf(factura.factura_id, ventana)
+    if (despues === DESPUES.EMITIR) setPorEmitir(factura)
   }
 
-  const handleGuardarFactura = async (imprimirDespues = false) => {
+  const handleGuardarFactura = async (despues = DESPUES.GUARDAR) => {
     if (!facturaEditando || cargandoItems || procesando) return
 
     if (modoEdicion && productoBusqueda.index !== null) {
@@ -214,7 +209,7 @@ export function useImpresion() {
       setProcesando(true)
       setAjustandoPrecios(true)
       setMensajeAjuste('Guardando la factura')
-      await procesarEImprimir(facturaEditando.factura_id, opciones, imprimirDespues)
+      await procesarYSeguir(facturaEditando, opciones, despues)
       handleCancelarEdicion()
       loadFacturasPendientes()
     } catch (err) {
@@ -226,16 +221,12 @@ export function useImpresion() {
     }
   }
 
-  const handleProcesarSinCambios = async (factura, imprimirDespues = false) => {
+  const handleProcesarSinCambios = async (factura, despues = DESPUES.GUARDAR) => {
     if (!factura) return
 
     // Las que Bodega despachó completas solo se imprimen: ni faltantes ni precios.
     const soloImprimir = factura.categoria === 'sin_pendientes'
-    const mensajeConfirmacion = soloImprimir
-      ? `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?`
-      : `¿Marcar la factura ${factura.numero_factura} como impresa${imprimirDespues ? ' e imprimir ahora' : ''}?\n\nSe le rebajan los faltantes y se le ponen los precios del catálogo.`
-
-    const confirmado = await confirm(mensajeConfirmacion)
+    const confirmado = await confirm(preguntaAlProcesar(factura, { soloImprimir, despues }))
     if (!confirmado) return
 
     try {
@@ -244,7 +235,7 @@ export function useImpresion() {
         setAjustandoPrecios(true)
         setMensajeAjuste('Aplicando los cambios')
       }
-      await procesarEImprimir(factura.factura_id, { actualizarPrecios: !soloImprimir }, imprimirDespues)
+      await procesarYSeguir(factura, { actualizarPrecios: !soloImprimir }, despues)
       await loadFacturasPendientes()
       loadFacturasProcesadas()
     } catch (err) {
@@ -268,15 +259,7 @@ export function useImpresion() {
     }
   }
 
-  const cerrarBusquedaProducto = () => {
-    setProductoBusqueda({
-      index: null,
-      termino: '',
-      resultados: [],
-      cargando: false,
-      error: null
-    })
-  }
+  const cerrarBusquedaProducto = () => setProductoBusqueda(BUSQUEDA_VACIA)
 
   const buscarProductoRevision = async (index, termino) => {
     const item = itemsEditados[index]
@@ -471,6 +454,9 @@ export function useImpresion() {
     seleccionarProductoBusqueda,
     handleItemChange,
     handleEliminarItem,
+
+    porEmitir,
+    cerrarEmision: () => setPorEmitir(null),
 
     dialogProps
   }

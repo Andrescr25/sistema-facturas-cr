@@ -7,8 +7,15 @@ import ListaFacturasPendientes from '../components/impresion/ListaFacturasPendie
 import ListaFacturasProcesadas from '../components/impresion/ListaFacturasProcesadas'
 import CambiosAutomaticos from '../components/impresion/CambiosAutomaticos'
 import FormularioEdicionFactura from '../components/impresion/FormularioEdicionFactura'
+import EmitirEImprimir from '../components/impresion/EmitirEImprimir'
+import { useAuth } from '../contexts/AuthContext'
+import { puedeVer } from '../utils/modulos'
+import { seEmiteAlImprimir } from '../utils/impresionUtils'
 
 export default function Impresion() {
+  // Emitir usa las rutas de Facturación: sin ese módulo no se ofrece.
+  const { usuario } = useAuth()
+  const puedeEmitir = puedeVer(usuario, '/facturacion')
   const {
     activeTab,
     setActiveTab,
@@ -40,8 +47,12 @@ export default function Impresion() {
     handleItemChange,
     handleEliminarItem,
 
+    porEmitir,
+    cerrarEmision,
+
     dialogProps
   } = useImpresion()
+  const emitible = Boolean(facturaEditando) && puedeEmitir && seEmiteAlImprimir(facturaEditando)
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 px-3">
@@ -100,11 +111,13 @@ export default function Impresion() {
               onEditar={handleIniciarEdicion}
               onVerPDF={handleVerPDF}
               onGuardar={handleGuardarFactura}
+              emitible={emitible}
             />
           ) : (
             <ListaFacturasPendientes
               facturas={facturasPendientes}
               procesando={procesando}
+              puedeEmitir={puedeEmitir}
               onVerPDF={handleVerPDF}
               onProcesarSinCambios={handleProcesarSinCambios}
               onAbrirRevision={abrirRevision}
@@ -128,8 +141,12 @@ export default function Impresion() {
           onCambiarTermino={manejarCambioTerminoBusqueda}
           onSeleccionarProducto={seleccionarProductoBusqueda}
           onGuardar={handleGuardarFactura}
+          emitible={emitible}
         />
       )}
+
+      {/* «Imprimir y emitir»: la factura ya está guardada con sus ajustes. */}
+      {porEmitir && <EmitirEImprimir factura={porEmitir} onImprimir={handleVerPDF} onCerrar={cerrarEmision} />}
 
       {/* Tab Procesadas */}
       {activeTab === 'procesadas' && !loading && (

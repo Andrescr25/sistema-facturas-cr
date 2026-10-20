@@ -907,3 +907,12 @@ tarjeta de la nota en una franja con número, estado y monto, y las acciones
 de la factura en dos grupos.
 [Detalle](grafo/modulo/facturacion.md).
 
+## 2026-10-20 — Impresión: «Imprimir y emitir» para las que tienen correo
+
+Textual: «ok, ahora hay facturas que siempre se emiten pero estas se emiten
+hasta después del proceso de impresión, entonces pongamos un filtro que todas
+las facturas que tienen correo en impresión salga el btn así: imprimir y
+emitir. Eso sí, que el proceso de rebajas y ajustes de precios en impresión se
+haga primero y después se emita». Hecho: guardar → emitir → imprimir (el papel
+sale como factura electrónica con su clave).
+[Detalle](grafo/modulo/faltantes.md).

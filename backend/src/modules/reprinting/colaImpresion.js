@@ -200,7 +200,13 @@ function aFilaDeCola(r) {
     ajustes_realizados: ajustes,
     total_ajustes: ajustes.length,
     requiere_actualizacion: requiereActualizacion,
-    categoria: r.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios')
+    categoria: r.categoria || (requiereActualizacion ? 'requiere_cambios' : 'sin_cambios'),
+    // Para «Imprimir y emitir» (2026-10-20): solo se ofrece si la factura
+    // todavía no es electrónica, no tiene un comprobante en curso y no es una
+    // histórica de Alegra. La regla está en utils/impresionUtils.js.
+    electronica: Boolean(r.electronica),
+    con_comprobante: Boolean(r.con_comprobante),
+    historica: Boolean(r.historica)
   };
 }
 
@@ -208,7 +214,8 @@ const COLUMNAS = `
   fr.id AS reimpresion_id, fr.ajustes_realizados, fr.estado, fr.fecha_creacion,
   fr.fecha_procesamiento, fr.categoria,
   f.id AS factura_id, f.numero, f.cliente_nombre, f.cliente_correo,
-  f.fecha::text AS fecha, f.total
+  f.fecha::text AS fecha, f.total, f.electronica,
+  (f.hacienda_comprobante_id IS NOT NULL) AS con_comprobante, (f.alegra_id IS NOT NULL) AS historica
 `;
 
 /** Las pendientes: la fila más reciente de cada factura, lo más nuevo primero. */

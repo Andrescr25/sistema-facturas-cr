@@ -103,3 +103,44 @@ test('guardar durante la carga no procesa la propuesta sin revisarla', async () 
   resolver({ lineas: [linea(101)] });
   await turno();
 });
+
+// «Imprimir y emitir» (2026-10-20): «que el proceso de rebajas y ajustes de
+// precios en impresión se haga primero y después se emita».
+const conCola = (extra) => ({ pendientes: async () => ({ data: {} }), procesadas: async () => ({ data: [] }), ...extra });
+const conCorreo = { factura_id: 7, numero_factura: 'ZZ-7', categoria: 'sin_pendientes', cliente_email: 'zz@ejemplo.com' };
+
+test('imprimir y emitir guarda los ajustes primero y recién entonces pasa la factura a emitir, sin abrir el PDF', async () => {
+  const pasos = [];
+  let terminar;
+  const render = await montar(conCola({
+    procesar: (id, opciones) => { pasos.push(['procesar', id, opciones]); return new Promise(r => { terminar = r; }); },
+    abrirPdf: async () => { pasos.push(['pdf']); }
+  }));
+  const enCurso = render().handleProcesarSinCambios(conCorreo, 'emitir');
+  await turno();
+  assert.equal(render().porEmitir, null, 'nada se emite mientras los ajustes no están guardados');
+  terminar({});
+  await enCurso;
+  assert.deepEqual(pasos, [['procesar', 7, { actualizarPrecios: false }]], 'el PDF se imprime después de emitir, no acá');
+  assert.equal(render().porEmitir, conCorreo);
+  render().cerrarEmision();
+  assert.equal(render().porEmitir, null);
+});
+
+test('si guardar los ajustes falla, no se emite', async () => {
+  const render = await montar(conCola({ procesar: async () => { throw new Error('ZZ la factura quedaría sin productos'); } }));
+  await render().handleProcesarSinCambios({ ...conCorreo, categoria: 'requiere_cambios' }, 'emitir');
+  assert.equal(render().porEmitir, null);
+  assert.match(render().error, /ZZ la factura quedaría sin productos/);
+});
+
+test('desde la revisión, imprimir y emitir aplica la propuesta y cierra la revisión antes de emitir', async () => {
+  const pedidos = [];
+  const render = await montar(conCola({ procesar: async (id, opciones) => { pedidos.push([id, opciones]); } }));
+  const f = { ...conCorreo, categoria: 'requiere_cambios' };
+  render().abrirRevision(f);
+  await render().handleGuardarFactura('emitir');
+  assert.deepEqual(pedidos, [[7, {}]], 'sin líneas: el servidor aplica la propuesta (faltantes y precios)');
+  assert.equal(render().facturaEditando, null);
+  assert.equal(render().porEmitir, f);
+});

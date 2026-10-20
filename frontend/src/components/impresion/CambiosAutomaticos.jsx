@@ -1,4 +1,6 @@
-import { FileText, AlertCircle, Printer } from 'lucide-react'
+import { FileText, AlertCircle, Printer, PencilLine, ShieldCheck } from 'lucide-react'
+import Boton from '../ui/Boton'
+import { DESPUES } from '../../utils/impresionUtils'
 
 /**
  * Vista de una factura "requiere cambios" antes de entrar al modo edición
@@ -6,7 +8,7 @@ import { FileText, AlertCircle, Printer } from 'lucide-react'
  * aplicarán automáticamente. Extraído de Impresion.jsx (era
  * renderCambiosAutomaticos).
  */
-export default function CambiosAutomaticos({ factura, procesando, onEditar, onVerPDF, onGuardar }) {
+export default function CambiosAutomaticos({ factura, procesando, onEditar, onVerPDF, onGuardar, emitible = false }) {
   return (
     <div className="bg-neutro-50 border border-neutro-200 rounded-3xl p-6 mb-6 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-5">
@@ -20,18 +22,8 @@ export default function CambiosAutomaticos({ factura, procesando, onEditar, onVe
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => onEditar(factura)}
-            className="px-4 py-2 border border-neutro-200 hover:bg-neutro-100 text-neutro-700 text-sm font-semibold rounded-xl transition active:scale-[0.98]"
-          >
-            Editar Factura
-          </button>
-          <button
-            onClick={() => onVerPDF(factura)}
-            className="px-4 py-2 border border-neutro-200 hover:bg-neutro-100 text-neutro-700 text-sm font-semibold rounded-xl transition active:scale-[0.98]"
-          >
-            Ver PDF
-          </button>
+          <Boton variante="alerta" icono={PencilLine} onClick={() => onEditar(factura)}>Editar factura</Boton>
+          <Boton variante="acento" icono={FileText} onClick={() => onVerPDF(factura)}>Ver PDF</Boton>
         </div>
       </div>
 
@@ -74,22 +66,18 @@ export default function CambiosAutomaticos({ factura, procesando, onEditar, onVe
         ))}
       </div>
 
-      <div className="mt-6 flex gap-3 justify-end">
-        <button
-          onClick={() => onGuardar(false)}
-          disabled={procesando}
-          className="px-5 py-2.5 bg-primario-600 hover:bg-primario-700 text-white font-bold rounded-xl shadow-sm text-sm active:scale-[0.98] transition disabled:opacity-50"
-        >
-          {procesando ? 'Procesando...' : 'Guardar'}
-        </button>
-        <button
-          onClick={() => onGuardar(true)}
-          disabled={procesando}
-          className="px-5 py-2.5 bg-primario-800 hover:bg-primario-900 text-white font-bold rounded-xl shadow-sm text-sm active:scale-[0.98] transition disabled:opacity-50 flex items-center gap-1.5"
-        >
-          <Printer size={16} />
-          {procesando ? 'Procesando...' : 'Guardar e Imprimir'}
-        </button>
+      {/* Con correo, «Imprimir y emitir»: primero se aplican estos ajustes,
+          después se emite y al final se imprime (ver EmitirEImprimir). */}
+      <div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+        <Boton variante="secundario" onClick={() => onGuardar(DESPUES.GUARDAR)} cargando={procesando}>Guardar</Boton>
+        <Boton variante={emitible ? 'secundario' : 'primario'} icono={Printer} onClick={() => onGuardar(DESPUES.IMPRIMIR)} cargando={procesando}>
+          Guardar e imprimir
+        </Boton>
+        {emitible && (
+          <Boton icono={ShieldCheck} className="col-span-2" onClick={() => onGuardar(DESPUES.EMITIR)} cargando={procesando}>
+            Imprimir y emitir
+          </Boton>
+        )}
       </div>
     </div>
   )

@@ -106,3 +106,34 @@ export function totalDeItems(items) {
     return suma + base + dinero(base * numero(i.tarifa) / 100)
   }, 0))
 }
+
+/**
+ * Qué sigue después de guardar una factura de la cola.
+ *
+ * «IMPRIMIR Y EMITIR» (2026-10-20, el usuario: «hay facturas que siempre se
+ * emiten, pero se emiten hasta después del proceso de impresión; que todas
+ * las facturas que tienen correo salga el botón imprimir y emitir; eso sí,
+ * que las rebajas y ajustes de precios se hagan primero y después se
+ * emita»). El orden es guardar → emitir → imprimir: Hacienda recibe la
+ * factura ya con los faltantes rebajados y los precios ajustados (una
+ * electrónica ya no se edita), y el papel sale como «Factura electrónica»,
+ * con su clave, porque el PDF solo la muestra cuando Hacienda la aceptó.
+ */
+export const DESPUES = { GUARDAR: 'guardar', IMPRIMIR: 'imprimir', EMITIR: 'emitir' }
+
+/** ¿Se le ofrece «Imprimir y emitir»? Tiene correo y todavía no es ni va camino a ser electrónica. */
+export function seEmiteAlImprimir(f) {
+  return /^\S+@\S+\.\S+$/.test(String(f?.cliente_email || '').trim()) &&
+    !f.electronica && !f.con_comprobante && !f.historica
+}
+
+/** La pregunta antes de marcar impresa una factura desde la lista. */
+export function preguntaAlProcesar(f, { soloImprimir, despues }) {
+  const accion = despues === DESPUES.EMITIR ? ', emitirla electrónicamente e imprimirla'
+    : despues === DESPUES.IMPRIMIR ? ' e imprimir ahora' : ''
+  const ajustes = soloImprimir ? '' : '\n\nSe le rebajan los faltantes y se le ponen los precios del catálogo.'
+  const emision = despues === DESPUES.EMITIR
+    ? `\n\n${soloImprimir ? 'Se' : 'Después de eso se'} emite ante Hacienda; cuando la acepte, le llega a ${f.cliente_email} y se imprime.`
+    : ''
+  return `¿Marcar la factura ${f.numero_factura} como impresa${accion}?${ajustes}${emision}`
+}
