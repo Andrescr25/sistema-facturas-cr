@@ -125,14 +125,42 @@ describe('impresión exacta con factura e inventario propios — PostgreSQL loca
     assert.deepEqual(await estado(datos), antes);
   });
 
-  test('mantiene la protección de factura electrónica con la cola pendiente', async () => {
+  // 2026-10-20, el usuario, de las facturas electrónicas trabadas en Bodega:
+  // «solo quiero que esas facturas las pases a impresión» y, para su faltante,
+  // «imprimir tal cual». La protección sigue (no se edita); lo que cambió es
+  // que se marca impresa en vez de quedar trabada en la cola.
+  test('una electrónica se marca impresa sin editarla y su faltante queda pendiente', async () => {
     const datos = await fixture();
     // Estado fiscal sintético, únicamente dentro de esta copia y su ROLLBACK.
     await c.query("UPDATE factura SET electronica=true,hacienda_estado='aceptada' WHERE id=$1", [datos.facturaId]);
-    const antes = await estado(datos);
-    await assert.rejects(impresion.procesar(datos.facturaId), e => e.status === 409 && /electrónica/.test(e.message));
-    assert.deepEqual(await estado(datos), antes);
+    await imprimeTalCual(datos);
   });
+
+  test('con un comprobante de producción vigente pasa lo mismo, aunque Hacienda no haya contestado', async () => {
+    const datos = await fixture();
+    const digitos = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
+    await c.query(`INSERT INTO hacienda_comprobante(ambiente,origen,origen_id,tipo,clave,consecutivo,fecha,xml_ruta,xml_sha256,sobre,estado)
+      VALUES('produccion','factura',$1,'01',$2,$3,now(),'zz.xml',repeat('0',64),'{}'::jsonb,'recibida')`,
+      [datos.facturaId, digitos(50), digitos(20)]);
+    await imprimeTalCual(datos);
+  });
+
+  async function imprimeTalCual(datos) {
+    const antes = await estado(datos);
+    const propuesta = await impresion.detalle(datos.facturaId);
+    assert.equal(propuesta.factura.ante_hacienda, true);
+    assert.equal(Number(propuesta.lineas[0].cantidad), 6, 'sin propuesta de rebaja');
+    // Editarla a mano tampoco: lo que falte va con nota de crédito.
+    await assert.rejects(impresion.procesar(datos.facturaId, { lineas: utils.lineasParaProcesar(await pantalla(datos.facturaId)) }),
+      e => e.status === 409 && /ya está ante Hacienda/.test(e.message));
+    const r = await impresion.procesar(datos.facturaId, {}, { nombre: 'ZZ' });
+    assert.equal(r.editada, false);
+    const despues = await estado(datos);
+    assert.deepEqual([despues.total, despues.cantidad, despues.precio_unitario, despues.inventario], [antes.total, antes.cantidad, antes.precio_unitario, antes.inventario]);
+    assert.equal(despues.estado_cola, 'procesada');
+    assert.equal(despues.estado_faltante, 'pendiente', 'el faltante sigue para entregarlo o hacer la nota de crédito');
+    assert.equal(Number(despues.cantidad_rebajada || 0), 0);
+  }
 
   test('sin_pendientes conserva los precios de la factura al marcarla impresa', async () => {
     const datos = await fixture();

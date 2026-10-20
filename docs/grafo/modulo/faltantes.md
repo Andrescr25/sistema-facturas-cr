@@ -442,3 +442,29 @@ rebajas y ajustes de precios se haga primero y después se emita».
   a Hacienda; orden: procesar → emitir → enviar → consultar).
 Pruebas: `backend/tests/impresionEmitir.test.js` y los casos nuevos de
 `backend/tests/impresionHook.test.js`.
+
+## Una factura ante Hacienda se imprime como se emitió — 2026-10-20
+
+El usuario: «me puedes enviar las facturas que están emitidas en Hacienda que
+están pegadas en Facturas en Bodega por este error: “No se pudo guardar:
+Documento reservado ante Hacienda: conserve el original y use una nota
+fiscal” — este error mantenlo, solo quiero que esas facturas que quedaron ahí
+por error de un empleado las pases a impresión». Y, para su faltante,
+eligió «imprimir tal cual».
+
+- **El error se queda.** Lo lanza el disparador `documento_en_hacienda`
+  (migración 043): con un comprobante de producción vigente la fila de
+  `factura` no cambia, y la marca de despacho de Bodega (`estado_bodega`)
+  vive en esa fila.
+- **Impresión ya no las traba.** `procesarImpresion` calcula
+  `ante_hacienda` (electrónica, o con comprobante de producción no
+  rechazado: la condición del disparador) y, si lo está, no propone rebajas,
+  no edita la factura, la marca impresa y deja sus faltantes PENDIENTES —
+  para entregarlos después o hacer la nota de crédito—. Editarla a mano
+  responde 409. Antes intentaba rebajar el faltante editándola y fallaba.
+- Las dos que estaban trabadas (001000015076 y 001000015082) se pasaron a
+  la cola con una excepción puntual solo de la marca de despacho (ver la
+  memoria de escrituras en producción); las pruebas del 11/10 (015014 y
+  015016) quedaron como estaban, por decisión del usuario.
+Pruebas: dos casos en `backend/tests/impresionPropiaLocal.test.js` (copia
+local desechable, `PROBAR_BASE_LOCAL=1`); con el código anterior fallan.

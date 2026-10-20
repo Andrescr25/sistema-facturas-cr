@@ -151,8 +151,15 @@ function refrescarPreciosDePantalla(lineas, precios) {
 
 /** Todo lo que hace falta de una factura para procesarla. `db`: cliente de transacción o el módulo. */
 async function cargar(db, facturaId) {
+  // `ante_hacienda`: ya no se edita. Electrónica (también las de Alegra, que
+  // no tienen comprobante propio), o con la condición del disparador
+  // documento_en_hacienda (migración 043): un comprobante de producción que
+  // no fue rechazado, aunque Hacienda todavía no haya contestado.
   const { rows: [factura] } = await db.query(`
-    SELECT id, numero, estado, electronica, cliente_nombre, fecha::text AS fecha, subtotal, impuesto, total
+    SELECT id, numero, estado, electronica, cliente_nombre, fecha::text AS fecha, subtotal, impuesto, total,
+           (electronica OR EXISTS (SELECT 1 FROM hacienda_comprobante h
+                    WHERE h.ambiente = 'produccion' AND h.origen = 'factura'
+                      AND h.origen_id = factura.id AND h.estado <> 'rechazada')) AS ante_hacienda
       FROM factura WHERE id = $1
   `, [facturaId]);
   if (!factura) return { factura: null };
@@ -204,12 +211,16 @@ async function detalle(facturaIdCrudo) {
   return {
     factura: {
       factura_id: f.id, numero_factura: f.numero, estado: f.estado, electronica: f.electronica,
+      ante_hacienda: Boolean(f.ante_hacienda),
       cliente_nombre: f.cliente_nombre, fecha_emision: f.fecha,
       subtotal: numero(f.subtotal), impuesto: numero(f.impuesto), total: numero(f.total)
     },
     en_cola: Boolean(datos.cola),
     categoria,
-    lineas: proponerLineas(datos.lineas, datos.faltantes, { actualizarPrecios: categoria !== 'sin_pendientes' })
+    // Ante Hacienda se imprime como se emitió: no hay propuesta de cambios.
+    lineas: f.ante_hacienda
+      ? proponerLineas(datos.lineas, [], { actualizarPrecios: false })
+      : proponerLineas(datos.lineas, datos.faltantes, { actualizarPrecios: categoria !== 'sin_pendientes' })
   };
 }
 
@@ -230,6 +241,16 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
     if (datos.factura.estado === 'anulada') throw httpError(409, `La factura ${datos.factura.numero} está anulada.`);
     if (!datos.cola) throw httpError(409, `La factura ${datos.factura.numero} no está en la cola de impresión.`);
 
+    // ANTE HACIENDA NO SE EDITA (2026-10-20). Con un comprobante de producción
+    // vigente la factura ya no cambia —el disparador documento_en_hacienda lo
+    // impide—: se marca impresa como se emitió y sus faltantes quedan
+    // pendientes, para entregarlos después o hacer la nota de crédito. Antes
+    // intentaba rebajarlos editándola y la dejaba trabada en la cola.
+    const anteHacienda = Boolean(datos.factura.ante_hacienda);
+    if (anteHacienda && pantalla) {
+      throw httpError(409, `La factura ${datos.factura.numero} ya está ante Hacienda: se imprime como se emitió. Lo que falte se corrige con una nota de crédito.`);
+    }
+
     const soloImprimir = datos.cola.categoria === 'sin_pendientes';
     let finales = pantalla;
     if (finales && actualizarPrecios && !soloImprimir && finales.some(l => l.precioEditado === false)) {
@@ -237,7 +258,7 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
       const { rows } = await c.query('SELECT id, precio_sin_iva FROM producto WHERE id = ANY($1::int[])', [ids]);
       finales = refrescarPreciosDePantalla(finales, new Map(rows.map(p => [p.id, p.precio_sin_iva])));
     }
-    if (!finales && !(soloImprimir && datos.faltantes.length === 0)) {
+    if (!anteHacienda && !finales && !(soloImprimir && datos.faltantes.length === 0)) {
       finales = proponerLineas(datos.lineas, datos.faltantes, { actualizarPrecios: actualizarPrecios && !soloImprimir })
         .filter((l) => l.cantidad > 0);
     }
@@ -260,7 +281,7 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
       }
     }
 
-    for (const f of datos.faltantes) {
+    for (const f of anteHacienda ? [] : datos.faltantes) {
       await c.query(`
         UPDATE faltantes SET estado = 'procesado', cantidad_rebajada = $2, updated_at = ${AHORA_CR_SQL}
          WHERE id = $1
@@ -276,8 +297,8 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
     `, [usuario.nombre || 'Impresión', JSON.stringify({
       factura_procesada: {
         factura_id: facturaId, numero_factura: datos.factura.numero, cliente_nombre: datos.factura.cliente_nombre,
-        categoria: datos.cola.categoria, editada, total_antes: numero(datos.factura.total), total_despues: total,
-        faltantes: datos.faltantes.map((f) => ({ faltante_id: f.id, producto_id: f.producto_id, rebajado: rebajaObjetivo(f) }))
+        categoria: datos.cola.categoria, editada, ante_hacienda: anteHacienda, total_antes: numero(datos.factura.total), total_despues: total,
+        faltantes: datos.faltantes.map((f) => ({ faltante_id: f.id, producto_id: f.producto_id, rebajado: anteHacienda ? 0 : rebajaObjetivo(f) }))
       }
     })]);
 

@@ -916,3 +916,14 @@ emitir. Eso sí, que el proceso de rebajas y ajustes de precios en impresión se
 haga primero y después se emita». Hecho: guardar → emitir → imprimir (el papel
 sale como factura electrónica con su clave).
 [Detalle](grafo/modulo/faltantes.md).
+
+## 2026-10-20 — Facturas ante Hacienda trabadas en Bodega
+
+Textual: «me puedes enviar las facturas que están emitidas en Hacienda que
+están pegadas en facturas en bodega por este error: No se pudo guardar:
+Documento reservado ante Hacienda: conserve el original y use una nota fiscal.
+Lo marcado sigue acá; probá de nuevo. Este error mantenlo, solo quiero que
+esas facturas que quedaron ahí por error de un empleado las pases a
+impresión». Eligió: sacarlas de Bodega con una excepción puntual, imprimirlas
+tal cual (el faltante queda para entrega o nota de crédito) y no tocar las dos
+pruebas del 11/10. [Detalle](grafo/modulo/faltantes.md).
