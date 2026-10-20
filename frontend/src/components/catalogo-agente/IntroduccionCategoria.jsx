@@ -6,9 +6,9 @@ import './introduccionCategoria.css'
 
 /**
  * La foto se muestra cuando ya está decodificada (`decode()` fuera del hilo
- * principal), con un fundido. Sin esto, una foto de 1920 px se decodificaba
- * en el mismo cuadro en que aparecía la escena y la animación se trababa.
- * Sin estado de React: no vuelve a renderizar nada.
+ * principal), con un fundido: una foto de 1920 px que llega tarde no aparece
+ * de golpe ni se decodifica en el cuadro en que se ve. Sin estado de React:
+ * no vuelve a renderizar nada.
  */
 function mostrarCuandoEsteLista(evento) {
   const foto = evento.currentTarget
@@ -17,12 +17,17 @@ function mostrarCuandoEsteLista(evento) {
   else lista()
 }
 
-/** Una pausa visual en el recorrido, nunca una pausa de la navegación. */
-function IntroduccionCategoria({ nombre, cantidad, imagen, numero, total, nivel = 2, animar = true, tituloDecorativo = false, cargarYa = false }) {
+/**
+ * La presentación de una categoría: va DENTRO del recorrido y pasa con el
+ * scroll, como un producto más. Nunca se fija en pantalla ni lo detiene
+ * (pedido del usuario, 2026-10-19: «no quiero que la animación se detenga
+ * para mostrar la categoría, quiero que siga el deslizamiento»).
+ */
+function IntroduccionCategoria({ nombre, cantidad, imagen, numero, total, nivel = 2, animar = true }) {
   const elemento = useRef(null)
   const [fallida, setFallida] = useState(null)
   const foto = imagen?.url && fallida !== imagen.url ? imagen : null
-  const Titulo = tituloDecorativo ? 'div' : `h${nivel}`
+  const Titulo = `h${nivel}`
   useLayoutEffect(() => {
     if (animar) return observarEntradaCategoria(elemento.current)
   }, [animar])
@@ -34,10 +39,8 @@ function IntroduccionCategoria({ nombre, cantidad, imagen, numero, total, nivel 
       {foto ? (
         <picture className="introduccion-categoria__imagen" aria-hidden="true">
           {foto.urlMovil && <source media="(max-width: 767px)" srcSet={urlArchivo(foto.urlMovil)} />}
-          {/* `cargarYa`: la escena ya decidió cuándo montarla (al acercarse);
-              diferirla otra vez la dejaba llegando tarde a su propio fundido. */}
           <img src={urlArchivo(foto.url)} alt="" width={foto.ancho || 960} height={foto.alto || 540}
-            loading={cargarYa ? 'eager' : 'lazy'} decoding="async" fetchpriority={cargarYa ? 'auto' : 'low'}
+            loading="lazy" decoding="async" fetchpriority="low"
             onLoad={mostrarCuandoEsteLista} onError={() => setFallida(foto.url)} />
         </picture>
       ) : (

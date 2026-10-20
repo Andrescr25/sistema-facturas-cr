@@ -839,3 +839,15 @@ claro con productos). Ahora sigue al dedo con fundidos, nunca queda negra si
 se detiene, y tocar una categoría la presenta sola y deja en sus productos.
 Detalle y mediciones: [catálogo del agente](grafo/modulo/catalogo-agente.md).
 
+## 2026-10-19 — La categoría no detiene el deslizamiento
+
+Textual, después de probar el arreglo del día anterior en la tablet: «en la
+tablet sigue igual, muy pegado. No quiero que la animación se detenga para
+mostrar la categoría, quiero que siga el deslizamiento».
+
+**Reemplaza** la secuencia oscuro → nombre y foto → claro (2026-10-11 y
+2026-10-18): ya no hay pantalla fija entre categorías. Cada categoría abre
+con su tarjeta de foto y nombre dentro del recorrido, que pasa con el scroll.
+No volver a fijar nada en pantalla al cambiar de categoría.
+[Detalle](grafo/modulo/catalogo-agente.md).
+

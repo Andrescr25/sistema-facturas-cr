@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { flushSync } from 'react-dom'
 import { Link } from 'react-router-dom'
 import {
   Flame, Star, RotateCcw, PackageOpen,
@@ -13,10 +12,8 @@ import BarraCategorias from '../components/catalogo-agente/BarraCategorias'
 import Cuadricula from '../components/catalogo-agente/Cuadricula'
 import SyncOverlay from '../components/catalogo-agente/SyncOverlay'
 import SelectorCliente from '../components/catalogo-agente/SelectorCliente'
-import TransicionCategoria from '../components/catalogo-agente/TransicionCategoria'
-import RecorridoCategorias from '../components/catalogo-agente/RecorridoCategorias'
+import IntroduccionCategoria from '../components/catalogo-agente/IntroduccionCategoria'
 import { imagenDeCategoria } from '../utils/imagenesCategoriaCatalogo'
-import { entrarACategoria, oscuridadActual } from '../utils/focoCategoria'
 
 /**
  * El catálogo que el agente lleva en la tablet.
@@ -51,7 +48,7 @@ import { entrarACategoria, oscuridadActual } from '../utils/focoCategoria'
 function BloquesPorCategoria({ bloques, configCatalogo, nivel = 3 }) {
   return bloques.map((b, i) => (
     <div key={b.clave} className="mb-6 last:mb-0">
-      <TransicionCategoria nombre={b.nombre} cantidad={b.productos.length} nivel={nivel}
+      <IntroduccionCategoria nombre={b.nombre} cantidad={b.productos.length} nivel={nivel}
         imagen={imagenDeCategoria(b.clave, configCatalogo, b.productos)} numero={i + 1} total={bloques.length} />
       <Cuadricula productos={b.productos} familias={b.familias} nivel={nivel + 1} />
     </div>
@@ -162,7 +159,7 @@ export default function CatalogoAgente() {
   const enTodo = categoria === 'todo'
 
   return (
-    <RecorridoCategorias className="min-h-screen bg-neutro-50 pb-24">
+    <div className="min-h-screen bg-neutro-50 pb-24">
       <BarraSuperior
         busqueda={searchQuery}
         onBuscar={setSearchQuery}
@@ -177,13 +174,10 @@ export default function CatalogoAgente() {
 
       {!buscando && !vacio && (
         <BarraCategorias categorias={categorias} activa={categoria} onElegir={clave => {
-          // La colección nueva se arma YA, para poder llevar la vista a ella.
-          const previa = oscuridadActual()
-          flushSync(() => setCategoria(clave))
-          // Una categoría se presenta sola (oscuro → nombre y foto → claro) y
-          // deja al agente en sus productos: antes quedaba la pantalla negra
-          // hasta que alguien siguiera bajando. Sin el efecto, arriba de todo.
-          if (!filteredData.sortedKeys.includes(clave) || !entrarACategoria(previa)) window.scrollTo({ top: 0, behavior: 'auto' })
+          setCategoria(clave)
+          // El filtro abre otra colección: arriba se ven su presentación y
+          // sus primeros productos, sin pantallas fijas ni esperas.
+          window.scrollTo({ top: 0, behavior: 'auto' })
         }} />
       )}
 
@@ -308,7 +302,7 @@ export default function CatalogoAgente() {
                 const familias = filteredData.subgrupos?.[k]
                 return (
                   <section key={k} className="mb-8">
-                    <TransicionCategoria nombre={nombreVisibleDeCategoria(k, configCatalogo)} cantidad={filteredData.grouped[k].length}
+                    <IntroduccionCategoria nombre={nombreVisibleDeCategoria(k, configCatalogo)} cantidad={filteredData.grouped[k].length}
                       imagen={imagenDeCategoria(k, configCatalogo, filteredData.grouped[k])} numero={i + 1} total={claves.length} />
                     <Cuadricula productos={filteredData.grouped[k]} familias={familias}
                       statsPorProducto={statsPorProducto} />
@@ -328,6 +322,6 @@ export default function CatalogoAgente() {
         clienteActivoId={clienteActivo?.id}
         onSeleccionar={seleccionarCliente}
       />
-    </RecorridoCategorias>
+    </div>
   )
 }

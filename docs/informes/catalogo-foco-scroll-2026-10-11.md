@@ -1,5 +1,9 @@
 # Foco de categoría: oscuro → imagen/nombre → productos — 2026-10-11
 
+> **Retirado el 2026-10-19** por pedido del usuario: «no quiero que la animación
+> se detenga para mostrar la categoría, quiero que siga el deslizamiento». Ver
+> `docs/grafo/modulo/catalogo-agente.md`.
+
 El usuario pidió que cambiar de categoría haga oscurecer toda la vista,
 que la categoría con su imagen aparezca al seguir desplazándose y que después
 regrese el fondo claro con los productos. Busca que el cliente reconozca la

@@ -1,4 +1,4 @@
-.catalogo-cuadricula { min-width: 0; scroll-margin-top: 101px; }
+.catalogo-cuadricula { min-width: 0; }
 .catalogo-familias { position: sticky; top: 101px; z-index: 15; padding: 9px 0 10px; margin: -4px 0 12px; background: theme('colors.neutro.50'); border-bottom: 1px solid theme('colors.neutro.200'); }
 .catalogo-familias__rotulo { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: theme('colors.neutro.500'); }
 .catalogo-familias__opciones { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; }

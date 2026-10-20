@@ -39,15 +39,11 @@ archivos:
   - frontend/src/components/catalogo-agente/cuadricula.css
   - frontend/src/hooks/useColumnasCatalogo.js
   - frontend/src/utils/filasCatalogo.js
-  - frontend/src/components/catalogo-agente/RecorridoCategorias.jsx
-  - frontend/src/components/catalogo-agente/TransicionCategoria.jsx
-  - frontend/src/components/catalogo-agente/transicionCategoria.css
-  - frontend/src/utils/focoCategoria.js
-  - backend/tests/focoCategoria.test.js
+  - backend/tests/categoriaEnElRecorrido.test.js
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-18
+medido: 2026-10-19
 ---
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar; el pedido
@@ -105,6 +101,10 @@ muestran directamente las fichas. Búsqueda, movimiento reducido y ausencia/fall
 del observador muestran productos sin animación. Las filas usan `display: contents`
 dentro de una cuadrícula por categoría, observando la primera ficha como referencia;
 no hay cientos de cuadrículas, alturas estimadas ni virtualización.
+
+**RETIRADO el 2026-10-19** (ver «La categoría pasa con el scroll», al final):
+los dos párrafos que siguen y la sección del 2026-10-18 cuentan un efecto que
+ya no existe en el código.
 
 Nueva indicación del usuario después de revisar este recorrido: al cambiar de
 categoría, OSCURO → NOMBRE/FOTO → CLARO/PRODUCTOS, avanzando al seguir el scroll.
@@ -234,7 +234,7 @@ arreglo está en producción (`main` `e19c3e5`).
 al facturar se conserva el recorrido original. Colas antiguas intactas,
 filtros de pedidos y validación por cuenta: [[modulo/pedidos-por-ciclo]].
 
-## Cambio de categoría fluido — 2026-10-18
+## Cambio de categoría fluido — 2026-10-18 (RETIRADO el 2026-10-19)
 
 El usuario: «hay un error en el catálogo agente, se supone que este tiene que
 ir súper fluido pero se le agregó unas imágenes en las categorías, cuando el
@@ -288,4 +288,34 @@ categoría entera; a gestos ≤ 8 % por cuadro; pasada rápida ≤ 19 %. 390,
 Queda un cuadro de ~130 ms al tocar (armar la colección nueva), igual que
 antes, ANTES de que empiece la animación. Pruebas en
 `backend/tests/focoCategoria.test.js`.
+
+## La categoría pasa con el scroll — 2026-10-19
+
+Al día siguiente, el usuario, probándolo en la tablet: «en la tablet sigue
+igual, muy pegado. No quiero que la animación se detenga para mostrar la
+categoría, quiero que siga el deslizamiento». La escena fija ocupaba un tramo
+del recorrido en el que el dedo bajaba y nada se movía —la pantalla oscura con
+la categoría encima—, y eso se siente como scroll trabado por más suave que
+sea la animación. **Reemplaza** la secuencia OSCURO → NOMBRE/FOTO → CLARO que
+él había pedido el 2026-10-11 y el arreglo del 2026-10-18.
+
+Se retiró el efecto entero: `RecorridoCategorias` (el velo fijo),
+`TransicionCategoria` (la escena fija), `transicionCategoria.css` (el tramo de
+70 svh) y `utils/focoCategoria.js` (el control por cuadro), con sus pruebas.
+Cada categoría vuelve a abrir con `IntroduccionCategoria` EN EL RECORRIDO: la
+tarjeta grande con su foto, nombre, cantidad y posición (05 / 19), que pasa
+con el scroll como un producto más y entra con su animación breve de CSS
+(`entradaCategoria.js`, la misma de antes, que nunca retiene el scroll).
+Elegir una categoría en la barra sube al principio de ella.
+
+Se conservan del 2026-10-18 lo que no detiene nada: la foto se descarga al
+acercarse (`loading="lazy"`), se decodifica con `decode()` y entra con un
+fundido (`data-lista`), y las barras fijas no usan `backdrop-blur`.
+
+Medido en Chromium a tamaño de tablet (CPU 4× más lenta, 14 categorías con
+foto), bajando 9.000 px a gestos: entre una categoría y la siguiente hay que
+bajar 389 px en vez de 887, y la pantalla está tapada 0 px del recorrido en
+vez de 780 (64 cuadros). El tiempo por cuadro es el mismo. Prueba:
+`backend/tests/categoriaEnElRecorrido.test.js` (no vuelven las capas fijas ni
+los tramos del alto de la pantalla).
 
