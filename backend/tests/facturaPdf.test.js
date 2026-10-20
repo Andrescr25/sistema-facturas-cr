@@ -2,7 +2,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert');
 const {
   generarPdfFactura, impuestoPorTarifa, importeLinea, tarifaTexto, columnas, detalleLinea, subtotalMostrado,
-  subtotalAntesDeDescuento, renglonesDeTotales
+  subtotalAntesDeDescuento, renglonesDeTotales, montoEnLetrasDelTotal
 } = require('../src/modules/facturacion/factura.pdf');
 const { fechaLarga } = require('../src/utils/marcaPdf');
 
@@ -279,3 +279,15 @@ describe('el archivo', () => {
     assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   });
 });
+
+describe('el monto en letras dice lo mismo que el TOTAL impreso', () => {
+  // «… ochenta y nueve con 11/100» debajo de un TOTAL de ₡257.089: el usuario
+  // eligió redondear las letras (2026-10-19).
+  test('se redondea al colón, igual que la cifra del recuadro', () => {
+    assert.equal(montoEnLetrasDelTotal({ total: 257089.11 }), 'Doscientos cincuenta y siete mil ochenta y nueve colones costarricenses');
+    assert.equal(montoEnLetrasDelTotal({ total: '51900.31' }), 'Cincuenta y un mil novecientos colones costarricenses');
+    assert.equal(montoEnLetrasDelTotal({ total: 100.5 }), 'Ciento un colones costarricenses');
+    assert.doesNotMatch(montoEnLetrasDelTotal({ total: 3390.49 }), /\/100/);
+  });
+});
+

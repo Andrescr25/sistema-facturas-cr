@@ -17,6 +17,7 @@ describe('las trampas del español', () => {
     [500, 'quinientos'], [700, 'setecientos'], [900, 'novecientos'],
     [1000, 'mil'], [1001, 'mil uno'], [1500, 'mil quinientos'],
     [21000, 'veintiún mil'], [31000, 'treinta y un mil'],
+    [101000, 'ciento un mil'], [201000, 'doscientos un mil'], [121000, 'ciento veintiún mil'],
     [1000000, 'un millón'], [2000000, 'dos millones'],
     [15899, 'quince mil ochocientos noventa y nueve']
   ];
@@ -38,6 +39,18 @@ describe('el monto de la factura', () => {
 
   test('un monto grande no se rompe', () => {
     assert.equal(montoEnLetras(1234567), 'Un millón doscientos treinta y cuatro mil quinientos sesenta y siete colones costarricenses');
+  });
+
+  test('delante de la moneda, el "uno" final se apocopa', () => {
+    // La factura decía "ciento uno colones" (2026-10-19).
+    assert.equal(montoEnLetras(101), 'Ciento un colones costarricenses');
+    assert.equal(montoEnLetras(21), 'Veintiún colones costarricenses');
+    assert.equal(montoEnLetras(257051), 'Doscientos cincuenta y siete mil cincuenta y un colones costarricenses');
+    assert.equal(montoEnLetras(201001), 'Doscientos un mil un colones costarricenses');
+    assert.equal(montoEnLetras(1), 'Un colón costarricense');
+    assert.equal(montoEnLetras(2000000), 'Dos millones de colones costarricenses');
+    assert.equal(montoEnLetras(1000000), 'Un millón de colones costarricenses');
+    assert.equal(montoEnLetras(1000001), 'Un millón un colones costarricenses');
   });
 
   test('cero se escribe', () => {

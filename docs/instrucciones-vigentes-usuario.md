@@ -872,3 +872,8 @@ margen» (5 %, también en la ficha): la factura 001000015061 quedó en
 antes del descuento para que la cuenta cierre.
 [Detalle](grafo/modulo/facturacion.md).
 
+Y luego: «en el pdf el único error que veo es este: Doscientos cincuenta y
+siete mil ochenta y nueve con 11/100 colones costarricenses» → eligió «haz que
+el monto en letras sea redondeado»; y «la vista previa del pdf donde la puedo
+editar, también quiero que le apliques esos cambios ahí». Hechos los dos.
+

@@ -12,7 +12,10 @@
  *     la regla de los demás.
  *   · 1.000 es "mil", no "un mil"; pero 21.000 sí es "veintiún mil".
  *   · Delante de "millones" y de "mil", 1 es "un": "veintiún mil", no
- *     "veintiuno mil".
+ *     "veintiuno mil"; y "ciento un mil", no "ciento ún mil".
+ *   · Delante de la moneda también: "ciento un colones", "veintiún colones"
+ *     (la factura decía "ciento uno colones"). Un millón exacto lleva "de":
+ *     "dos millones de colones".
  */
 
 const UNIDADES = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve',
@@ -39,9 +42,8 @@ function hasta999(n, apocope = false) {
   if (resto) {
     if (resto < 30) {
       const palabra = UNIDADES[resto];
-      partes.push(apocope && (resto === 1 || resto === 21)
-        ? palabra.replace(/uno$/, 'ún').replace(/^uno$/, 'un')
-        : palabra);
+      // 1 → "un", 21 → "veintiún". (Antes 1 salía "ún": "ciento ún mil".)
+      partes.push(apocope && resto === 1 ? 'un' : apocope && resto === 21 ? 'veintiún' : palabra);
     } else {
       const decena = Math.floor(resto / 10);
       const unidad = resto % 10;
@@ -57,8 +59,11 @@ function hasta999(n, apocope = false) {
   return partes.join(' ');
 }
 
-/** El número entero en palabras, sin moneda. */
-function enteroALetras(n) {
+/**
+ * El número entero en palabras, sin moneda. `antesDeSustantivo`: va seguido
+ * de la moneda, y el "uno" final se apocopa ("ciento un colones").
+ */
+function enteroALetras(n, { antesDeSustantivo = false } = {}) {
   const entero = Math.floor(Math.abs(Number(n) || 0));
   if (entero === 0) return 'cero';
 
@@ -74,7 +79,7 @@ function enteroALetras(n) {
   if (miles === 1) partes.push('mil');
   else if (miles > 1) partes.push(`${hasta999(miles, true)} mil`);
 
-  if (resto) partes.push(hasta999(resto));
+  if (resto) partes.push(hasta999(resto, antesDeSustantivo));
 
   return partes.join(' ');
 }
@@ -88,12 +93,17 @@ function montoEnLetras(monto, moneda = 'CRC') {
   const entero = Math.floor(valor);
   const centimos = Math.round((valor - entero) * 100);
 
-  const nombre = moneda === 'USD' ? 'dólares estadounidenses' : 'colones costarricenses';
-  const letras = enteroALetras(entero);
+  const usd = moneda === 'USD';
+  // Sin céntimos el número va pegado a la moneda: "ciento un colones".
+  const letras = enteroALetras(entero, { antesDeSustantivo: centimos === 0 });
   const conCentimos = centimos > 0 ? ` con ${String(centimos).padStart(2, '0')}/100` : '';
+  const nombre = entero === 1 && !centimos
+    ? (usd ? 'dólar estadounidense' : 'colón costarricense')
+    : (usd ? 'dólares estadounidenses' : 'colones costarricenses');
+  const de = entero >= 1000000 && entero % 1000000 === 0 && !centimos ? ' de' : '';
 
   // Con mayúscula inicial, como se lee en el documento.
-  const frase = `${letras}${conCentimos} ${nombre}`;
+  const frase = `${letras}${conCentimos}${de} ${nombre}`;
   return frase.charAt(0).toUpperCase() + frase.slice(1);
 }
 

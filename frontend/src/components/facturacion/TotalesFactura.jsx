@@ -1,26 +1,22 @@
 import { colones } from '../../utils/colones'
+import { renglonesDeTotales } from '../../utils/facturaVista'
 
 /**
- * Los totales del documento y, cuando ya hay cobros o notas, lo que queda.
- * El descuento se informa, no se vuelve a restar: la cuenta de arriba ya lo
- * trae (ver `totalesDe` en utils/facturaVista.js).
+ * Los totales del documento, iguales al PDF: Subtotal (antes del descuento),
+ * Descuento, un Impuesto por tarifa y el Total; y, cuando ya hay cobros o
+ * notas, lo que queda. Ver `renglonesDeTotales` en utils/facturaVista.js.
  */
 export default function TotalesFactura({ factura: f, editando, totales }) {
-  const { subtotal, descuento, porTarifa, total } = totales
+  const { total } = totales
   return (
     <div className="flex justify-end border-t border-neutro-100 p-5">
       <div className="w-full max-w-xs space-y-1.5 text-sm">
-        <div className="flex justify-between text-neutro-600">
-          <span>Subtotal</span><span className="font-medium text-neutro-800">{colones(subtotal)}</span>
-        </div>
-        {descuento > 0 && (
-          <p className="text-right text-xs text-alerta-600">
-            Ya incluye {colones(descuento)} de descuento
-          </p>
-        )}
-        {porTarifa.map(([tarifa, monto]) => (
-          <div key={tarifa} className="flex justify-between text-neutro-600">
-            <span>IVA {tarifa}%</span><span className="font-medium text-neutro-800">{colones(monto)}</span>
+        {renglonesDeTotales(totales).map(({ etiqueta, monto }) => (
+          <div key={etiqueta} className="flex justify-between text-neutro-600">
+            <span>{etiqueta}</span>
+            <span className={`font-medium ${monto < 0 ? 'text-alerta-700' : 'text-neutro-800'}`}>
+              {monto < 0 ? `−${colones(-monto)}` : colones(monto)}
+            </span>
           </div>
         ))}
         <div className="flex items-baseline justify-between border-t-2 border-neutro-200 pt-2">

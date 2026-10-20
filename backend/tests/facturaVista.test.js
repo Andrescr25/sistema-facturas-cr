@@ -52,6 +52,35 @@ describe('la fila que se muestra y la que se edita', () => {
   });
 });
 
+describe('los renglones de los totales, iguales al PDF', () => {
+  // «subtotal / descuento / impuesto 13 % / impuesto 2 % / total», también en
+  // la vista donde se edita (el usuario, 2026-10-19).
+  test('con descuento: Subtotal de antes del descuento, Descuento como resta, y cierra', () => {
+    const f = factura({ subtotal: 1505, descuento: 36, impuesto: 191, total: 1660, lineas: [linea({ descuentoPorcentaje: '2.4', impuestoMonto: '191.00' })] });
+    const t = u.totalesDe(f, f.lineas.map(u.filaDe), false);
+    const r = u.renglonesDeTotales(t);
+    assert.deepEqual(r.map((x) => x.etiqueta), ['Subtotal', 'Descuento', 'Impuesto 13 %']);
+    assert.deepEqual(r.map((x) => x.monto), [1505, -36, 191]);
+    assert.equal(r.reduce((s, x) => s + x.monto, 0), t.total);
+  });
+
+  test('sin descuento el Descuento es 0 (no −0), y una tarifa por renglón de la mayor a la menor', () => {
+    const r = u.renglonesDeTotales({ subtotal: 3000, descuento: 0, porTarifa: [[1, 10], [2, 20], [13, 390]] });
+    assert.deepEqual(r.map((x) => x.etiqueta), ['Subtotal', 'Descuento', 'Impuesto 13 %', 'Impuesto 2 %', 'Impuesto 1 %']);
+    assert.ok(Object.is(r[1].monto, 0));
+    assert.deepEqual(u.renglonesDeTotales({ subtotal: 50, descuento: 0, porTarifa: [] }).map((x) => x.etiqueta), ['Subtotal', 'Descuento', 'Impuesto']);
+  });
+
+  test('en edición también cierra: lo bruto menos el descuento más el impuesto', () => {
+    const filas = [{ ...u.filaDe(linea()), cantidad: 4, descuentoPorcentaje: 5 }];
+    const t = u.totalesDe(factura(), filas, true);
+    const r = u.renglonesDeTotales(t);
+    assert.equal(r[0].monto, 4000, 'el subtotal es cantidad × precio, antes del descuento');
+    assert.equal(r[1].monto, -200);
+    assert.ok(Math.abs(r.reduce((s, x) => s + x.monto, 0) - t.total) < 1e-9);
+  });
+});
+
 describe('los totales', () => {
   test('sin editar son los del documento guardado', () => {
     const f = factura();

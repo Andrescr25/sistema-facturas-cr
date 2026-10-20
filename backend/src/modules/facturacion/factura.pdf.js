@@ -467,6 +467,17 @@ function impuestoPorTarifa(lineas) {
 }
 
 /**
+ * El monto en letras del TOTAL, redondeado al colón como el TOTAL impreso.
+ *
+ * Decía «… ochenta y nueve con 11/100 colones costarricenses» debajo de un
+ * TOTAL de ₡257.089: el papel daba dos cifras. El usuario eligió redondear
+ * las letras (2026-10-19). Se redondea igual que `colones()`.
+ */
+function montoEnLetrasDelTotal(f) {
+  return montoEnLetras(Math.round(num(f.total)), f.moneda);
+}
+
+/**
  * Los renglones de los totales, en el orden que pidió el usuario el
  * 2026-10-19: «subtotal xx / descuento xx / impuesto %x / total xx». El TOTAL
  * va debajo, en su recuadro.
@@ -510,7 +521,7 @@ function totales(doc, f, ancho, y, F, observacion) {
   // que impide que alguien retoque la cifra con un lapicero: "₡15.899" se
   // altera, "quince mil ochocientos noventa y nueve colones" no.
   const anchoIzq = ancho - anchoCaja - 24;
-  const letras = montoEnLetras(f.total, f.moneda);
+  const letras = montoEnLetrasDelTotal(f);
   doc.font(F.normal).fontSize(8).fillColor(MARCA.gris).text(letras, M, yy + 2, { width: anchoIzq });
   let yIzq = yy + 2 + doc.heightOfString(letras, { width: anchoIzq });
 
@@ -673,5 +684,6 @@ function generarPdfFactura(f, empresa = null, papel = null) {
 
 module.exports = {
   generarPdfFactura, papelDeFactura, leyenda, datosEmisor, medioDePago, impuestoPorTarifa, importeLinea,
-  tarifaTexto, columnas, detalleLinea, subtotalMostrado, subtotalAntesDeDescuento, renglonesDeTotales
+  tarifaTexto, columnas, detalleLinea, subtotalMostrado, subtotalAntesDeDescuento, renglonesDeTotales,
+  montoEnLetrasDelTotal
 };

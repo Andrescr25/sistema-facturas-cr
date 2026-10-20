@@ -65,12 +65,11 @@ export const baseDe = (l) => l.cantidad * l.precioUnitario * (1 - (l.descuentoPo
  * Los totales de lo que está en pantalla. En edición se recalculan con la
  * copia de trabajo; si no, son los guardados en el documento.
  *
- * EL SUBTOTAL ES LA SUMA DE LA COLUMNA "TOTAL LÍNEA", que ya trae el
- * descuento restado. Debajo salía "Descuento −₡36" como un renglón más de la
- * cuenta, y entonces no cerraba: 1.469 − 36 + 191 no es 1.660. El descuento
- * se informa, no se vuelve a restar. Con descuento se calcula desde el total,
- * porque las facturas copiadas de Alegra guardan el subtotal ANTES del
- * descuento y las propias, después.
+ * `subtotal` es la BASE: la suma de las líneas, que ya trae el descuento
+ * restado. Con descuento se calcula desde el total, porque las facturas
+ * copiadas de Alegra guardan el subtotal ANTES del descuento y las propias,
+ * después. Lo que se muestra lo arma `renglonesDeTotales` (Subtotal de antes
+ * del descuento, Descuento, Impuestos): así 1.505 − 36 + 191 = 1.660 cierra.
  */
 export function totalesDe(f, filas, editando) {
   const impuestoDe = (l) => (editando ? baseDe(l) * l.tarifa / 100 : l.impuestoMonto)
@@ -88,6 +87,28 @@ export function totalesDe(f, filas, editando) {
   }, new Map())].filter(([, monto]) => monto > 0).sort((a, b) => a[0] - b[0])
   const hayDescuento = filas.some(l => num(l.descuentoPorcentaje) > 0) || Boolean(editando)
   return { impuestoDe, impuesto, descuento, subtotal, total, porTarifa, hayDescuento }
+}
+
+/** "13 %", "1 %", "0,5 %": como en el PDF. */
+const tarifaTexto = (t) => `${String(Math.round(num(t) * 100) / 100).replace('.', ',')} %`
+
+/**
+ * Los renglones de los totales, iguales al PDF (factura.pdf.js,
+ * `renglonesDeTotales`): Subtotal de ANTES del descuento, Descuento como resta
+ * (0 si no hay), un Impuesto por tarifa de la mayor a la menor. El Total va
+ * aparte. Pedido del usuario, 2026-10-19: «subtotal / descuento / impuesto
+ * 13 % / impuesto 2 % / total», también en esta vista donde se edita.
+ * Así la cuenta cierra: subtotal − descuento + impuestos = total.
+ */
+export function renglonesDeTotales({ subtotal, descuento, porTarifa }) {
+  return [
+    { etiqueta: 'Subtotal', monto: num(subtotal) + num(descuento) },
+    // 0 y no −0: un −0 formateado sale «−₡0».
+    { etiqueta: 'Descuento', monto: num(descuento) > 0 ? -num(descuento) : 0 },
+    ...(porTarifa.length
+      ? [...porTarifa].reverse().map(([tarifa, monto]) => ({ etiqueta: `Impuesto ${tarifaTexto(tarifa)}`, monto }))
+      : [{ etiqueta: 'Impuesto', monto: 0 }])
+  ]
 }
 
 /**

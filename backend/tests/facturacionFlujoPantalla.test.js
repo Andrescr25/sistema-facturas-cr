@@ -287,9 +287,13 @@ describe('la factura ya emitida, vista y corregida desde la lista', () => {
     assert.match(codigo('hooks', 'useEdicionFactura.js'), /await onGuardar\(cuerpoDeEdicion\(\{ cliente, lineas, observaciones, motivo \}\)\)/);
   });
 
-  test('el descuento se informa; no se vuelve a restar debajo del subtotal', () => {
+  test('los totales salen como en el PDF: Subtotal, Descuento, Impuestos y Total', () => {
+    // El Subtotal es el de ANTES del descuento (renglonesDeTotales): así la
+    // resta del Descuento cierra. El renglón viejo restaba sobre un subtotal
+    // que ya lo traía restado.
     const totales = codigo('components', 'facturacion', 'TotalesFactura.jsx');
-    assert.match(totales, /Ya incluye \{colones\(descuento\)\} de descuento/);
+    assert.match(totales, /renglonesDeTotales\(totales\)\.map/);
+    assert.doesNotMatch(totales, /Ya incluye/);
     for (const archivo of [vista, totales]) {
       assert.doesNotMatch(archivo, /<span>Descuento<\/span><span[^>]*>−\{colones\(f\.descuento\)\}/, 'volvió el renglón que hacía que la cuenta no cerrara');
     }

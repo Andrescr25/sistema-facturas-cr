@@ -340,6 +340,16 @@ las copiadas de Alegra), **Descuento** como resta (₡0 si no hay), **Impuesto
 cierra en el papel: ₡235.029 − ₡7.517 + ₡29.577 = ₡257.089. La columna
 IMPORTE de cada línea sigue siendo después del descuento. Vale para la
 factura, la electrónica y la nota de crédito (el mismo papel), y para el PDF
-que va por correo. La pantalla de Facturación conserva su «Ya incluye».
-Pruebas en `backend/tests/facturaPdf.test.js`.
+que va por correo. Pruebas en `backend/tests/facturaPdf.test.js`.
+
+Después, el mismo día: «en el pdf el único error que veo es este:
+Doscientos cincuenta y siete mil ochenta y nueve con 11/100 colones
+costarricenses» —las letras llevaban céntimos y el TOTAL no—, y él eligió
+«haz que el monto en letras sea redondeado» (`montoEnLetrasDelTotal`, igual
+que `colones()`). De paso se corrigió el español del monto: «ciento un
+colones» y no «ciento uno», «doscientos un mil» y no «doscientos ún mil»,
+«dos millones de colones» (`utils/numeroALetras.js`). Y «la vista previa del
+pdf donde la puedo editar» (`VistaFactura` → `TotalesFactura`) muestra los
+mismos renglones con `renglonesDeTotales` de `utils/facturaVista.js`, al verla
+y al editarla.
 
