@@ -1080,7 +1080,7 @@ nueva migración ni modifica los conteos del corte. Ver
 - [x] GO-04: CxP/saldo/pago real/Caja reutilizados; reintento sin otro movimiento.
 - [x] GO-05: revisión de renta/IVA y respuesta expresa, separadas de recibir/pagar.
 - [x] GO-06: 235 archivos; 2936 pruebas correctas, 3 históricas de corte omitidas; PostgreSQL, build y 32 comprobaciones en navegador.
-- [ ] GO-07: aplicar SQL 061 en producción antes de publicar a main; esta entrega queda en developer.
+- [x] GO-07: SQL 061 aplicada en producción por Codex el 21/10 a las 17:20:18 CR, con respaldo restaurado y 144 tablas conservadas; publicación a main autorizada.
 
 [Alcance y fuentes](informes/gastos-operativos-2026-10-21.md). No acredita pendientes del corte.
 
@@ -1088,4 +1088,4 @@ nueva migración ni modifica los conteos del corte. Ver
 - [x] GO-09: módulo actual sin carga/importación ni correcciones de Excel de Alegra; anteriores de sólo lectura.
 - [x] GO-10: 2915 pruebas correctas, 3 históricas omitidas; PostgreSQL, 21 comprobaciones en navegador, build, lint y estructura/grafo correctos.
 
-[Alcance mensual](informes/contador-mensual-2026-10-21.md). Sin SQL adicional; 061 pendiente de producción.
+[Alcance mensual](informes/contador-mensual-2026-10-21.md). Sin SQL adicional; 061 aplicada. [Despliegue](informes/despliegue-gastos-contador-2026-10-21.md).

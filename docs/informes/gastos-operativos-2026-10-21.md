@@ -69,3 +69,11 @@ ZZ de las verificaciones. Configuración y archivos de esa vista viven fuera
 de Git en `~/.local/share/sistema-facturas-cr/gastos-operativos-preview-20261021/`.
 Buzón, WhatsApp, correo y trabajador fiscal apagados; red externa bloqueada.
 La base desechable de pruebas se retira al cerrar. **No se publicó a main.**
+
+
+## Publicación posterior autorizada
+
+Tras revisar el funcionamiento, el usuario pide «ok subelo a main».
+Codex aplica SQL061 a producción el 21/10 a las 17:20:18 CR con respaldo y
+144 tablas conservadas. Publicación de c321c09 y 87a8d35, ambos de Codex,
+más el registro de despliegue. [Evidencia](despliegue-gastos-contador-2026-10-21.md).

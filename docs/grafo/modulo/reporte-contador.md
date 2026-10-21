@@ -65,5 +65,8 @@ contador.historico. Se retiran carga/reimportación que sobrescribía meses,
 edición artificial de líneas y detector de duplicados de Alegra. No altera
 históricos ni documentos fiscales. Se elimina la deuda del servicio de 964 líneas.
 
-Depende de SQL 061 de Gastos, pendiente de producción. Sin SQL adicional.
+Depende de SQL 061 de Gastos, aplicada en producción por Codex el 21/10 a las
+17:20:18 CR con 144 tablas anteriores conservadas. Sin SQL adicional.
 [Alcance y verificación](../../informes/contador-mensual-2026-10-21.md).
+
+[Publicación autorizada y respaldo](../../informes/despliegue-gastos-contador-2026-10-21.md).

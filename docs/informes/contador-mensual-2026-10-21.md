@@ -53,3 +53,11 @@ fuera de Git en `~/.local/share/sistema-facturas-cr/gastos-operativos-preview-20
 La base desechable de pruebas `tachi_codex_contador_20261021` se retira al cerrar.
 Sin correos reales, limpieza semanal, Prisma regenerado ni conexiones de prueba
 a producción. Entrega sólo en developer; main sigue esperando SQL061.
+
+
+## Publicación posterior autorizada
+
+Tras revisar el funcionamiento, el usuario pide «ok subelo a main».
+Codex aplica SQL061 a producción el 21/10 a las 17:20:18 CR con respaldo y
+144 tablas conservadas. Publicación de c321c09 y 87a8d35, ambos de Codex,
+más el registro de despliegue. [Evidencia](despliegue-gastos-contador-2026-10-21.md).

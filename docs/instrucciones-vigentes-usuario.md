@@ -1042,3 +1042,14 @@ incluyendo pendientes de revisión. Consultar el mes no requiere importar ni
 corregir archivos de Alegra o sobrescribir períodos entregados; conservan
 consulta histórica. No autoriza envíos reales para probar ni producción.
 [Alcance](informes/contador-mensual-2026-10-21.md).
+
+
+## 2026-10-21 — Publicar Gastos y Contador mensual
+
+Usuario: «ok subelo a main», tras explicar que falta aplicar SQL061 antes
+de publicar. Se aplica esa migración necesaria, con respaldo/restauración y
+conservación comprobada de las 144 tablas anteriores. El contador recibe
+ventas/notas, compras y gastos operativos (combustible/alimentación), con
+Excel y originales de gastos en el envío mensual explícito. No implica
+programar correos ni enviar comprobantes reales para probar.
+[Publicación](informes/despliegue-gastos-contador-2026-10-21.md).

@@ -78,3 +78,7 @@ en sección/hoja aparte. Sólo importes revisados se suman como deducción/créd
 los otros quedan vacíos. El envío mensual existente adjunta Excel y ZIP de
 originales con faltantes indicados. No duplica compra ni pago.
 [[modulo/reporte-contador]].
+
+SQL061 aplicada en producción por Codex el 21/10 a las 17:20:18 CR,
+con respaldo restaurado y 144 tablas conservadas. Usuario autoriza publicar
+Gastos y Reporte Contador en main. [Registro](../../informes/despliegue-gastos-contador-2026-10-21.md).
