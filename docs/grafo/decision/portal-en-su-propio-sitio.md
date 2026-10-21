@@ -11,6 +11,7 @@ archivos:
   - frontend/src/App.jsx
   - frontend/src/components/IrAlPortal.jsx
   - frontend/src/utils/urlPortal.js
+  - frontend/src/services/apiPortal.js
   - frontend/vite.config.js
   - frontend/package.json
   - frontend/public/manifest-portal.json
@@ -55,6 +56,18 @@ del cliente redirige al portal con `location.replace` (IrAlPortal), así los
 enlaces ya enviados por WhatsApp siguen sirviendo y Atrás no vuelve al
 sistema. El Catálogo del agente (`/catalogo-agente`) se queda en el interno:
 es del personal y las tablets tienen esa dirección guardada.
+
+LA SESIÓN SE MUDA CON EL CLIENTE (pedido del usuario: «esto es importante»).
+El navegador guarda la sesión por sitio: sin esto, el cliente de un enlace
+viejo llegaba al portal «afuera» y tenía que volver a ingresar. IrAlPortal
+saca la sesión del sitio de siempre (se muda, no se copia: si no, «Salir» en
+el portal no cerraría nada) y la lleva en el fragmento `#sesion=…`, que no
+llega a ningún servidor. `recibirSesionTraspasada` (apiPortal.js) la guarda
+antes de dibujar y borra el fragmento de la barra y del historial. Solo la
+acepta si `document.referrer` es el sitio de siempre (`VITE_SISTEMA_URL`, por
+omisión sistema-facturas-cr.onrender.com), para que nadie arme un enlace que
+meta a un cliente en una cuenta ajena, y no pisa una sesión que el portal ya
+tenga. Si algo falla, el cliente ingresa con su usuario como siempre.
 
 POR ETAPAS, A PROPÓSITO. Sin `VITE_PORTAL_URL` todo funciona como antes: se
 puede publicar a main antes de crear el sitio en Render. Cuando el portal

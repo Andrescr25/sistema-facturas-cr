@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { traeSesion, sesionTraspasada } from '../utils/urlPortal'
 
 /**
  * Cliente HTTP del PORTAL DE CLIENTES.
@@ -37,6 +38,32 @@ const apiPortal = axios.create({
 export function setTokenPortal(token) {
   if (token) localStorage.setItem(TOKEN_PORTAL_KEY, token)
   else localStorage.removeItem(TOKEN_PORTAL_KEY)
+}
+
+/**
+ * Del lado del sitio de siempre (IrAlPortal): la sesión del cliente para
+ * llevarla al portal. Se MUDA, no se copia: si quedara también acá, «Salir»
+ * en el portal no cerraría nada, porque el próximo enlace viejo la volvería
+ * a traer.
+ */
+export function sacarSesionParaElPortal() {
+  const token = localStorage.getItem(TOKEN_PORTAL_KEY)
+  if (token) setTokenPortal(null)
+  return token
+}
+
+/**
+ * Del lado del portal, antes de dibujar: guarda la sesión que trae un
+ * cliente redirigido desde el sitio de siempre (ver utils/urlPortal.js) y
+ * borra el fragmento de la dirección en el acto, para que no quede en la
+ * barra ni en el historial. No pisa una sesión que el portal ya tenga.
+ */
+export function recibirSesionTraspasada(origenSistema = import.meta.env.VITE_SISTEMA_URL || 'https://sistema-facturas-cr.onrender.com') {
+  const { hash, pathname, search } = window.location
+  if (!traeSesion(hash)) return
+  const token = sesionTraspasada(hash, document.referrer, origenSistema)
+  window.history.replaceState(window.history.state, '', `${pathname}${search}`)
+  if (token && !localStorage.getItem(TOKEN_PORTAL_KEY)) setTokenPortal(token)
 }
 
 apiPortal.interceptors.request.use((config) => {

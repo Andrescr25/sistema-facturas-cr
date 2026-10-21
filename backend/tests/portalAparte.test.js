@@ -104,6 +104,26 @@ describe('los enlaces que se le mandan al cliente', () => {
     assert.equal(portalEnOtroSitio('https://clientes.ejemplo', 'https://interno.ejemplo'), true);
   });
 
+  test('la sesión viaja con el cliente redirigido, solo desde el sitio de siempre', async () => {
+    const { conSesion, traeSesion, sesionTraspasada } = await import('../../frontend/src/utils/urlPortal.js');
+    const SISTEMA = 'https://interno.ejemplo';
+    const url = conSesion('https://clientes.ejemplo/portal/pedidos?x=1', 'a.b+c/d=');
+    assert.equal(url, 'https://clientes.ejemplo/portal/pedidos?x=1#sesion=a.b%2Bc%2Fd%3D', 'en el fragmento, que no llega a ningún servidor');
+    assert.equal(conSesion('https://clientes.ejemplo/catalogo#otra', null), 'https://clientes.ejemplo/catalogo#otra', 'sin sesión no cambia nada');
+    const hash = new URL(url).hash;
+    assert.equal(traeSesion(hash), true);
+    assert.equal(sesionTraspasada(hash, 'https://interno.ejemplo/', SISTEMA), 'a.b+c/d=');
+    assert.equal(sesionTraspasada(hash, 'https://interno.ejemplo/catalogo?y=2', `${SISTEMA}/`), 'a.b+c/d=');
+    // Un enlace armado por otro (sin venir del sitio de siempre) no mete al
+    // cliente en una cuenta ajena: se ignora y entra como siempre.
+    assert.equal(sesionTraspasada(hash, '', SISTEMA), null, 'sin referente');
+    assert.equal(sesionTraspasada(hash, 'https://otro.ejemplo/', SISTEMA), null, 'desde otro sitio');
+    assert.equal(sesionTraspasada(hash, 'https://interno.ejemplo.otro.com/', SISTEMA), null, 'un sitio que solo empieza igual');
+    assert.equal(sesionTraspasada('#sesion=', 'https://interno.ejemplo/', SISTEMA), null);
+    assert.equal(sesionTraspasada('#otra=1', 'https://interno.ejemplo/', SISTEMA), null);
+    assert.equal(traeSesion('#otra=1'), false);
+  });
+
   test('las fechas de sus compras y facturas no se corren al día anterior', async () => {
     // El servidor manda `factura.fecha` como medianoche UTC; en Costa Rica
     // (UTC−6) `new Date(f).toLocaleDateString()` decía el 9 para una compra
