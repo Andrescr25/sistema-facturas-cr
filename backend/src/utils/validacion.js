@@ -114,4 +114,11 @@ function idValido(id) {
   return n;
 }
 
-module.exports = { httpError, texto, numero, booleano, opcion, soloDigitos, correo, lista, objeto, validar, idValido };
+function uuidValido(v) {
+  if (!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(String(v))) {
+    throw httpError(400, 'Identificador inválido.');
+  }
+  return String(v);
+}
+
+module.exports = { uuidValido, httpError, texto, numero, booleano, opcion, soloDigitos, correo, lista, objeto, validar, idValido };

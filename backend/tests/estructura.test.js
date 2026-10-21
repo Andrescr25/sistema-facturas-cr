@@ -140,7 +140,6 @@ describe('ningún archivo crece sin que alguien lo decida', () => {
     'components/relacionar-productos/ModalCrearProducto.jsx': 555
   };
   const DEUDA_BACK = {
-    'modules/reporte-contador/reporte-contador.service.js': 964,
     'modules/pagos-recurrentes/pagos-recurrentes.service.js': 767
   };
 

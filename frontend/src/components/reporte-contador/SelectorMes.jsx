@@ -1,15 +1,11 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { mesNombre } from '../../utils/reporteContadorUtils'
-
-function moverMes({ anio, mes }, delta) {
-  const d = new Date(anio, mes - 1 + delta, 1)
-  return { anio: d.getFullYear(), mes: d.getMonth() + 1 }
-}
+import { mesNombre, moverMes } from '../../utils/reporteContadorUtils'
 
 export default function SelectorMes({ periodo, onCambiar }) {
   return (
     <div className="flex items-center gap-2">
       <button
+        aria-label="Mes anterior"
         onClick={() => onCambiar(moverMes(periodo, -1))}
         className="p-2 rounded-xl border border-neutro-200 hover:bg-neutro-50 transition"
       >
@@ -19,6 +15,7 @@ export default function SelectorMes({ periodo, onCambiar }) {
         {mesNombre(periodo.mes)} {periodo.anio}
       </h2>
       <button
+        aria-label="Mes siguiente"
         onClick={() => onCambiar(moverMes(periodo, 1))}
         className="p-2 rounded-xl border border-neutro-200 hover:bg-neutro-50 transition"
       >

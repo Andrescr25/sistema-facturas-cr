@@ -1030,3 +1030,15 @@ recepción, clasificación, confirmación fiscal, renta, IVA y pago; no conceder
 deducción/crédito ni enviar aceptación/rechazo automáticamente. Investigar
 Hacienda. Desarrollo/verificación local, sin nueva publicación a producción.
 [Implementación y fuentes](informes/gastos-operativos-2026-10-21.md).
+
+
+## 2026-10-21 — Gastos al contador y cierre mensual del sistema propio
+
+Al explicar que faltaba conectar los gastos al envío mensual, confirma:
+«exacto hazlo / esto deberia de salir a final de mes / tambien adapta bien
+este modulo al sistema actual porque este aún esta adecuado para alegra».
+Se integran ventas/compras/gastos, Excel y comprobantes en el envío existente,
+incluyendo pendientes de revisión. Consultar el mes no requiere importar ni
+corregir archivos de Alegra o sobrescribir períodos entregados; conservan
+consulta histórica. No autoriza envíos reales para probar ni producción.
+[Alcance](informes/contador-mensual-2026-10-21.md).

@@ -1,13 +1,7 @@
-const { httpError, texto, opcion, numero } = require('../../utils/validacion');
+const { httpError, texto, opcion, numero, uuidValido: uuid } = require('../../utils/validacion');
 
 const CATEGORIAS = ['combustible', 'alimentacion'];
 const TRATAMIENTOS = ['comercial', ...CATEGORIAS, 'mixto'];
-const uuid = (v) => {
-  if (!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(String(v))) {
-    throw httpError(400, 'Identificador de factura inválido.');
-  }
-  return String(v);
-};
 const categoria = (v) => opcion(CATEGORIAS)(v, 'Categoría');
 const monto = (v, max, etiqueta) => numero({ min: 0, max })(v, etiqueta) ?? 0;
 

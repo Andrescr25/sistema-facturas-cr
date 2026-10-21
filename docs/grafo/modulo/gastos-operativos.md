@@ -72,3 +72,9 @@ aceptación del proveedor por Hacienda ni verificación de confianza del certifi
 Permiso propio; Revisión sólo toma prestado POST /desde-factura. No abre lista,
 pagos ni archivos por ese permiso. Investigación y verificación en
 [el informe](../../informes/gastos-operativos-2026-10-21.md).
+
+El Reporte Contador incluye gastos por mes de emisión, también pendientes,
+en sección/hoja aparte. Sólo importes revisados se suman como deducción/crédito;
+los otros quedan vacíos. El envío mensual existente adjunta Excel y ZIP de
+originales con faltantes indicados. No duplica compra ni pago.
+[[modulo/reporte-contador]].

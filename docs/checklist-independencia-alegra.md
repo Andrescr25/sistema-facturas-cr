@@ -1083,3 +1083,9 @@ nueva migración ni modifica los conteos del corte. Ver
 - [ ] GO-07: aplicar SQL 061 en producción antes de publicar a main; esta entrega queda en developer.
 
 [Alcance y fuentes](informes/gastos-operativos-2026-10-21.md). No acredita pendientes del corte.
+
+- [x] GO-08: gastos por mes de emisión en Reporte Contador, revisión/pago/moneda y originales; envío conjunto explícito.
+- [x] GO-09: módulo actual sin carga/importación ni correcciones de Excel de Alegra; anteriores de sólo lectura.
+- [x] GO-10: 2915 pruebas correctas, 3 históricas omitidas; PostgreSQL, 21 comprobaciones en navegador, build, lint y estructura/grafo correctos.
+
+[Alcance mensual](informes/contador-mensual-2026-10-21.md). Sin SQL adicional; 061 pendiente de producción.

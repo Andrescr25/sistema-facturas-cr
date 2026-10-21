@@ -1,164 +1,47 @@
-/**
- * Reporte Contador - Controller
- */
-
 const service = require('./reporte-contador.service');
-
-function manejarError(res, error, contexto) {
-  if (error.status) {
-    return res.status(error.status).json({ success: false, message: error.message });
-  }
-  console.error(`❌ Error ${contexto}:`, error);
-  res.status(500).json({ success: false, message: error.message });
-}
-
-async function cargarPeriodo(req, res) {
+const historico = require('./contador.historico');
+const { vistaPublica, periodo } = require('./contador.mes');
+const { uuidValido } = require('../../utils/validacion');
+const { enviarExcel } = require('../../utils/exportarExcel');
+const responder = (fn) => async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
-    if (!req.file) throw Object.assign(new Error('No se recibió ningún archivo.'), { status: 400 });
-    const { anio, mes, tipo } = req.body;
-    const data = await service.cargarPeriodo({
-      anio, mes, tipo, buffer: req.file.buffer, nombreArchivo: req.file.originalname
-    });
-    res.json({ success: true, ...data });
-  } catch (error) {
-    manejarError(res, error, 'cargando el período');
+    await fn(req, res);
+  } catch (e) {
+    if (!e.status) console.error('Reporte Contador: no se pudo completar la operación.');
+    res
+      .status(e.status || 500)
+      .json({ success: false, message: e.status ? e.message : 'No se pudo completar el reporte.' });
   }
-}
-
-async function importarDelSistema(req, res) {
-  try {
-    const { anio, mes, tipo } = req.body;
-    const data = await service.importarDelSistema({ anio, mes, tipo });
-    res.json({ success: true, ...data });
-  } catch (error) {
-    manejarError(res, error, 'trayendo el mes del sistema');
-  }
-}
-
-async function listarPeriodos(req, res) {
-  try {
-    const { anio, mes } = req.query;
-    if (!anio || !mes) throw Object.assign(new Error('Faltan año y mes.'), { status: 400 });
-    const data = await service.listarPeriodos(anio, mes);
-    res.json({ success: true, data });
-  } catch (error) {
-    manejarError(res, error, 'listando períodos');
-  }
-}
-
-async function obtenerPeriodo(req, res) {
-  try {
-    const data = await service.obtenerPeriodo(req.params.id);
-    res.json({ success: true, ...data });
-  } catch (error) {
-    manejarError(res, error, 'obteniendo el período');
-  }
-}
-
-async function toggleExcluirFactura(req, res) {
-  try {
-    const data = await service.toggleExcluirFactura(req.params.id, req.params.numero, req.body.excluido);
-    res.json({ success: true, ...data });
-  } catch (error) {
-    manejarError(res, error, 'actualizando la factura');
-  }
-}
-
-async function actualizarLinea(req, res) {
-  try {
-    const data = await service.actualizarLinea(req.params.id, req.body);
-    res.json({ success: true, data });
-  } catch (error) {
-    manejarError(res, error, 'actualizando la línea');
-  }
-}
-
-async function eliminarLinea(req, res) {
-  try {
-    const data = await service.eliminarLinea(req.params.id);
-    res.json({ success: true, ...data });
-  } catch (error) {
-    manejarError(res, error, 'eliminando la línea');
-  }
-}
-
-async function eliminarPeriodo(req, res) {
-  try {
-    const data = await service.eliminarPeriodo(req.params.id);
-    res.json({ success: true, ...data });
-  } catch (error) {
-    manejarError(res, error, 'eliminando el período');
-  }
-}
-
-async function redetectarDuplicados(req, res) {
-  try {
-    const data = await service.redetectarDuplicados(req.params.id);
-    res.json({ success: true, ...data });
-  } catch (error) {
-    manejarError(res, error, 'redetectando duplicados');
-  }
-}
-
-async function exportarPeriodo(req, res) {
-  try {
-    const { buffer, nombreSugerido } = await service.exportarPeriodo(req.params.id);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(nombreSugerido)}"`);
-    res.send(buffer);
-  } catch (error) {
-    manejarError(res, error, 'exportando el período');
-  }
-}
-
-async function listarContactos(req, res) {
-  try {
-    res.json({ success: true, data: await service.listarContactos() });
-  } catch (error) {
-    manejarError(res, error, 'listando los contactos');
-  }
-}
-
-async function crearContacto(req, res) {
-  try {
-    const { nombre, email } = req.body;
-    res.json({ success: true, data: await service.crearContacto({ nombre, email }) });
-  } catch (error) {
-    manejarError(res, error, 'guardando el contacto');
-  }
-}
-
-async function eliminarContacto(req, res) {
-  try {
-    res.json({ success: true, ...(await service.eliminarContacto(req.params.id)) });
-  } catch (error) {
-    manejarError(res, error, 'eliminando el contacto');
-  }
-}
-
-async function enviarAlContador(req, res) {
-  try {
-    const { anio, mes, contactoId } = req.body;
-    const resultado = await service.enviarAlContador({ anio, mes, contactoId });
-    res.json({ success: true, ...resultado });
-  } catch (error) {
-    manejarError(res, error, 'enviando los reportes al contador');
-  }
-}
-
+};
+const json = (fn) =>
+  responder(async (req, res) => res.json({ success: true, data: await fn(req) }));
 module.exports = {
-  listarContactos,
-  crearContacto,
-  eliminarContacto,
-  enviarAlContador,
-  cargarPeriodo,
-  importarDelSistema,
-  listarPeriodos,
-  obtenerPeriodo,
-  toggleExcluirFactura,
-  actualizarLinea,
-  eliminarLinea,
-  eliminarPeriodo,
-  redetectarDuplicados,
-  exportarPeriodo
+  obtenerMes: json(async (req) => vistaPublica(await service.obtenerMes(req.query))),
+  exportarMes: responder(async (req, res) =>
+    enviarExcel(res, await service.exportarMes(req.query))
+  ),
+  comprobantes: responder(async (req, res) => {
+    const a = await service.respaldosMes(req.query);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${a.nombre}"`);
+    res.append('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(a.buffer);
+  }),
+  listarContactos: json(() => service.listarContactos()),
+  crearContacto: json((req) => service.crearContacto(req.body || {})),
+  eliminarContacto: json((req) => service.eliminarContacto(uuidValido(req.params.id))),
+  enviarAlContador: json((req) => service.enviarAlContador(req.body || {})),
+  listarPeriodos: json((req) => {
+    const p = periodo(req.query);
+    return historico.listarPeriodos(p.anio, p.mes);
+  }),
+  obtenerPeriodo: json((req) => historico.obtenerPeriodo(uuidValido(req.params.id))),
+  exportarPeriodo: responder(async (req, res) => {
+    const a = await historico.exportarPeriodo(uuidValido(req.params.id));
+    enviarExcel(res, {
+      buffer: a.buffer,
+      nombre: `reporte-guardado-${uuidValido(req.params.id)}.xlsx`
+    });
+  })
 };

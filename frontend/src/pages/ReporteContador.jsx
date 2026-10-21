@@ -1,112 +1,115 @@
-import { Landmark } from 'lucide-react'
+import { Landmark, Download, Mail, RefreshCw } from 'lucide-react'
 import { useReporteContador } from '../hooks/useReporteContador'
+import { periodoActual } from '../utils/reporteContadorUtils'
+import EncabezadoPagina from '../components/ui/EncabezadoPagina'
+import Boton from '../components/ui/Boton'
 import SelectorMes from '../components/reporte-contador/SelectorMes'
-import TarjetaPeriodo from '../components/reporte-contador/TarjetaPeriodo'
-import ResumenComparativo from '../components/reporte-contador/ResumenComparativo'
-import TablaFacturas from '../components/reporte-contador/TablaFacturas'
+import ResumenMes from '../components/reporte-contador/ResumenMes'
+import MovimientosMes from '../components/reporte-contador/MovimientosMes'
+import DetalleMovimiento from '../components/reporte-contador/DetalleMovimiento'
 import ModalEnviarContador from '../components/reporte-contador/ModalEnviarContador'
 import ConfirmModal from '../components/ConfirmModal'
-import ToastContainer from '../components/ToastContainer'
-
-/**
- * Reporte Contador — control interno mensual de ventas y compras.
- *
- * El mes se trae de las facturas, notas de crédito y compras del sistema
- * (también se puede subir el Excel que exportaba Alegra, para un mes viejo).
- * En ventas, el módulo detecta automáticamente
- * facturas que están duplicadas — la misma venta registrada como documento
- * interno ("sin emisión") y además como factura electrónica — y las deja
- * pre-marcadas para excluir, siempre reversible. Todo lo demás se edita a
- * mano: exclusión por factura, edición o borrado de línea.
- */
 export default function ReporteContador() {
-  const {
-    periodoSeleccionado, setPeriodoSeleccionado,
-    periodos, periodoDe, subiendo, handleSubirArchivo, handleImportarDelSistema, handleEliminarPeriodo,
-    tabActiva, setTabActiva, detalle, loadingDetalle, resumenVentas, resumenCompras,
-    handleToggleFactura, handleEditarLinea, handleEliminarLinea,
-    handleRedetectar, handleExportar,
-    modalContadorAbierto, setModalContadorAbierto, contactos, envioDisponible,
-    handleCrearContacto, handleEliminarContacto, handleEnviarContador,
-    dialogProps, toasts, removeToast
-  } = useReporteContador()
-
-  // El modal manda los DOS reportes del mes, no solo el de la pestaña
-  // abierta, así que lista lo que hay cargado sin importar `tabActiva`.
-  const nombreMes = ({ anio, mes }) => {
-    const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-    return `${meses[mes - 1]} ${anio}`
-  }
-
-  const ventas = periodoDe('ventas')
-  const compras = periodoDe('compras')
-
+  const e = useReporteContador()
   return (
-    <div className="max-w-6xl mx-auto pb-24 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-neutro-900 flex items-center gap-2.5">
-            <Landmark className="text-primario-600" size={28} />
-            Reporte Contador
-          </h1>
-          <p className="text-neutro-600 mt-1">
-            Control interno mensual de ventas y compras — se traen del sistema, los revisás y exportás.
-          </p>
+    <div className="mx-auto max-w-6xl space-y-5 pb-16">
+      <EncabezadoPagina
+        titulo="Reporte Contador"
+        descripcion="Ventas, compras y gastos del mes, directamente del sistema."
+        icono={Landmark}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SelectorMes periodo={e.periodo} onCambiar={e.setPeriodo} />
+        <div className="flex gap-2">
+          <Boton variante="fantasma" onClick={() => e.setPeriodo(periodoActual())}>
+            Mes actual
+          </Boton>
+          <Boton variante="secundario" disabled={e.cargando} onClick={e.cargar}>
+            <RefreshCw size={16} /> Actualizar
+          </Boton>
         </div>
-        <SelectorMes periodo={periodoSeleccionado} onCambiar={setPeriodoSeleccionado} />
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <TarjetaPeriodo tipo="ventas" periodo={ventas} subiendo={subiendo} onSubir={handleSubirArchivo} onImportar={handleImportarDelSistema} onEliminar={handleEliminarPeriodo} />
-        <TarjetaPeriodo tipo="compras" periodo={compras} subiendo={subiendo} onSubir={handleSubirArchivo} onImportar={handleImportarDelSistema} onEliminar={handleEliminarPeriodo} />
-      </div>
-
-      <ResumenComparativo ventas={ventas} compras={compras} resumenVentas={resumenVentas} resumenCompras={resumenCompras} />
-
-      {(ventas || compras) && (
-        <div className="flex bg-neutro-100 p-1.5 rounded-2xl max-w-xs">
-          {['ventas', 'compras'].map(t => (
-            <button
-              key={t}
-              onClick={() => setTabActiva(t)}
-              disabled={!periodoDe(t)}
-              className={`flex-1 py-2 text-center text-sm font-semibold rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
-                tabActiva === t ? 'bg-white text-primario-600 shadow-md ring-1 ring-black/5' : 'text-neutro-600 hover:text-neutro-900'
-              }`}
-            >
-              {t === 'ventas' ? 'Ventas' : 'Compras'}
-            </button>
-          ))}
-        </div>
+      {e.error && (
+        <p role="alert" className="rounded-xl bg-peligro-50 p-3 text-sm text-peligro-700">
+          {e.error}
+        </p>
       )}
-
-      <TablaFacturas
-        tipo={tabActiva}
-        detalle={detalle}
-        loading={loadingDetalle}
-        onToggleFactura={handleToggleFactura}
-        onEditarLinea={handleEditarLinea}
-        onEliminarLinea={handleEliminarLinea}
-        onRedetectar={handleRedetectar}
-        onExportar={handleExportar}
-        onEnviarContador={() => setModalContadorAbierto(true)}
-      />
-
-      <ModalEnviarContador
-        abierto={modalContadorAbierto}
-        onCerrar={() => setModalContadorAbierto(false)}
-        onEnviar={handleEnviarContador}
-        onCrearContacto={handleCrearContacto}
-        onEliminarContacto={handleEliminarContacto}
-        contactos={contactos}
-        envioDisponible={envioDisponible}
-        etiquetaMes={nombreMes(periodoSeleccionado)}
-        adjuntos={periodos.map(p => p.tipo)}
-      />
-
-      <ConfirmModal {...dialogProps} />
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      {e.aviso && (
+        <p role="status" className="rounded-xl bg-exito-50 p-3 text-sm text-exito-700">
+          {e.aviso}
+        </p>
+      )}
+      {e.cargando ? (
+        <p className="py-12 text-center text-neutro-500">Consultando el mes…</p>
+      ) : (
+        e.datos && (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-neutro-500">
+                {e.datos.finalizado ? 'Mes finalizado' : 'Mes en curso · cifras provisionales'} ·
+                del {e.datos.desde} al {e.datos.hasta}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Boton
+                  variante="secundario"
+                  disabled={Boolean(e.ocupado)}
+                  onClick={() => e.descargar('excel')}
+                >
+                  <Download size={16} /> Excel del mes
+                </Boton>
+                {e.datos.gastos.length > 0 && (
+                  <Boton
+                    variante="secundario"
+                    disabled={Boolean(e.ocupado)}
+                    onClick={() => e.descargar('comprobantes')}
+                  >
+                    Comprobantes de gastos
+                  </Boton>
+                )}
+                <Boton
+                  disabled={
+                    Boolean(e.ocupado) || (!e.datos.documentos.length && !e.datos.gastos.length)
+                  }
+                  onClick={() => e.setModal(true)}
+                >
+                  <Mail size={16} /> Enviar al contador
+                </Boton>
+              </div>
+            </div>
+            <ResumenMes datos={e.datos} />
+            <MovimientosMes estado={e} />
+            {e.archivos.length > 0 && (
+              <details className="rounded-2xl border border-neutro-200 bg-white p-5">
+                <summary className="cursor-pointer font-bold text-neutro-800">
+                  Reportes guardados anteriormente
+                </summary>
+                <p className="mt-2 text-sm text-neutro-500">
+                  Conservan las correcciones y exclusiones de su preparación original. No se
+                  reemplazan al consultar el mes actual.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {e.archivos.map((a) => (
+                    <Boton
+                      key={a.id}
+                      variante="secundario"
+                      disabled={Boolean(e.ocupado)}
+                      onClick={() => e.descargarHistorico(a.id)}
+                    >
+                      Descargar {a.tipo}
+                    </Boton>
+                  ))}
+                </div>
+              </details>
+            )}
+            <DetalleMovimiento
+              documento={e.seleccionado}
+              onCerrar={() => e.setSeleccionado(null)}
+            />
+            <ModalEnviarContador estado={e} />
+          </>
+        )
+      )}
+      <ConfirmModal {...e.dialogProps} />
     </div>
   )
 }

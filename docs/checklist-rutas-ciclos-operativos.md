@@ -801,3 +801,9 @@ combustible/alimentación sin inventario, reutilizando buzón/compras/CxP/Caja.
 No cambia rutas, próxima visita ni pedidos enviados. SQL 061 local; producción
 pendiente. Ver GO-01/07 en el checklist de independencia y
 [el informe](informes/gastos-operativos-2026-10-21.md).
+
+
+**2026-10-21, cierre mensual del contador:** gastos y originales se suman al
+reporte del mes sin semanas/rutas, pagos duplicados ni cambios de inventario.
+Reportes antiguos conservados. GO-08/10 en independencia; no cierra pendientes
+ROT ni modifica próxima visita. [Alcance](informes/contador-mensual-2026-10-21.md).

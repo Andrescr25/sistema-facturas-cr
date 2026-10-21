@@ -1,22 +1,41 @@
-export { formatCurrency } from './pagosProveedoresUtils'
-
+import { hoyEnCostaRica } from './fechaCR'
 const MESES = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre'
 ]
-
-export function mesNombre(numero) {
-  return MESES[Number(numero) - 1] || ''
+export const mesNombre = (n) => MESES[Number(n) - 1] || ''
+export function moverMes({ anio, mes }, delta) {
+  const d = new Date(Date.UTC(anio, mes - 1 + delta, 1))
+  return { anio: d.getUTCFullYear(), mes: d.getUTCMonth() + 1 }
 }
-
-/** Mes anterior al actual — es lo que hay que declarar a principios de mes. */
-export function periodoMesAnterior() {
-  const hoy = new Date()
-  const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
-  return { anio: anterior.getFullYear(), mes: anterior.getMonth() + 1 }
+export function periodoActual(ahora = new Date()) {
+  const [anio, mes] = hoyEnCostaRica(ahora).split('-').map(Number)
+  return { anio, mes }
 }
-
-export function formatFecha(valor) {
-  if (!valor) return '—'
-  return new Date(valor).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' })
+export const periodoMesAnterior = (ahora) => moverMes(periodoActual(ahora), -1)
+export function filtrarMovimientos(datos, tab, buscar) {
+  const lista =
+    tab === 'gastos'
+      ? datos?.gastos || []
+      : (datos?.documentos || []).filter((d) =>
+          tab === 'ventas'
+            ? ['Venta', 'Nota de crédito'].includes(d.tipo)
+            : ['Compra', 'Nota de crédito proveedor'].includes(d.tipo)
+        )
+  const texto = buscar.trim().toLocaleLowerCase('es')
+  return lista.filter((d) =>
+    `${d.contraparte} ${d.numero} ${d.categoria_texto || ''} ${d.descripcion || ''}`
+      .toLocaleLowerCase('es')
+      .includes(texto)
+  )
 }
