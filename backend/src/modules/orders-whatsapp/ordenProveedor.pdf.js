@@ -11,6 +11,11 @@ const numero = n => Number(n).toLocaleString('es-CR', { maximumFractionDigits: 6
  * órdenes de compra se guarden tipo OC-xx, esto da igual»). El papel dice
  * qué se pide, a quién y cuándo; la orden se sigue guardando por dentro para
  * tachar lo ya pedido, pero su número no sale en el PDF ni en el archivo.
+ *
+ * SIN FACTOR (2026-10-20, el usuario: «el pdf de orden de compra sale el
+ * factor, eso quitalo, el proveedor no ocupa esa info, lo podría confundir»).
+ * El factor convierte SUS unidades a las nuestras: es cuenta interna. El
+ * proveedor solo necesita cuánto, qué y con qué código.
  */
 function generarPdfCompra({ proveedor, fecha, lineas }) {
   return new Promise((resolve, reject) => {
@@ -94,7 +99,6 @@ function generarPdfCompra({ proveedor, fecha, lineas }) {
       const notas = [l.descripcionFactura, l.observaciones].map(t => String(t || '').trim()).filter(Boolean).join('   ·   ');
       const segmentos = [
         { texto: String(l.descripcion || 'Sin descripción'), tam: 10.5, negrita: true, color: MARCA.tinta },
-        { texto: `Factor: ${numero(l.factor ?? 1)}`, tam: 8, color: MARCA.gris },
         ...(notas ? [{ texto: notas, tam: 8, color: MARCA.naranjaOscuro }] : [])
       ];
       let codigo = String(l.codigo || '—'), primera = true;

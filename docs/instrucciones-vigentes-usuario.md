@@ -90,7 +90,8 @@ debe abrir un modal con el número de destino y el mensaje predeterminado,
 antes de confirmar el envío. Sustituye únicamente el envío inmediato; no
 reintroduce la lista de órdenes ni la segunda revisión de productos.
 Restaurar el formato comercial de PDF que ya estaba: código, descripción,
-factor y cantidad del proveedor. Conservar las cantidades/snapshots y los
+factor y cantidad del proveedor (el factor lo pidió quitar el 2026-10-20,
+ver más abajo). Conservar las cantidades/snapshots y los
 PDF históricos; un cambio de lógica no autoriza cambiar su diseño.
 
 **Mensaje predeterminado, ajuste posterior del mismo día:** usar únicamente
@@ -1000,3 +1001,11 @@ dias de enviadas se pueden eliminar». Se dejan de mostrar en Reporte
 Proveedores pasadas 72 h de enviadas, sin borrarlas de la base: borrarlas
 haría volver sus productos a «por pedir» y pedirlos de nuevo.
 [Detalle](grafo/modulo/reporte-proveedores.md).
+
+
+## 2026-10-20 — El PDF de la orden de compra sin factor
+
+«perfecto, ahora el pdf de orden de compra sale el factor / eso quitalo, el
+proveedor no ocupa esa info / lo podria confundir». Reemplaza el factor del
+formato comercial pedido el 2026-10-14: el PDF queda con cantidad,
+descripción y código del proveedor. [Detalle](grafo/modulo/reporte-proveedores.md).

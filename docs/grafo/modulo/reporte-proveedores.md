@@ -36,6 +36,9 @@ archivos:
   - backend/src/modules/orders-whatsapp/envioDesdeReporte.service.js
   - backend/src/modules/orders-whatsapp/temporalesVisibles.sql.js
   - backend/src/modules/orders-whatsapp/ordenesReporte.service.js
+  - backend/src/modules/orders-whatsapp/ordenProveedor.pdf.js
+  - backend/src/modules/orders-whatsapp/ordenesCiclo.pdf.js
+  - backend/tests/ordenProveedorPdf.test.js
   - backend/tests/envioReporteProveedor.test.js
   - backend/tests/proveedoresInterfaz.test.js
   - frontend/src/utils/proveedoresVista.js
@@ -69,6 +72,16 @@ aristas:
 medido: 2026-10-20
 ---
 
+## El PDF de la orden ya no muestra el factor — 2026-10-20
+
+Pedido del usuario: «el pdf de orden de compra sale el factor, eso quitalo,
+el proveedor no ocupa esa info, lo podria confundir». El factor convierte las
+unidades del proveedor a las propias: es cuenta interna. El PDF muestra
+cantidad del proveedor, descripción y código; el factor sigue en el modal de
+envío, en las líneas guardadas y en las cuentas. Reemplaza el «código,
+descripción, factor y cantidad» del 2026-10-14. Los PDF ya enviados conservan
+sus bytes. `ordenProveedorPdf.test.js` falla si algún trazo menciona el factor.
+
 ## Las enviadas salen del reporte a los 3 días — 2026-10-20
 
 Pedido del usuario: «las ordenes de compra que ya fueron enviadas y tienen
@@ -83,7 +96,8 @@ enviadas en producción, todas del 14/10: salen todas del reporte.
 ## Vigencia desde el 2026-10-20
 
 Los documentos nuevos ya no muestran OC-xx; conservan el formato comercial
-con código, descripción, factor y cantidad del proveedor. Los envíos
+con código, descripción y cantidad del proveedor (el factor salió del PDF
+ese mismo día, ver arriba). Los envíos
 anteriores mantienen sus bytes y el nuevo faltante sigue creando otro pedido.
 Se retira la comparación «facturado/parcial» derivada del vínculo con la compra;
 el usuario definirá su reemplazo. El modal, teléfonos y mensaje no cambian.
@@ -132,7 +146,8 @@ El mensaje de las copias nuevas es exactamente «Hola buenas, adjunto pedido»
 y «gracias» en la siguiente línea, solicitado después por el usuario. Se
 comparte con la propuesta del motor; una copia previa conserva su mensaje.
 El formato comercial anterior se recupera en las copias nuevas: código y
-descripción del proveedor, factor y cantidad destacada. Los documentos
+descripción del proveedor, factor (retirado el 2026-10-20) y cantidad
+destacada. Los documentos
 históricos conservan sus bytes. Generador compartido y paginación en
 [[modulo/ordenes-compra-por-ciclo]]. [Verificación conjunta](../../informes/proveedores-modal-pdf-2026-10-14.md).
 

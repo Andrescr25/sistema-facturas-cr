@@ -38,19 +38,23 @@ function comprobar(pdf) {
   return d;
 }
 const cantidades = d => d.trazos.filter(t => t.x === 46 && t.tam === 14).map(t => t.texto);
+// El factor es cuenta interna: el proveedor no lo necesita y lo confundía
+// (pedido del usuario, 2026-10-20). Ningún trazo del PDF puede mencionarlo.
+const sinFactor = d => assert.ok(!d.trazos.some(t => /factor/i.test(t.texto)), 'el PDF no muestra el factor');
 
-test('la orden comercial muestra código, descripción, factor y cantidad del proveedor sin cuentas internas', async () => {
+test('la orden comercial muestra código, descripción y cantidad del proveedor, sin factor ni cuentas internas', async () => {
   const o = orden([linea(1), linea(2, { factor_conversion: 1 })]), antes = structuredClone(o);
   const d = comprobar(await generarPdfOrden(o)), textos = d.trazos.map(t => t.texto);
   assert.equal(d.trazos.filter(t => /^Página /.test(t.texto)).length, 1);
   assert.deepEqual(cantidades(d), ['301', '302']);
   for (const esperado of ['CANT.', 'PRODUCTO', 'CÓDIGO', 'PROV-1', 'PROV-2', 'Descripción proveedor 1',
-    'Factor: 6', 'Factor: 1', '603 unidades', 'Recibido por']) assert.ok(textos.includes(esperado), esperado);
+    '603 unidades', 'Recibido por']) assert.ok(textos.includes(esperado), esperado);
+  sinFactor(d);
   assert.ok(!textos.some(t => /Producto propio|Unidades propias|Revisión 7|P-1/.test(t)));
   assert.deepEqual(o, antes, 'renderizar no modifica el snapshot');
 });
 
-test('datos propios y referencias faltantes conservan cantidad proveedor y factor sin inventar P-id', async () => {
+test('datos propios y referencias faltantes conservan cantidad proveedor sin inventar P-id', async () => {
   const o = orden([linea(1), linea(2, { codigo_proveedor: null }),
     linea(3, { mapping_id: null, codigo_proveedor: null, codigo_interno: null })]);
   const d = comprobar(await generarPdfOrden(o)), textos = d.trazos.map(t => t.texto);
@@ -65,13 +69,13 @@ test('datos propios y referencias faltantes conservan cantidad proveedor y facto
   assert.deepEqual(cantidades(propio), ['301', '302', '303']);
 });
 
-test('muchos productos conservan líneas, factores y cantidades una vez y repiten columnas al cambiar hoja', async () => {
+test('muchos productos conservan líneas y cantidades una vez y repiten columnas al cambiar hoja', async () => {
   const ls = Array.from({ length: 80 }, (_, i) => linea(i + 1));
   const d = comprobar(await generarPdfOrden(orden(ls))), pies = d.trazos.filter(t => /^Página /.test(t.texto));
   assert.ok(pies.length > 1);
   assert.deepEqual(cantidades(d), ls.map(l => String(l.cantidad_proveedor)));
   assert.deepEqual(d.trazos.filter(t => /^PROV-\d+$/.test(t.texto)).map(t => t.texto), ls.map(l => l.codigo_proveedor));
-  assert.equal(d.trazos.filter(t => t.texto === 'Factor: 6').length, 80);
+  sinFactor(d);
   for (const p of pies) {
     if (d.trazos.some(t => t.pagina === p.pagina && /^PROV-\d+$/.test(t.texto))) {
       for (const columna of ['CANT.', 'PRODUCTO', 'CÓDIGO']) {
@@ -81,7 +85,7 @@ test('muchos productos conservan líneas, factores y cantidades una vez y repite
   }
 });
 
-test('descripción y código mayores que una hoja continúan completos sin repetir cantidad ni factor', async () => {
+test('descripción y código mayores que una hoja continúan completos sin repetir cantidad', async () => {
   const descripcion = 'Descripción extensa de proveedor con presentación y detalle. '.repeat(250);
   const codigo = 'REFERENCIA-EXTENSA-'.repeat(150);
   const d = comprobar(await generarPdfOrden(orden([linea(1, { nombre_proveedor: descripcion, codigo_proveedor: codigo })])));
@@ -89,7 +93,7 @@ test('descripción y código mayores que una hoja continúan completos sin repet
   assert.equal(d.trazos.filter(t => t.x === 114 && t.tam === 10.5).map(t => t.texto).join(''), descripcion);
   assert.equal(d.trazos.filter(t => t.x === 476 && t.tam === 8.5).map(t => t.texto).join(''), codigo);
   assert.deepEqual(cantidades(d), ['301']);
-  assert.equal(d.trazos.filter(t => t.texto === 'Factor: 6').length, 1);
+  sinFactor(d);
 });
 
 test('el generador compartido conserva notas separadas y el total en unidades del proveedor', async () => {
@@ -100,6 +104,7 @@ test('el generador compartido conserva notas separadas y el total en unidades de
   assert.ok(textos.includes('Producto proveedor'));
   assert.ok(!textos.some(t => t.includes('OC-456')), 'la referencia interna no se imprime');
   assert.ok(textos.includes('Caja cerrada   ·   Confirmar disponibilidad'));
-  assert.ok(textos.includes('Factor: 12')); assert.ok(textos.includes('3 unidades'));
+  assert.ok(textos.includes('3 unidades'));
+  sinFactor(d);
   assert.deepEqual(cantidades(d), ['3']);
 });

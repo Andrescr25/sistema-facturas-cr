@@ -10,7 +10,6 @@ function generarPdfOrden(o, { preferirDatosProveedor = true } = {}) {
       codigo: (preferirDatosProveedor ? l.codigo_proveedor : null) || l.codigo_interno || '—',
       descripcion: (preferirDatosProveedor ? l.nombre_proveedor : null) || l.producto_nombre,
       cantidad: l.cantidad_proveedor,
-      factor: l.factor_conversion,
       seccion: !preferirDatosProveedor ? null : !l.mapping_id ? 'sin_mapeo' : !l.codigo_proveedor ? 'sin_codigo' : null
     }))
   });
