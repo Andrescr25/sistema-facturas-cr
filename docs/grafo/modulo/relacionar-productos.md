@@ -25,12 +25,24 @@ archivos:
   - frontend/src/hooks/useRelacionarProductos.js
   - frontend/src/hooks/useGestionarRelaciones.js
   - frontend/src/components/relacionar-productos/ModalCrearProducto.jsx
+  - frontend/src/components/relacionar-productos/ModalBuscarProducto.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
   bloqueado_por: [bloqueo/prisma-no-se-regenera, bloqueo/conteo-fisico]
   relacionado: [modulo/revision-precios, modulo/compras, modulo/rentabilidad, modulo/gestion-catalogo, decision/el-avance-de-la-factura-sale-de-sus-lineas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/el-doble-de-prisma-no-valida-tipos, leccion/proveedor-por-cedula]
 medido: 2026-10-14
 ---
+
+## Buscar el producto propio, rediseñado — 2026-10-20
+
+Pedido del usuario: «haz bien el diseño del modal de buscar productos para
+relacionar en revisión de precios, ahora los productos se ven muy enorme y
+casi no se ven». El recuadro del proveedor ocupaba casi todo el alto y cada
+resultado era una tarjeta alta: a 1366×768 no se veía ningún producto entero
+(1 a 1440×900, 0 en teléfono). Ahora usa `ui/Modal`; el proveedor es un
+resumen de dos o tres renglones fijo arriba con el buscador, y cada resultado
+es una fila que se elige con un toque (6, 8 y 5 a la vista). Montos con
+`colonesExacto`. Sin cambios en la búsqueda ni en lo que se guarda.
 
 Dos pantallas: **Relacionar Productos** (`/relacionar-productos/:facturaId`,
 línea por línea de una factura del buzón) y **Gestionar Relaciones**

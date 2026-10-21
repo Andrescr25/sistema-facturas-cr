@@ -1009,3 +1009,11 @@ haría volver sus productos a «por pedir» y pedirlos de nuevo.
 proveedor no ocupa esa info / lo podria confundir». Reemplaza el factor del
 formato comercial pedido el 2026-10-14: el PDF queda con cantidad,
 descripción y código del proveedor. [Detalle](grafo/modulo/reporte-proveedores.md).
+
+
+## 2026-10-20 — Modal para buscar el producto a relacionar
+
+«ahora haz bien el diseño del modal de buscar productos para relacionar en
+revision de precios / este ahora esta que los productos se ven muy enorme y
+casi no se ven / hazlo mas acorde a» (el mensaje llegó cortado; se tomó
+«acorde al sistema»). [Detalle](grafo/modulo/relacionar-productos.md).
