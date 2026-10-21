@@ -4,24 +4,30 @@ tipo: modulo
 titulo: Históricos y copias de facturas conservan el contexto del documento
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/facturacion/facturaPropia.service.js
-  - backend/src/modules/rutas/documentosCiclo.service.js
   - frontend/src/utils/facturasLocales.js
   - frontend/src/utils/facturacionUtils.js
   - frontend/src/services/facturacionService.js
-  - frontend/src/components/ContextoCicloDocumento.jsx
   - frontend/src/components/facturacion/PanelEditarFacturas.jsx
   - frontend/src/components/facturacion/PanelFacturasEmitidas.jsx
   - frontend/src/components/facturacion/VistaFactura.jsx
   - frontend/src/hooks/useFacturacion.js
   - frontend/src/pages/Facturacion.jsx
-  - backend/tests/documentosCiclo.test.js
   - backend/tests/facturasLocales.test.js
   - backend/tests/contextoColasFactura.test.js
 aristas:
   relacionado: [modulo/contexto-cadena-operativa, decision/ciclo-de-ruta-como-contexto, modulo/pedidos-por-ciclo, modulo/facturacion-offline, modulo/contexto-visible-operacion, modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 CONTEXTO GUARDADO. PUT devuelve la fotografía de ciclo de la factura dentro
 de su transacción. El acuse de idempotencia devuelve estado, ciclo y origen

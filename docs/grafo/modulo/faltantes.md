@@ -4,16 +4,12 @@ tipo: modulo
 titulo: Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - docs/informes/proveedores-correccion-2026-10-14.md
   - backend/tests/proveedoresCritico.test.js
   - backend/src/modules/reports/faltantesCompra.sql.js
   - backend/tests/ordenesAutomaticas.test.js
   - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
-  - backend/src/modules/rutas/operacionCiclo.service.js
-  - backend/tests/operacionCiclos.test.js
-  - frontend/src/components/FiltroCicloOperacion.jsx
-  - frontend/src/components/ContextoCicloDocumento.jsx
-  - frontend/src/hooks/useFiltroCicloOperacion.js
   - backend/migrations/independencia/032_faltantes_con_ids_propios.sql
   - backend/migrations/independencia/033_faltante_cantidad_rebajada.sql
   - backend/src/utils/guardarFaltantes.js
@@ -60,6 +56,14 @@ aristas:
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores, modulo/hacienda]
 medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-14, compra actual y procedencia exacta:** Reporte Proveedores y sus
 notas comparten faltantesCompra.sql: pendiente, factura emitida sin crédito

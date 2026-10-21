@@ -4,11 +4,18 @@ const fs = require('node:fs');
 const { MARCA, LOGO, LOGO_RATIO, registrarFuentes, fechaLarga } = require('../../utils/marcaPdf');
 const numero = n => Number(n).toLocaleString('es-CR', { maximumFractionDigits: 6 });
 
-/** Recibe datos ya resueltos: no consulta proveedor, mapping ni cantidades. */
-function generarPdfCompra({ referencia, proveedor, fecha, lineas }) {
+/**
+ * Recibe datos ya resueltos: no consulta proveedor, mapping ni cantidades.
+ *
+ * SIN NÚMERO DE ORDEN (2026-10-20, el usuario: «quitemos el hecho de que las
+ * órdenes de compra se guarden tipo OC-xx, esto da igual»). El papel dice
+ * qué se pide, a quién y cuándo; la orden se sigue guardando por dentro para
+ * tachar lo ya pedido, pero su número no sale en el PDF ni en el archivo.
+ */
+function generarPdfCompra({ proveedor, fecha, lineas }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'LETTER', margin: 40, bufferPages: true,
-      info: { Title: `Orden ${referencia}`, Author: 'Distribuidora Tachi' } });
+      info: { Title: `Orden de compra${proveedor ? ` · ${proveedor}` : ''}`, Author: 'Distribuidora Tachi' } });
     const partes = [];
     doc.on('data', p => partes.push(p));
     doc.on('error', reject);
@@ -52,8 +59,7 @@ function generarPdfCompra({ referencia, proveedor, fecha, lineas }) {
       }
       const xDer = M + ANCHO - 240;
       texto('ORDEN DE COMPRA', xDer, M + 2, 240, 15, true, MARCA.tinta, { align: 'right' });
-      texto(referencia, xDer, M + 22, 240, 10, true, MARCA.naranja, { align: 'right' });
-      texto(fechaLarga(fecha), xDer, M + 36, 240, 8.5, false, MARCA.gris, { align: 'right' });
+      texto(fechaLarga(fecha), xDer, M + 22, 240, 10, true, MARCA.naranja, { align: 'right' });
       const regla = Math.max(cursor + 18, M + 56);
       doc.rect(M, regla, ANCHO, 2.5).fill(MARCA.naranja);
       y = regla + 18;
@@ -168,7 +174,7 @@ function generarPdfCompra({ referencia, proveedor, fecha, lineas }) {
         doc.page.margins.bottom = 0;
         const pie = doc.page.height - 30;
         doc.rect(M, pie - 8, ANCHO, 0.5).fill(MARCA.linea);
-        texto(`${referencia}   ·   ${proveedor || ''}`, M, pie, ANCHO - 110, 7, false, MARCA.grisSuave, { lineBreak: false, ellipsis: true });
+        texto(`Orden de compra   ·   ${proveedor || ''}`, M, pie, ANCHO - 110, 7, false, MARCA.grisSuave, { lineBreak: false, ellipsis: true });
         texto(`Página ${i + 1} de ${rango.count}`, M + ANCHO - 110, pie, 110, 7, false, MARCA.grisSuave, { align: 'right' });
         doc.page.margins.bottom = margen;
       }

@@ -18,8 +18,16 @@ archivos:
   - backend/tests/facturaVista.test.js
 aristas:
   relacionado: [modulo/facturacion, modulo/hacienda, modulo/rutas-clientes]
-medido: 2026-10-11
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 LO QUE PASÓ. El 2026-10-11 el usuario pidió revisar si los agentes habían
 respetado «la estructura de lógica y diseño». Las reglas del negocio sí, las

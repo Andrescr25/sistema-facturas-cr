@@ -33,7 +33,6 @@
  *    `factura` desde la sección 11 (migraciones 031 y 032).
  */
 
-const ciclos = require('../rutas/documentosCiclo.service');
 const { pool, query } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
 const { reconciliarDocumentoEn } = require('../inventario/inventario.service');
@@ -94,7 +93,7 @@ const COLUMNAS_FACTURA = [
   'cliente_telefono', 'cliente_direccion',
   'condicion_venta', 'plazo_credito_id', 'plazo_texto', 'metodo_pago_id', 'metodo_pago_texto',
   'moneda', 'subtotal', 'descuento', 'impuesto', 'total', 'total_pagado', 'saldo',
-  'observaciones', 'anotaciones', 'vendedor', 'actividad_economica', 'creado_por', 'ciclo_ruta_cliente_id', 'preventa_anticipada'
+  'observaciones', 'anotaciones', 'vendedor', 'actividad_economica', 'creado_por'
 ];
 
 const COLUMNAS_LINEA = [
@@ -144,7 +143,7 @@ async function buscarProductos(cliente, alegraItemIds, productoIds) {
   return rows;
 }
 
-async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuarioId, contexto }) {
+async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuarioId }) {
   const numeracion = await tomarConsecutivo(cliente, 'factura', { electronica: false });
 
   const fecha = datos.fecha || hoyEnCostaRica();
@@ -190,9 +189,7 @@ async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuari
     anotaciones: datos.anotaciones ?? null,
     vendedor: recortar(datos.vendedor, 120),
     actividad_economica: recortar(datos.actividadEconomica, 10),
-    creado_por: usuarioId ?? null,
-    ciclo_ruta_cliente_id: contexto?.recorridoId || null,
-    preventa_anticipada: Boolean(contexto?.anticipado)
+    creado_por: usuarioId ?? null
   };
 
   const valores = COLUMNAS_FACTURA.map(c => fila[c]);
@@ -208,7 +205,6 @@ async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuari
     throw explicarDatoLargo(error, 'factura', COLUMNAS_FACTURA, valores);
   }
   const factura = rows[0];
-  factura.ciclo = contexto?.ciclo || null;
 
   for (const linea of armado.lineas) {
     const valoresLinea = COLUMNAS_LINEA.map(c => (c === 'factura_id' ? factura.id : linea[c]));
@@ -227,8 +223,7 @@ async function guardarFactura(cliente, { datos, clienteFacturado, armado, usuari
   await reconciliarDocumentoEn(cliente, 'factura', factura.id, usuarioId);
   await registrarCambio(cliente, {
     entidad: 'factura', entidadId: factura.id, accion: 'crear',
-    despues: { numero: factura.numero, cliente: factura.cliente_nombre, total: Number(factura.total), lineas: armado.lineas.length,
-      ciclo: factura.ciclo, anticipado: factura.preventa_anticipada },
+    despues: { numero: factura.numero, cliente: factura.cliente_nombre, total: Number(factura.total), lineas: armado.lineas.length },
     usuarioId
   });
 
@@ -312,13 +307,16 @@ function revisarPedido(datos) {
 }
 
 /** Cliente, productos, líneas y el guardado — todo sobre la transacción recibida. */
-async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preciosConImpuesto = false, contextoPedido = null, exigirDescuentoRevisado = false } = {}) {
+async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preciosConImpuesto = false, exigirDescuentoRevisado = false } = {}) {
   const clienteFacturado = await buscarCliente(cliente, {
     clienteId: datos.clienteId,
     alegraClienteId: datos.client
   });
 
-  const contexto = contextoPedido || await ciclos.validarEn(cliente, clienteFacturado.id, datos.cicloId);
+  // SIN CICLOS (2026-10-20, el usuario: «quita la lógica de los clientes de
+  // ciclo — Ruta y semana del pedido —; esto solo va a ser con la lógica de
+  // próxima visita»). La factura ya no se ata a una semana de ruta: nace sin
+  // `ciclo_ruta_cliente_id`. Las pocas que lo tienen lo conservan (historia).
 
   // Una cola o pantalla anterior a esta función no vio la rebaja: cambiarle
   // el total al sincronizar también cambiaría lo cobrado o prometido.
@@ -352,7 +350,7 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preci
     datos: { ...datos, ...cabecera },
     clienteFacturado,
     armado,
-    usuarioId, contexto
+    usuarioId
   });
 }
 
@@ -365,10 +363,10 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preci
  * una factura que la cotización no conoce, y facturarla de nuevo la cobra
  * dos veces.
  */
-async function crearFacturaEnTransaccion(cliente, datos, usuarioId, { preciosConImpuesto = false, contextoPedido = null } = {}) {
+async function crearFacturaEnTransaccion(cliente, datos, usuarioId, { preciosConImpuesto = false } = {}) {
   // Opción interna del portal. Una petición de Facturación no puede activar
   // este modo: sus precios siguen siendo bases sin IVA.
-  return emitirCon(cliente, datos, revisarPedido(datos), usuarioId, { preciosConImpuesto, contextoPedido });
+  return emitirCon(cliente, datos, revisarPedido(datos), usuarioId, { preciosConImpuesto });
 }
 
 /**
@@ -386,15 +384,12 @@ async function crearFactura(datos, usuarioId, { clave = null } = {}) {
       // creada en Alegra antes del corte que todavía no se copió acá. No se
       // devuelve el id de Alegra — acá ese número es otra factura.
       const { id, numero } = reserva.yaCreada;
-      // El acuse lleva el contexto GUARDADO aunque cambie la ruta o cierre
-      // la semana. No se valida de nuevo contra la ficha actual del cliente.
-      const { rows: [guardada] } = id ? await query(`SELECT f.estado, f.alegra_id, f.preventa_anticipada, ${ciclos.COLUMNAS_CICLO}
-        FROM factura f ${ciclos.JOIN_CICLO('f')} WHERE f.id=$1`, [id]) : { rows: [] };
+      const { rows: [guardada] } = id ? await query('SELECT f.estado, f.alegra_id FROM factura f WHERE f.id=$1', [id]) : { rows: [] };
       return {
         yaExistia: true,
         id,
         numero,
-        ...(guardada ? { estado: guardada.estado, alegra_id: guardada.alegra_id, ciclo: ciclos.aCiclo(guardada), preventa_anticipada: guardada.preventa_anticipada } : {}),
+        ...(guardada ? { estado: guardada.estado, alegra_id: guardada.alegra_id } : {}),
         mensaje: id
           ? 'Esa factura ya estaba creada.'
           : `Esa factura ya se había creado${numero ? ` (${numero})` : ''} antes de pasar al sistema nuevo y todavía no está cargada acá.`
@@ -545,12 +540,6 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
     if (factura.estado === 'anulada') throw httpError(409, `La factura ${factura.numero} está anulada.`);
 
     await revisarSiSePuedeTocar(cliente, factura, 'editar');
-    if (datos.cicloId !== undefined) {
-      const { rows: [vinculo] } = await cliente.query('SELECT ciclo_id FROM ciclo_ruta_cliente WHERE id=$1', [factura.ciclo_ruta_cliente_id || null]);
-      if ((datos.cicloId == null ? null : idValido(datos.cicloId)) !== (vinculo?.ciclo_id || null)) {
-        throw httpError(409, 'El ciclo de una factura emitida se conserva; no se puede reclasificar.');
-      }
-    }
 
     const usaAlegraId = items.some(i => i.productoId === undefined);
     const productos = await buscarProductos(
@@ -576,7 +565,9 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
     let cambioCliente = null;
     if (datos.clienteId !== undefined && datos.clienteId !== null
         && Number(datos.clienteId) !== Number(factura.cliente_id)) {
-      if (factura.ciclo_ruta_cliente_id) throw httpError(409, 'La factura pertenece al recorrido de ese cliente. Anule y emita otra para corregir el destinatario.');
+      // Las pocas facturas atadas a una semana de ruta de las de antes no
+      // cambian de cliente: la base lo impide (migración 045). Se avisa claro.
+      if (factura.ciclo_ruta_cliente_id) throw httpError(409, 'Esta factura quedó atada a una semana de ruta de las anteriores: para corregir el cliente, anúlela y emita otra.');
       const nuevo = await buscarCliente(cliente, { clienteId: datos.clienteId });
       // Corregir el cliente con un catálogo viejo lo cambiaría por OTRO.
       exigirClienteMostrado(datos, nuevo);
@@ -648,12 +639,7 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
       usuarioId, motivo: recortar(datos.motivo, 2000)
     });
 
-    // UPDATE conserva el vínculo; la tablet también necesita la fotografía
-    // de ruta/semana de GET, aun cuando no tenía ninguna copia descargada.
-    const { rows: [contexto] } = factura.ciclo_ruta_cliente_id
-      ? await cliente.query(`SELECT ${ciclos.COLUMNAS_CICLO} FROM factura f ${ciclos.JOIN_CICLO('f')} WHERE f.id=$1`, [n])
-      : { rows: [] };
-    return { ...actualizada[0], ciclo: contexto ? ciclos.aCiclo(contexto) : null, lineas: armado.lineas };
+    return { ...actualizada[0], lineas: armado.lineas };
   }
 }
 

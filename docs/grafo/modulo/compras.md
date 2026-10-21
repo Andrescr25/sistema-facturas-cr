@@ -16,8 +16,16 @@ aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
   relacionado: [modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 QUÉ ES HOY
 

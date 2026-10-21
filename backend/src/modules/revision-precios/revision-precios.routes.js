@@ -16,7 +16,8 @@ router.post('/devolver-factura', revisionPreciosController.devolverFactura);
 // por `producto.id`) y el precio que sugiere el motor para cada línea.
 router.post('/productos-batch', revisionPreciosController.getProductosBatch);
 router.get('/facturas/:facturaId/sugerencias-precio', revisionPreciosController.getSugerenciasPrecio);
-router.get('/facturas/:facturaId/ordenes-compra', revisionPreciosController.getOrdenesCompra);
+// /facturas/:facturaId/ordenes-compra se retiró el 2026-10-20: lo que llega ya
+// no se enlaza a una orden de compra (pedido del usuario).
 
 // La compra se registra por /compras/registrar. El envío viejo a Alegra
 // (/enviar-alegra) se retiró el 2026-10-04: ninguna pantalla lo llamaba.

@@ -1,4 +1,3 @@
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { ArrowRight, CalendarDays, CheckCircle2, Clock, History, Package, Search, X } from 'lucide-react'
 import TarjetasResumen from '../pagos/TarjetasResumen'
 import { formatCurrency, formatDate, horaDespacho } from '../../utils/facturasBodegaUtils'
@@ -38,7 +37,7 @@ function TarjetaFactura({ factura, onAbrir }) {
       </div>
 
       <h3 className="break-words text-xl font-bold leading-tight text-neutro-900">{factura.cliente_nombre}</h3>
-      <ContextoCicloDocumento documento={factura} />
+
       <p className="text-neutro-600">
         {productos} producto{productos === 1 ? '' : 's'} · {formatCurrency(factura.total)}
       </p>

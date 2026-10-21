@@ -2,23 +2,26 @@
 id: modulo/contexto-cadena-operativa
 tipo: modulo
 titulo: Contexto de punta a punta — compras, recepción, carga y entrega
-estado: vigente
+estado: retirado
 archivos:
-  - backend/tests/contextoCadenaCiclo.test.js
-  - backend/tests/fixtures/contextoCadena.js
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/rutas/rutas.service.js
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloRecepcion.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloCierre.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloFactura.service.js
   - backend/src/modules/entregas/registroFisico.service.js
   - backend/src/modules/entregas/entregas.service.js
-  - backend/src/modules/reports/necesidades.service.js
 aristas:
   depende_de: [decision/ciclo-de-ruta-como-contexto, modulo/pedidos-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
   relacionado: [modulo/carga-entregas-por-ruta, modulo/validacion-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
-medido: 2026-10-13
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 CADENA. El fixture usa los servicios reales desde cliente/ruta/ciclo, carrito/
 pedido del portal y adicional del agente, factura, revisión/faltantes de bodega,

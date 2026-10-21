@@ -21,8 +21,16 @@ archivos:
   - backend/tests/envioWhatsApp.test.js
 aristas:
   relacionado: [modulo/ordenes-compra-por-ciclo, leccion/telefonos-sucios, leccion/la-db-local-es-produccion]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Todo lo que el sistema manda por WhatsApp (orden de compra, factura,
 cotización, saldo, invitación al portal, aviso de pedido) pasa por

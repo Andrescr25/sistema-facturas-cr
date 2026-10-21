@@ -21,7 +21,7 @@ if(activo) {
     const ruta=require.resolve('../config/database');require.cache[ruta]={id:ruta,filename:ruta,loaded:true,exports:db};
     require('../config/aislado').salidasBloqueadas=()=>false;
     wa=require('../src/integrations/whatsapp');
-    s=require('../src/modules/orders-whatsapp/envioDesdeReporte.service');motor=require('../src/modules/orders-whatsapp/ordenesCiclo.service');
+    s=require('../src/modules/orders-whatsapp/envioDesdeReporte.service');motor=require('./fixtures/ordenesHistoricas');
     reportes=new(require('../src/modules/reports/report.service'))();
   });
   after(async()=>{if(c){await c.query('ROLLBACK');c.release()}await pool?.end()});
@@ -57,7 +57,7 @@ caso('asignaciones por nombre y por cédula conservan sus claves y envían sólo
 caso('nombre homónimo no identifica el faltante sin cédula ni consume reservas de otra ficha',async()=>{
   const otra=(await c.query("INSERT INTO proveedor(nombre,identificacion,telefono_whatsapp) VALUES($1,$2,'87777777') RETURNING id",[f.p.nombre,randomUUID().slice(0,18)])).rows[0].id;
   await asignadoSinCedula();const p=await pendientePorNombre();assert.equal(p.productos_faltantes[0].mapping_id,null);
-  const necesidades=await motor.interno.necesidadesEn(db,f.p,null,null,{sinCiclos:true});assert.equal(necesidades.some(x=>x.productoId===f.productos[0]),false);
+  const necesidades=await motor.interno.necesidadesEn(db,f.p);assert.equal(necesidades.some(x=>x.productoId===f.productos[0]),false);
   await assert.rejects(s.enviar(pedidoDe(p)),e=>e.status===409 && /varias fichas/.test(e.message));assert.equal(envios,0);
   const filas=(await c.query('SELECT proveedor_asignado,proveedor_cedula FROM faltantes WHERE factura_propia_id=$1',[f.facturas[0]])).rows;
   assert.deepEqual(filas,[{proveedor_asignado:f.p.nombre,proveedor_cedula:null}]);

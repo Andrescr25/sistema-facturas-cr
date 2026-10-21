@@ -63,7 +63,7 @@ describe('los componentes dibujan; con el servidor habla un gancho o un servicio
   // Sacar uno de la lista al arreglarlo; no agregar.
   const DEUDA = [
     'components/clientes/DispositivosAgente.jsx', 'components/clientes/ModalInvitacion.jsx',
-    'components/clientes/ModalPreventa.jsx', 'components/cotizaciones/ModalCotizacion.jsx',
+    'components/cotizaciones/ModalCotizacion.jsx',
     'components/cuentas-por-cobrar/ClienteDetalle.jsx',
     'components/relacionar-productos/ModalCrearProducto.jsx',
 

@@ -1062,3 +1062,11 @@ Recuperación y reenvío probados; Excel usa la pestaña elegida, instantes CR
 sin depender de la zona del pooler. Sin SQL nuevo ni acceso de prueba a
 producción. No altera conteos de independencia ni acredita ROT-08.
 [Evidencia](informes/reporte-clientes-historial-2026-10-15.md).
+
+
+**Relevo y simplificación 2026-10-20:** se retiran números OC visibles y
+vinculación de compra a orden en Revisión de precios; se completa ROT-08 sin
+nuevas semanas de cliente/documento. Rutas actuales, próxima visita, envíos
+inmutables, datos fiscales y tablas históricas se conservan. No implica una
+nueva migración ni modifica los conteos del corte. Ver
+[informe](informes/simplificacion-sin-semanas-2026-10-20.md).

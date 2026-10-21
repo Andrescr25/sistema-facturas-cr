@@ -9,8 +9,16 @@ archivos:
   - backend/src/modules/facturacion/facturaPropia.service.js
 aristas:
   relacionado: [modulo/facturacion]
-medido: 2026-09-24
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 En este backend conviven dos funciones llamadas `texto`:
 

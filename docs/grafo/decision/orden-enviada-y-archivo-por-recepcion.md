@@ -9,8 +9,17 @@ archivos:
   - docs/plan-rutas-ciclos-operativos.md
 aristas:
   relacionado: [modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/compras, modulo/faltantes, modulo/whatsapp, tabla/compra, tabla/compra-linea, tabla/facturas-proveedores]
-medido: 2026-10-13
+medido: 2026-10-20
 ---
+
+## Regla vigente desde el 2026-10-20
+
+La enviada sigue inmutable y los faltantes nuevos crean otro pedido.
+El vínculo, comparación y recepción por OC quedan retirados por el nuevo
+pedido del usuario; los registros anteriores y su archivo calculado se
+conservan en SQL. La nueva lógica de recepción/comparación espera definición
+del usuario. Los párrafos siguientes describen el proceso anterior.
+[Alcance actual](../../informes/simplificacion-sin-semanas-2026-10-20.md).
 
 **Solicitud y aclaración del usuario. Borradores, envío inmutable y cobertura
 implementados, junto al vínculo/PDF, comparación y recepción física;

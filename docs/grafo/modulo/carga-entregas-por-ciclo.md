@@ -2,28 +2,34 @@
 id: modulo/carga-entregas-por-ciclo
 tipo: modulo
 titulo: Carga por ciclo — consulta histórica conservada, reemplazada por operación por ruta
-estado: vigente
+estado: retirado
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/entregas/entregas.service.js
-  - backend/src/modules/entregas/entregasHistoricas.service.js
   - backend/src/modules/entregas/entregasLineas.service.js
   - backend/src/modules/entregas/entregas.routes.js
   - backend/src/modules/usuarios/modulos.js
   - backend/server.js
-  - backend/tests/entregasCiclo.test.js
   - frontend/src/pages/Entregas.jsx
   - frontend/src/components/entregas/ParadaDetalle.jsx
   - frontend/src/hooks/useEntregas.js
   - frontend/src/App.jsx
   - frontend/src/components/Layout.jsx
-  - frontend/src/components/FiltroCicloOperacion.jsx
   - frontend/src/utils/modulos.js
   - docs/informes/carga-entregas-2026-10-06.md
 aristas:
   depende_de: [modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/facturas-bodega]
   relacionado: [modulo/carga-entregas-por-ruta, modulo/exportaciones-operativas-ciclo, modulo/registro-carga-entrega, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/faltantes, modulo/archivo-ordenes-compra]
-medido: 2026-10-13
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **Vigente 2026-10-13:** [ROT-05 por ruta](carga-entregas-por-ruta.md)
 reemplaza esta operación en la pantalla. El contenido siguiente conserva la

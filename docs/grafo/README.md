@@ -27,6 +27,11 @@ carpetas `migrations/independencia/` y `scripts/independencia/` no cambia.
 
 ## Módulos
 
+Vigencia 2026-10-20: se retiraron los flujos operativos por semana y el
+vínculo de compras a OC en Revisión de precios. Rutas actuales y próxima
+visita continúan. Los nodos por ciclo conservan la explicación histórica;
+su estado indica el retiro. [Alcance y pruebas](../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 - [Reporte de clientes — ruta actual, próxima visita y revisión de faltantes](modulo/reporte-clientes.md)
 - [Preventa — agenda de todos los clientes por ruta y próxima visita](modulo/preventa-agenda.md)
 

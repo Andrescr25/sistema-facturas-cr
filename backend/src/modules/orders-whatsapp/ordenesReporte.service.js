@@ -14,14 +14,13 @@ async function enviadasEn(db, { fechaInicio } = {}) {
     WHERE orden_id=ANY($1::int[]) ORDER BY l.id`, [ordenes.map(o => o.id)]);
   const resultados = [];
   for (const o of ordenes) {
-    const comparar = require('./ordenesFacturacionReporte.service').comparacionEn;
-    const comparacion = await comparar(db, o.id);
+    // Sin «facturado/parcial» por producto desde el 2026-10-20: lo que llega
+    // ya no se enlaza a la orden, así que no hay con qué compararla.
     const productos = lineas.filter(l => l.orden_id === o.id).map(l => ({
       producto_id:l.producto_id, nombre:l.producto_nombre, codigo:l.codigo_interno,
       codigo_proveedor:l.codigo_proveedor, nombre_proveedor:l.nombre_proveedor,
       cantidad_faltante:Number(l.cantidad_propia), cantidad_proveedor:l.cantidad_proveedor,
-      factor_conversion:Number(l.factor_conversion), origenes:[],
-      facturacion:comparacion.find(p => p.productoId === l.producto_id) || { estado:'sin_revisar', cantidadFacturada:null }
+      factor_conversion:Number(l.factor_conversion), origenes:[]
     }));
     resultados.push({ id:`orden-${o.id}`, orden_id:o.id, proveedor_id:o.proveedor_id,
       cedula:o.proveedor_cedula, nombre:o.proveedor_nombre, contacto:o.proveedor_cedula,

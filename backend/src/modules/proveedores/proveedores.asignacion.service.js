@@ -21,27 +21,17 @@ const { pool } = require('../../../config/database');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
-const { JOIN_CICLO, filtrosOperacion } = require('../rutas/operacionCiclo.service');
 
 /**
- * @param {{productoId: number, proveedorId: number, cicloId?: number|'sin-ciclo'}} datos
+ * @param {{productoId: number, proveedorId: number}} datos
  * @returns {Promise<{proveedor: string, faltantesActualizados: number, mappingId: string|null}>}
  */
 async function asignarProveedorAProducto({ productoId, proveedorId, cicloId } = {}) {
+  if (cicloId !== undefined) throw httpError(400, 'Actualizá Reporte Proveedores para asignar sin semanas.');
   const idProducto = idValido(productoId);
   const idProveedor = idValido(proveedorId);
-  const params = [];
-  // Omitir el ámbito conserva el contrato global anterior. Un ámbito vacío
-  // explícito nunca debe convertirse silenciosamente en una asignación global.
-  if (cicloId !== undefined && (cicloId === null || cicloId === '')) throw httpError(400, 'Seleccioná un ciclo o Sin ciclo.');
-  const { where } = filtrosOperacion({ cicloId }, [], params);
-
   return enTransaccion(pool, async (db) => {
     await db.query('SELECT pg_advisory_xact_lock(46005,1)');
-    if (cicloId !== undefined && cicloId !== 'sin-ciclo') {
-      const existe = await db.query('SELECT id FROM ciclo_ruta WHERE id=$1', [Number(cicloId)]);
-      if (!existe.rowCount) throw httpError(404, 'Ese ciclo no existe.');
-    }
     const { rows: [proveedor] } = await db.query(
       'SELECT id, nombre, identificacion, activo FROM proveedor WHERE id = $1', [idProveedor]);
     if (!proveedor) throw httpError(404, 'Ese proveedor no existe.');
@@ -64,11 +54,10 @@ async function asignarProveedorAProducto({ productoId, proveedorId, cicloId } = 
              fecha_asignacion = ${AHORA_CR_SQL},
              mapping_id = $3
        WHERE producto_propio_id = $4 AND estado = 'pendiente'
-         ${where.length ? `AND factura_propia_id IN (SELECT f.id FROM factura f ${JOIN_CICLO('f')}
-           WHERE ${where.join(' AND ').replace(/\$(\d+)/g, (_, n) => '$' + (Number(n) + 4))})` : ''}`,
-      [proveedor.nombre.trim(), proveedor.identificacion || null, mapeo?.id || null, idProducto, ...params]);
+`,
+      [proveedor.nombre.trim(), proveedor.identificacion || null, mapeo?.id || null, idProducto]);
 
-    await require('../orders-whatsapp/ordenesAutomaticas.service').sincronizarEn(db, { proveedorId: idProveedor, cicloId });
+    await require('../orders-whatsapp/ordenesAutomaticas.service').sincronizarEn(db, { proveedorId: idProveedor });
     return { proveedor: proveedor.nombre.trim(), faltantesActualizados: rowCount, mappingId: mapeo?.id || null };
   });
 }

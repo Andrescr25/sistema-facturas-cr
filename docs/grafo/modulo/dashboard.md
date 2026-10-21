@@ -13,8 +13,16 @@ archivos:
   - backend/tests/dashboardPropio.test.js
 aristas:
   relacionado: [modulo/facturacion, modulo/portal-clientes, modulo/facturas-bodega, modulo/inventario, modulo/revision-precios, leccion/fecha-utc-costa-rica, leccion/un-borrador-no-es-una-venta, modulo/exportaciones-reportes]
-medido: 2026-10-03
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 `GET /api/dashboard/resumen` arma Inicio con siete consultas locales en
 paralelo. Cada tarjeta muestra trabajo pendiente y lleva a su módulo;

@@ -4,10 +4,10 @@ tipo: modulo
 titulo: Recorrido visual — acciones reales del catálogo a recepción y entrega
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - docs/informes/recorrido-visual-2026-10-07.md
   - backend/tests/e2e/recorridoOperativo.cjs
   - backend/tests/proveedorDeFaltantesPropio.test.js
-  - backend/tests/operacionCiclos.test.js
   - backend/src/modules/reports/report.service.js
   - backend/src/modules/proveedores/proveedores.asignacion.service.js
   - frontend/src/components/reporte-proveedores/ListaProveedores.jsx
@@ -16,8 +16,16 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   relacionado: [modulo/faltantes, modulo/contexto-visible-operacion, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/preventa-por-enlace, modulo/recepcion-ordenes-compra, modulo/carga-entregas-por-ciclo, modulo/archivo-ordenes-compra]
-medido: 2026-10-07
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.

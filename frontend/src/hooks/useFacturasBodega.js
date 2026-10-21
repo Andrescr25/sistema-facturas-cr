@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { coincideRutaBodega } from '../utils/facturasBodegaUtils'
 import { useContextoConsulta } from './useContextoConsulta'
 import { useFacturaBodegaAbierta } from './useFacturaBodegaAbierta'
-import { useFiltroCicloOperacion } from './useFiltroCicloOperacion'
+import { useFiltroRutaReporteCliente } from './useFiltroRutaReporteCliente'
 import { alegraService } from '../services/alegraService'
 import { bodegaPropiaService } from '../services/bodegaPropiaService'
 import {
@@ -53,9 +54,9 @@ const borrar = (clave) => { try { localStorage.removeItem(clave) } catch { /* na
  *    guardada, con un aviso.
  */
 export function useFacturasBodega() {
-  const filtroCiclo = useFiltroCicloOperacion('/bodega/ciclos')
-  const cicloRef = useRef(filtroCiclo.params)
-  cicloRef.current = filtroCiclo.params
+  const filtroRuta = useFiltroRutaReporteCliente('/bodega/rutas')
+  const rutaRef = useRef(filtroRuta.params)
+  rutaRef.current = filtroRuta.params
   const [pendientesRaw, setPendientesRaw] = useState([])
   const [listas, setListas] = useState([])
   const [ultimaSync, setUltimaSync] = useState(null)
@@ -77,7 +78,7 @@ export function useFacturasBodega() {
     return { fechaInicio: '', mostrarSinFecha: true }
   })
 
-  const lectura = useContextoConsulta(JSON.stringify([filtroCiclo.params, filtros.fechaInicio]))
+  const lectura = useContextoConsulta(JSON.stringify([filtroRuta.params, filtros.fechaInicio]))
   const { esActual, confirmar } = lectura
   const datosGuardiaRef = useRef(null)
 
@@ -103,7 +104,7 @@ export function useFacturasBodega() {
    */
   const cargar = useCallback(async ({ forzar = false } = {}) => {
     if (!esActual()) return
-    const contexto = { ...cicloRef.current }
+    const contexto = { ...rutaRef.current }
     const miPedido = ++pedidoRef.current
     setSincronizando(true)
     try {
@@ -124,7 +125,7 @@ export function useFacturasBodega() {
       setError(null)
       datosGuardiaRef.current = esActual
       confirmar()
-      if (!contexto.rutaId && !contexto.cicloId) guardarLista(pendientesApi, historialApi, sync)
+      if (!contexto.rutaId) guardarLista(pendientesApi, historialApi, sync)
 
       // El servidor contestó con lo guardado y está trayendo lo nuevo: se
       // vuelve a preguntar en un rato, sin esperar al próximo refresco.
@@ -142,7 +143,7 @@ export function useFacturasBodega() {
         setAviso(`${err.message} Se muestran las facturas de la última sincronización.`)
       } else {
         // La copia conjunta conserva el contexto de cada documento. Al perder
-        // la red podemos filtrarla, pero nunca presentar la lista de otra semana.
+        // la red podemos filtrarla, pero nunca presentar la lista de otra ruta.
         let guardado = null
         try { guardado = JSON.parse(leer(STORAGE_KEYS.data) || 'null') } catch { /* copia ilegible */ }
         setPendientesRaw(guardado?.pendientes || [])
@@ -226,7 +227,7 @@ export function useFacturasBodega() {
   useEffect(() => {
     if (primeraVez.current) { primeraVez.current = false; return }
     cargar()
-  }, [filtros.fechaInicio, filtroCiclo.rutaId, filtroCiclo.cicloId, cargar])
+  }, [filtros.fechaInicio, filtroRuta.rutaId, cargar])
 
   // Arriba de todo al abrir una factura.
   useEffect(() => {
@@ -375,8 +376,7 @@ export function useFacturasBodega() {
     escribir(STORAGE_KEYS.filtros, JSON.stringify(nuevos))
   }
 
-  const coincide = f => (!filtroCiclo.rutaId || String(f.ciclo?.rutaId) === filtroCiclo.rutaId) &&
-    (!filtroCiclo.cicloId || (filtroCiclo.cicloId === 'sin-ciclo' ? !f.ciclo : String(f.ciclo?.id) === filtroCiclo.cicloId))
+  const coincide = f => coincideRutaBodega(f, filtroRuta.rutaId)
   const pendientes = filtrarPendientesPorFecha(pendientesRaw.filter(coincide), filtros)
   const historial = listas.filter(coincide)
   // Dos vistas: lo que hay que alistar y el historial. Los faltantes se
@@ -406,7 +406,7 @@ export function useFacturasBodega() {
     vista, setVista, busqueda, setBusqueda,
     filtros, cambiarFiltro, limpiarFiltros,
     facturasMostradas: lectura.vigente ? facturasMostradas : [],
-    filtroCiclo,
+    filtroRuta,
     conteos: { porPreparar: lectura.vigente ? pendientes.length : 0, historial: lectura.vigente ? historial.length : 0 },
 
     // despacho

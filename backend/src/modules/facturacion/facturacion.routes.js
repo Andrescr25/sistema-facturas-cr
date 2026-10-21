@@ -49,7 +49,6 @@ router.patch('/notas-credito/:id/anular', notaCredito.anular);
 // Lo que ese cliente suele llevar, para recordárselo al tomarle el pedido.
 // `:clienteId` es NUESTRO id del cliente (`cliente.id`), nunca el de Alegra.
 router.get('/clientes/:clienteId/descuento', facturaPropia.descuentoCliente);
-router.get('/clientes/:clienteId/ciclos', facturaPropia.ciclos);
 router.get('/clientes/:clienteId/sugerencias', facturaPropia.sugerencias);
 
 module.exports = router;

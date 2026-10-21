@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Reporte de clientes — faltantes por ruta actual y próxima visita
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/reports/reporteClientes.service.js
   - backend/src/modules/rutas/rutaActual.service.js
   - backend/src/modules/reports/report.service.js
@@ -21,7 +22,6 @@ archivos:
   - frontend/src/utils/reporteClientesUtils.js
   - backend/tests/reporteClientesPorRuta.test.js
   - backend/tests/dobles/reporteClientesPorRuta.js
-  - backend/tests/validacionPermisosCadena.test.js
   - docs/informes/reporte-clientes-por-ruta-2026-10-13.md
   - backend/src/modules/reports/historialClientes.sql.js
   - backend/tests/historialReporteClientes.test.js
@@ -30,8 +30,16 @@ archivos:
   - docs/informes/reporte-clientes-historial-2026-10-15.md
 aristas:
   relacionado: [modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica]
-medido: 2026-10-15
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 ROT-03 del pedido del usuario: rutas se mantienen, rotación individual,
 retiro de ciclos por partes. Este reporte conserva su trabajo de revisión de

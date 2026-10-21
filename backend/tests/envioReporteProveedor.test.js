@@ -21,7 +21,7 @@ if(activo) {
     const ruta=require.resolve('../config/database');require.cache[ruta]={id:ruta,filename:ruta,loaded:true,exports:db};
     require('../config/aislado').salidasBloqueadas=()=>false;
     wa=require('../src/integrations/whatsapp');bodega=require('../src/modules/warehouse/bodegaPropia');
-    s=require('../src/modules/orders-whatsapp/envioDesdeReporte.service');env=require('../src/modules/orders-whatsapp/ordenesCicloEnvio.service');motor=require('../src/modules/orders-whatsapp/ordenesCiclo.service');
+    s=require('../src/modules/orders-whatsapp/envioDesdeReporte.service');env=require('../src/modules/orders-whatsapp/ordenesCicloEnvio.service');motor=require('./fixtures/ordenesHistoricas');
     reportes=new(require('../src/modules/reports/report.service'))();
   });
   after(async()=>{if(c){await c.query('ROLLBACK');c.release()}await pool?.end()});

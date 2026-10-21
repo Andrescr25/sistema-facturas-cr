@@ -2,7 +2,6 @@ const router = require('express').Router();
 const c = require('./entregas.controller');
 // Todo el prefijo pertenece a Entregas. Corregir exige además administrador.
 router.get('/rutas', c.rutas);
-router.get('/ciclos', c.ciclos);
 router.get('/exportar', c.exportar);
 router.get('/plan', c.plan);
 router.get('/paradas/:clave', c.parada);

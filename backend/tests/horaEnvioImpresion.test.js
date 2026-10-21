@@ -90,14 +90,11 @@ describe('contra la base, sin escribir', { skip: hayBase ? false : 'sin DATABASE
   test('la consulta del reporte es SQL válido para Postgres', async () => {
     const servicio = leer('src', 'modules', 'reports', 'reporteClientes.service.js');
     const i = servicio.indexOf("fr.fecha_creacion AT TIME ZONE");
-    const { COLUMNAS_CICLO, JOIN_CICLO } = require('../src/modules/rutas/operacionCiclo.service');
     const { MOVIMIENTOS_REPORTE, JOIN_HISTORIAL_REPORTE } = require('../src/modules/reports/historialClientes.sql');
     const sql = servicio.slice(servicio.lastIndexOf('`', i) + 1, servicio.indexOf('`', i))
       .split('${MOVIMIENTOS_REPORTE}').join(MOVIMIENTOS_REPORTE)
       .split('${JOIN_HISTORIAL_REPORTE}').join(JOIN_HISTORIAL_REPORTE)
       .split("${vista === 'historial' ? 'archivo.en_historial' : 'NOT archivo.en_historial'}").join('NOT archivo.en_historial')
-      .split('${COLUMNAS_CICLO}').join(COLUMNAS_CICLO)
-      .split("${JOIN_CICLO('fa')}").join(JOIN_CICLO('fa'))
       .split('${whereRuta}').join('');
     const c = await pool.connect();
     const nombre = `verificar_reporte_clientes_${process.pid}`;

@@ -7,15 +7,10 @@ const ReportController = require('./report.controller');
 
 const router = express.Router();
 const reportController = new ReportController();
-const {enviarExcel}=require('../../utils/exportarExcel');
 
 // Reporte de faltantes por proveedor
-router.get('/faltantes/proveedor/ciclos', reportController.getCiclos);
-// Consulta independiente: no asignar proveedores ni aplicar borradores al leer.
-router.get('/faltantes/proveedor/necesidades/exportar',(req,res)=>require('./necesidades.excel').exportar(req.query).then(r=>enviarExcel(res,r)).catch(e=>res.status(e.status||500).json({success:false,message:e.status?e.message:'No se pudieron exportar las necesidades.'})));
-router.get('/faltantes/proveedor/necesidades', (req,res)=>require('./necesidades.service').listar(req.query)
-  .then(data=>res.json({success:true,data}))
-  .catch(e=>res.status(e.status||500).json({success:false,message:e.status?e.message:'No se pudieron consultar las necesidades de esta semana.'})));
+// Ciclos y «necesidades por semana» se retiraron el 2026-10-20 con los ciclos:
+// ninguna pantalla los pedía.
 router.get('/faltantes/proveedor', reportController.getMissingItemsBySupplier);
 router.get('/faltantes/proveedor/exportar', reportController.exportarProveedores);
 

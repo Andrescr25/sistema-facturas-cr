@@ -116,9 +116,9 @@ async function obtenerHistorialClientes(req, res) {
  */
 async function crearPedido(req, res) {
   try {
-    const { clienteId, alegraContactId, lineas, observaciones, claveIdempotencia, cicloId } = req.body;
+    const { clienteId, alegraContactId, lineas, observaciones, claveIdempotencia } = req.body;
     const resultado = await pedidosAgente.crear(req.usuario?.id || null, {
-      clienteId, alegraContactId, lineas, observaciones, claveIdempotencia, cicloId
+      clienteId, alegraContactId, lineas, observaciones, claveIdempotencia
     });
     res.json({
       success: true,

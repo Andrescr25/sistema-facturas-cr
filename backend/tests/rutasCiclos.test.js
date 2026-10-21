@@ -1,7 +1,7 @@
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
-const { ubicacionMaps, semanaValida } = require('../src/modules/rutas/rutas.validacion');
+const { ubicacionMaps } = require('../src/modules/rutas/rutas.validacion');
 const { moduloDeRuta, esCompartida } = require('../src/modules/usuarios/modulos');
 const habilitadas = process.env.PROBAR_BASE_LOCAL === '1';
 let db, rutas, clientes, resumen;
@@ -31,10 +31,6 @@ test('Maps acepta enlaces reales sin permitir URLs ejecutables o hosts imitadore
   for (const u of ['https://maps.app.goo.gl/a', 'https://goo.gl/maps/a', 'https://www.google.com/maps?q=9,-84', 'https://maps.google.com/?q=9,-84']) assert.equal(ubicacionMaps(u), new URL(u).href);
   assert.equal(ubicacionMaps(''), null);
   for (const u of ['javascript:alert(1)', 'https://google.com.ejemplo.com/maps', 'https://google.com/search', 'https://maps.app.goo.gl@ejemplo.com', 'http://maps.google.com/', 'https://usuario@maps.app.goo.gl/a']) assert.throws(() => ubicacionMaps(u), e => e.status === 400);
-});
-test('semanas son lunes de calendario válidos, no fechas aproximadas por UTC', () => {
-  assert.equal(semanaValida('2026-10-12'), '2026-10-12');
-  for (const v of ['2026-10-13', '2026-02-30', '2026-13-12', '12/10/2026', null]) assert.throws(() => semanaValida(v), e => e.status === 400);
 });
 test('lecturas Maps y escrituras de rutas/ciclos pertenecen a Clientes', () => {
   for (const p of ['/clientes/rutas', '/clientes/rutas/1/orden', '/clientes/rutas/ciclos/1/estado']) {
@@ -85,47 +81,12 @@ prueba('asignaciones concurrentes al final conservan todos los clientes y puesto
   await Promise.all([1, 2].map(() => clientes.crearCliente({ nombre: nombre('Concurrente'), ruta_id: ruta.id })));
   assert.deepEqual((await rutas.obtenerRuta(ruta.id)).clientes.map(c => c.orden_ruta), [1, 2, 3]);
 });
-prueba('ciclos de una misma ruta conservan su semana y recorrido aunque el cliente cambie', async () => {
-  const { ruta, lista } = await preparar();
-  const anterior = await rutas.crearCiclo(ruta.id, { semana: '2026-10-12' });
-  await clientes.editarCliente(lista[0].id, { nombre: nombre('Renombrado'), ubicacion_maps: null, ruta_id: null });
-  await rutas.editarRuta(ruta.id, { nombre: nombre('Ruta nueva') });
-  const siguiente = await rutas.crearCiclo(ruta.id, { semana: '2026-10-19' });
-  const recuperado = await rutas.obtenerCiclo(anterior.id);
-  assert.equal(recuperado.ruta_nombre, ruta.nombre);
-  assert.equal(recuperado.clientes[0].cliente_nombre, lista[0].nombre);
-  assert.equal(recuperado.clientes[0].ubicacion_maps, lista[0].ubicacion_maps);
-  assert.equal(recuperado.semana, '2026-10-12');
-  assert.equal(siguiente.semana, '2026-10-19'); assert.equal(siguiente.clientes.length, 2);
-  await assert.rejects(rutas.crearCiclo(ruta.id, { semana: '2026-10-19' }), e => e.status === 409);
-});
-prueba('base impide borrar/editar/agregar a un recorrido fijado o cambiar su semana', async () => {
-  const { ruta } = await preparar(1), c = await rutas.crearCiclo(ruta.id, { semana: '2026-10-12' });
-  await assert.rejects(db.pool.query('UPDATE ciclo_ruta_cliente SET cliente_nombre=$1 WHERE ciclo_id=$2', ['ZZ Cambio', c.id]), /recorrido/);
-  await assert.rejects(db.pool.query('DELETE FROM ciclo_ruta_cliente WHERE ciclo_id=$1', [c.id]), /recorrido/);
-  await assert.rejects(db.pool.query("UPDATE ciclo_ruta SET semana='2026-10-19' WHERE id=$1", [c.id]), /contexto/);
-  await assert.rejects(db.pool.query(`INSERT INTO ciclo_ruta_cliente(ciclo_id,cliente_id,orden,cliente_nombre) VALUES($1,$2,2,'ZZ Extra')`, [c.id, c.clientes[0].cliente_id]), /recorrido/);
-  assert.equal((await rutas.obtenerCiclo(c.id)).clientes.length, 1);
-});
-prueba('actual y próxima conviven; promoción controlada no cierra el ciclo actual automáticamente', async () => {
-  const { ruta } = await preparar(1);
-  const a = await rutas.crearCiclo(ruta.id, { semana: '2026-10-12' }), b = await rutas.crearCiclo(ruta.id, { semana: '2026-10-19' });
-  await rutas.cambiarEstadoCiclo(a.id, { estado: 'preparacion', estadoAnterior: 'preventa' });
-  await assert.rejects(rutas.cambiarEstadoCiclo(b.id, { estado: 'preparacion', estadoAnterior: 'preventa' }), e => e.status === 409);
-  assert.equal((await rutas.obtenerCiclo(b.id)).estado, 'preventa');
-  await assert.rejects(rutas.cambiarEstadoCiclo(a.id, { estado: 'cerrado', estadoAnterior: 'preparacion' }), e => e.status === 400);
-  await rutas.cambiarEstadoCiclo(a.id, { estado: 'entrega', estadoAnterior: 'preparacion' });
-  await rutas.cambiarEstadoCiclo(a.id, { estado: 'cerrado', estadoAnterior: 'entrega' });
-  await rutas.cambiarEstadoCiclo(b.id, { estado: 'preparacion', estadoAnterior: 'preventa' });
-  await rutas.cambiarEstadoCiclo(b.id, { estado: 'cancelado', estadoAnterior: 'preparacion' });
-});
 prueba('validación fallida conserva ruta/orden; inactiva no acepta nuevas asignaciones', async () => {
   const { ruta, lista } = await preparar();
   await assert.rejects(clientes.editarCliente(lista[1].id, { orden_ruta: 20 }), e => e.status === 400);
   assert.deepEqual((await rutas.obtenerRuta(ruta.id)).clientes.map(c => c.id), lista.map(c => c.id));
   await rutas.editarRuta(ruta.id, { activo: false });
   await assert.rejects(clientes.crearCliente({ nombre: nombre('No asignado'), ruta_id: ruta.id }), e => e.status === 400);
-  await assert.rejects(rutas.crearCiclo(ruta.id, { semana: '2026-10-12' }), e => e.status === 400);
 });
 prueba('filtro de ruta ocurre antes de paginar y conserva orden de visita', async () => {
   const { ruta, lista } = await preparar();

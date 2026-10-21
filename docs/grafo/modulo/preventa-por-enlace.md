@@ -2,42 +2,40 @@
 id: modulo/preventa-por-enlace
 tipo: modulo
 titulo: Preventa por cliente y ciclo, PDF con fotos y enlace que no concede acceso
-estado: vigente
+estado: retirado
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/precios/ofertasPorBaja.js
   - backend/src/utils/descuentosExceso.js
   - backend/src/modules/productos/taxonomiaTablas.js
   - backend/package.json
-  - backend/src/modules/portal-clientes/preventaPdf.service.js
-  - backend/src/modules/portal-clientes/preventaFotos.service.js
-  - backend/src/modules/portal-clientes/preventa.pdf.js
-  - backend/tests/preventaPdf.test.js
-  - backend/tests/preventaPdfPaginacion.test.js
-  - backend/tests/preventaFotos.test.js
   - backend/server.js
   - backend/src/utils/urlParaRegistro.js
-  - backend/src/modules/portal-clientes/preventa.service.js
   - backend/src/modules/portal-clientes/portal-clientes.service.js
   - backend/src/modules/portal-clientes/portal-clientes.routes.js
   - backend/src/modules/portal-clientes/portal-clientes.controller.js
   - backend/src/modules/portal-clientes/portal-clientes.cliente.service.js
   - backend/src/modules/envios-whatsapp/envios.service.js
   - frontend/src/components/clientes/VistaRutas.jsx
-  - frontend/src/components/clientes/ModalPreventa.jsx
-  - frontend/src/hooks/usePreventaCliente.js
   - frontend/src/pages/CatalogoClientes.jsx
   - frontend/src/components/catalogo-clientes/ModalPedido.jsx
   - frontend/src/components/catalogo-clientes/PanelPedido.jsx
   - frontend/src/pages/portal/PortalIngresar.jsx
   - frontend/src/pages/portal/PortalActivar.jsx
   - frontend/src/services/apiPortal.js
-  - frontend/src/utils/enlacePreventa.js
-  - backend/tests/preventaEnlaces.test.js
 aristas:
   depende_de: [modulo/rutas-clientes, modulo/portal-clientes, modulo/pedidos-por-ciclo]
   relacionado: [modulo/whatsapp, modulo/permisos, decision/ciclo-de-ruta-como-contexto, modulo/gestion-catalogo, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta]
-medido: 2026-10-05
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Tercera parte. Clientes → Rutas → Ver recorrido de un ciclo en preventa →
 Preparar catálogo por cliente. El enlace usa la portada personal existente

@@ -2,24 +2,26 @@
 id: modulo/validacion-cadena-operativa
 tipo: modulo
 titulo: Permisos, concurrencia y unidades en toda la cadena operativa
-estado: vigente
+estado: retirado
 archivos:
-  - backend/tests/validacionPermisosCadena.test.js
-  - backend/tests/validacionConcurrenciaCadena.test.js
-  - backend/tests/validacionUnidadesCadena.test.js
-  - backend/tests/fixtures/contextoCadena.js
-  - backend/tests/fixtures/transaccionCadena.js
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/usuarios/permisos.middleware.js
   - backend/src/modules/usuarios/modulos.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloRecepcion.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloCierre.service.js
   - backend/src/modules/entregas/registroFisico.service.js
   - backend/src/modules/inventario/inventario.service.js
 aristas:
   depende_de: [modulo/contexto-cadena-operativa, modulo/permisos, tabla/compra-linea]
   relacionado: [modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/cierre-ordenes-compra, modulo/registro-carga-entrega, modulo/necesidades-por-ciclo, decision/permisos-por-prefijo-mas-especifico, decision/ciclo-de-ruta-como-contexto]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 MATRIZ HTTP. Clientes, Facturación, Bodega, Reporte Clientes, Reporte
 Proveedores, Revisión de Precios, Entregas y Configuración conservan sus

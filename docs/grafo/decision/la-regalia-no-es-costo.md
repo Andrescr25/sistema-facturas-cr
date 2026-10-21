@@ -8,8 +8,16 @@ archivos:
   - backend/tests/registrarCompra.test.js
 aristas:
   relacionado: [modulo/revision-precios, modulo/compras, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-10-04
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **En esta rama** la decisión vive en `actualizarProductoDeLinea`
 (`compras.service.js`): una línea de regalía no cambia `costo_con_iva`, y si

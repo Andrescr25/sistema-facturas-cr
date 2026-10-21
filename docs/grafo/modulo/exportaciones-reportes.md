@@ -4,11 +4,7 @@ tipo: modulo
 titulo: Excel de los reportes propios — filtros, datos guardados y descarga sin escrituras
 estado: vigente
 archivos:
-  - backend/src/modules/rutas/operacionCiclo.service.js
-  - backend/tests/operacionCiclos.test.js
-  - frontend/src/components/FiltroCicloOperacion.jsx
-  - frontend/src/components/ContextoCicloDocumento.jsx
-  - frontend/src/hooks/useFiltroCicloOperacion.js
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/utils/exportarExcel.js
   - backend/src/modules/dashboard/dashboard.excel.js
   - backend/src/modules/rentabilidad/rentabilidad.excel.js
@@ -30,8 +26,16 @@ archivos:
   - backend/tests/rentabilidad.test.js
 aristas:
   relacionado: [modulo/exportaciones-operativas-ciclo, modulo/dashboard, modulo/rentabilidad, modulo/faltantes, modulo/reporte-contador, modulo/permisos, leccion/fecha-utc-costa-rica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-13
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 CIERRE DE §13. Inicio, Rentabilidad y los reportes de faltantes por cliente y
 proveedor tienen **Exportar Excel**. El Reporte del Contador ya tenía su

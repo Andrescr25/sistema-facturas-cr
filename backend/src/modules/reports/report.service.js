@@ -6,14 +6,13 @@
 const { query } = require('../../../config/database');
 const { faltanteOperativo, cantidadSinEnviar } = require('./faltantesCompra.sql');
 const { createHash } = require('node:crypto');
-const { JOIN_CICLO, filtrosOperacion } = require('../rutas/operacionCiclo.service');
 const { cedulaAsignada, fichaAsignada, mappingProveedor, asignadoAlProveedor } = require('./proveedorCompra.sql');
 
 class ReportService {
   /**
    * Obtener reporte de faltantes por proveedor con mapping
    */
-  async getMissingItemsBySupplier(fechaInicio = null, { rutaId, cicloId, db = { query }, incluirEnviadas = true, proveedor = null } = {}) {
+  async getMissingItemsBySupplier(fechaInicio = null, { db = { query }, incluirEnviadas = true, proveedor = null } = {}) {
     try {
       console.log('📋 Generando reporte de faltantes por proveedor con mapping...', fechaInicio ? `desde ${fechaInicio}` : '');
 
@@ -33,15 +32,10 @@ class ReportService {
         whereClause += ` AND fa.fecha >= $${queryParams.length}::date`;
       }
 
-      const whereCiclo = [];
-      filtrosOperacion({ rutaId, cicloId }, whereCiclo, queryParams);
-      if (whereCiclo.length) whereClause += ' AND ' + whereCiclo.join(' AND ');
       const origenes = `jsonb_agg(jsonb_build_object(
         'faltanteId',f.id,'facturaId',fa.id,'factura',fa.numero,'clienteId',fa.cliente_id,
-        'cliente',COALESCE(c.nombre,fa.cliente_nombre),'cantidad',${cantidadSinEnviar()},
-        'anticipado',fa.preventa_anticipada,'cicloId',cr.id,'rutaId',cr.ruta_id,
-        'rutaNombre',cr.ruta_nombre,'semana',cr.semana::text,'orden',rc.orden)
-        ORDER BY cr.semana NULLS LAST,cr.id,rc.orden,fa.id,f.id) AS origenes`;
+        'cliente',COALESCE(c.nombre,fa.cliente_nombre),'cantidad',${cantidadSinEnviar()})
+        ORDER BY fa.id,f.id) AS origenes`;
       // Materializar sólo las facturas que tienen faltantes evita evaluar
       // crédito/última impresión en miles de facturas ajenas a esta consulta.
       const sqlFaltantes = `
@@ -62,7 +56,7 @@ class ReportService {
           MAX(f.precio_asignado) as precio_asignado,
           MAX(f.asignacion_tipo) as asignacion_tipo,
           (MAX(m.id::text) FILTER (WHERE m.id IS NOT NULL))::uuid as mapping_id
-        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN facturas_candidatas fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id ${JOIN_CICLO('fa')}
+        FROM faltantes f        JOIN producto p ON p.id = f.producto_propio_id        JOIN facturas_candidatas fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id
         LEFT JOIN LATERAL (${fichaAsignada()}) pr ON true
         LEFT JOIN LATERAL (${mappingProveedor('p.id','pr.id',`COALESCE(pr.identificacion,${cedulaAsignada()})`)}) m ON true
         WHERE ${whereClause}        GROUP BY p.id, p.referencia, p.nombre, COALESCE(${cedulaAsignada()},upper(btrim(f.proveedor_asignado)))
@@ -173,7 +167,7 @@ class ReportService {
 
       return {
         success: true,
-        data: [...proveedoresArray, ...(incluirEnviadas ? await require('../orders-whatsapp/ordenesReporte.service').enviadasEn(db, { fechaInicio, rutaId, cicloId }) : [])],
+        data: [...proveedoresArray, ...(incluirEnviadas ? await require('../orders-whatsapp/ordenesReporte.service').enviadasEn(db, { fechaInicio }) : [])],
         total_proveedores: proveedoresArray.length,
         resumen: {
           total_productos_faltantes: totalProductos,
@@ -192,7 +186,7 @@ class ReportService {
     }
   }
 
-  /** La ruta operativa de clientes sale de su ficha, no del ciclo del papel. */
+  /** La ruta de los clientes sale de su ficha. */
   getMissingItemsByClient(filtros = {}) {
     return require('./reporteClientes.service').getMissingItemsByClient(filtros);
   }
@@ -200,7 +194,7 @@ class ReportService {
   /** Ruta antigua: responder sin consultar ni borrar datos. */
   async clearProcessedSupplierMissingItems() {
     return { success: false, status: 410,
-      error: 'La limpieza global fue retirada. Los ciclos y faltantes conservan su historial.' };
+      error: 'La limpieza global fue retirada. Los faltantes conservan su historial.' };
   }
 
   /**

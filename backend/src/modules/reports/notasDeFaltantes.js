@@ -25,10 +25,9 @@
 
 const { faltanteOperativo, cantidadSinEnviar } = require('./faltantesCompra.sql');
 const { query } = require('../../../config/database');
-const { filtrosOperacion, JOIN_CICLO } = require('../rutas/operacionCiclo.service');
 
 /** Las líneas con nota detrás de los faltantes pendientes, lo más nuevo primero. */
-async function lineasConNota(fechaInicio = null, filtros = {}) {
+async function lineasConNota(fechaInicio = null) {
   const params = [];
   let filtroFecha = '';
   if (fechaInicio) {
@@ -36,13 +35,11 @@ async function lineasConNota(fechaInicio = null, filtros = {}) {
     filtroFecha = ' AND fa.fecha >= $1::date';
   }
 
-  const where = []; filtrosOperacion(filtros, where, params);
-  if (where.length) filtroFecha += ' AND ' + where.join(' AND ');
   const { rows } = await query(`
     SELECT DISTINCT l.id AS linea_id, l.producto_id, btrim(l.descripcion) AS nota,
            fa.id AS factura_id, fa.cliente_id, fa.numero, COALESCE(c.nombre,fa.cliente_nombre) AS cliente_nombre, fa.fecha::text AS fecha
       FROM faltantes f
-      JOIN factura fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id ${JOIN_CICLO('fa')}
+      JOIN factura fa ON fa.id = f.factura_propia_id LEFT JOIN cliente c ON c.id=fa.cliente_id
       JOIN factura_linea l ON l.factura_id = fa.id AND l.producto_id = f.producto_propio_id
       LEFT JOIN producto p ON p.id = l.producto_id
      WHERE ${faltanteOperativo()} AND ${cantidadSinEnviar()}>0

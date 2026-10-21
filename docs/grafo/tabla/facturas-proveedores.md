@@ -4,14 +4,22 @@ tipo: tabla
 titulo: El buzón — lo que llegó por correo, aceptado o no
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/services/emailService.js
   - backend/services/databaseService.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloFactura.service.js
 aristas:
   bloqueado_por: [bloqueo/xml-historico-sin-recuperar]
   relacionado: [modulo/facturas-ordenes-compra, tabla/compra, decision/el-avance-de-la-factura-sale-de-sus-lineas]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Encabezado de cada factura de proveedor recibida por correo, con sus líneas en
 `productos_factura_proveedor`. NO es la compra: ver

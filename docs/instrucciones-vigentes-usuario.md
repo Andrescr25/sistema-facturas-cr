@@ -927,3 +927,21 @@ esas facturas que quedaron ahí por error de un empleado las pases a
 impresión». Eligió: sacarlas de Bodega con una excepción puntual, imprimirlas
 tal cual (el faltante queda para entrega o nota de crédito) y no tocar las dos
 pruebas del 11/10. [Detalle](grafo/modulo/faltantes.md).
+
+
+## 2026-10-20 — Retirar números OC, enlace de compra y semanas redundantes
+
+Pedido a Claude, retomado por Codex por relevo del usuario: «en reporte
+proveedor quitemos el hecho de que las ordenes de compra se guarden tipo
+Oc-xx […] en revision de precios que tengamos que enlazar un OC a lo que
+llego esto quitemoslo […] tambien quita la logica de los clientes de ciclo
+[…] Ruta y semana del pedido […] esto solo va a ser con la logica que
+tenemos de proxima visita, entonces esa logica no la toques».
+
+Reemplaza RP-04/RP-06 en cuanto al vínculo y los indicadores derivados de
+facturas de compra. No se inventa su sustituto: «después te digo cómo lo
+trabajaremos». Permanecen los pedidos enviados fijos y separados de nuevos
+faltantes, el modal WhatsApp, el PDF comercial y el mensaje acordado.
+Se retiran semanas de las pantallas y nuevas escrituras, no la historia,
+las rutas actuales ni la frecuencia/próxima visita. Sin SQL nuevo ni acceso
+a producción. [Implementación y límites](informes/simplificacion-sin-semanas-2026-10-20.md).

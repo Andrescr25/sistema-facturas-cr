@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Facturación sin señal — copia propia y colas conservadas
 estado: vigente
 archivos:
+  - backend/tests/operacionSinSemanas.test.js
   - frontend/src/services/facturacionService.js
   - frontend/src/services/indexedDBService.js
   - frontend/src/services/dispositivo.js
@@ -33,8 +34,22 @@ archivos:
   - backend/tests/descuentoClientePg.test.js
 aristas:
   relacionado: [leccion/lo-que-mueve-plata-no-va-por-omision, modulo/historicos-contexto-documentos, modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
-medido: 2026-10-19
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+El formulario nuevo no consulta semanas. Los tres caminos de reenvío
+mantienen la clave original y el campo legado de la cola cuando existe,
+para reconocer su huella; el servidor no lo asigna a una factura nueva.
+`contextoColasFactura.test.js` cubre también reenviar desde el formulario
+nuevo una petición antigua con ciclo, sin modificarla ni duplicarla.
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 SECCIÓN 16. Se retiró `facturaPropiaAdaptador.js`: la copia de facturas y
 la pantalla usan `numero`, `cliente`, `lineas`, `fecha` y los estados

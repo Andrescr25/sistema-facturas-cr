@@ -85,31 +85,6 @@ export function useFacturacion() {
 
   // Estados de factura actual
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
-  const [ciclosCliente, setCiclosCliente] = useState([])
-  const [cicloId, setCicloId] = useState('sin-ciclo')
-  const [cargandoCiclos, setCargandoCiclos] = useState(false)
-  const [errorCiclos, setErrorCiclos] = useState('')
-  useEffect(() => { setCicloId(''); setCiclosCliente([]) }, [clienteSeleccionado?.id])
-  useEffect(() => {
-    let vigente = true
-    setErrorCiclos('')
-    if (modoEdicion) {
-      const c = facturaEditando?.ciclo
-      setCiclosCliente(c ? [c] : []); setCicloId(c ? String(c.id) : c === null ? 'sin-ciclo' : 'sin-descargar'); setCargandoCiclos(false)
-      return () => { vigente = false }
-    }
-    if (!clienteSeleccionado) { setCicloId('sin-ciclo'); setCargandoCiclos(false); return }
-    setCargandoCiclos(true)
-    facturacionService.getCiclosCliente(clienteSeleccionado.id).then(ciclos => {
-      if (!vigente) return
-      setCiclosCliente(ciclos)
-      setCicloId(prev => prev === 'sin-ciclo' || ciclos.some(c => String(c.id) === prev)
-        ? prev : ciclos.length ? '' : 'sin-ciclo')
-    }).catch(e => { if (vigente) setErrorCiclos(e.message || 'No se pudieron consultar los ciclos.') })
-      .finally(() => { if (vigente) setCargandoCiclos(false) })
-    return () => { vigente = false }
-  }, [clienteSeleccionado, modoEdicion, facturaEditando, isOnline])
-
   // Lo que ese cliente suele llevar. Es el mismo cálculo que ve él en su
   // catálogo: si fueran dos cuentas distintas, el agente le ofrecería algo
   // que el portal no le muestra.
@@ -860,7 +835,6 @@ export function useFacturacion() {
       return
     }
 
-    if (cargandoCiclos || !cicloId) { mostrarMensaje('Seleccioná la ruta y semana del pedido', 'error'); return }
 
     try {
       setLoading(true)
@@ -899,9 +873,6 @@ export function useFacturacion() {
 
       if (!facturaExistente) facturaData.descuentoClienteRevisado = condicionesDescuento.porcentaje
 
-      // Solo el ID elegido viaja con la venta; el servidor valida la parada.
-      // Las colas antiguas no se actualizan al refrescar este formulario.
-      if (!['sin-ciclo', 'sin-descargar'].includes(cicloId) && (!modoEdicion || facturaEditando?.pendienteSincronizar || String(facturaEditando?.id).startsWith('local-'))) facturaData.cicloId = Number(cicloId)
 
       // El cobro viaja con la factura y se registra en la misma transacción:
       // si la factura no se guarda, tampoco queda un pago suelto. Sin método
@@ -939,7 +910,7 @@ export function useFacturacion() {
           identificacion: clienteSeleccionado.identification },
         // Editar no convierte una copia incompleta en Sin ciclo ni pierde
         // su origen anticipado. El servidor completa el contexto al responder.
-        ciclo: modoEdicion ? facturaEditando?.ciclo : ciclosCliente.find(c => String(c.id) === cicloId) || null,
+        ciclo: modoEdicion ? facturaEditando?.ciclo : null,
         anticipado: modoEdicion ? facturaEditando?.anticipado : false,
         lineas: lineasVista,
         total: calcularTotal(items, descuentoGlobal, impuestoPrincipal, impuestos),
@@ -1236,7 +1207,6 @@ export function useFacturacion() {
     facturasPendientes,
 
     // Factura actual
-    ciclosCliente, cicloId, setCicloId, cargandoCiclos, errorCiclos,
     condicionesDescuento, facturaExistente, clienteSeleccionado,
     setClienteSeleccionado,
     deseleccionarCliente,

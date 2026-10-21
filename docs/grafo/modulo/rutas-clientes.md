@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Clientes organizados y rutas con recorrido fijo por semana
 estado: vigente
 archivos:
+  - backend/tests/operacionSinSemanas.test.js
   - backend/migrations/independencia/044_rutas_y_ciclos.sql
   - backend/src/modules/rutas/rutas.service.js
   - backend/src/modules/rutas/rutaActual.service.js
@@ -45,8 +46,16 @@ archivos:
 aristas:
   relacionado: [modulo/facturacion, modulo/preventa-agenda, modulo/reporte-proveedores, bloqueo/maps-anteriores-sin-fuente-local, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, decision/ciclo-de-ruta-como-contexto, decision/rotacion-por-cliente-sin-ciclos, modulo/portal-clientes, modulo/catalogo-agente, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-19
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Primera parte implementada y aplicada solo en la copia local. Rutas y ciclos
 usan ids propios y SQL/pg. `/clientes/rutas` hereda permiso Clientes, incluyendo

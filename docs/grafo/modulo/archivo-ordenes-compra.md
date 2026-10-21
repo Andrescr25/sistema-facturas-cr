@@ -2,8 +2,9 @@
 id: modulo/archivo-ordenes-compra
 tipo: modulo
 titulo: Archivo individual por recepción final, sin borrado ni reinicio semanal
-estado: vigente
+estado: retirado
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/migrations/independencia/050_archivo_individual_ordenes.sql
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
   - backend/src/modules/orders-whatsapp/cicloPedidos.js
@@ -14,14 +15,21 @@ archivos:
   - backend/server.js
   - frontend/src/components/configuracion/Mantenimiento.jsx
   - frontend/src/services/alegraService.js
-  - backend/tests/ordenesCompraArchivo.test.js
   - backend/tests/cicloPedidos.test.js
   - docs/informes/archivo-ordenes-2026-10-06.md
 aristas:
   depende_de: [modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo]
   relacionado: [modulo/cierre-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/permisos, decision/ciclo-de-ruta-como-contexto]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.

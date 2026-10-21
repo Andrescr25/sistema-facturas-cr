@@ -1,4 +1,4 @@
-import FiltroCicloOperacion from '../components/FiltroCicloOperacion'
+import FiltroRuta from '../components/reporte-clientes/FiltroRuta'
 import { AlertCircle, AlertTriangle, CheckCircle, X } from 'lucide-react'
 import { useFacturasBodega } from '../hooks/useFacturasBodega'
 import HeaderBodega from '../components/facturas-bodega/HeaderBodega'
@@ -22,7 +22,7 @@ export default function FacturasBodega() {
         <HeaderBodega sincronizando={b.sincronizando} ultimaSync={b.ultimaSync} onActualizar={b.actualizar} />
       )}
 
-      {!b.facturaSeleccionada && <FiltroCicloOperacion filtro={b.filtroCiclo} />}
+      {!b.facturaSeleccionada && <FiltroRuta filtro={b.filtroRuta} descripcion="Facturas de la ruta actual del cliente, en orden de visita." />}
 
       {b.successMessage && (
         <div className="flex items-center justify-between gap-2 rounded-xl border border-exito-200 bg-exito-50 px-4 py-3 text-exito-800">

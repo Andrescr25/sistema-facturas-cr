@@ -53,6 +53,14 @@ for (const camino of ['sincronizarFacturasPendientes', 'reintentarFacturaPendien
     assert.deepEqual(m.actos, ['guardar', 'confirmar', 'retirar']);
   });
 }
+test('enviar desde el formulario sin semanas conserva el campo antiguo de la cola y su clave', async () => {
+  const m = montar({ id: 90, numero: 'PROPIA-90', yaExistia: true });
+  const cuerpo = structuredClone(m.cola);
+  delete cuerpo.cicloId;
+  const original = structuredClone(m.cola);
+  await m.servicio.enviarFacturaPendiente(4, cuerpo, fotografia);
+  assert.deepEqual(m.envios[0], { ruta: '/facturacion/facturas', cuerpo: original });
+});
 test('un acuse antiguo sin metadata conserva la copia local; un Sin ciclo canónico prevalece', async () => {
   for (const [acuse, esperado] of [[{ id: 90, yaExistia: true }, ciclo],
     [{ id: 90, yaExistia: true, ciclo: null, preventa_anticipada: false }, null]]) {

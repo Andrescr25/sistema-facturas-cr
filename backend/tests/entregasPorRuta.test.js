@@ -30,7 +30,7 @@ describe('ROT-05 — todas las facturas pendientes de la ruta sin semanas, Postg
     assert.deepEqual(p.paradas.map(p=>p.clienteId),[f.primero.id,f.segundo.id,f.gemelo.id]);
     assert.ok(p.paradas[0].documentos.some(d=>d.id===f.adicional.id&&!d.revisionBodega));
     assert.deepEqual(p.carga.map(p=>p.clienteId),[f.gemelo.id,f.segundo.id,f.primero.id]);
-    assert.equal(p.ciclo,null);assert.ok(!p.paradas.flatMap(p=>p.documentos).some(d=>[f.anulada.id,f.borrador.id].includes(d.id)));
+    assert.equal(p.ciclo,undefined);assert.ok(!p.paradas.flatMap(p=>p.documentos).some(d=>[f.anulada.id,f.borrador.id].includes(d.id)));
   });
   test('carga completa no depende de la página visible, detalle exacto y homónimos separados',async()=>{
     const a=await plan({pagina:1,tamano:1}),b=await plan({pagina:2,tamano:1});assert.deepEqual(a.carga,b.carga);
@@ -40,7 +40,7 @@ describe('ROT-05 — todas las facturas pendientes de la ruta sin semanas, Postg
     await assert.rejects(s.parada(a.paradas[0].clave,{rutaId:f.b.id}),e=>e.status===404);
   });
   test('carga parcial y entrega funcionan sin ciclo; la factura sale al historial solo al completar',async()=>{
-    let p=await evento(f.f1,'carga',4);assert.equal(p.ciclo,null);assert.equal(p.puedeEntregar,true);assert.equal(p.documento.factura.ruta.id,f.a.id);
+    let p=await evento(f.f1,'carga',4);assert.equal(p.ciclo,undefined);assert.equal(p.puedeEntregar,true);assert.equal(p.documento.factura.ruta.id,f.a.id);
     p=await evento(f.f1,'entrega',4);assert.equal(p.estado,'parcialmente_entregada');
     assert.ok((await plan()).paradas.flatMap(p=>p.documentos).some(d=>d.id===f.f1.id));
     await evento(f.f1,'carga',6);p=await evento(f.f1,'entrega',6);assert.equal(p.estado,'entregada');
@@ -91,7 +91,7 @@ describe('ROT-05 — todas las facturas pendientes de la ruta sin semanas, Postg
   test('sin ruta permite revisar históricos sin inventar cliente, Maps, semana ni pedido',async()=>{
     const p=await s.plan({rutaId:'sin-ruta'});assert.ok(p.carga.some(p=>p.facturas.some(d=>d.id===f.huerfana.id)));
     const r=await fisico.consultar(f.huerfana.id);assert.equal(r.documento.factura.ruta.id,null);assert.equal(r.documento.factura.ruta.ubicacionMaps,null);
-    await evento(f.huerfana,'carga',1);assert.equal((await fisico.consultar(f.huerfana.id)).ciclo,null);
+    await evento(f.huerfana,'carga',1);assert.equal((await fisico.consultar(f.huerfana.id)).ciclo,undefined);
   });
   test('consultas/Excel no escriben y exportan todas las páginas sin semana ni importes',async()=>{
     const huellas=async()=> (await c.query('SELECT md5(jsonb_agg(to_jsonb(e) ORDER BY id)::text) h FROM entrega_evento e')).rows[0].h;

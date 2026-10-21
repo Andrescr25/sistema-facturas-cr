@@ -2,19 +2,26 @@
 id: modulo/necesidades-por-ciclo
 tipo: modulo
 titulo: Necesidades y cobertura — stock general, demanda y compras por semana
-estado: vigente
+estado: retirado
 archivos:
-  - backend/src/modules/reports/necesidades.service.js
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/reports/report.routes.js
-  - backend/tests/necesidadesCiclo.test.js
   - frontend/src/hooks/useReporteProveedores.js
   - frontend/src/pages/ReporteProveedores.jsx
   - docs/informes/necesidades-cobertura-2026-10-06.md
 aristas:
   depende_de: [modulo/inventario, modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, modulo/registro-carga-entrega]
   relacionado: [modulo/reporte-proveedores, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/pedidos-por-ciclo, decision/inventario-desde-cero]
-medido: 2026-10-07
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.

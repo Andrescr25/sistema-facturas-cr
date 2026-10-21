@@ -6,7 +6,6 @@ import Insignia from '../ui/Insignia'
 import Boton from '../ui/Boton'
 import UbicacionCliente from './UbicacionCliente'
 import RotacionCliente from './RotacionCliente'
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
 
 /**
  * Todo lo de un cliente en una sola pantalla.
@@ -173,7 +172,7 @@ export default function FichaCliente({ clienteId, revision, onVolver, onEditar, 
       <Bloque titulo="Facturas pendientes">
         <Filas hay={facturasPendientes.length} vacio="No hay facturas pendientes.">
           {facturasPendientes.map(f => <li key={f.id} className="flex justify-between items-center gap-4 py-4 text-base">
-            <div><p className="font-bold">{f.numero}</p><p className="text-xs text-neutro-500">{dia(f.fecha)}{f.vencimiento && ` · vence ${dia(f.vencimiento)}`}</p><ContextoCicloDocumento documento={f} /></div>
+            <div><p className="font-bold">{f.numero}</p><p className="text-xs text-neutro-500">{dia(f.fecha)}{f.vencimiento && ` · vence ${dia(f.vencimiento)}`}</p></div>
             <span className="font-bold text-peligro-600">{colones(f.saldo)}</span>
           </li>)}
         </Filas>
@@ -190,7 +189,7 @@ export default function FichaCliente({ clienteId, revision, onVolver, onEditar, 
                     {f.estado === 'anulada' && ' · anulada'}
                     {!f.electronica && f.estado !== 'anulada' && ' · de venta'}
                   </p>
-                  <ContextoCicloDocumento documento={f} />
+
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="font-semibold text-neutro-800">{colones(f.total)}</p>
@@ -249,7 +248,7 @@ export default function FichaCliente({ clienteId, revision, onVolver, onEditar, 
           <Filas hay={pedidos.filter(p => pestana === 'historial' || p.origen === 'portal').length} vacio="Sin pedidos en esta sección.">
             {pedidos.filter(p => pestana === 'historial' || p.origen === 'portal').map(p => (
               <li key={p.id} className="flex items-center justify-between gap-4 py-4 text-base">
-                <div className="min-w-0"><p className="text-neutro-700">#{p.id} · {diaCorto(p.fecha)} · {p.estado}{p.origen && ` · ${p.origen === 'agente' ? 'Agente' : 'En línea'}`}</p><ContextoCicloDocumento documento={p} /></div>
+                <div className="min-w-0"><p className="text-neutro-700">#{p.id} · {diaCorto(p.fecha)} · {p.estado}{p.origen && ` · ${p.origen === 'agente' ? 'Agente' : 'En línea'}`}</p></div>
                 <p className="font-semibold text-neutro-800">{colones(p.total)}</p>
               </li>
             ))}

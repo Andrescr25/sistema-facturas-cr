@@ -13,18 +13,6 @@ export function ordenarFaltantesProveedores(proveedores) {
   })
 }
 
-/** Sin revisión todavía no hay conclusión sobre lo que facturó el proveedor. */
-export function indicacionFacturacion(facturacion) {
-  const cantidad = Number(facturacion?.cantidadFacturada)
-  switch (facturacion?.estado) {
-    case 'facturado': return { texto: 'Facturado', tono: 'exito' }
-    case 'parcial': return { texto: `Facturado parcialmente${Number.isFinite(cantidad) ? ` · ${cantidad}` : ''}`, tono: 'alerta' }
-    case 'no_facturado': return { texto: 'No facturado', tono: 'alerta' }
-    case 'por_identificar': return { texto: 'Por identificar', tono: 'neutro' }
-    default: return null
-  }
-}
-
 export function cuerpoEnvioProveedor(proveedor, productos, preferirDatosProveedor) {
   if (!proveedor || proveedorEnviado(proveedor)) throw new Error('Esta orden ya no admite otro envío.')
   if (proveedor.revisionReporte == null) throw new Error('Actualizá los faltantes antes de enviar.')

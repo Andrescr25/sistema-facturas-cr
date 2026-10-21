@@ -38,7 +38,7 @@ if(habilitado){
   const db=require.resolve('../config/database');require.cache[db]={id:db,filename:db,loaded:true,exports:{pool:{query:q,connect:async()=>{
     const sp=`envio_${++nivel}`;return{query:(sql,p)=>sql==='BEGIN'?q(`SAVEPOINT ${sp}`):sql==='COMMIT'?q(`RELEASE SAVEPOINT ${sp}`):sql==='ROLLBACK'?q(`ROLLBACK TO SAVEPOINT ${sp}`):q(sql,p),release(){}}
   }}}};
-  s=require('../src/modules/orders-whatsapp/ordenesCiclo.service');env=require('../src/modules/orders-whatsapp/ordenesCicloEnvio.service');
+  s=require('./fixtures/ordenesHistoricas');env=require('../src/modules/orders-whatsapp/ordenesCicloEnvio.service');
   wa=require('../src/integrations/whatsapp');original=wa.enviarDocumento;
   before(async()=>{c=await pool.connect();await c.query('BEGIN');fixture=await sembrarEn(c)});
   after(async()=>{wa.enviarDocumento=original;if(c){await c.query('ROLLBACK');c.release()}await pool.end()});
@@ -65,7 +65,7 @@ caso('reintento de preparación devuelve la misma copia y rechaza otra solicitud
 });
 caso('número ambiguo, mensaje ajeno o sin confirmación no inician transporte',async()=>{
   const o=await pendiente();for(const telefono of ['88888888 77777777','1234567',''])await assert.rejects(env.preparar(o.id,{...datos(o),telefono}),e=>e.status===400);
-  await assert.rejects(env.preparar(o.id,{...datos(o),mensaje:`OC-${o.id}0`}),e=>e.status===400);
+  await assert.rejects(env.preparar(o.id,{...datos(o),mensaje:''}),e=>e.status===400);
   const {e}=await copia(o);await assert.rejects(env.enviar(o.id,e.id,{}),e=>e.status===400);assert.equal(llamadas.length,0);
 });
 caso('descarga ajena o UUID inválido no concede acceso; copia anterior sigue inmutable',async()=>{
@@ -94,7 +94,7 @@ caso('orden enviada no vuelve a borrador, no cambia líneas ni se cierra sin rec
 });
 caso('10 enviadas y 3 nuevas: nueva orden solo 3, anterior conserva 10 y próxima semana 4',async()=>{
   const {o,e}=await copia();await mandar(o,e);await c.query('UPDATE faltantes SET cantidad_faltante=cantidad_faltante+3 WHERE id=$1',[fixture.faltantes[1].id]);
-  const p=(await sugerir()).productos[0];assert.equal(p.faltante,13);assert.equal(p.solicitada,10);assert.equal(p.pendienteRecibir,10);assert.equal(p.reservadaBorrador,0);assert.equal(p.disponible,3);
+  const p=(await sugerir()).productos[0];assert.equal(p.faltante,17);assert.equal(p.solicitada,10);assert.equal(p.pendienteRecibir,10);assert.equal(p.reservadaBorrador,0);assert.equal(p.disponible,7);
   const otra=await s.crear({proveedorId:fixture.proveedor.id,cicloId:fixture.ciclo,clave:randomUUID(),lineas:[{productoId:fixture.producto,cantidadProveedor:3}]});
   assert.equal(otra.lineas[0].cantidad_propia,3);assert.equal((await s.obtener(o.id)).lineas[0].cantidad_proveedor,10);
   assert.equal((await s.sugerir({proveedorId:fixture.proveedor.id,cicloId:fixture.proximo})).productos[0].disponible,4);
@@ -105,7 +105,7 @@ caso('mismo envío repetido tras confirmación no vuelve a tocar transporte',asy
 caso('timeout queda incierto, reserva cobertura y no reenvía ni admite cambios',async()=>{
   const {o,e}=await copia();wa.enviarDocumento=async d=>{llamadas.push(d);throw Object.assign(Error('ZZ error con detalle privado'),{status:502})};
   const n=await mandar(o,e);assert.equal(n.estado,'pendiente_enviar');assert.equal(n.envios[0].estado,'incierto');assert.ok(n.envio_id);
-  assert.equal((await sugerir()).productos[0].disponible,0);assert.equal((await sugerir()).productos[0].solicitada,0);
+  assert.equal((await sugerir()).productos[0].disponible,4);assert.equal((await sugerir()).productos[0].solicitada,0);
   await mandar(o,e);assert.equal(llamadas.length,1);assert.ok(!n.envios[0].motivo.includes('detalle privado'));
   await assert.rejects(s.cambiarEstado(n.id,{version:n.version,estado:'borrador'}),e=>e.status===409);
 });
@@ -142,12 +142,12 @@ caso('proceso interrumpido se confirma tras cinco minutos y verificación explí
   const {o,e}=await copia();iniciadoAntiguo=true;fallarRegistro=true;await assert.rejects(mandar(o,e));fallarRegistro=false;
   const n=await env.confirmarVerificado(o.id,e.id,{confirmarEnvio:true,motivo:'ZZ proveedor verificó la orden tras reiniciar'});assert.equal(n.estado,'enviada');assert.equal(llamadas.length,1);
 });
-caso('conversiones y excedente guardados separan pendiente total de cobertura por origen',async()=>{
+caso('conversión conserva cobertura por origen entre semanas históricas',async()=>{
   await c.query(`INSERT INTO supplier_product_mapping(id,supplier_name,supplier_cedula,supplier_code,supplier_desc,alegra_item_id,alegra_name,producto_id,proveedor_id,factor_conversion)
     VALUES($1,$2,$3,'ZZ-CAJA','ZZ Caja','','',$4,$5,6)`,[randomUUID(),fixture.proveedor.nombre,fixture.proveedor.identificacion,fixture.producto,fixture.proveedor.id]);
   const {o,e}=await copia(await pendiente(s,fixture,2)),n=await mandar(o,e);
-  assert.equal(n.lineas[0].cantidad_propia,12);assert.equal(n.lineas[0].origenes.reduce((a,r)=>a+Number(r.cantidad),0),10);
-  assert.equal((await sugerir()).productos[0].pendienteRecibir,10);assert.equal((await s.sugerir({proveedorId:fixture.proveedor.id,cicloId:fixture.proximo})).productos[0].disponible,4);
+  assert.equal(n.lineas[0].cantidad_propia,12);assert.equal(n.lineas[0].origenes.reduce((a,r)=>a+Number(r.cantidad),0),12);
+  assert.equal((await sugerir()).productos[0].pendienteRecibir,12);assert.equal((await s.sugerir({proveedorId:fixture.proveedor.id,cicloId:fixture.proximo})).productos[0].disponible,2);
 });
 caso('envío no registra compra, entrada de inventario ni modifica documentos/faltantes',async()=>{
   const tablas=['compra','compra_linea','movimiento_inventario','inventario_saldo','factura','factura_linea','faltantes'];
@@ -156,7 +156,7 @@ caso('envío no registra compra, entrada de inventario ni modifica documentos/fa
 });
 async function conConexiones(f){
   const seed=await pool.connect();let d;try{await seed.query('BEGIN');d=await sembrarEn(seed);await seed.query('COMMIT')}catch(e){await seed.query('ROLLBACK');throw e}finally{seed.release()}
-  const rutas=['../config/database','../src/modules/orders-whatsapp/ordenesCiclo.service','../src/modules/orders-whatsapp/ordenesCicloEnvio.service'].map(p=>require.resolve(p)),previas=rutas.map(p=>require.cache[p]);
+  const rutas=['../config/database','./fixtures/ordenesHistoricas','../src/modules/orders-whatsapp/ordenesCicloEnvio.service'].map(p=>require.resolve(p)),previas=rutas.map(p=>require.cache[p]);
   require.cache[rutas[0]]={id:rutas[0],filename:rutas[0],loaded:true,exports:{pool}};delete require.cache[rutas[1]];delete require.cache[rutas[2]];
   try{await f(require(rutas[1]),require(rutas[2]),d)}finally{rutas.forEach((p,i)=>require.cache[p]=previas[i])}
 }

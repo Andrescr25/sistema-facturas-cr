@@ -11,8 +11,16 @@ archivos:
   - backend/tests/porcentajeIva.test.js
 aristas:
   relacionado: [bloqueo/impuestos-historicos-en-alegra, modulo/revision-precios, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-10-04
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **En esta rama (2026-10-04):** la lección sigue valiendo, pero el código donde
 nació ya no está. `utils/impuestosAlegra.js` —elegir el impuesto de Alegra

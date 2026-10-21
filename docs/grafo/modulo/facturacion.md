@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Facturación de venta — ya cerrado en la migración
 estado: vigente
 archivos:
+  - backend/tests/operacionSinSemanas.test.js
   - backend/src/modules/facturacion/facturacion.routes.js
   - backend/src/modules/facturacion/facturaPropia.controller.js
   - backend/src/modules/facturacion/facturaPropia.service.js
@@ -62,6 +63,14 @@ aristas:
   relacionado: [modulo/rutas-clientes, modulo/rentabilidad, leccion/precio-sin-iva-costo-con-iva, modulo/hacienda, leccion/la-estructura-se-cuida-con-una-prueba, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
 medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Ventas ya vive sobre la base propia (sección 6 del checklist). Se
 enlaza acá porque el checklist tuvo, durante meses, siete ítems de esta

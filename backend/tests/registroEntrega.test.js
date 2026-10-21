@@ -36,7 +36,7 @@ caso('carga4 y6; entrega3 y7 conserva acumulado, fecha, actor e historia sin sto
  p=await registrar('carga',[{numeroLinea:1,cantidad:6},{numeroLinea:2,cantidad:2.25}]);assert.equal(p.lineas[0].cargada,10);
  p=await registrar('entrega',[{numeroLinea:1,cantidad:3}]);assert.equal(p.estado,'parcialmente_entregada');assert.equal(p.lineas[0].pendiente,7);
  p=await registrar('entrega',[{numeroLinea:1,cantidad:7},{numeroLinea:2,cantidad:2.25}]);assert.equal(p.estado,'entregada');assert.equal(p.historial.length,4);assert.equal(p.historial[3].usuarioId,datos.actor);assert.ok(p.historial[3].fecha);
- assert.deepEqual(await huellas(),antes);assert.equal((await plan.plan({cicloId:datos.ciclo})).carga.length,0);
+ assert.deepEqual(await huellas(),antes);assert.equal((await plan.plan({rutaId:'sin-ruta'})).carga.some(p=>p.facturas.some(d=>d.id===datos.f)),false);
 });
 caso('misma clave/cuerpo retorna sin duplicar; clave con otra cantidad409',async()=>{
  const b=await body('carga',[{numeroLinea:1,cantidad:4}]);await s.registrar(datos.f,b,datos.actor);const p=await s.registrar(datos.f,b,datos.actor);assert.equal(p.version,1);assert.equal(p.lineas[0].cargada,4);

@@ -21,8 +21,16 @@ archivos:
 aristas:
   depende_de: [modulo/carga-entregas-por-ciclo, modulo/facturas-bodega, modulo/pedidos-por-ciclo]
   relacionado: [modulo/carga-entregas-por-ruta, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/necesidades-por-ciclo, decision/ciclo-de-ruta-como-contexto, modulo/permisos, modulo/inventario, modulo/faltantes]
-medido: 2026-10-13
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **Vigente ROT-05 (2026-10-13):** [Carga por ruta](carga-entregas-por-ruta.md)
 retira el requisito de ciclo y su estado, también para facturas con una FK

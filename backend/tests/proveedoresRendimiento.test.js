@@ -13,7 +13,7 @@ if(activo){
   db=baseEnTransaccion(c,'rendimiento_db');const connect=db.pool.connect;
   db.pool.connect=async()=>{const cl=await connect(),q=cl.query;cl.query=(s,p)=>{sql.push(s);return q(s,p)};return cl};
   const ruta=require.resolve('../config/database');require.cache[ruta]={id:ruta,filename:ruta,loaded:true,exports:db};
-  f=await sembrar(c);auto=require('../src/modules/orders-whatsapp/ordenesAutomaticas.service');motor=require('../src/modules/orders-whatsapp/ordenesCiclo.service');destino=require('../src/modules/orders-whatsapp/destinoProveedor.service');
+  f=await sembrar(c);auto=require('../src/modules/orders-whatsapp/ordenesAutomaticas.service');motor=require('./fixtures/ordenesHistoricas');destino=require('../src/modules/orders-whatsapp/destinoProveedor.service');
  });
  after(async()=>{if(c){await c.query('ROLLBACK');c.release()}await pool?.end()});
 }

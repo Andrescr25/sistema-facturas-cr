@@ -18,11 +18,11 @@ async function sincronizarEn(db,filtros={},usuarioId,incrementos=null) {
     const cicloId=null,p=await proveedorEn(db,proveedorId);
     const {rows:[abierta]}=await db.query(`SELECT id FROM orden_compra_ciclo WHERE proveedor_id=$1 AND estado IN ('borrador','pendiente_enviar') AND envio_id IS NULL ORDER BY id DESC LIMIT 1 FOR UPDATE`,[proveedorId]);
     let o=abierta?await obtenerEn(db,abierta.id,{bloquear:true}):null;
-    const libres=await necesidadesEn(db,p,cicloId,null,{bloquear:true,sinCiclos:true});
+    const libres=await necesidadesEn(db,p,null,{bloquear:true});
     // Bajo el bloqueo de compra y de todos sus faltantes, otros productos no
     // alteran los orígenes de éste. Leer la disponibilidad excluyendo la abierta
     // una sola vez evita volver a consultar al proveedor completo por cada línea.
-    const disponibles=new Map(agrupar(await necesidadesEn(db,p,cicloId,o?.id??null,{bloquear:true,sinCiclos:true})).map(p=>[p.productoId,p]));
+    const disponibles=new Map(agrupar(await necesidadesEn(db,p,o?.id??null,{bloquear:true})).map(p=>[p.productoId,p]));
     // Guardar de nuevo el mismo faltante no repone cantidades excluidas en una
     // revisión manual. Solo el aumento recién detectado puede ampliar el pedido.
     for(const f of libres)if(incrementos){

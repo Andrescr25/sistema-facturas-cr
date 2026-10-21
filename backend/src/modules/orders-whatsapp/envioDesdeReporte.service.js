@@ -1,5 +1,9 @@
-const { randomUUID } = require('node:crypto');
-const { interno:{hash:firma} } = require('./ordenesCicloFactura.service');
+const { randomUUID, createHash } = require('node:crypto');
+// La huella de un intento de envío: el mismo pedido da la misma, sin importar
+// el orden de sus claves. Vivía en ordenesCicloFactura (retirado 2026-10-20).
+const canon = v => Array.isArray(v) ? v.map(canon) : v && typeof v === 'object'
+  ? Object.fromEntries(Object.keys(v).sort().map(k => [k, canon(v[k])])) : v;
+const firma = v => createHash('sha256').update(JSON.stringify(canon(v))).digest('hex');
 const { httpError } = require('../../utils/validacion');
 const { fechaValida } = require('../../utils/exportarExcel');
 const { registrarCambio } = require('../../utils/bitacora');
@@ -101,7 +105,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   // retira orígenes resueltos y ediciones anteriores, sin tocar una enviada.
   await limpiarBorradorEn(db,o);
   const visibles = new Set(actual.productos_faltantes.flatMap(l => l.origenes.map(r => r.faltanteId)));
-  const fuentes = agrupar((await necesidadesEn(db,p,null,o.id,{bloquear:true,sinCiclos:true})).filter(r => visibles.has(r.faltanteId)));
+  const fuentes = agrupar((await necesidadesEn(db,p,o.id,{bloquear:true})).filter(r => visibles.has(r.faltanteId)));
   const vistos = new Set(),entradas=[];
   for (const l of datos.productos) {
     const manual = l.agregadoManual === true;

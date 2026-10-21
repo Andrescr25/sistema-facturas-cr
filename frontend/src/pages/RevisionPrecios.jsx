@@ -10,7 +10,6 @@ export default function RevisionPrecios() {
     vista,
     facturas,
     facturaSeleccionada,
-    ordenCompra,
     productos,
     productosDelCatalogo,
     sugerenciasPrecio,
@@ -60,7 +59,6 @@ export default function RevisionPrecios() {
       ) : (
         <RevisionFactura
           facturaSeleccionada={facturaSeleccionada}
-          ordenCompra={ordenCompra}
           productos={productos}
           productosDelCatalogo={productosDelCatalogo}
           sugerenciasPrecio={sugerenciasPrecio}

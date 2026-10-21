@@ -13,7 +13,7 @@ export function useClientesPortal({ showToast, confirm }) {
   const [pedidos, setPedidos] = useState([])
   const [vista, setVista] = useState('fichas')
   const [filtroPedidos, setFiltroPedidos] = useState('pendiente')
-  const [contextoPedidos, setContextoPedidos] = useState({ rutaId: '', cicloId: '', origen: '' })
+  const [contextoPedidos, setContextoPedidos] = useState({ rutaId: '', origen: '' })
   const ultimaPeticionPedidos = useRef(0)
   const lecturaPedidos = useContextoConsulta(JSON.stringify([filtroPedidos, contextoPedidos]))
   const { esActual, confirmar: confirmarLectura } = lecturaPedidos

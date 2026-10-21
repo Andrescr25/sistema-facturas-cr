@@ -4,13 +4,21 @@ tipo: leccion
 titulo: Exceso y baja de precio son ofertas distintas — confundirlas descuenta dos veces
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - frontend/src/components/catalogo-agente/TarjetaProductoAgente.jsx
   - backend/src/modules/precios/ofertasPorBaja.js
-  - backend/src/modules/portal-clientes/preventaPdf.service.js
 aristas:
   relacionado: [modulo/catalogo-agente, leccion/precio-sin-iva-costo-con-iva, modulo/preventa-por-enlace]
-medido: 2026-10-07
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Los catálogos (agente y cliente) muestran dos clases de oferta:
 

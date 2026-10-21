@@ -1,4 +1,3 @@
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { ArrowLeft, CheckCircle, ClipboardList, Clock, Loader2, RefreshCw } from 'lucide-react'
 import { formatCurrency, formatDate, getItemIdFromFacturaItem, horaDespacho } from '../../utils/facturasBodegaUtils'
 import ItemFaltanteCard from './ItemFaltanteCard'
@@ -67,7 +66,7 @@ export default function DetalleDespacho({
           </div>
         </div>
 
-        <ContextoCicloDocumento documento={factura} maps />
+
 
         {esEdicion && (
           <p className="mt-4 flex items-center gap-2 rounded-xl bg-neutro-50 px-4 py-3 text-sm text-neutro-600">

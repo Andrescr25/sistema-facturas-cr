@@ -3,10 +3,8 @@
  * conservan su recorrido histórico; cambiar de ruta no lo reescribe.
  */
 const { query } = require('../../../config/database');
-const { COLUMNAS_CICLO, JOIN_CICLO, contextoDocumento } = require('../rutas/operacionCiclo.service');
 const { ULTIMA_ATENCION_SQL, rotacionDe, ordenPorProximaVisita } = require('../clientes/rotacion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
-const { httpError } = require('../../utils/validacion');
 const { vistaReporteClientes, MOVIMIENTOS_REPORTE, JOIN_HISTORIAL_REPORTE } = require('./historialClientes.sql');
 const { filtroRutaActual, listarRutasActuales: listarRutas } = require('../rutas/rutaActual.service');
 
@@ -14,9 +12,9 @@ async function getMissingItemsByClient({ rutaId, cicloId, vista: vistaCruda } = 
   try {
     console.log('📋 Generando reporte de faltantes por la ruta del cliente...');
 
+    if (cicloId !== undefined) return { success: false, status: 400, error: 'Actualizá Reporte Clientes para consultar sin semanas.' };
     const vista = vistaReporteClientes(vistaCruda);
     const params = [];
-    if (cicloId != null && cicloId !== '') throw httpError(400, 'El Reporte de clientes ahora se filtra solo por ruta. Recargá la pantalla.');
     const whereRuta = filtroRutaActual(rutaId, params);
     const hoy = hoyEnCostaRica();
     const result = await query(`
@@ -28,7 +26,7 @@ async function getMissingItemsByClient({ rutaId, cicloId, vista: vistaCruda } = 
         COALESCE(c.correo, fa.cliente_correo) AS cliente_email,
         fa.numero AS numero_factura,
         fa.fecha::text AS fecha_emision,
-        fa.id AS factura_id, fa.preventa_anticipada, ${COLUMNAS_CICLO}, rc.ubicacion_maps,
+        fa.id AS factura_id,
         -- Procesada es lo que Impresión ya reimprimió: al procesarla, sus
         -- faltantes pasan a 'procesado', y al recuperarla vuelven (la tabla
         -- vieja lo copiaba además a facturas.estado_procesamiento).
@@ -60,7 +58,7 @@ async function getMissingItemsByClient({ rutaId, cicloId, vista: vistaCruda } = 
         (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_propia_id = fa.id) as total_items_factura
       FROM faltantes f
       JOIN producto p ON p.id = f.producto_propio_id
-      JOIN factura fa ON fa.id = f.factura_propia_id ${JOIN_CICLO('fa')}
+      JOIN factura fa ON fa.id = f.factura_propia_id
       LEFT JOIN cliente c ON c.id = fa.cliente_id
       LEFT JOIN ruta_cliente r ON r.id = c.ruta_id
       LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
@@ -121,7 +119,6 @@ async function getMissingItemsByClient({ rutaId, cicloId, vista: vistaCruda } = 
 
       if (!cliente.facturas_con_faltantes.has(facturaKey)) {
         cliente.facturas_con_faltantes.set(facturaKey, {
-          ...contextoDocumento(row),
           factura_id: row.factura_id,
           numero_factura: row.numero_factura,
           fecha_emision: row.fecha_emision,

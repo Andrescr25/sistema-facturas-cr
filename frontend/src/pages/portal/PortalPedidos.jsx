@@ -1,4 +1,3 @@
-import { textoCiclo } from '../../components/SelectorCiclo'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { Loader2, ArrowLeft, LogOut, Package } from 'lucide-react'
@@ -97,7 +96,6 @@ export default function PortalPedidos() {
                   </div>
                 </div>
 
-                <p className="text-xs font-semibold text-cliente-700">{textoCiclo(p.ciclo)}{p.anticipado ? ' · Pedido anticipado' : ''}</p>
                 <div className="border-t border-neutro-100 pt-3">
                   <SeguimientoPedido
                     etapa={p.etapa}

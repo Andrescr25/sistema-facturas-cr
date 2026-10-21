@@ -1,5 +1,4 @@
 import { Search } from 'lucide-react'
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { CELDA } from './estilosFactura'
 
 /**
@@ -9,7 +8,7 @@ import { CELDA } from './estilosFactura'
 export default function ClienteFactura({ factura: f, editando, edicion }) {
   return (
     <div>
-      <ContextoCicloDocumento documento={f} />
+
       <p className="text-[10px] font-semibold uppercase tracking-wider text-neutro-400">Señor(es)</p>
 
       {editando ? (

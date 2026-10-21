@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Portal — carrito, cuenta y pedidos con ids propios; facturar crea una factura propia
 estado: vigente
 archivos:
+  - backend/tests/operacionSinSemanas.test.js
   - backend/migrations/independencia/035_portal_con_ids_propios.sql
   - backend/src/modules/catalogo-clientes/consultaProducto.js
   - backend/src/modules/catalogo-clientes/catalogo-clientes.service.js
@@ -29,8 +30,16 @@ archivos:
 aristas:
   depende_de: [tabla/venta-linea, modulo/facturacion]
   relacionado: [modulo/rutas-clientes, modulo/catalogo-agente, modulo/facturas-bodega, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-10-07
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 SECCIÓN 12, PARTE 2. El catálogo del cliente expone `producto.id`, incluidos
 productos sin Alegra. El carrito y las líneas del pedido guardan `producto_id`;

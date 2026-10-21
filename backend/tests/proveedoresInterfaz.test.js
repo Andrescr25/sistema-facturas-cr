@@ -5,7 +5,7 @@ const path = require('node:path');
 const frente = path.join(__dirname, '../../frontend/src');
 const leer = archivo => fs.readFileSync(path.join(frente, archivo), 'utf8');
 const cargar = (archivo, nombres) => new Function(leer(`utils/${archivo}`).replace(/^export /gm, '') + `\nreturn {${nombres}}`)();
-const vista = cargar('proveedoresVista.js', 'proveedorEnviado,ordenarFaltantesProveedores,indicacionFacturacion,cuerpoEnvioProveedor,resultadoEnvioProveedor,notasDelProveedor,intentoSeparadoDelProveedor');
+const vista = cargar('proveedoresVista.js', 'proveedorEnviado,ordenarFaltantesProveedores,cuerpoEnvioProveedor,resultadoEnvioProveedor,notasDelProveedor,intentoSeparadoDelProveedor');
 const { construirProductosParaOrden, claveProductoReporte, keyProductoProveedor, clavesProductoProveedor, getCantidadFinal, productoAgregadoGuardado, agregarProductoManual, cantidadProveedorExacta, cantidadEnteraValida, construirCantidadGuardada, proveedoresConRevisionCambiada, temporalVigenteProveedor, retirarEdicionesDeProveedores } = cargar('reporteProveedoresUtils.js', 'construirProductosParaOrden,claveProductoReporte,keyProductoProveedor,clavesProductoProveedor,getCantidadFinal,productoAgregadoGuardado,agregarProductoManual,cantidadProveedorExacta,cantidadEnteraValida,construirCantidadGuardada,proveedoresConRevisionCambiada,temporalVigenteProveedor,retirarEdicionesDeProveedores');
 const { fechaHoraEnCostaRica } = cargar('fechaCR.js', 'fechaHoraEnCostaRica');
 const proveedor = { id: 'p-1', proveedor_id: 1, nombre: 'zz-Proveedor', cedula: 'zz-cedula', revisionReporte: 'revision-1' };
@@ -26,15 +26,6 @@ test('la fecha de la tarjeta enviada muestra Costa Rica, incluso cerca de median
   const fecha = fechaHoraEnCostaRica('2026-10-14T02:30:00.000Z');
   assert.match(fecha, /13/); assert.match(fecha, /2026/); assert.match(fecha, /8:30/);
   assert.equal(fechaHoraEnCostaRica(null), '—'); assert.equal(fechaHoraEnCostaRica('inválida'), '—');
-});
-
-test('no inventa faltantes facturados antes de terminar la revisión de precios', () => {
-  assert.equal(vista.indicacionFacturacion({ estado: 'sin_revisar' }), null);
-  assert.equal(vista.indicacionFacturacion(null), null);
-  assert.equal(vista.indicacionFacturacion({ estado: 'facturado', cantidadFacturada: 10 }).texto, 'Facturado');
-  assert.equal(vista.indicacionFacturacion({ estado: 'parcial', cantidadFacturada: 3 }).texto, 'Facturado parcialmente · 3');
-  assert.equal(vista.indicacionFacturacion({ estado: 'no_facturado' }).texto, 'No facturado');
-  assert.equal(vista.indicacionFacturacion({ estado: 'por_identificar' }).texto, 'Por identificar');
 });
 
 test('mismo producto con dos proveedores: las notas y clientes solo pertenecen a la factura del faltante mostrado', () => {

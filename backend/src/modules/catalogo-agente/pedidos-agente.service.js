@@ -11,7 +11,6 @@
  * Nunca se intenta primero como id propio ni se mezclan ambos contratos.
  * Se conserva la misma clave, y un pedido ya recibido devuelve el original.
  */
-const ciclos = require('../rutas/documentosCiclo.service');
 const { pool, query } = require('../../../config/database');
 const { idValido, httpError } = require('../../utils/validacion');
 const { enTransaccion } = require('../../utils/transaccion');
@@ -20,7 +19,7 @@ const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { mapaVigentesPropios, aplicarDescuento } = require('../../utils/descuentosExceso');
 
 /** Contrato propio: { clienteId, lineas: [{ productoId, cantidad }], claveIdempotencia }. */
-async function crear(usuarioId, { clienteId, alegraContactId, lineas, observaciones, claveIdempotencia, cicloId }) {
+async function crear(usuarioId, { clienteId, alegraContactId, lineas, observaciones, claveIdempotencia }) {
   if (!claveIdempotencia) throw httpError(400, 'Falta la clave del pedido. Sin ella un reenvío crearía un pedido duplicado.');
   const clave = String(claveIdempotencia).trim();
   if (!clave || clave.length > 120) throw httpError(400, 'La clave del pedido no es válida.');
@@ -36,7 +35,6 @@ async function crear(usuarioId, { clienteId, alegraContactId, lineas, observacio
       SELECT id, nombre, activo FROM cliente WHERE ${antiguo ? 'alegra_id' : 'id'} = $1 FOR SHARE`, [clienteBuscado]);
     if (!cliente) throw httpError(409, 'Falta conciliar la ficha propia de ese cliente. El pedido sigue pendiente en la tablet.');
     if (!cliente.activo) throw httpError(409, 'Ese cliente está inactivo. Revise el pedido antes de enviarlo.');
-    const contexto = await ciclos.validarEn(db, cliente.id, cicloId);
     const porProducto = new Map();
     for (const l of lineas) {
       if (!l || typeof l !== 'object' || Array.isArray(l)) throw httpError(400, 'Producto o cantidad inválidos.');
@@ -78,11 +76,11 @@ async function crear(usuarioId, { clienteId, alegraContactId, lineas, observacio
     // si falla, su ROLLBACK libera la clave y este envío puede guardarse.
     const { rows: creados } = await db.query(`
       INSERT INTO pedido_cliente (cliente_portal_id, cliente_id, alegra_contact_id,
-        cliente_nombre, origen, creado_por_usuario_id, total, observaciones, clave_idempotencia, ciclo_ruta_cliente_id, creado_en)
-      VALUES (NULL, $1, $2, $3, 'agente', $4, $5, $6, $7, $8, ${AHORA_CR_SQL})
+        cliente_nombre, origen, creado_por_usuario_id, total, observaciones, clave_idempotencia, creado_en)
+      VALUES (NULL, $1, $2, $3, 'agente', $4, $5, $6, $7, ${AHORA_CR_SQL})
       ON CONFLICT (clave_idempotencia) WHERE clave_idempotencia IS NOT NULL DO NOTHING
       RETURNING *`, [cliente.id, antiguo ? clienteBuscado : null, cliente.nombre,
-        usuarioId || null, total, observaciones || null, clave, contexto?.recorridoId || null]);
+        usuarioId || null, total, observaciones || null, clave]);
     if (!creados.length) {
       const ganador = await db.query('SELECT * FROM pedido_cliente WHERE clave_idempotencia = $1', [clave]);
       return { pedido: ganador.rows[0], yaExistia: true };

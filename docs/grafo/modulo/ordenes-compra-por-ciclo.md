@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Órdenes por proveedor — envío inmutable, origen e historia conservada
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/orders-whatsapp/destinoProveedor.service.js
   - backend/src/modules/orders-whatsapp/ordenesCicloLineas.service.js
   - backend/tests/proveedoresRendimiento.test.js
@@ -33,7 +34,6 @@ archivos:
   - frontend/src/hooks/useEnvioOrdenProveedor.js
   - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
   - backend/src/modules/orders-whatsapp/comprasProveedores.service.js
-  - backend/src/modules/orders-whatsapp/comprasProveedores.controller.js
   - backend/tests/ordenesAutomaticas.test.js
   - docs/informes/ordenes-automaticas-proveedores-2026-10-13.md
   - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
@@ -42,10 +42,8 @@ archivos:
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
   - backend/src/modules/orders-whatsapp/ordenesCiclo.pdf.js
   - backend/src/modules/orders-whatsapp/ordenesCicloEnvio.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCiclo.routes.js
   - backend/src/modules/orders-whatsapp/orders-whatsapp.routes.js
   - backend/src/integrations/whatsapp/whatsapp.client.js
-  - backend/tests/ordenesCompraCiclo.test.js
   - backend/tests/ordenesCompraEnvio.test.js
   - backend/tests/ordenCompraEnvioGlobalRetirado.test.js
   - backend/tests/envioWhatsApp.test.js
@@ -55,8 +53,16 @@ aristas:
   depende_de: [tabla/supplier-product-mapping, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
   relacionado: [modulo/reporte-proveedores, modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/exportaciones-operativas-ciclo, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/faltantes, modulo/compras, modulo/inventario, modulo/permisos, modulo/whatsapp]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-14
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 ## Envío desde el reporte — 2026-10-14
 

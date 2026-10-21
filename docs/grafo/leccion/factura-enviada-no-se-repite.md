@@ -9,8 +9,16 @@ archivos:
   - backend/tests/registrarCompra.test.js
 aristas:
   relacionado: [modulo/revision-precios, modulo/compras]
-medido: 2026-10-04
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **RETIRADA EN ESTA RAMA (2026-10-04).** `enviarFacturaAlegra` se borró: acá la
 compra se registra con `registrarCompra`, y lo que impide registrarla dos

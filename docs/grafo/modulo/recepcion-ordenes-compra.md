@@ -2,22 +2,27 @@
 id: modulo/recepcion-ordenes-compra
 tipo: modulo
 titulo: Recepción física por ciclo — parcial/final, motivos, auditoría y kardex idempotente
-estado: vigente
+estado: retirado
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
-  - backend/src/modules/orders-whatsapp/ordenesCicloRecepcion.service.js
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloFactura.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCiclo.routes.js
   - backend/src/modules/compras/compras.service.js
   - backend/src/modules/inventario/inventario.service.js
-  - backend/tests/ordenesCompraRecepcion.test.js
 aristas:
   depende_de: [modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, tabla/compra, tabla/compra-linea, tabla/movimiento-inventario]
   relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/cierre-ordenes-compra, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/ciclo-de-ruta-como-contexto]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron las APIs y el flujo de recepción por orden/ciclo. Las compras
+nuevas registran su entrada por Compras; lo recibido antes conserva su historia. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.

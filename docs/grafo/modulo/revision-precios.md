@@ -4,13 +4,9 @@ tipo: modulo
 titulo: Revisión de Precios — costos y precios de la factura del proveedor, contra el maestro propio
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/revision-precios/revision-precios.controller.js
   - backend/src/modules/compras/compras.controller.js
-  - backend/src/modules/orders-whatsapp/facturacionOrdenProveedor.service.js
-  - backend/src/modules/orders-whatsapp/ordenesFacturacionReporte.service.js
-  - backend/tests/facturacionOrdenProveedor.test.js
-  - frontend/src/hooks/useOrdenCompraRevision.js
-  - frontend/src/components/revision-precios/OrdenCompraRevision.jsx
   - frontend/src/pages/RevisionPrecios.jsx
   - backend/src/modules/revision-precios/revision-precios.service.js
   - backend/src/modules/revision-precios/revision-precios.routes.js
@@ -29,8 +25,16 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
   relacionado: [modulo/relacionar-productos, modulo/compras, modulo/facturas-ordenes-compra, decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-14
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 ## Orden de compra en la revisión (2026-10-14)
 

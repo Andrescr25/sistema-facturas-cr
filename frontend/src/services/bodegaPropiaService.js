@@ -7,8 +7,8 @@ import api from './api'
  * 2026-09-30.
  */
 export const bodegaPropiaService = {
-  async listar({ dias, limit, rutaId, cicloId } = {}) {
-    const { data } = await api.get('/bodega/facturas-propias', { params: { dias, limit, rutaId, cicloId } })
+  async listar({ dias, limit, rutaId } = {}) {
+    const { data } = await api.get('/bodega/facturas-propias', { params: { dias, limit, rutaId } })
     return data
   },
 

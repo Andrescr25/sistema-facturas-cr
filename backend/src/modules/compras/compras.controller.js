@@ -21,12 +21,10 @@ module.exports = {
   /** POST /compras/registrar — { facturaId, preciosAjustados } */
   registrar: async (req, res) => {
     try {
-      const { facturaId, preciosAjustados, ordenCompraId, ordenCompraAutomaticaId } = req.body || {};
+      const { facturaId, preciosAjustados } = req.body || {};
       if (!facturaId) throw Object.assign(new Error('Falta facturaId.'), { status: 400 });
 
-      const opciones = { ordenCompraId };
-      if (ordenCompraAutomaticaId !== undefined) opciones.ordenCompraAutomaticaId = ordenCompraAutomaticaId;
-      const resultado = await servicio.registrarCompra(facturaId, preciosAjustados || {}, req.usuario?.id, opciones);
+      const resultado = await servicio.registrarCompra(facturaId, preciosAjustados || {}, req.usuario?.id);
       // El `require` va acá: las rutas de Hacienda cargan su configuración
       // al importarse, y este módulo no las necesita para nada más.
       const hacienda = await require('../../integrations/hacienda/rutas')

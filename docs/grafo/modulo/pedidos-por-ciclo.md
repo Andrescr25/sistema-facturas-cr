@@ -2,15 +2,10 @@
 id: modulo/pedidos-por-ciclo
 tipo: modulo
 titulo: Pedidos y facturas conservan el recorrido de su semana
-estado: vigente
+estado: retirado
 archivos:
-  - backend/src/modules/rutas/operacionCiclo.service.js
-  - backend/tests/operacionCiclos.test.js
-  - frontend/src/components/FiltroCicloOperacion.jsx
-  - frontend/src/components/ContextoCicloDocumento.jsx
-  - frontend/src/hooks/useFiltroCicloOperacion.js
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/migrations/independencia/045_documentos_por_ciclo.sql
-  - backend/src/modules/rutas/documentosCiclo.service.js
   - backend/src/modules/portal-clientes/portal-clientes.cliente.service.js
   - backend/src/modules/portal-clientes/portal-clientes.pedidos.service.js
   - backend/src/modules/catalogo-agente/pedidos-agente.service.js
@@ -18,19 +13,25 @@ archivos:
   - backend/src/modules/facturacion/facturaPropia.service.js
   - backend/src/modules/facturacion/facturaConsulta.service.js
   - backend/src/modules/facturacion/idempotencia.js
-  - frontend/src/components/SelectorCiclo.jsx
   - frontend/src/components/catalogo-clientes/ModalPedido.jsx
   - frontend/src/components/clientes/ListaPedidos.jsx
   - frontend/src/hooks/useClientesPortal.js
   - frontend/src/hooks/useFacturacion.js
   - frontend/src/services/facturacionService.js
-  - backend/tests/documentosCiclo.test.js
   - backend/tests/idempotenciaFactura.test.js
 aristas:
   relacionado: [modulo/contexto-cadena-operativa, modulo/historicos-contexto-documentos, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/rutas-clientes, modulo/portal-clientes, modulo/catalogo-agente, modulo/facturacion, modulo/facturacion-offline, decision/ciclo-de-ruta-como-contexto, modulo/faltantes]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Segunda parte de la reorganización. SQL/pg, solo en la copia local; no Prisma.
 `pedido_cliente` y `factura` guardan `ciclo_ruta_cliente_id`, FK a la parada del

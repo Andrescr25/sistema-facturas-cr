@@ -13,8 +13,16 @@ archivos:
   - backend/tests/catalogoAgenteIdsPropios.test.js
 aristas:
   relacionado: [modulo/catalogo-agente, modulo/portal-clientes, modulo/facturacion-offline, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fotos-del-catalogo-en-la-tablet]
-medido: 2026-10-10
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 SECCIÓN 12, PARTE 3. `AlegraCatalogReactDB` conserva su nombre y pasa a
 versión 3. Cambiar el nombre abandonaría la copia instalada sin migrarla.

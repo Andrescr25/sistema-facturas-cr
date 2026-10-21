@@ -165,24 +165,10 @@ describe('el proveedor de un faltante — contra PostgreSQL local', () => {
       faltantes.push(await faltante(p));
       return { p, ruta, ciclos, faltantes };
     };
-    test('una semana asigna solo sus propios faltantes; no cambia mapeos ni cobertura global', async () => {
-      const d = await contexto(), m = await mapeo({productoId:d.p,proveedor:proveedorB});
-      const r = await manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorB.id,cicloId:String(d.ciclos[1])});
-      assert.equal(r.faltantesActualizados,1); assert.equal(r.mappingId,m);
-      assert.equal((await leer(d.faltantes[1])).proveedor_asignado,proveedorB.nombre);
-      for (const i of [0,2]) assert.equal((await leer(d.faltantes[i])).proveedor_asignado,null);
-      assert.equal((await conexion.query('SELECT proveedor_id FROM supplier_product_mapping WHERE id=$1',[m])).rows[0].proveedor_id,proveedorB.id);
-    });
-    test('Sin ciclo asigna históricos sin tomar faltantes de ninguna semana', async () => {
-      const d=await contexto();
-      assert.equal((await manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorA.id,cicloId:'sin-ciclo'})).faltantesActualizados,1);
-      assert.equal((await leer(d.faltantes[2])).proveedor_asignado,proveedorA.nombre);
-      for (const i of [0,1]) assert.equal((await leer(d.faltantes[i])).proveedor_asignado,null);
-    });
     test('ámbitos vacíos, inválidos o inexistentes rechazan sin asignar globalmente', async () => {
       const d=await contexto();
       for (const cicloId of [null,'',0,-1,'abc','1abc',1.5,2147483648]) await assert.rejects(()=>manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorA.id,cicloId}),e=>e.status===400);
-      await assert.rejects(()=>manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorA.id,cicloId:2147483647}),e=>e.status===404);
+      await assert.rejects(()=>manual.asignarProveedorAProducto({productoId:d.p,proveedorId:proveedorA.id,cicloId:2147483647}),e=>e.status===400);
       for (const f of d.faltantes) assert.equal((await leer(f)).proveedor_asignado,null);
     });
     for (const ambito of ['ruta','semana','sin-ciclo']) test(`abrir proveedor por ${ambito} y clientes por ruta no asigna ni modifica faltantes`, async () => {
@@ -275,8 +261,8 @@ describe('el Reporte de Proveedores ya no le pregunta nada a Alegra', () => {
     assert.match(automatica, /WHERE producto_id = \$1/);
     assert.doesNotMatch(automatica, /alegra_item_id|alegraItemId|allegraId/);
 
-    const pedido = leer('src', 'modules', 'orders-whatsapp', 'orders-whatsapp.service.js');
-    assert.match(pedido, /WHERE producto_id = \$1/);
+    const pedido = leer('src', 'modules', 'orders-whatsapp', 'envioDesdeReporte.service.js');
+    assert.match(pedido, /WHERE p.id=\$1/);
     assert.doesNotMatch(pedido, /alegra_item_id|alegraItemId|getMappingByAlegraId/);
 
     assert.doesNotMatch(leer('src', 'modules', 'reports', 'report.service.js'), /alegra_id|alegra_item_id/);

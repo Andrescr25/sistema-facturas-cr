@@ -8,12 +8,10 @@ const OrdersWhatsappController = require('./orders-whatsapp.controller');
 const router = express.Router();
 const controller = new OrdersWhatsappController();
 
-// Entrada por proveedor; /por-ciclo conserva las direcciones de documentos históricos.
+// Entrada por proveedor. /por-ciclo (listar, editar, facturas, recepciones,
+// cierre y archivo de cada orden «OC-xx») se retiró el 2026-10-20: ninguna
+// pantalla lo usaba y el usuario pidió quitar el número de orden y su enlace.
 router.use('/proveedor', require('./ordenesProveedor.routes'));
-router.use('/por-ciclo', require('./ordenesCiclo.routes'));
-
-// Generar PDF
-router.post('/generar-pdf', controller.generarPDF);
 
 // El envío global no registra cobertura y permitiría comprar otra vez lo ya
 // solicitado. Conservamos lectura/borradores históricos, pero todo

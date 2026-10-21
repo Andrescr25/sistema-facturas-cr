@@ -10,8 +10,16 @@ archivos:
   - backend/src/modules/rutas/rutas.validacion.js
 aristas:
   relacionado: [modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/auditoria-operacion-local, decision/ciclo-de-ruta-como-contexto, leccion/la-db-local-es-produccion]
-medido: 2026-10-07
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Afecta únicamente recuperación de datos RUT-03. Campo Maps, edición, botón
 móvil y recorrido fijo implementados; la ausencia de datos no abre esos IDs.

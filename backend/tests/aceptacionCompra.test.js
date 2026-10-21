@@ -210,18 +210,18 @@ describe('el controlador de compras: primero registra, después acepta', () => {
     assert.equal(res.codigo, 201);
     assert.deepEqual(res.cuerpo.data.hacienda, { estado: 'enviada', comprobante: { id: 900 } });
     assert.equal(res.cuerpo.data.lineas, 2);
-    assert.deepEqual(orden, [['registrar', BUZON, { x: 1 }, 4, { ordenCompraId: undefined }], ['aceptar', 77, 4]], 'la aceptación tiene que ir DESPUÉS de registrar, con el id de la compra');
+    assert.deepEqual(orden, [['registrar', BUZON, { x: 1 }, 4], ['aceptar', 77, 4]], 'la aceptación tiene que ir DESPUÉS de registrar, con el id de la compra');
   });
 
-  test('la orden elegida acompaña la transacción comercial y Hacienda usa el id de compra', async () => {
+  test('una pantalla antigua no enlaza órdenes; Hacienda sigue usando el id de compra', async () => {
     const llamadas = [];
     const { controlador, res } = montarControlador({
-      registrar: async (...a) => { llamadas.push(['registrar', ...a]); return { compra: { id: 77 }, ordenCompraId: 12, lineas: 1, costosActualizados: 1, preciosActualizados: 0 }; },
+      registrar: async (...a) => { llamadas.push(['registrar', ...a]); return { compra: { id: 77 }, lineas: 1, costosActualizados: 1, preciosActualizados: 0 }; },
       alRegistrarCompra: async (...a) => { llamadas.push(['aceptar', ...a]); return { estado: 'enviada' }; }
     });
     await controlador.registrar({ body: { facturaId: BUZON, ordenCompraId: 12 }, usuario: { id: 4 } }, res);
-    assert.equal(res.cuerpo.data.ordenCompraId, 12);
-    assert.deepEqual(llamadas, [['registrar', BUZON, {}, 4, { ordenCompraId: 12 }], ['aceptar', 77, 4]]);
+    assert.equal(res.cuerpo.data.ordenCompraId, undefined);
+    assert.deepEqual(llamadas, [['registrar', BUZON, {}, 4], ['aceptar', 77, 4]]);
   });
 
   test('si la compra no se registró, no se le acepta nada a Hacienda', async () => {

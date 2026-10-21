@@ -15,15 +15,4 @@ function ubicacionMaps(v, etiqueta = 'Ubicación Maps') {
   return u.href;
 }
 
-function semanaValida(v) {
-  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw httpError(400, 'Semana: indicá la fecha del lunes.');
-  // Un día de calendario no se convierte a la zona del servidor/UTC de hoy.
-  const d = new Date(`${v}T12:00:00Z`);
-  if (!Number.isFinite(d.getTime()) || d.getUTCFullYear() !== Number(v.slice(0, 4)) ||
-    d.getUTCMonth() + 1 !== Number(v.slice(5, 7)) || d.getUTCDate() !== Number(v.slice(8, 10)) || d.getUTCDay() !== 1) {
-    throw httpError(400, 'Semana: elegí un lunes válido.');
-  }
-  return v;
-}
-
-module.exports = { ubicacionMaps, semanaValida };
+module.exports = { ubicacionMaps };

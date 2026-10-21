@@ -1,22 +1,19 @@
 const {faltanteOperativo,cantidadPendiente}=require('../reports/faltantesCompra.sql');
 const {pool}=require('../../../config/database');
 const {enTransaccion}=require('../../utils/transaccion');
-const {filtrosOperacion}=require('../rutas/operacionCiclo.service');
 const {interno:{entero,listarEn}}=require('./ordenesCiclo.service');
 
 /** Una ficha inequívoca, sin decidir por parecido ni por la ruta actual del cliente. */
-async function faltantesEn(db,{rutaId,cicloId,proveedorId,facturaId}={}) {
+async function faltantesEn(db,{proveedorId,facturaId}={}) {
   const params=[],where=[faltanteOperativo(),`${cantidadPendiente()}>0`];
-  filtrosOperacion({rutaId,cicloId},where,params);
   if(proveedorId!=null&&proveedorId!==''){params.push(entero(proveedorId));where.push(`pr.id=$${params.length}`)}
   if(facturaId!=null){params.push(entero(facturaId));where.push(`fa.id=$${params.length}`)}
   const {rows}=await db.query(`SELECT f.id,f.producto_propio_id AS producto_id,${cantidadPendiente()} AS cantidad_faltante,
-    f.proveedor_asignado,f.proveedor_cedula,fa.id factura_id,rc.ciclo_id,cr.estado ciclo_estado,
+    f.proveedor_asignado,f.proveedor_cedula,fa.id factura_id,
     p.nombre producto_nombre,p.referencia,pr.id proveedor_id,pr.nombre proveedor_nombre,pr.activo,
     COALESCE(cv.cubierta,0) cubierta,COALESCE(cv.pendiente_enviar,0) pendiente_enviar,
     COALESCE(cv.por_verificar,0) por_verificar,COALESCE(cv.pendiente_recibir,0) pendiente_recibir,COALESCE(cv.recibida,0) recibida
     FROM faltantes f JOIN factura fa ON fa.id=f.factura_propia_id JOIN producto p ON p.id=f.producto_propio_id
-    LEFT JOIN ciclo_ruta_cliente rc ON rc.id=fa.ciclo_ruta_cliente_id LEFT JOIN ciclo_ruta cr ON cr.id=rc.ciclo_id
     LEFT JOIN LATERAL (SELECT min(id) id FROM proveedor
       WHERE CASE WHEN NULLIF(NULLIF(btrim(f.proveedor_cedula),'SIN_PROVEEDOR'),'') IS NOT NULL
         THEN identificacion=btrim(f.proveedor_cedula)

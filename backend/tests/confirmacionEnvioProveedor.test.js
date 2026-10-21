@@ -19,7 +19,7 @@ if(activo){
   db.pool.connect=async()=>{const cl=await connect(),q=cl.query;cl.query=(sql,p)=>sql.startsWith('SET TRANSACTION')?Promise.resolve({rows:[]}):q(sql,p);return cl};
   const ruta=require.resolve('../config/database');require.cache[ruta]={id:ruta,filename:ruta,loaded:true,exports:db};
   require('../config/aislado').salidasBloqueadas=()=>salidaBloqueada;
-  s=require('../src/modules/orders-whatsapp/envioDesdeReporte.service');motor=require('../src/modules/orders-whatsapp/ordenesCiclo.service');env=require('../src/modules/orders-whatsapp/ordenesCicloEnvio.service');wa=require('../src/integrations/whatsapp');
+  s=require('../src/modules/orders-whatsapp/envioDesdeReporte.service');motor=require('./fixtures/ordenesHistoricas');env=require('../src/modules/orders-whatsapp/ordenesCicloEnvio.service');wa=require('../src/integrations/whatsapp');
   reportes=new(require('../src/modules/reports/report.service'))();
  });
  after(async()=>{if(c){await c.query('ROLLBACK');c.release()}await pool?.end()});

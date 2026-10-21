@@ -20,11 +20,6 @@ const { requireCliente } = require('./portal-clientes.middleware');
 const rutasPersonal = express.Router();
 
 rutasPersonal.get('/clientes', controller.listarClientes);
-rutasPersonal.get('/clientes/:clienteId/preventa', controller.prepararPreventa);
-rutasPersonal.post('/clientes/:clienteId/preventa/pdf', controller.prepararPdfPreventa);
-rutasPersonal.get('/clientes/:clienteId/preventa/pdf/:pdfId', controller.descargarPdfPreventa);
-rutasPersonal.post('/clientes/:clienteId/preventa/invitacion', controller.invitarPreventa);
-rutasPersonal.post('/clientes/:clienteId/preventa/whatsapp', controller.enviarPreventa);
 rutasPersonal.post('/clientes/:clienteId/invitacion', controller.generarInvitacion);
 // El enlace se manda desde la pantalla porque el servidor ya no lo tiene:
 // del token queda solo el hash, igual que con una contraseña.
@@ -61,9 +56,6 @@ rutasCliente.get('/facturas', controller.misFacturas);
 rutasCliente.get('/compras', controller.comprasAnteriores);
 rutasCliente.get('/compras/:facturaId', controller.detalleCompra);
 rutasCliente.post('/compras/:facturaId/repetir', controller.repetirCompra);
-
-rutasCliente.get('/ciclos', controller.ciclosDisponibles);
-rutasCliente.get('/preventa', controller.resolverPreventa);
 
 rutasCliente.post('/pedidos', controller.crearPedido);
 rutasCliente.get('/pedidos', controller.misPedidos);

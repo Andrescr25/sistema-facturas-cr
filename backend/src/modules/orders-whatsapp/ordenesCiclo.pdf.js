@@ -4,7 +4,6 @@ const { hoyEnCostaRica } = require('../../utils/fechaCR');
 /** Solo snapshots de la orden: jamás consultar mapeos o cantidades globales. */
 function generarPdfOrden(o, { preferirDatosProveedor = true } = {}) {
   return generarPdfCompra({
-    referencia: o.referencia,
     proveedor: o.proveedor_nombre,
     fecha: hoyEnCostaRica(),
     lineas: o.lineas.map(l => ({

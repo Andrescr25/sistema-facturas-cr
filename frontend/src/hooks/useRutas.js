@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { rutasService } from '../services/rutasService'
 export function useRutas({ showToast }) {
-  const [rutas, setRutas] = useState([]), [ciclos, setCiclos] = useState([])
+  const [rutas, setRutas] = useState([])
   const [seleccion, setSeleccion] = useState(''), [ruta, setRuta] = useState(null)
   const [cargando, setCargando] = useState(false), [guardando, setGuardando] = useState(false)
   const [revision, setRevision] = useState(0), peticion = useRef(0)
   const refrescar = useCallback(async () => {
-    const [rs, cs] = await Promise.all([rutasService.listar(), rutasService.ciclos()])
-    setRutas(rs); setCiclos(cs); setRevision(n => n + 1)
+    const rs = await rutasService.listar()
+    setRutas(rs); setRevision(n => n + 1)
   }, [])
   useEffect(() => { refrescar().catch(() => showToast('No se pudieron cargar las rutas', 'error')) }, [refrescar, showToast])
   useEffect(() => {
@@ -29,5 +29,5 @@ export function useRutas({ showToast }) {
       return null
     } finally { setGuardando(false) }
   }
-  return { rutas, ciclos, seleccion, setSeleccion, ruta, cargando, guardando, refrescar, ejecutar }
+  return { crear: rutasService.crear, editar: rutasService.editar, ordenar: rutasService.ordenar, rutas, seleccion, setSeleccion, ruta, cargando, guardando, refrescar, ejecutar }
 }

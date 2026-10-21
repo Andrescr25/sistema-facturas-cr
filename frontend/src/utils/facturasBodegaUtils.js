@@ -213,3 +213,11 @@ export function aplicarEstadosGuardados(draft, estados = []) {
   }
   return salida
 }
+
+// Las copias antiguas sin ruta descargada no se adivinan por el ciclo viejo.
+// Con ruta elegida, solo se muestra una pertenencia conocida de la ficha.
+export function coincideRutaBodega(factura, rutaId) {
+  if (!rutaId) return true
+  if (factura.ruta_id === undefined) return false
+  return rutaId === 'sin-ruta' ? factura.ruta_id === null : String(factura.ruta_id) === String(rutaId)
+}

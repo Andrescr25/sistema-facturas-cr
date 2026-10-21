@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Lock, User, Loader2, AlertCircle } from 'lucide-react'
 import { usePortalCliente } from '../../contexts/PortalClienteContext'
 import apiPortal from '../../services/apiPortal'
-import { destinoCatalogo } from '../../utils/enlacePreventa'
 import AccesoLayout from '../../components/acceso/AccesoLayout'
 
 /**
@@ -19,7 +18,6 @@ export default function PortalActivar() {
   const { token } = useParams()
   const { activar } = usePortalCliente()
   const navigate = useNavigate()
-  const location = useLocation()
 
   const [invitacion, setInvitacion] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -48,7 +46,7 @@ export default function PortalActivar() {
     setEnviando(true)
     try {
       await activar({ token, usuario: usuario.trim(), password })
-      navigate(destinoCatalogo(location.search), { replace: true })
+      navigate('/catalogo', { replace: true })
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo crear la cuenta.')
     } finally {

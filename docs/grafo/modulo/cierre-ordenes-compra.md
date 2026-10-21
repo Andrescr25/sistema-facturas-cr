@@ -2,21 +2,25 @@
 id: modulo/cierre-ordenes-compra
 tipo: modulo
 titulo: Cierre de enviada — recibido conservado y cobertura pendiente liberada
-estado: vigente
+estado: retirado
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/migrations/independencia/052_cierre_orden_compra_ciclo.sql
-  - backend/src/modules/orders-whatsapp/ordenesCicloCierre.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCiclo.routes.js
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloRecepcion.service.js
-  - backend/src/modules/reports/necesidades.service.js
-  - backend/tests/ordenesCompraCierre.test.js
   - docs/informes/cierre-ordenes-2026-10-06.md
 aristas:
   depende_de: [modulo/ordenes-compra-por-ciclo, modulo/recepcion-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion]
   relacionado: [modulo/validacion-cadena-operativa, modulo/contexto-cadena-operativa, modulo/necesidades-por-ciclo, modulo/facturas-ordenes-compra, modulo/archivo-ordenes-compra, modulo/permisos, modulo/faltantes]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.

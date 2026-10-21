@@ -1,8 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { usePreventaCliente } from '../hooks/usePreventaCliente'
-import { tokenPreventa, ingresoPreventa } from '../utils/enlacePreventa'
-import { textoCiclo } from '../components/SelectorCiclo'
+import { Link } from 'react-router-dom'
 import { Search, ShoppingCart, Loader2, AlertCircle, User, Repeat, Clock, Tag, TrendingDown, X, Receipt, Info, LogOut } from 'lucide-react'
 import { useCatalogoClientes } from '../hooks/useCatalogoClientes'
 import { useCarritoCliente } from '../hooks/useCarritoCliente'
@@ -26,11 +23,8 @@ export default function CatalogoClientes() {
   } = useCatalogoClientes()
 
   const { cliente, salir } = usePortalCliente()
-  const location = useLocation()
-  const preventaToken = tokenPreventa(location.search)
-  const preventa = usePreventaCliente(cliente, preventaToken)
-  const ingreso = ingresoPreventa(location.search)
-  const puedePedir = Boolean(cliente && (preventaToken === null || preventa.ciclo))
+
+  const puedePedir = Boolean(cliente)
 
   // El carrito vive en el servidor, atado a la cuenta.
   const {
@@ -116,7 +110,7 @@ export default function CatalogoClientes() {
                 </button>
               </div>
             ) : (
-              <Link to={ingreso} className="text-[12px] font-bold text-cliente-700 hover:underline shrink-0">
+              <Link to="/portal/ingresar" className="text-[12px] font-bold text-cliente-700 hover:underline shrink-0">
                 Entrar
               </Link>
             )}
@@ -178,15 +172,6 @@ export default function CatalogoClientes() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-4">
-        {preventaToken !== null && <div className="rounded-2xl border bg-white p-4 mb-4 space-y-2">
-          <p className="font-bold text-sm">Pedido para la próxima visita</p>
-          {!cliente ? <p className="text-sm text-neutro-600"><Link to={ingreso} className="font-bold text-cliente-700">Entrá a tu cuenta</Link> para comprobar la ruta y semana de este enlace.</p>
-            : preventa.cargando ? <p className="text-sm">Comprobando la semana del catálogo…</p>
-            : preventa.error ? <p role="alert" className="text-sm text-peligro-700">{preventa.error}</p>
-            : <><p className="font-semibold text-cliente-700 text-sm">{textoCiclo(preventa.ciclo)}</p>
-              <p className="text-xs text-neutro-600">Tu pedido quedará en esta semana. {preventa.ciclo?.estado !== 'preventa' && 'La ruta ya está en preparación o entrega.'}</p></>}
-          <Link to="/catalogo" className="inline-block min-h-11 pt-3 text-xs font-bold text-neutro-600 hover:underline">Elegir otra semana desde mi catálogo</Link>
-        </div>}
         {error && (
           <div className="flex items-start gap-2 bg-peligro-50 border border-peligro-200 rounded-xl px-3 py-2.5 mb-4">
             <AlertCircle size={15} className="text-peligro-600 shrink-0 mt-0.5" />
@@ -199,7 +184,7 @@ export default function CatalogoClientes() {
             <Info size={15} className="text-neutro-400 shrink-0 mt-0.5" />
             <p className="text-[12px] text-neutro-500">
               Está viendo el catálogo como visitante.{' '}
-              <Link to={ingreso} className="font-bold text-cliente-700 hover:underline">Ingrese</Link>
+              <Link to="/portal/ingresar" className="font-bold text-cliente-700 hover:underline">Ingrese</Link>
               {' '}para hacer pedidos y ver sus facturas. ¿No tiene cuenta? Pídanos el enlace.
             </p>
           </div>
@@ -343,7 +328,6 @@ export default function CatalogoClientes() {
           onCerrar y de onVaciar; el carrito vaciándose ya no lo destruye. */}
       {puedePedir && pedidoAbierto && (
         <ModalPedido
-          preventaToken={preventaToken}
           resumen={resumen}
           carrito={porId}
           onCambiar={cambiar}

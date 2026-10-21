@@ -4,17 +4,25 @@ tipo: decision
 titulo: Los archivos grandes se guardan como ruta, no como columna
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/migrations/independencia/015_espacio_emision_electronica.sql
   - backend/migrations/independencia/021_xml_ruta_compra.sql
   - backend/src/integrations/almacenamiento/local.js
   - backend/services/databaseService.js
   - backend/migrations/independencia/048_factura_orden_compra_ciclo.sql
-  - backend/src/modules/orders-whatsapp/ordenesCicloFactura.archivos.js
 aristas:
   depende_de: [bloqueo/prisma-no-se-regenera]
   relacionado: [modulo/facturas-ordenes-compra, modulo/hacienda, bloqueo/xml-historico-sin-recuperar, modulo/archivo-ventas-electronicas]
-medido: 2026-10-06
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Precedente ya tomado para las facturas de VENTA
 (`015_espacio_emision_electronica.sql`): el XML firmado son ~15 KB por

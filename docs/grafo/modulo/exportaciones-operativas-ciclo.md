@@ -2,29 +2,31 @@
 id: modulo/exportaciones-operativas-ciclo
 tipo: modulo
 titulo: Excel operativo — necesidades, órdenes y recorrido completos por ciclo
-estado: vigente
+estado: retirado
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/rutas/operacionExcel.js
-  - backend/src/modules/rutas/operacionCiclo.service.js
-  - backend/src/modules/reports/necesidades.excel.js
-  - backend/src/modules/reports/necesidades.service.js
   - backend/src/modules/reports/report.routes.js
-  - backend/src/modules/orders-whatsapp/ordenesCiclo.excel.js
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCiclo.routes.js
   - backend/src/modules/entregas/entregas.excel.js
   - backend/src/modules/entregas/entregas.service.js
   - backend/src/modules/entregas/entregas.routes.js
   - backend/src/utils/exportarExcel.js
-  - backend/tests/exportacionesCiclos.test.js
-  - frontend/src/components/FiltroCicloOperacion.jsx
   - frontend/src/pages/Entregas.jsx
   - docs/informes/exportaciones-ciclos-2026-10-06.md
 aristas:
   depende_de: [modulo/exportaciones-reportes, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/carga-entregas-por-ciclo]
   relacionado: [modulo/carga-entregas-por-ruta, modulo/contexto-visible-operacion, decision/ciclo-de-ruta-como-contexto, modulo/registro-carga-entrega, modulo/cierre-ordenes-compra, modulo/permisos, modulo/pedidos-por-ciclo]
-medido: 2026-10-13
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.

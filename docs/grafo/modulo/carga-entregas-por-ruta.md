@@ -4,12 +4,12 @@ tipo: modulo
 titulo: Carga y entregas — todas las facturas pendientes de la ruta sin semanas
 estado: vigente
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - docs/informes/despliegue-main-2026-10-13.md
   - backend/migrations/independencia/057_entregas_por_ruta.sql
   - backend/src/modules/entregas/entregas.controller.js
   - backend/src/modules/entregas/entregas.routes.js
   - backend/src/modules/entregas/entregas.service.js
-  - backend/src/modules/entregas/entregasHistoricas.service.js
   - backend/src/modules/entregas/entregasLineas.service.js
   - backend/src/modules/entregas/registroFisico.service.js
   - backend/src/modules/entregas/entregas.excel.js
@@ -17,8 +17,6 @@ archivos:
   - backend/tests/entregasPorRuta.test.js
   - backend/tests/dobles/entregasPorRuta.js
   - backend/tests/registroEntrega.test.js
-  - backend/tests/contextoCadenaCiclo.test.js
-  - backend/tests/exportacionesCiclos.test.js
   - backend/tests/estructura.test.js
   - frontend/src/pages/Entregas.jsx
   - frontend/src/hooks/useEntregas.js
@@ -32,8 +30,16 @@ archivos:
 aristas:
   reemplaza: [modulo/carga-entregas-por-ciclo]
   relacionado: [decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/registro-carga-entrega, modulo/facturas-bodega, modulo/faltantes, modulo/permisos, modulo/exportaciones-operativas-ciclo, modulo/contexto-cadena-operativa, modulo/validacion-cadena-operativa, bloqueo/prisma-no-se-regenera]
-medido: 2026-10-13
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 ROT-05. Usuario eligió: **incluir automáticamente todas las facturas
 pendientes de la ruta**, sin semanas. Menú Ventas → Carga y Entregas conserva

@@ -67,8 +67,22 @@ archivos:
 aristas:
   depende_de: [modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/permisos]
   relacionado: [modulo/rutas-clientes, modulo/facturas-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion, decision/rotacion-por-cliente-sin-ciclos]
-medido: 2026-10-14
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Los documentos nuevos ya no muestran OC-xx; conservan el formato comercial
+con código, descripción, factor y cantidad del proveedor. Los envíos
+anteriores mantienen sus bytes y el nuevo faltante sigue creando otro pedido.
+Se retira la comparación «facturado/parcial» derivada del vínculo con la compra;
+el usuario definirá su reemplazo. El modal, teléfonos y mensaje no cambian.
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 ## Corrección vigente — 2026-10-14
 

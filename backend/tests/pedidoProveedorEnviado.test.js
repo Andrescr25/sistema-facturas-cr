@@ -87,14 +87,7 @@ describe('a qué proveedores ya se les mandó el pedido', () => {
     assert.deepEqual(otro.registro.consultas[0].params, ['2026-09-01']);
   });
 
-  test('el envío del pedido queda anotado', () => {
-    const servicio = fs.readFileSync(rutaServicio, 'utf8');
-    assert.match(servicio, /enviarYRegistrar/,
-      'la orden debe pasar por enviarYRegistrar para quedar en envio_whatsapp');
-    assert.match(servicio, /tipo:\s*'orden_compra'/);
-    assert.match(servicio, /referencia:\s*proveedor/,
-      'la referencia debe ser el nombre del proveedor: es la llave que comparten el reporte y el registro');
-  });
+
 });
 
 describe('el reporte de proveedores siempre tiene salida', () => {

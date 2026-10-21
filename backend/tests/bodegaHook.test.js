@@ -28,7 +28,7 @@ async function montar(api, guardado = {}) {
   const localStorage = { getItem: clave => almacen.get(clave) || null,
     setItem: (clave, valor) => almacen.set(clave, String(valor)), removeItem: clave => almacen.delete(clave) };
   const nombres = ['useState', 'useRef', 'useEffect', 'useCallback', 'useMemo', 'useContextoConsulta',
-    'useFiltroCicloOperacion', 'bodegaPropiaService', 'alegraService', 'localStorage', ...Object.keys(utils)];
+    'useFiltroRutaReporteCliente', 'bodegaPropiaService', 'alegraService', 'localStorage', ...Object.keys(utils)];
   const valores = [useState, useRef, () => {}, f => f, f => f(), () => lectura,
     () => ({ params: {} }), api, {}, localStorage, ...Object.values(utils)];
   const hook = new Function(...nombres, `${fuentes}\nreturn useFacturasBodega;`)(...valores);

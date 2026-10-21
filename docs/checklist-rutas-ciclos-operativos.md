@@ -33,8 +33,12 @@ anteriores documentan el sistema previo, no acreditan su retiro. Nuevo plan:
   fechas de envío, última gestión y archivo. Recuperar vuelve a Activos y
   permite reenviar. No inventa una fotografía de próxima visita; agenda en
   Preventa. [Evidencia](informes/reporte-clientes-historial-2026-10-15.md).
-- [ ] ROT-08 — Retirar ciclos de Facturación, pedidos, rutas,
+- [x] ROT-08 — Retirar ciclos de Facturación, pedidos, rutas,
   Bodega y exportaciones, conservando historia, tablas y FK existentes.
+  Continuación 2026-10-20: sin selectores ni nuevas asignaciones semanales;
+  se conservan columnas, FK, recorridos y documentos históricos. Se retira
+  también el enlace OC en Revisión de precios, pendiente nueva regla del usuario.
+  [Alcance y verificación](informes/simplificacion-sin-semanas-2026-10-20.md).
   **Proveedores completado por separado:** Faltantes como main y fichas,
   sin áreas/paneles de ciclos. Una abierta por proveedor; enviada/incierta
   inmutable y siguiente faltante crea otra orden. SQL 058 aplicada en producción el 13/10 a las 19:31. [Evidencia](informes/proveedores-simplificados-2026-10-13.md).
@@ -767,3 +771,19 @@ pendientes ROT. SQL 060 aplicada por Codex en producción el 14/10 a las
 15:31:43 CR, con respaldo restaurado y 144 tablas conservadas; 250 clientes
 inician en 0 %. Usuario autoriza migración y publicación a main.
 [Validación](informes/descuento-global-cliente-2026-10-14.md).
+
+
+## Simplificación solicitada el 2026-10-20
+
+- [x] SIM-01 — Sin numeración OC visible en PDF/listas/archivos nuevos;
+  identidad interna, deduplicación y copias de envíos anteriores conservadas.
+- [x] SIM-02 — Revisión de precios registra la compra sin elegir ni relacionar
+  órdenes; se retiran candidatos, comparación e indicadores derivados.
+- [x] SIM-03 — Sin «Ruta y semana del pedido» en venta/portal, Clientes o Bodega;
+  nuevas facturas y pedidos no reciben ciclo. Rutas, asignación, frecuencia y
+  próxima visita conservadas; colas anteriores mantienen claves de reintento.
+- [x] SIM-04 — Recorridos y documentos históricos conservan sus FK/triggers;
+  no se borran tablas ni se ejecutan migraciones o limpieza semanal.
+
+La comprobación y las limitaciones están en el informe del retiro, no se
+acredita aceptación fiscal ni la nueva regla futura para facturas de proveedores.

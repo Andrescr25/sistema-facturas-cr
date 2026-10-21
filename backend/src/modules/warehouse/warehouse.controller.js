@@ -41,10 +41,11 @@ const updateEstadoFacturaPropia = (req, res) =>
     enviarAImpresion: Boolean(req.body?.enviar_a_impresion)
   }), 'Error actualizando el estado de la factura:');
 
-const getCiclos = (req, res) => responderPropia(res, require('../rutas/operacionCiclo.service').listarCiclos(), 'Error leyendo ciclos de bodega:');
+/** GET /bodega/rutas — las rutas para filtrar (la de la ficha de cada cliente). */
+const getRutas = (req, res) => responderPropia(res, require('../rutas/rutaActual.service').listarRutasActuales(), 'Error leyendo rutas de bodega:');
 
 module.exports = {
-  getCiclos,
+  getRutas,
   getFacturasPropias,
   getEstadosFacturaPropia,
   registrarFaltantesFacturaPropia,

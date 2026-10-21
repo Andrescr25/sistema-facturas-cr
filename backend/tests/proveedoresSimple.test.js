@@ -18,7 +18,7 @@ describe('Proveedores simplificado — faltantes originales y órdenes por prove
   const db=baseEnTransaccion(c,'simple'),conectar=db.pool.connect;
   db.pool.connect=async()=>{const cl=await conectar(),q=cl.query;cl.query=(sql,p)=>sql==='SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'?Promise.resolve({rows:[]}):q(sql,p);return cl};
   const ruta=require.resolve('../config/database');require.cache[ruta]={id:ruta,filename:ruta,loaded:true,exports:db};
-  ordenes=require('../src/modules/orders-whatsapp/ordenesCiclo.service');servicio=require('../src/modules/orders-whatsapp/ordenesProveedor.service');
+  ordenes=require('./fixtures/ordenesHistoricas');servicio=require('../src/modules/orders-whatsapp/ordenesProveedor.service');
   reporte=new (require('../src/modules/reports/report.service'))();require('../config/aislado').salidasBloqueadas=()=>false;env=require('../src/modules/orders-whatsapp/ordenesCicloEnvio.service');
   require('../src/integrations/whatsapp').enviarDocumento=async d=>({enviado:true,numero:d.telefono,via:'interno'});require('../config/aislado').salidasBloqueadas=()=>false;
   const app=require('express')();app.use(require('express').json());
@@ -33,7 +33,7 @@ describe('Proveedores simplificado — faltantes originales y órdenes por prove
  });
  test('faltantes y cantidades mantienen el reporte global de main',async()=>{
   const p=await datosReporte();assert.equal(p.nombre,f.p.nombre);assert.equal(p.total_productos,1);assert.equal(p.total_cantidad,10);
-  const a=p.productos_faltantes[0];assert.equal(a.producto_id,f.productos[0]);assert.equal(a.cantidad_faltante,10);assert.equal(a.origenes[0].facturaId,f.facturas[0]);assert.equal(a.origenes[0].cicloId,f.ciclo);
+  const a=p.productos_faltantes[0];assert.equal(a.producto_id,f.productos[0]);assert.equal(a.cantidad_faltante,10);assert.equal(a.origenes[0].facturaId,f.facturas[0]);assert.equal(a.origenes[0].cicloId,undefined);
  });
  test('enviada10 → nueva factura faltante3 crea otra; anterior/PDF idénticos',async()=>{
   let original=await ordenes.obtener((await lista())[0].id);original=await ordenes.cambiarEstado(original.id,{version:original.version,estado:'pendiente_enviar'},actor);

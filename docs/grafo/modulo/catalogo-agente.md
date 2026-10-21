@@ -43,8 +43,16 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-19
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 El catálogo que el agente le muestra al cliente. Es de solo mirar; el pedido
 se toma en Facturación. No tiene controles para armarlo desde esta pantalla.

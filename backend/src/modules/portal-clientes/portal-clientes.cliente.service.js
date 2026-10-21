@@ -4,7 +4,6 @@
  * Activar la cuenta, entrar, armar el pedido y ver su historial.
  */
 
-const ciclos = require('../rutas/documentosCiclo.service');
 const {
   bcrypt, query, httpError,
   RONDAS_BCRYPT, hashToken, firmarToken
@@ -151,18 +150,15 @@ async function entrar({ usuario, password }) {
  * El precio se congela ACÁ, que es el momento del compromiso — el carrito a
  * propósito no guarda precios (ver add_carrito_cliente.sql).
  */
-async function crearPedido(cuentaId, { observaciones, cicloId, preventaToken } = {}) {
+async function crearPedido(cuentaId, { observaciones } = {}) {
   const resultado = await enTransaccion(pool, async db => {
     const { rows: [cuenta] } = await db.query(`
       SELECT cp.*, c.nombre AS nombre, c.activo AS cliente_activo
         FROM cliente_portal cp LEFT JOIN cliente c ON c.id = cp.cliente_id
        WHERE cp.id = $1 AND cp.activo = TRUE FOR UPDATE OF cp`, [cuentaId]);
     if (!cuenta || !cuenta.cliente_id || !cuenta.cliente_activo) throw httpError(403, 'Su cuenta está desactivada.');
-    // La semana del enlace se comprueba dentro de la misma transacción: si
-    // cerró el ciclo o cambió la cuenta, se conserva todo el carrito.
-    const contexto = preventaToken !== undefined
-      ? await require('./preventa.service').validarEn(db, cuenta, preventaToken, cicloId)
-      : await ciclos.validarEn(db, cuenta.cliente_id, cicloId);
+    // Sin semana de ruta (2026-10-20): el pedido ya no se ata a un ciclo; a
+    // quién se le visita y cuándo lo dice la próxima visita del cliente.
     await bloquearCarrito(db, cuentaId);
     const carrito = await obtenerCarrito(cuentaId, db, { bloquearProductos: true });
     if (!carrito.lineas.length) throw httpError(400, carrito.noDisponibles.length
@@ -173,9 +169,9 @@ async function crearPedido(cuentaId, { observaciones, cicloId, preventaToken } =
     // error sobre un producto que no puede ver ni quitar, y la única salida
     // era vaciar el carrito entero.
     const { rows: [pedido] } = await db.query(`
-      INSERT INTO pedido_cliente (cliente_portal_id, cliente_id, cliente_nombre, total, observaciones, ciclo_ruta_cliente_id, preventa_anticipada, creado_en)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, ${AHORA_CR_SQL}) RETURNING *`,
-      [cuenta.id, cuenta.cliente_id, cuenta.nombre, carrito.total, observaciones || null, contexto?.recorridoId || null, contexto?.estado === 'preventa']);
+      INSERT INTO pedido_cliente (cliente_portal_id, cliente_id, cliente_nombre, total, observaciones, creado_en)
+      VALUES ($1, $2, $3, $4, $5, ${AHORA_CR_SQL}) RETURNING *`,
+      [cuenta.id, cuenta.cliente_id, cuenta.nombre, carrito.total, observaciones || null]);
     const tasas = await tasasDe(carrito.lineas.map(l => l.producto.id), db);
     const filas = carrito.lineas.map((_, idx) => `(${Array.from({ length: 9 }, (_, i) => '$' + (idx * 9 + i + 1)).join(', ')})`).join(', ');
     const valores = carrito.lineas.flatMap(({ producto, cantidad }) => [
@@ -189,15 +185,15 @@ async function crearPedido(cuentaId, { observaciones, cicloId, preventaToken } =
       VALUES ${filas}`, valores);
     await db.query(`DELETE FROM carrito_cliente_linea WHERE cliente_portal_id = $1`, [cuentaId]);
     await db.query(`UPDATE carrito_cliente SET actualizado_en = ${AHORA_CR_SQL} WHERE cliente_portal_id = $1`, [cuentaId]);
-    return { pedido, cuenta, lineas: carrito.lineas.length, contexto };
+    return { pedido, cuenta, lineas: carrito.lineas.length };
   });
-  const { pedido, cuenta, lineas, contexto } = resultado;
+  const { pedido, cuenta, lineas } = resultado;
   // Solo después del COMMIT. Un aviso nunca anuncia un pedido a medias.
   avisoPedidoNuevo.avisar({
     cliente: cuenta.nombre, pedidoId: pedido.id, lineas,
     total: Number(pedido.total), observaciones: pedido.observaciones
   }).catch(() => {});
-  return { id: pedido.id, total: Number(pedido.total), lineas, estado: pedido.estado, creadoEn: pedido.creado_en, ciclo: contexto?.ciclo || null, anticipado: pedido.preventa_anticipada };
+  return { id: pedido.id, total: Number(pedido.total), lineas, estado: pedido.estado, creadoEn: pedido.creado_en };
 }
 
 /** Tarifa de cada producto propio, sobre la conexión del pedido. */
@@ -210,11 +206,10 @@ async function tasasDe(productoIds, db) {
 
 async function misPedidos(clienteId) {
   const r = await query(`
-    SELECT p.*, ${ciclos.COLUMNAS_CICLO}, ${COLUMNAS_BODEGA},
+    SELECT p.*, ${COLUMNAS_BODEGA},
       (SELECT COUNT(*)::int FROM pedido_cliente_linea l WHERE l.pedido_id = p.id) AS lineas
     FROM pedido_cliente p
     ${JOIN_BODEGA}
-    ${ciclos.JOIN_CICLO('p')}
     WHERE p.cliente_portal_id = $1
     ORDER BY p.creado_en DESC
     LIMIT 50;
@@ -223,7 +218,6 @@ async function misPedidos(clienteId) {
   return r.rows.map(p => conSeguimiento(p, {
     id: p.id,
     estado: p.estado,
-    ciclo: ciclos.aCiclo(p), anticipado: p.preventa_anticipada,
     total: Number(p.total),
     lineas: p.lineas,
     numeroFactura: p.numero_factura,
@@ -234,10 +228,9 @@ async function misPedidos(clienteId) {
 
 async function detallePedido(clienteId, pedidoId) {
   const p = await query(`
-    SELECT p.*, ${ciclos.COLUMNAS_CICLO}, ${COLUMNAS_BODEGA}
+    SELECT p.*, ${COLUMNAS_BODEGA}
     FROM pedido_cliente p
     ${JOIN_BODEGA}
-    ${ciclos.JOIN_CICLO('p')}
     WHERE p.id = $1 AND p.cliente_portal_id = $2;
   `, [pedidoId, clienteId]);
   if (p.rows.length === 0) throw httpError(404, 'Pedido no encontrado.');
@@ -246,7 +239,6 @@ async function detallePedido(clienteId, pedidoId) {
   return {
     ...conSeguimiento(p.rows[0]),
     id: p.rows[0].id,
-    ciclo: ciclos.aCiclo(p.rows[0]), anticipado: p.rows[0].preventa_anticipada,
     estado: p.rows[0].estado,
     total: Number(p.rows[0].total),
     numeroFactura: p.rows[0].numero_factura,

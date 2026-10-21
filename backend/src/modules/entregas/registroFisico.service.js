@@ -25,11 +25,9 @@ function solicitud(datos,accion){
  return{clave:datos.clave.toLowerCase(),solicitud:{accion,version:datos.version,revision:datos.revision,lineas,motivo:motivo||null}};
 }
 async function datosEn(db,facturaId,{bloquear=false}={}){
- const {rows:[f]}=await db.query(`SELECT id,cliente_id,ciclo_ruta_cliente_id FROM factura WHERE id=$1 ${bloquear?'FOR UPDATE':''}`,[id(facturaId)]);
+ const {rows:[f]}=await db.query(`SELECT id,cliente_id FROM factura WHERE id=$1 ${bloquear?'FOR UPDATE':''}`,[id(facturaId)]);
  if(!f)throw httpError(404,'No existe esa factura.');
  if(bloquear)await db.query('SELECT id FROM cliente WHERE id=$1 FOR SHARE',[f.cliente_id]);
- const {rows:[cy]}=await db.query(`SELECT c.id,c.ruta_id AS "rutaId",c.ruta_nombre AS "rutaNombre",c.semana::text,c.estado,rc.orden
-   FROM ciclo_ruta_cliente rc JOIN ciclo_ruta c ON c.id=rc.ciclo_id WHERE rc.id=$1`,[f.ciclo_ruta_cliente_id]);
  const {rows:historial}=await db.query(`SELECT e.*,u.nombre responsable FROM entrega_evento e JOIN usuario u ON u.id=e.usuario_id
    WHERE factura_id=$1 ORDER BY version`,[f.id]);
  const ultimo=historial.at(-1),version=ultimo?.version||0;
@@ -49,7 +47,7 @@ async function datosEn(db,facturaId,{bloquear=false}={}){
  if(!contexto.vigente)bloqueos.push('La factura está anulada o acreditada totalmente.');
  if(documento.factura.estadoBodega!=='procesado')bloqueos.push('Bodega debe registrar primero su revisión.');
  if(cambio)bloqueos.push('Cambió la factura o su revisión de bodega. Un administrador debe revisar el registro físico antes de continuar.');
- return{facturaId:f.id,ciclo:cy||null,ruta:documento.factura.ruta||null,vigente:contexto.vigente,version,revision:contexto.revision,documento,lineas,
+ return{facturaId:f.id,ruta:documento.factura.ruta||null,vigente:contexto.vigente,version,revision:contexto.revision,documento,lineas,
    requiereRevision:cambio,estado,bloqueos,puedeCargar:!bloqueos.length,
    puedeEntregar:!bloqueos.length,
    historial:historial.map(e=>({id:e.id,version:e.version,accion:e.accion,documento:e.documento,saldos:e.saldos,motivo:e.motivo,responsable:e.responsable,usuarioId:e.usuario_id,fecha:e.fecha}))};

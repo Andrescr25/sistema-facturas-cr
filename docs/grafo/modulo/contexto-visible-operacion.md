@@ -2,8 +2,9 @@
 id: modulo/contexto-visible-operacion
 tipo: modulo
 titulo: Ruta y semana visibles — consultas tardías, notas y ficha histórica
-estado: vigente
+estado: retirado
 archivos:
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - frontend/src/hooks/useContextoConsulta.js
   - frontend/src/hooks/useClientesPortal.js
   - frontend/src/hooks/useFacturasBodega.js
@@ -16,12 +17,19 @@ archivos:
   - frontend/src/components/clientes/ListaPedidos.jsx
   - frontend/src/components/clientes/FichaCliente.jsx
   - backend/src/modules/clientes/clientes.resumen.service.js
-  - backend/tests/operacionCiclos.test.js
   - backend/tests/fichaCliente.test.js
 aristas:
   relacionado: [modulo/historicos-contexto-documentos, decision/ciclo-de-ruta-como-contexto, modulo/rutas-clientes, modulo/pedidos-por-ciclo, modulo/preventa-por-enlace, modulo/facturas-bodega, modulo/faltantes, modulo/necesidades-por-ciclo, modulo/carga-entregas-por-ciclo, modulo/exportaciones-operativas-ciclo]
-medido: 2026-10-07
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-13, simplificación de proveedores:** el usuario retira las áreas y
 paneles de ciclos/necesidades/factura/recepción/cierre de Reporte Proveedores.

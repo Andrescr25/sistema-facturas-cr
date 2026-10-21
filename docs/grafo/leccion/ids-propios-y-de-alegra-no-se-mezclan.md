@@ -23,8 +23,16 @@ archivos:
   - backend/tests/facturaPropia.test.js
 aristas:
   relacionado: [modulo/cotizaciones, modulo/facturacion, modulo/facturacion-offline, leccion/cache-con-ids-propios-no-borra-pendientes]
-medido: 2026-10-10
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 Los ids propios son seriales (1, 2, 3…) y los de Alegra también. Pasar uno
 donde se espera el otro **no da error**: encuentra un registro, el de otra

@@ -14,7 +14,7 @@ if(activo){
   const doble=baseEnTransaccion(c,'auto'),conectar=doble.pool.connect;
   doble.pool.connect=async()=>{const cliente=await conectar(),query=cliente.query;cliente.query=(sql,params)=>sql.startsWith('SET TRANSACTION')?Promise.resolve({rows:[]}):query(sql,params);return cliente};
   require.cache[db]={id:db,filename:db,loaded:true,exports:doble};
-  bodega=require('../src/modules/warehouse/bodegaPropia');s=require('../src/modules/orders-whatsapp/ordenesCiclo.service');auto=require('../src/modules/orders-whatsapp/ordenesAutomaticas.service');resumen=require('../src/modules/orders-whatsapp/comprasProveedores.service');
+  bodega=require('../src/modules/warehouse/bodegaPropia');s=require('./fixtures/ordenesHistoricas');auto=require('../src/modules/orders-whatsapp/ordenesAutomaticas.service');resumen=require('../src/modules/orders-whatsapp/comprasProveedores.service');
   wa=require('../src/integrations/whatsapp');wa.enviarDocumento=async d=>({enviado:true,numero:d.telefono,via:'interno'});
   require('../config/aislado').salidasBloqueadas=()=>false;env=require('../src/modules/orders-whatsapp/ordenesCicloEnvio.service');f=await sembrar(c);
  });

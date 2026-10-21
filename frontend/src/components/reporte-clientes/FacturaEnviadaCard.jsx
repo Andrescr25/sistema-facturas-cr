@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { ChevronDown, RotateCcw } from 'lucide-react'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
-import ContextoCicloDocumento from '../ContextoCicloDocumento'
 import { fechaCorta, fechaHoraEnCostaRica } from '../../utils/fechaCR'
 
 /** La ficha conserva productos y respuestas; archivo no significa impresa:
@@ -18,7 +17,6 @@ export default function FacturaEnviadaCard({ factura, estado, onRecuperar }) {
           <h3 className="font-bold text-neutro-900">Factura #{factura.numero_factura}</h3>
           <Insignia tono={enCola ? 'nota' : 'exito'}>{enCola ? 'En impresión' : 'Procesada'}</Insignia>
         </div>
-        {factura.ciclo && <ContextoCicloDocumento documento={factura} maps />}
         <div className="space-y-1 text-xs text-neutro-500">
           <div>Fecha factura: <span className="font-medium text-neutro-700">{fechaCorta(factura.fecha_emision)}</span></div>
           {factura.enviada_a_impresion_en && <div>Enviada a Impresión: <span className="font-medium text-neutro-700">{fechaHoraEnCostaRica(factura.enviada_a_impresion_en)}</span></div>}

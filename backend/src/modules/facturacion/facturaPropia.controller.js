@@ -35,10 +35,6 @@ module.exports = {
     try { res.json({ success: true, data: await require('./descuentoCliente.service').condicionesDelCliente(req.params.clienteId) }); }
     catch (error) { fallo(res, error, 'descuento del cliente'); }
   },
-  ciclos: async (req, res) => {
-    try { res.json({ success: true, data: await require('../rutas/documentosCiclo.service').disponibles(req.params.clienteId) }); }
-    catch (error) { fallo(res, error, 'ciclos'); }
-  },
   /** GET /facturacion/facturas/:id/correo — propuesta revisable antes de enviar. */
   datosCorreo: async (req, res) => {
     try {

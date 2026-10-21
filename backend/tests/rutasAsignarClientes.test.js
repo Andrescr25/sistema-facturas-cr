@@ -213,9 +213,11 @@ describe('asignar clientes a una ruta — contra la base local', { skip: hayBase
   test('el recorrido de una semana ya creada no cambia', async () => {
     const a = await nuevaRuta(); const [c1, c2] = [await nuevoCliente(), await nuevoCliente()];
     await rutas.asignarClientes(a.id, { agregar: sinRuta([c1, c2]) });
-    const ciclo = await rutas.crearCiclo(a.id, { semana: '2031-01-06' });
+    const ciclo = (await cliente.query("INSERT INTO ciclo_ruta(ruta_id,ruta_nombre,semana) VALUES($1,'ZZ historia','2031-01-06') RETURNING id",[a.id])).rows[0];
+    for (const [i,id] of [c1,c2].entries()) await cliente.query("INSERT INTO ciclo_ruta_cliente(ciclo_id,cliente_id,orden,cliente_nombre) VALUES($1,$2,$3,'ZZ historia')",[ciclo.id,id,i+1]);
+    await cliente.query('UPDATE ciclo_ruta SET recorrido_fijado=TRUE WHERE id=$1',[ciclo.id]);
     await rutas.asignarClientes(a.id, { quitar: [c1] });
-    assert.deepEqual((await rutas.obtenerCiclo(ciclo.id)).clientes.map(c => c.cliente_id), [c1, c2]);
+    assert.deepEqual((await cliente.query('SELECT cliente_id FROM ciclo_ruta_cliente WHERE ciclo_id=$1 ORDER BY orden',[ciclo.id])).rows.map(c => c.cliente_id), [c1, c2]);
   });
 
   test('las dos rutas nuevas son del módulo Clientes, como el resto de rutas', () => {

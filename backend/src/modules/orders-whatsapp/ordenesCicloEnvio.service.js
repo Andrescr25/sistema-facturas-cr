@@ -5,6 +5,8 @@ const {httpError}=require('../../utils/validacion');
 const {telefonosDe,validarTelefonoEscrito}=require('../../utils/telefonosCliente');
 const {registrarCambio}=require('../../utils/bitacora');
 const {generarPdfOrden}=require('./ordenesCiclo.pdf');
+// El archivo que recibe el proveedor: sin el número de la orden (2026-10-20).
+const {hoyEnCostaRica}=require('../../utils/fechaCR');
 const {interno:{enOrden,obtenerEn,revision,validarPendienteEn}}=require('./ordenesCiclo.service');
 const MENSAJE_PEDIDO='Hola buenas, adjunto pedido\ngracias';
 const sha=b=>createHash('sha256').update(b).digest('hex');
@@ -27,9 +29,8 @@ async function prepararEn(db,id,datos,usuarioId){
   const mensaje=typeof datos.mensaje==='string'?datos.mensaje.trim():'';
   if(!mensaje||mensaje.length>2000)throw httpError(400,'Escribí un mensaje de hasta 2000 caracteres.');
     const o=await obtenerEn(db,id,{bloquear:true});
-    // El texto solicitado no lleva referencia; el PDF y la copia guardada
-    // conservan la orden exacta. Los mensajes personalizados mantienen su guarda.
-    if(mensaje!==MENSAJE_PEDIDO&&!new RegExp(`\\b${o.referencia}\\b`).test(mensaje))throw httpError(400,'Incluí la referencia de esta orden en el mensaje.');
+    // El mensaje no lleva número de orden: desde el 2026-10-20 la orden no
+    // muestra «OC-xx» a nadie. El PDF y la copia guardada conservan qué se pidió.
     const {rows:[previa]}=await db.query('SELECT orden_id,version_orden,numero,mensaje FROM orden_compra_ciclo_envio WHERE id=$1',[clave]);
     if(previa){
       if(previa.orden_id!==o.id||previa.version_orden!==Number(datos.version)||previa.numero!==telefono.numero||previa.mensaje!==mensaje)
@@ -39,7 +40,7 @@ async function prepararEn(db,id,datos,usuarioId){
     revision(o,datos.version);pendiente(o);await validarPendienteEn(db,o);
     const pdf=await generarPdfOrden(o,{preferirDatosProveedor:datos.preferirDatosProveedor});if(pdf.length>5*1024*1024)throw httpError(413,'La orden supera el tamaño permitido para el PDF.');
     await db.query(`INSERT INTO orden_compra_ciclo_envio(id,orden_id,version_orden,numero,mensaje,nombre_archivo,pdf,sha256,preparado_por)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[clave,o.id,o.version,telefono.numero,mensaje,`orden-${o.referencia}-revision-${o.version}.pdf`,pdf,sha(pdf),usuarioId||null]);
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[clave,o.id,o.version,telefono.numero,mensaje,`orden-de-compra-${hoyEnCostaRica()}.pdf`,pdf,sha(pdf),usuarioId||null]);
     await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:'preparar_envio',despues:{copiaId:clave,version:o.version,numero:telefono.numero,sha256:sha(pdf)},usuarioId});
     return obtenerEn(db,o.id);
 }

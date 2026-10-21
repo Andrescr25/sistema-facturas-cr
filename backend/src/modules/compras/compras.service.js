@@ -124,13 +124,15 @@ async function actualizarProductoDeLinea(cliente, linea, precioAjustado, { compr
  * @param {Object} preciosAjustados    { [productoFacturaId]: precioNuevo }, mismo contrato que enviarFacturaAlegra
  * @param {number|null} usuarioId
  */
-async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuarioId = null, { ordenCompraId, ordenCompraAutomaticaId } = {}) {
+async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuarioId = null) {
   const id = idBuzonValido(facturaProveedorId);
 
   return enTransaccion(async (cliente) => {
-    // Mismo orden de bloqueo que vínculos y recepciones: decidir la modalidad
-    // antes de bloquear el buzón evita carreras y dobles entradas de stock.
-    await cliente.query('SELECT pg_advisory_xact_lock(46005,1)');
+    // SIN ORDEN DE COMPRA (2026-10-20, el usuario: «en revisión de precios,
+    // que tengamos que enlazar un OC a lo que llegó, esto quitémoslo»). La
+    // compra ya no se enlaza a una orden enviada ni espera a que se elija una;
+    // con eso se fue también el bloqueo compartido con los vínculos y las
+    // recepciones por orden, que ya no existen.
     const { rows: facturas } = await cliente.query(
       'SELECT * FROM facturas_proveedores WHERE id = $1 FOR UPDATE', [id]
     );
@@ -164,9 +166,6 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
         `No hay proveedor propio con cédula ${factura.proveedor_cedula} (${factura.proveedor_nombre}). ` +
         'Hay que crearlo antes de registrar esta compra.');
     }
-
-    const ordenes = require('../orders-whatsapp/facturacionOrdenProveedor.service');
-    const seleccionOrden = await ordenes.elegirEn(cliente, factura, proveedor.id, ordenCompraId, ordenCompraAutomaticaId);
 
     const { rows: compraRows } = await cliente.query(
       `INSERT INTO compra (
@@ -250,13 +249,8 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
       `UPDATE facturas_proveedores SET estado = 'ENVIADA' WHERE id = $1`, [id]
     );
 
-    // El snapshot se toma después del estado final, antes del COMMIT. Así la
-    // misma revisión no parece modificada al consultar la compra registrada.
-    const ordenCompra = await ordenes.vincularRegistradaEn(cliente, seleccionOrden, id, usuarioId);
-
     return {
       compra: sinTiempos(compra),
-      ordenCompraId: ordenCompra,
       lineas: lineas.length,
       costosActualizados,
       preciosActualizados,

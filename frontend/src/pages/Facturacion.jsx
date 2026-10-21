@@ -9,8 +9,6 @@ import AvisoActualizar from '../components/facturacion/AvisoActualizar'
 import AvisoEdicion from '../components/facturacion/AvisoEdicion'
 import EstadoCatalogo from '../components/facturacion/EstadoCatalogo'
 import PasoCliente from '../components/facturacion/PasoCliente'
-import SelectorCiclo from '../components/SelectorCiclo'
-import ContextoCicloDocumento from '../components/ContextoCicloDocumento'
 import TarjetaCliente from '../components/facturacion/TarjetaCliente'
 import AgregarProductos from '../components/facturacion/AgregarProductos'
 import BarraSugerencias from '../components/facturacion/BarraSugerencias'
@@ -56,7 +54,6 @@ export default function Facturacion() {
     isOnline, loading, syncingCache,
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
     productos, setProductos, sugerencias, agregarSugerencia, facturasPendientes,
-    ciclosCliente, cicloId, setCicloId, cargandoCiclos, errorCiclos,
     condicionesDescuento, facturaExistente, clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
     codigoProducto, cantidadProducto, setCantidadProducto,
     modoEntradaRapida, setModoEntradaRapida,
@@ -196,12 +193,6 @@ export default function Facturacion() {
               <div className="flex flex-col gap-4 lg:col-span-2 min-w-0">
                 <TarjetaCliente cliente={clienteSeleccionado} onCambiarCliente={deseleccionarCliente} />
                 <AvisoDescuentoCliente condiciones={condicionesDescuento} facturaExistente={facturaExistente} />
-                <div className="rounded-2xl border border-neutro-200 bg-white p-3">
-                  {modoEdicion && facturaEditando?.ciclo === undefined
-                    ? <ContextoCicloDocumento documento={facturaEditando} />
-                    : <SelectorCiclo ciclos={ciclosCliente} valor={cicloId} onChange={setCicloId} cargando={cargandoCiclos} error={errorCiclos} disabled={modoEdicion} />}
-                  {modoEdicion && <p className="mt-1 text-xs text-neutro-500">La factura conserva su semana original.</p>}
-                </div>
 
                 <AgregarProductos
                   cardRef={productoCardRef}

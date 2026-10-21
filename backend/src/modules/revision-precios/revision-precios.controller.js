@@ -89,20 +89,10 @@ async function getSugerenciasPrecio(req, res) {
   }
 }
 
-async function getOrdenesCompra(req, res) {
-  try {
-    const data = await require('../orders-whatsapp/facturacionOrdenProveedor.service').candidatas(req.params.facturaId);
-    res.set('Cache-Control', 'private, no-store').json({ success: true, data });
-  } catch (error) {
-    res.status(error.status || 500).json({ success: false, error: error.message, message: error.message });
-  }
-}
-
 module.exports = {
   getFacturas,
   devolverFactura,
   getFacturasRelacionadas,
   getProductosBatch,
-  getSugerenciasPrecio,
-  getOrdenesCompra
+  getSugerenciasPrecio
 };

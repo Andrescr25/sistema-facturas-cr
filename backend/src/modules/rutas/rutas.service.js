@@ -2,7 +2,6 @@ const { pool } = require('../../../config/database');
 const { enTransaccion } = require('../../utils/transaccion');
 const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, idValido, texto, booleano } = require('../../utils/validacion');
-const { semanaValida } = require('./rutas.validacion');
 
 // Mismo bloqueo ANTES de bloquear clientes en asignación, orden y ciclos.
 // Evita que dos pantallas pierdan miembros o calculen el mismo último puesto.
@@ -216,58 +215,5 @@ async function asignarClientes(id, datos, usuarioId) {
   });
 }
 
-async function listarCiclos({ rutaId } = {}) {
-  const params = [], filtro = rutaId ? (params.push(idValido(rutaId)), 'AND c.ruta_id=$1') : '';
-  const { rows } = await pool.query(`SELECT c.*, c.semana::text AS semana,
-    (SELECT COUNT(*)::int FROM ciclo_ruta_cliente m WHERE m.ciclo_id=c.id) clientes
-    FROM ciclo_ruta c WHERE c.recorrido_fijado ${filtro}
-    ORDER BY CASE WHEN c.estado IN('preparacion','entrega') THEN 0 WHEN c.estado='preventa' THEN 1 ELSE 2 END,
-    c.semana DESC, c.id DESC`, params);
-  return rows;
-}
-async function cicloEn(db, id) {
-  const { rows: [c] } = await db.query('SELECT *, semana::text AS semana FROM ciclo_ruta WHERE id=$1 AND recorrido_fijado', [idValido(id)]);
-  if (!c) throw httpError(404, 'No existe ese ciclo.');
-  const { rows } = await db.query('SELECT * FROM ciclo_ruta_cliente WHERE ciclo_id=$1 ORDER BY orden', [c.id]);
-  return { ...c, clientes: rows };
-}
-const obtenerCiclo = id => cicloEn(pool, id);
-async function crearCiclo(rutaId, datos, usuarioId) {
-  const semana = semanaValida(datos?.semana);
-  return enRuta(async db => {
-    const r = await rutaEn(db, rutaId);
-    if (!r.activo) throw httpError(400, 'La ruta está inactiva.');
-    const miembros = (await miembrosEn(db, r.id)).filter(c => c.activo);
-    if (!miembros.length) throw httpError(400, 'Asigná clientes activos antes de crear el ciclo.');
-    const existe = await db.query('SELECT id FROM ciclo_ruta WHERE ruta_id=$1 AND semana=$2', [r.id, semana]);
-    if (existe.rows.length) throw httpError(409, 'Ya existe un ciclo de esa ruta para esa semana.');
-    const { rows: [c] } = await db.query('INSERT INTO ciclo_ruta(ruta_id,ruta_nombre,semana) VALUES($1,$2,$3) RETURNING id', [r.id, r.nombre, semana]);
-    for (const [i, m] of miembros.entries()) await db.query(`INSERT INTO ciclo_ruta_cliente
-      (ciclo_id,cliente_id,orden,cliente_nombre,ubicacion_maps,dia_visita,dia_entrega) VALUES($1,$2,$3,$4,$5,$6,$7)`,
-      [c.id, m.id, i + 1, m.nombre, m.ubicacion_maps, m.dia_visita, m.dia_entrega]);
-    await db.query('UPDATE ciclo_ruta SET recorrido_fijado=TRUE WHERE id=$1', [c.id]);
-    const resultado = await cicloEn(db, c.id);
-    await registrarCambio(db, { entidad: 'ciclo_ruta', entidadId: c.id, accion: 'crear', despues: resultado, usuarioId });
-    return resultado;
-  });
-}
-const TRANSICIONES = { preventa: ['preparacion', 'cancelado'], preparacion: ['entrega', 'cancelado'], entrega: ['cerrado'], cerrado: [], cancelado: [] };
-async function cambiarEstadoCiclo(id, datos, usuarioId) {
-  return enRuta(async db => {
-    const antes = await cicloEn(db, id);
-    if (antes.estado === datos?.estado) return antes;
-    if (datos?.estadoAnterior !== antes.estado) throw httpError(409, 'El estado del ciclo cambió. Recargá antes de continuar.');
-    if (!TRANSICIONES[antes.estado].includes(datos?.estado)) throw httpError(400, 'Ese cambio de estado no corresponde al ciclo.');
-    if (['preparacion', 'entrega'].includes(datos.estado)) {
-      const activo = await db.query("SELECT id FROM ciclo_ruta WHERE estado IN('preparacion','entrega') AND id<>$1", [antes.id]);
-      if (activo.rows.length) throw httpError(409, 'Hay otro ciclo actual. Cerralo antes de activar el próximo.');
-    }
-    await db.query('UPDATE ciclo_ruta SET estado=$1, actualizado_en=NOW() WHERE id=$2', [datos.estado, antes.id]);
-    const resultado = await cicloEn(db, antes.id);
-    await registrarCambio(db, { entidad: 'ciclo_ruta', entidadId: antes.id, accion: 'estado', antes, despues: resultado, usuarioId });
-    return resultado;
-  });
-}
 module.exports = { bloquearRutasEn, prepararAsignacionEn, registrarAsignacionEn, listarRutas, obtenerRuta,
-  crearRuta, editarRuta, reordenarRuta, candidatosDeRuta, asignarClientes,
-  listarCiclos, obtenerCiclo, crearCiclo, cambiarEstadoCiclo };
+  crearRuta, editarRuta, reordenarRuta, candidatosDeRuta, asignarClientes };

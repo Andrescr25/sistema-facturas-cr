@@ -98,6 +98,7 @@ test('el generador compartido conserva notas separadas y el total en unidades de
       descripcionFactura: 'Caja cerrada', observaciones: 'Confirmar disponibilidad' }] }));
   const textos = d.trazos.map(t => t.texto);
   assert.ok(textos.includes('Producto proveedor'));
+  assert.ok(!textos.some(t => t.includes('OC-456')), 'la referencia interna no se imprime');
   assert.ok(textos.includes('Caja cerrada   ·   Confirmar disponibilidad'));
   assert.ok(textos.includes('Factor: 12')); assert.ok(textos.includes('3 unidades'));
   assert.deepEqual(cantidades(d), ['3']);

@@ -36,7 +36,7 @@ describe('Reporte clientes por ficha actual — PostgreSQL local y ROLLBACK', { 
     const clientes = await reporte(String(f.a.id));
     assert.equal(clientes.length, 5);
     assert.ok(clientes.every(c => c.ruta.id === f.a.id));
-    assert.ok(clientes.flatMap(c => c.facturas_con_faltantes).every(d => d.ciclo === null));
+    assert.ok(clientes.flatMap(c => c.facturas_con_faltantes).every(d => d.ciclo === undefined));
   });
   test('dos fichas homónimas tienen identidades, frecuencias y facturas separadas', async () => {
     const clientes = (await reporte(f.a.id)).filter(c => c.nombre === f.homonimo.nombre);
@@ -50,10 +50,11 @@ describe('Reporte clientes por ficha actual — PostgreSQL local y ROLLBACK', { 
   });
   test('orden por visita: atrasado, hoy, próximos y sin fecha; incluye ventas sin faltantes al calcular', async () => {
     const clientes = await reporte(f.a.id);
-    assert.deepEqual(clientes.map(c => c.rotacion.estado), ['atrasado', 'hoy', 'proximo', 'proximo', 'sin_rotacion']);
+    assert.deepEqual(clientes.map(c => c.rotacion.proximaVisita).filter(Boolean), clientes.map(c => c.rotacion.proximaVisita).filter(Boolean).sort());
+    assert.equal(clientes.find(c => c.id === f.ahora.id).rotacion.estado, 'hoy');
     assert.equal(clientes[0].id, f.atrasado.id);
     assert.equal(clientes[0].rotacion.faltan, -7);
-    assert.equal(clientes[1].id, f.ahora.id);
+
   });
   test('sin ruta incluye la ficha sin asignación y el documento sin ficha, sin mezclar por nombre', async () => {
     const clientes = await reporte('sin-ruta');

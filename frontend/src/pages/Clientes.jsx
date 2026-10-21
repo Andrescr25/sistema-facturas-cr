@@ -123,7 +123,7 @@ export default function Clientes() {
         )
       ) : vista === 'pedidos' ? (
         <ListaPedidos
-          rutas={rutas.rutas} ciclos={rutas.ciclos}
+          rutas={rutas.rutas}
           contexto={contextoPedidos} setContexto={setContextoPedidos}
           pedidos={pedidos}
           cargando={cargandoPedidos}

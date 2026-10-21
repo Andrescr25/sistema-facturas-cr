@@ -26,7 +26,7 @@ const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { guardarFaltantes } = require('../../utils/guardarFaltantes');
 const { encolarSinPendientes } = require('../reprinting/colaImpresion');
-const { COLUMNAS_CICLO, JOIN_CICLO, contextoDocumento, filtrosOperacion } = require('../rutas/operacionCiclo.service');
+const { filtroRutaActual } = require('../rutas/rutaActual.service');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { SIN_CREDITO_TOTAL, asegurarFacturaVigente } = require('./vigenciaFactura');
 
@@ -75,8 +75,8 @@ function aLinea(l) {
 
 function aFactura(f, lineas) {
   return {
-    ...contextoDocumento(f),
     factura_id: f.id,
+    ruta_id: f.ruta_id,
     numero_factura: f.numero,
     numero_completo: f.numero,
     cliente_nombre: f.cliente_nombre,
@@ -111,24 +111,25 @@ function ordenarHistorial(listas) {
  * GET /bodega/facturas-propias?dias=&limit= — la misma ventana que usaba la
  * pantalla con Alegra: las `limit` más nuevas de los últimos `dias` días.
  */
-async function listar({ dias, limit, rutaId, cicloId } = {}) {
+async function listar({ dias, limit, rutaId } = {}) {
   const d = acotar(dias, 1, 365, 30);
   const l = acotar(limit, 1, 500, 40);
-  const params = (rutaId || cicloId) ? [] : [d, l], where = ["f.estado = 'emitida'", SIN_CREDITO_TOTAL];
-  filtrosOperacion({ rutaId, cicloId }, where, params);
-  // Un ciclo no se corta por los últimos 30 días ni por las 40 facturas
-  // recientes de otra ruta. Todos sus documentos deben estar disponibles.
-  const acotado = Boolean(rutaId || cicloId);
-  if (!acotado) where.push(`f.fecha >= ${HOY_CR} - $1::int`);
+  const params = [];
+  // La ruta es la de la ficha. Al elegirla, ningún pendiente se oculta por
+  // antigüedad; el historial sí conserva su ventana para no descargar años
+  // de documentos y líneas al abrir una ruta.
+  const ruta = filtroRutaActual(rutaId, params);
+  params.push(d);
+  const desde = `f.fecha >= ${HOY_CR} - $${params.length}::int`;
+  if (!ruta) params.push(l);
   const { rows: facturas } = await query(`
     SELECT f.id, f.numero, f.fecha::text AS fecha, f.cliente_nombre, f.cliente_correo, f.total,
-           f.observaciones, f.estado_bodega, f.bodega_procesado_en, f.bodega_observaciones,
-           f.preventa_anticipada, ${COLUMNAS_CICLO}, rc.ubicacion_maps
-      FROM factura f ${JOIN_CICLO('f')}
-     WHERE ${where.join(' AND ')}
-     ORDER BY cr.semana ASC NULLS LAST, cr.id, rc.orden, f.fecha DESC, f.id DESC
-     ${acotado ? '' : 'LIMIT $2'}
-  `, params.slice(0, acotado ? params.length : 2));
+           f.observaciones, f.estado_bodega, f.bodega_procesado_en, f.bodega_observaciones, c.ruta_id
+      FROM factura f LEFT JOIN cliente c ON c.id = f.cliente_id
+     WHERE f.estado = 'emitida' AND ${SIN_CREDITO_TOTAL} ${ruta ? `${ruta} AND (f.estado_bodega IS DISTINCT FROM 'procesado' OR ${desde})` : `AND ${desde}`}
+     ORDER BY ${ruta ? 'c.orden_ruta NULLS LAST, ' : ''}f.fecha DESC, f.id DESC
+     ${ruta ? '' : 'LIMIT $2'}
+  `, params);
 
   const ids = facturas.map((f) => f.id);
   const porFactura = new Map(ids.map((id) => [id, []]));
@@ -151,7 +152,7 @@ async function listar({ dias, limit, rutaId, cicloId } = {}) {
     success: true,
     data: { pendientes, listas, resumen: { total: todas.length, pendientes: pendientes.length, listas: listas.length } },
     // Ya no hay nadie a quien esperar: la lista es de la base, siempre al día.
-    metadata: { filtros: { dias: acotado ? null : d, limit: acotado ? null : l, rutaId: rutaId || null, cicloId: cicloId || null }, lastSync: new Date().toISOString(), actualizando: false, aviso: null }
+    metadata: { filtros: { dias: d, limit: ruta ? null : l, rutaId: rutaId || null }, lastSync: new Date().toISOString(), actualizando: false, aviso: null }
   };
 }
 

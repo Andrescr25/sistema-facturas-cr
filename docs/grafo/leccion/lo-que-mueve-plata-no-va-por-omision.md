@@ -17,8 +17,16 @@ archivos:
   - backend/tests/facturacionFlujoPantalla.test.js
 aristas:
   relacionado: [modulo/facturacion, modulo/facturacion-offline, modulo/conciliacion-cobros, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-11
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 El día después del corte el usuario reportó: «cuando facturo algo sale como
 pagado de una, y esto no debería ser así». Eran dos errores encadenados, y el

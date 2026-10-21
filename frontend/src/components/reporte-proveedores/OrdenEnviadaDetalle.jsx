@@ -2,7 +2,6 @@ import { ArrowLeft, Check } from 'lucide-react'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
 import PanelSeccion from '../ui/PanelSeccion'
-import { indicacionFacturacion } from '../../utils/proveedoresVista'
 import { fechaHoraEnCostaRica } from '../../utils/fechaCR'
 
 /** El detalle enviado lee exclusivamente sus productos y cantidades guardados. */
@@ -18,12 +17,10 @@ export default function OrdenEnviadaDetalle({ proveedor, onVolver }) {
     <PanelSeccion titulo="Productos solicitados" cuerpoClassName="p-0">
       <div className="divide-y divide-neutro-100">
         {proveedor.productos_faltantes.map((producto, index) => {
-          const facturacion = indicacionFacturacion(producto.facturacion)
           return <div key={producto.producto_id || index} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1">
               <p className="break-words font-semibold text-neutro-500 line-through">{producto.nombre}</p>
               <p className="break-words text-sm text-neutro-500">Código: {producto.codigo}</p>
-              {facturacion && <Insignia tono={facturacion.tono}>{facturacion.texto}</Insignia>}
             </div>
             <div className="shrink-0 text-sm text-neutro-600">
               <p className="font-semibold">{producto.cantidad_faltante} unidades</p>

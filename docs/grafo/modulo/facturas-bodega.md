@@ -4,15 +4,12 @@ tipo: modulo
 titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra
 estado: vigente
 archivos:
+  - backend/tests/operacionSinSemanas.test.js
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - docs/informes/proveedores-correccion-2026-10-14.md
   - backend/tests/proveedoresCritico.test.js
   - backend/tests/ordenesAutomaticas.test.js
   - backend/src/modules/orders-whatsapp/ordenesAutomaticas.service.js
-  - backend/src/modules/rutas/operacionCiclo.service.js
-  - backend/tests/operacionCiclos.test.js
-  - frontend/src/components/FiltroCicloOperacion.jsx
-  - frontend/src/components/ContextoCicloDocumento.jsx
-  - frontend/src/hooks/useFiltroCicloOperacion.js
   - backend/src/modules/warehouse/warehouse.controller.js
   - frontend/src/hooks/useFacturasBodega.js
   - frontend/src/hooks/useFacturaBodegaAbierta.js
@@ -32,8 +29,16 @@ archivos:
   - backend/src/modules/reprinting/colaImpresion.js
 aristas:
   relacionado: [modulo/carga-entregas-por-ruta, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-14
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **2026-10-14, pertenencia del faltante:** guardarFaltantes exige producto en
 las líneas de esa factura y cantidad entera entre cero y su total facturado.

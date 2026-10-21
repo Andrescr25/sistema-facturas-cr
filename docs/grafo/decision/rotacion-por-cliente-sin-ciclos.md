@@ -22,8 +22,16 @@ archivos:
 aristas:
   reemplaza: [decision/ciclo-de-ruta-como-contexto]
   relacionado: [modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/rutas-clientes, modulo/carga-entregas-por-ciclo, modulo/registro-carga-entrega, modulo/pedidos-por-ciclo, modulo/necesidades-por-ciclo, modulo/ordenes-compra-por-ciclo, modulo/faltantes, modulo/facturacion, modulo/facturas-bodega, modulo/reporte-proveedores, modulo/preventa-por-enlace]
-medido: 2026-10-15
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Se retiraron los selectores/asignaciones de semana y el enlace de compras
+a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen
+vigentes; los documentos y envíos anteriores se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 **Decisión del usuario, 2026-10-13.** «Quiero eliminar completamente la
 dependencia de ciclos y pasar a un sistema de rotación individual por
@@ -108,14 +116,10 @@ Estados: `sin_rotacion` (no se le definió: no se inventa una), `sin_facturas`
   reinicia el plazo; las modificaciones/gestiones sí. Nunca correr limpieza
   semanal: lectura por antigüedad e historial conservado. Falta implementar
   qué gestiones actualizan el último movimiento y cómo mostrar la historia.
-- [ ] **ROT-08 — lo que quede.** Facturación (`SelectorCiclo`,
-  `clientesParaOperar` manda `ciclos`, `documentosCiclo.validarEn`, y
-  `facturaPropia.service` no deja cambiar el cliente de una factura con
-  recorrido), pedidos del portal/agente/WhatsApp (`ciclo_id`), la pantalla
-  de Rutas (crear semanas), filtros de Bodega,
-  los Excel y `ContextoCicloDocumento`. Las tablas `ciclo_ruta*` y las
-  columnas `ciclo_ruta_cliente_id` NO se borran: son historia y sus triggers
-  lo impiden; dejan de usarse.
+- [x] **ROT-08 — retiro completado el 2026-10-20.** Sin semanas en
+  Facturación, pedidos, Clientes/Rutas, Bodega o exportaciones. Se conservan
+  las tablas, columnas y triggers históricos. Revisión de precios ya no
+  relaciona OC. [Alcance y pruebas](../../informes/simplificacion-sin-semanas-2026-10-20.md).
 
 ## Cuánto se usan hoy los ciclos (producción, leído el 2026-10-13)
 

@@ -9,9 +9,5 @@ export const rutasService = {
   ordenar: (id, clienteIds, version) => dato(api.put(`${base}/${id}/orden`, { clienteIds, version })),
   // Todos los clientes con su ruta de hoy, y guardar de una vez quiénes entran y quiénes salen.
   candidatos: id => dato(api.get(`${base}/${id}/asignacion`)),
-  asignar: (id, cambios) => dato(api.put(`${base}/${id}/clientes`, cambios)),
-  ciclos: () => dato(api.get(`${base}/ciclos`)),
-  ciclo: id => dato(api.get(`${base}/ciclos/${id}`)),
-  crearCiclo: (id, semana) => dato(api.post(`${base}/${id}/ciclos`, { semana })),
-  estadoCiclo: (ciclo, estado) => dato(api.patch(`${base}/ciclos/${ciclo.id}/estado`, { estado, estadoAnterior: ciclo.estado }))
+  asignar: (id, cambios) => dato(api.put(`${base}/${id}/clientes`, cambios))
 }

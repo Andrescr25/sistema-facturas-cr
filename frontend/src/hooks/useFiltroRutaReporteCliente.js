@@ -4,7 +4,7 @@ import api from '../services/api'
 /** Cada ruta se puede elegir aunque nunca haya tenido una semana/ciclo.
  * Los metadatos usan el permiso de Reporte Clientes, sin pedir el de Clientes.
  */
-export function useFiltroRutaReporteCliente() {
+export function useFiltroRutaReporteCliente(endpoint = '/reportes/faltantes/cliente/rutas') {
   const [rutas, setRutas] = useState([])
   const [rutaId, cambiarRuta] = useState('')
   const [error, setError] = useState('')
@@ -14,12 +14,12 @@ export function useFiltroRutaReporteCliente() {
   useEffect(() => {
     let vivo = true
     setCargando(true)
-    api.get('/reportes/faltantes/cliente/rutas')
+    api.get(endpoint)
       .then(({ data }) => { if (vivo) { setRutas(data.data || []); setError('') } })
       .catch(e => { if (vivo) setError(e.response?.data?.message || 'No se pudieron consultar las rutas.') })
       .finally(() => { if (vivo) setCargando(false) })
     return () => { vivo = false }
-  }, [intento])
+  }, [intento, endpoint])
   const params = useMemo(() => ({ rutaId }), [rutaId])
   return { rutas, rutaId, cambiarRuta, params, error, cargando, reintentar }
 }

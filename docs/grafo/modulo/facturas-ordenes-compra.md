@@ -2,25 +2,26 @@
 id: modulo/facturas-ordenes-compra
 tipo: modulo
 titulo: Factura del proveedor en la orden — vínculo revisado, PDF privado y comparación; recepción física separada
-estado: vigente
+estado: retirado
 archivos:
-  - backend/src/modules/orders-whatsapp/facturacionOrdenProveedor.service.js
-  - backend/src/modules/orders-whatsapp/ordenesFacturacionReporte.service.js
+  - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/src/modules/compras/compras.service.js
-  - backend/tests/facturacionOrdenProveedor.test.js
   - backend/migrations/independencia/049_recepcion_orden_compra_ciclo.sql
   - backend/migrations/independencia/048_factura_orden_compra_ciclo.sql
-  - backend/src/modules/orders-whatsapp/ordenesCicloFactura.service.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloFactura.pdf.js
-  - backend/src/modules/orders-whatsapp/ordenesCicloFactura.archivos.js
-  - backend/src/modules/orders-whatsapp/ordenesCiclo.routes.js
-  - backend/tests/ordenesCompraFactura.test.js
 aristas:
   depende_de: [modulo/ordenes-compra-por-ciclo, tabla/facturas-proveedores, tabla/compra-linea, tabla/supplier-product-mapping, decision/la-ruta-no-el-contenido]
   relacionado: [modulo/cierre-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/compras, modulo/inventario, modulo/permisos, decision/orden-enviada-y-archivo-por-recepcion, decision/el-total-manda-sobre-las-lineas]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-medido: 2026-10-14
+medido: 2026-10-20
 ---
+
+## Vigencia desde el 2026-10-20
+
+Este flujo por semana u orden numerada está retirado. Los párrafos siguientes
+describen la implementación anterior; las tablas, documentos y restricciones
+históricas se conservan. El alcance y las pruebas actuales están en
+[el informe del retiro](../../informes/simplificacion-sin-semanas-2026-10-20.md).
+
 
 ## Revisión de precios → indicación en la lista de proveedores (2026-10-14)
 

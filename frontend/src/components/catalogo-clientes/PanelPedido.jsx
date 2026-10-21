@@ -1,4 +1,3 @@
-import SelectorCiclo, { textoCiclo } from '../SelectorCiclo'
 import { useState } from 'react'
 import { X, Loader2, AlertCircle, Check, LogIn, Package } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -22,7 +21,7 @@ import SeguimientoPedido from './SeguimientoPedido'
  */
 export default function PanelPedido({
   resumen, onCambiar, onVaciar, onCerrar,
-  enviando, enviado, error, onEnviar, ciclos = [], cicloId, setCicloId, cargandoCiclos, errorCiclos, cicloFijado = false
+  enviando, enviado, error, onEnviar
 }) {
   const { cliente } = usePortalCliente()
   const [observaciones, setObservaciones] = useState('')
@@ -48,7 +47,6 @@ export default function PanelPedido({
               </span>
               <p className="font-extrabold text-neutro-900">Pedido #{enviado.id} recibido</p>
               <p className="text-sm text-neutro-500">{formatearColones(enviado.total)}</p>
-              <p className="text-xs font-semibold text-cliente-700">{textoCiclo(enviado.ciclo)}{enviado.anticipado ? ' · Pedido anticipado' : ''}</p>
             </div>
 
             {/* La línea de tiempo desde el minuto cero: el cliente ve qué
@@ -104,7 +102,6 @@ export default function PanelPedido({
             </div>
 
             <div className="border-t border-neutro-100 p-4 space-y-3">
-              {cliente && <SelectorCiclo ciclos={ciclos} valor={cicloId} onChange={setCicloId} cargando={cargandoCiclos} error={errorCiclos} disabled={enviando || cicloFijado} />}
               <input
                 type="text"
                 value={observaciones}
@@ -130,7 +127,7 @@ export default function PanelPedido({
                 <button
                   type="button"
                   onClick={() => onEnviar(observaciones)}
-                  disabled={enviando || cargandoCiclos || Boolean(errorCiclos) || !cicloId}
+                  disabled={enviando}
                   className="w-full bg-cliente-600 hover:bg-cliente-700 disabled:bg-cliente-600/70 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
                   {/* El texto cambia además del spinner: antes solo aparecía

@@ -11,60 +11,6 @@ class OrdersWhatsappController {
     this.ordersService = new OrdersWhatsappService();
   }
 
-  generarPDF = async (req, res) => {
-    try {
-      const { proveedor, productos, preferirDatosProveedor = true } = req.body;
-
-      if (!proveedor || !productos || !Array.isArray(productos)) {
-        return ResponseHelper.validationError(res, {
-          proveedor: !proveedor ? ['Proveedor es requerido'] : [],
-          productos: !productos ? ['Productos es requerido'] : []
-        });
-      }
-
-      const { pdfBuffer } = await this.ordersService.generarOrdenCompraPDFBuffer(
-        proveedor,
-        productos,
-        preferirDatosProveedor
-      );
-
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=orden-${proveedor.replace(/\s+/g, '-')}.pdf`);
-      return res.send(pdfBuffer);
-    } catch (error) {
-      console.error('❌ Error generando PDF:', error);
-      return ResponseHelper.error(res, error.message, 500);
-    }
-  };
-
-  enviarWhatsApp = async (req, res) => {
-    try {
-      const { proveedor, telefono, productos, preferirDatosProveedor = true, mensaje = '' } = req.body;
-
-      if (!proveedor || !telefono || !productos || !Array.isArray(productos)) {
-        return ResponseHelper.validationError(res, {
-          proveedor: !proveedor ? ['Proveedor es requerido'] : [],
-          telefono: !telefono ? ['Teléfono es requerido'] : [],
-          productos: !productos ? ['Productos es requerido'] : []
-        });
-      }
-
-      const result = await this.ordersService.enviarOrdenCompraWhatsApp(
-        proveedor,
-        telefono,
-        productos,
-        preferirDatosProveedor,
-        mensaje,
-        req.usuario?.id || null
-      );
-
-      return ResponseHelper.success(res, result, 'Orden de compra enviada por WhatsApp');
-    } catch (error) {
-      console.error('❌ Error enviando por WhatsApp:', error);
-      return ResponseHelper.error(res, error.message, 500);
-    }
-  };
-
   /**
    * GET /orden-compra/enviados?desde=YYYY-MM-DD
    * A qué proveedores ya se les mandó el pedido en el período del reporte.
