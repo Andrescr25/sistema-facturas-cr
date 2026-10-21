@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, MoreVertical } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/pagos'
 import Insignia from '../ui/Insignia'
 import { etiquetaDeAceptacion } from '../../utils/aceptacionCompraTexto'
@@ -16,7 +16,7 @@ import { etiquetaDeAceptacion } from '../../utils/aceptacionCompraTexto'
  * importan abajo, y el estado a la derecha. La tarjeta entera sigue siendo
  * el botón — por eso se fue el que había dentro.
  */
-export default function TarjetaFactura({ factura, paso, onAbrir }) {
+export default function TarjetaFactura({ factura, paso, onAbrir, onProcesarGasto }) {
   const total = factura.productos?.length || 0
   const relacionados = factura.productos?.filter(p => p.estadoRelacionado === 'RELACIONADO').length || 0
   const porcentaje = total > 0 ? Math.round((relacionados / total) * 100) : 0
@@ -32,10 +32,11 @@ export default function TarjetaFactura({ factura, paso, onAbrir }) {
       : etiquetaDeAceptacion(factura.aceptacionHacienda)
 
   return (
+    <div className="relative">
     <button
       type="button"
       onClick={() => onAbrir(factura)}
-      className="group flex w-full items-center gap-3 rounded-xl border border-neutro-200 bg-white p-3 text-left transition-all hover:border-primario-300 hover:shadow-md md:p-4"
+      className="group flex w-full items-center gap-3 rounded-xl border border-neutro-200 bg-white p-3 pr-14 text-left transition-all hover:border-primario-300 hover:shadow-md md:p-4 md:pr-14"
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -58,5 +59,10 @@ export default function TarjetaFactura({ factura, paso, onAbrir }) {
       <Insignia tono={estado.tono} className="hidden sm:inline-flex">{estado.texto}</Insignia>
       <ChevronRight size={18} className="shrink-0 text-neutro-300 transition-colors group-hover:text-primario-600" />
     </button>
+    {paso !== 'ENVIADAS' && onProcesarGasto && <details className="absolute right-2 top-2 z-10">
+      <summary aria-label={`Opciones de factura ${factura.numeroConsecutivo}`} className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl text-neutro-500 hover:bg-neutro-100"><MoreVertical size={18} /></summary>
+      <button type="button" onClick={() => onProcesarGasto(factura)} className="absolute right-0 mt-1 w-64 rounded-xl border border-neutro-200 bg-white p-3 text-left text-sm font-semibold text-neutro-700 shadow-lg hover:bg-neutro-50">Procesar factura como gasto operativo</button>
+    </details>}
+    </div>
   )
 }

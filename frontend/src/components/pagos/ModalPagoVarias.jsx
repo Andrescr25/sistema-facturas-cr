@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CalendarDays, CheckCircle2, CreditCard, Loader2, Wallet } from 'lucide-react'
 import HojaModal from './HojaModal'
 import { formatCurrency } from '../../utils/pagos'
-import { getOpcionesPago } from '../../services/configuracionService'
+import { useOpcionesPago } from '../../hooks/useOpcionesPago'
 import { hoyEnCostaRica } from '../../utils/fechaCR'
 
 /**
@@ -22,17 +22,12 @@ import { hoyEnCostaRica } from '../../utils/fechaCR'
 export default function ModalPagoVarias({ sentido, titulo, facturas, procesando, onRegistrar, onCerrar }) {
   const entra = sentido === 'entrada'
   const [montos, setMontos] = useState(() => Object.fromEntries(facturas.map((f) => [f.id, String(f.saldo)])))
-  const [metodos, setMetodos] = useState([])
+  const [claveIdempotencia] = useState(() => crypto.randomUUID())
+  const { metodos, error: errorMetodos } = useOpcionesPago()
   const [metodoPagoId, setMetodoPagoId] = useState(null)
   const [referencia, setReferencia] = useState('')
   // El día en Costa Rica, no en UTC: después de las 6 p.m. eso ya es mañana.
   const [fecha, setFecha] = useState(hoyEnCostaRica())
-
-  useEffect(() => {
-    let cancelado = false
-    getOpcionesPago().then(({ metodos }) => { if (!cancelado) setMetodos(metodos) }).catch(() => {})
-    return () => { cancelado = true }
-  }, [])
 
   const lineas = useMemo(() => facturas.map((f) => {
     const monto = Number(montos[f.id])
@@ -51,6 +46,7 @@ export default function ModalPagoVarias({ sentido, titulo, facturas, procesando,
     const exito = await onRegistrar({
       lineas: lineas.map((l) => ({ id: l.id, monto: l.monto, todo: l.todo })),
       metodoPagoId,
+      claveIdempotencia,
       referencia: referencia.trim() || null,
       fecha
     })
@@ -116,6 +112,7 @@ export default function ModalPagoVarias({ sentido, titulo, facturas, procesando,
             <option value="" disabled>Elegí el método…</option>
             {metodos.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
           </select>
+          {errorMetodos && <p role="alert" className="mt-2 text-sm text-peligro-700">{errorMetodos}</p>}
           {metodo?.pideReferencia && (
             <input
               type="text"

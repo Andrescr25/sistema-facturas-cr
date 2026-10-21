@@ -53,8 +53,8 @@ archivos:
   - docs/plan-integracion-hacienda.md
   - docs/informes/hacienda-2026-10-05.md
 aristas:
-  relacionado: [modulo/facturacion, leccion/la-estructura-se-cuida-con-una-prueba, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera, modulo/faltantes]
-medido: 2026-10-20
+  relacionado: [modulo/facturacion, leccion/la-estructura-se-cuida-con-una-prueba, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera, modulo/faltantes, modulo/gastos-operativos]
+medido: 2026-10-21
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -539,3 +539,9 @@ en Impresión DESPUÉS de guardar sus ajustes (faltantes y precios), con el
 mismo gancho, panel y botón de la factura —no hay una segunda forma de
 emitir—. `PanelEmisionFactura` suma `angosto` (dos columnas como mucho dentro
 de un modal) y `DatosPendientesEmision` usa los botones del sistema.
+
+
+## Gastos operativos — 2026-10-21
+
+Los gastos operativos son una excepción explícita a la aceptación automática comercial. La condición/importes provienen de su revisión documentada; también se valida bajo el bloqueo de preparar(). Envío expreso, no al recibir o pagar.
+Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.

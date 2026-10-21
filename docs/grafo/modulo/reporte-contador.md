@@ -13,7 +13,7 @@ archivos:
   - backend/tests/reporteContadorPropio.test.js
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea]
-  relacionado: [modulo/compras, modulo/facturacion, bloqueo/impuestos-historicos-en-alegra, leccion/el-impuesto-es-de-cada-linea]
+  relacionado: [modulo/compras, modulo/facturacion, bloqueo/impuestos-historicos-en-alegra, leccion/el-impuesto-es-de-cada-linea, modulo/gastos-operativos]
 medido: 2026-10-03
 ---
 
@@ -83,3 +83,9 @@ lo deciden el usuario y su contador: ver el bloqueo.
 
 El reporte no incluye gastos que no entran como `compra` (los que en Alegra se
 cargaban a mano y nunca pasaron por el buzón).
+
+
+## Gastos operativos — 2026-10-21
+
+Las líneas originales de gastos operativos no se convierten en crédito de IVA por despejar una tarifa. Se excluyen de la importación automática comercial; su revisión, importes y originales se consultan en la ficha del gasto.
+Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.

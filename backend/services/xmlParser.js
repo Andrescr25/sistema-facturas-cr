@@ -154,7 +154,7 @@ class XmlParser {
             receptor: this.extractReceptorData(factura.Receptor),
             condicionVenta: factura.CondicionVenta,
             plazoCredito: factura.PlazoCredito,
-            medioPago: factura.MedioPago,
+            medioPago: factura.MedioPago || factura.ResumenFactura?.MedioPago,
             // Hacienda no tiene campo estándar de vencimiento: los emisores
             // lo ponen como texto libre en <Otros>. Se extrae acá, que es el
             // único momento en que tenemos el XML — no se persiste completo.

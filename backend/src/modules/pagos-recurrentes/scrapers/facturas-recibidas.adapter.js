@@ -40,6 +40,7 @@
 const { pool, query } = require('../../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../../utils/transaccion');
 const { liberarCuentaPorPagar } = require('../../compras/liberarCuentaPorPagar');
+const { registrarSinInventario } = require('../../compras/registrarSinInventario');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -138,6 +139,7 @@ async function consultarRecibos({ cedulaEmisor }) {
            fecha_vencimiento, periodo_facturado
     FROM facturas_proveedores
     WHERE regexp_replace(COALESCE(proveedor_cedula, ''), '\\D', '', 'g') = $1
+      AND tratamiento NOT IN ('combustible','alimentacion')
       AND fecha_emision >= CURRENT_DATE - INTERVAL '12 months'
     ORDER BY fecha_emision DESC;
   `, [cedula]);
@@ -219,6 +221,7 @@ async function registrarComoCompra({ cedulaEmisor }) {
            f.total_iva_devuelto, f.otros_cargos, f.proveedor_cedula
       FROM facturas_proveedores f
      WHERE regexp_replace(COALESCE(f.proveedor_cedula, ''), '\D', '', 'g') = $1
+       AND f.tratamiento NOT IN ('combustible','alimentacion')
        AND f.fecha_emision >= CURRENT_DATE - INTERVAL '12 months'
        AND NOT EXISTS (SELECT 1 FROM compra c WHERE c.factura_proveedor_id = f.id)
      ORDER BY f.fecha_emision ASC;
@@ -249,48 +252,21 @@ async function registrarComoCompra({ cedulaEmisor }) {
       // Una transacción POR FACTURA, no una sola para todas: un gasto de
       // enero que falla no puede dejar sin registrar el de febrero, que ya
       // se procesó bien.
-      await enTransaccion(async (cliente) => {
-        const { rows: compraRows } = await cliente.query(
-          `INSERT INTO compra (
-             proveedor_id, clave, numero_consecutivo, fecha_emision, fecha_vencimiento, moneda, total,
-             estado, factura_proveedor_id, xml_ruta, total_otros_cargos, total_descuentos,
-             total_iva_devuelto, otros_cargos
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,'registrada',$8,$9,$10,$11,$12,$13::jsonb)
-           RETURNING id`,
-          [
-            proveedor.id, f.clave, f.numero_consecutivo, f.fecha_emision, f.fecha_vencimiento,
-            f.moneda || 'CRC', f.total_factura, f.id, f.xml_ruta,
-            f.total_otros_cargos, f.total_descuentos, f.total_iva_devuelto, JSON.stringify(f.otros_cargos || [])
-          ]
-        );
-        const compraId = compraRows[0].id;
-
-        const detalle = await cliente.query(
-          `SELECT numero_linea, descripcion, codigo_proveedor, codigo_cabys, cantidad, unidad_medida,
-                  precio_unitario, descuento, impuesto, total_linea
-             FROM productos_factura_proveedor WHERE factura_id = $1 ORDER BY numero_linea`,
-          [f.id]
-        );
-        if (detalle.rows.length === 0) throw new Error('la factura no tiene ninguna línea');
-
-        for (const l of detalle.rows) {
-          await cliente.query(
-            `INSERT INTO compra_linea (
-               compra_id, numero_linea, producto_id, descripcion, codigo_proveedor, codigo_cabys,
-               cantidad, unidad, factor_conversion, precio_unitario, descuento, impuesto, total_linea
-             ) VALUES ($1,$2,NULL,$3,$4,$5,$6,$7,1,$8,$9,$10,$11)`,
-            [
-              compraId, l.numero_linea, l.descripcion, l.codigo_proveedor, l.codigo_cabys,
-              l.cantidad, l.unidad_medida, l.precio_unitario, l.descuento || 0, l.impuesto || 0, l.total_linea
-            ]
-          );
-        }
-
-        await liberarCuentaPorPagar(cliente, f.id, compraId);
+      const creada = await enTransaccion(async (cliente) => {
+        // Mismo bloqueo del buzón que gasto/revisión: dos sincronizaciones no
+        // crean compras paralelas, ni toman una factura recién reclasificada.
+        const bloqueada = (await cliente.query('SELECT * FROM facturas_proveedores WHERE id=$1 FOR UPDATE', [f.id])).rows[0];
+        if (!bloqueada || ['combustible', 'alimentacion'].includes(bloqueada.tratamiento)) return;
+        if ((await cliente.query('SELECT id FROM compra WHERE factura_proveedor_id=$1', [f.id])).rows.length) return;
+        const compra = await registrarSinInventario(cliente, bloqueada, proveedor.id);
+        await liberarCuentaPorPagar(cliente, f.id, compra.id);
+        return true;
       });
 
-      registradas++;
-      console.log(`   ✅ Compra registrada: ${f.numero_consecutivo}`);
+      if (creada) {
+        registradas++;
+        console.log(`   ✅ Compra registrada: ${f.numero_consecutivo}`);
+      }
     } catch (error) {
       // Un fallo acá NO tumba la sincronización: el pago ya quedó registrado
       // en Pagos Recurrentes, que es lo que el usuario ve. La compra se

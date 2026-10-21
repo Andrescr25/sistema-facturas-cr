@@ -364,7 +364,8 @@ class EmailService {
                     typeof attachment.filename === 'string' &&
                     attachment.filename.toLowerCase().includes('.xml')) {
                     
-                    await this.saveXmlAttachment(attachment, seqno);
+                    const { pdfParaXml } = require('../src/modules/gastos-operativos/gastos.archivos');
+                    await this.saveXmlAttachment(attachment, seqno, pdfParaXml(attachment, parsed.attachments));
                     xmlFound = true;
                 }
             }
@@ -376,7 +377,7 @@ class EmailService {
     /**
      * Guarda y procesa un adjunto XML
      */
-    async saveXmlAttachment(attachment, seqno) {
+    async saveXmlAttachment(attachment, seqno, pdfAdjunto = null) {
         const filename = attachment.filename;
 
         const normalizedFilename = filename.toLowerCase();
@@ -508,7 +509,7 @@ class EmailService {
             }
 
             // Procesar la factura parseada
-            await this.processParsedFactura(facturaData, filename, `${seqno}`, xmlRuta);
+            await this.processParsedFactura(facturaData, filename, `${seqno}`, xmlRuta, pdfAdjunto);
 
         } catch (error) {
             console.error(`❌ Error procesando ${filename}:`, error.message);
@@ -555,7 +556,7 @@ class EmailService {
     /**
      * Procesa una factura ya parseada - INTEGRACIÓN COMPLETA
      */
-    async processParsedFactura(facturaData, filename, emailId, xmlRuta = null) {
+    async processParsedFactura(facturaData, filename, emailId, xmlRuta = null, pdfAdjunto = null) {
         try {
             if (VERBOSE_LOGGING) console.log(`\n🔄 PROCESANDO FACTURA COMPLETA...`);
 
@@ -567,6 +568,18 @@ class EmailService {
                 emailId,
                 xmlRuta
             );
+
+            if (pdfAdjunto && facturaGuardada.id && !facturaGuardada.duplicada) {
+                try {
+                    await require('../src/modules/gastos-operativos/gastos.archivos')
+                        .conservarPdf(facturaGuardada.id, pdfAdjunto.content);
+                } catch {
+                    // El XML y el registro ya existen: un PDF defectuoso no
+                    // puede borrar la factura ni devolverla al flujo comercial.
+                    console.warn('No se pudo conservar el PDF adjunto del proveedor.');
+                }
+            }
+            if (facturaGuardada.estado === 'GASTO_RECURRENTE') return;
 
             // 2. Procesar relacionado inteligente (solo productos PENDIENTES)
             if (VERBOSE_LOGGING) console.log('🔍 Iniciando relacionado inteligente...');

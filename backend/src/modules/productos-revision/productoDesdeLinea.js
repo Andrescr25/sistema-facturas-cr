@@ -56,6 +56,9 @@ const limpio = (texto) => (texto === undefined || texto === null ? '' : String(t
 async function lineaDelProveedor(lineaId) {
   const linea = await prisma.productoFactura.findUnique({ where: { id: lineaId }, include: { factura: true } });
   if (!linea) throw httpError(404, 'Producto original no encontrado');
+  if (linea.factura?.estado === 'GASTO_RECURRENTE') {
+    throw httpError(409, 'Esta factura es un gasto: sus líneas no se crean como productos del catálogo.');
+  }
   return linea;
 }
 

@@ -87,6 +87,7 @@ su estado indica el retiro. [Alcance y pruebas](../informes/simplificacion-sin-s
 - [Originales electrónicos de ventas — PDF, XML y huellas fuera de Git](modulo/archivo-ventas-electronicas.md)
 
 - [Compras — ya no toca Alegra para registrar una compra](modulo/compras.md)
+- [Gastos operativos — combustible y alimentación sin catálogo ni pago automático](modulo/gastos-operativos.md)
 - [Cotizaciones — en la base propia, y facturarlas crea una factura propia](modulo/cotizaciones.md)
 - [Facturación de venta — ya cerrado en la migración](modulo/facturacion.md)
 - [Facturación sin señal — copia propia y colas conservadas](modulo/facturacion-offline.md)

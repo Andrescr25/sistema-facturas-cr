@@ -9,8 +9,8 @@ archivos:
   - backend/services/databaseService.js
 aristas:
   bloqueado_por: [bloqueo/xml-historico-sin-recuperar]
-  relacionado: [modulo/facturas-ordenes-compra, tabla/compra, decision/el-avance-de-la-factura-sale-de-sus-lineas]
-medido: 2026-10-20
+  relacionado: [modulo/facturas-ordenes-compra, tabla/compra, decision/el-avance-de-la-factura-sale-de-sus-lineas, modulo/gastos-operativos]
+medido: 2026-10-21
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -50,3 +50,9 @@ Conserva snapshot de datos/conversión y PDF privado; no cambia estado/líneas
 del buzón, registra compra o acredita recepción física. Un PDF adjuntado y
 una representación del snapshot son tipos distintos. Archivo original no se
 recupera de archivo_xml (solo nombre) ni se inventa desde un XML inexistente.
+
+GASTOS OPERATIVOS (061). `tratamiento` comercial por omisión conserva el
+flujo existente. Combustible/alimentación reutilizan GASTO_RECURRENTE para
+salir del flujo comercial, con ficha propia y líneas documentales sin
+producto ni mapeo. `pdf_ruta` conserva el adjunto privado. El XML original
+manda; recepción/validación local no son pago ni aceptación fiscal.

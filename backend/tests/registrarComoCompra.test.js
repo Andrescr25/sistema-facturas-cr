@@ -47,16 +47,14 @@ function montar({ facturas = [FACTURA_A], proveedorId = 5, lineasPorFactura = { 
 
     if (texto === 'BEGIN' || texto === 'COMMIT' || texto === 'ROLLBACK') return { rows: [] };
     if (/FROM facturas_proveedores f\s+WHERE/.test(texto)) return { rows: facturas.map((f) => ({ ...f })) };
+    if (/FROM facturas_proveedores WHERE id=\$1 FOR UPDATE/.test(texto)) return { rows: facturas.filter(f => f.id === params[0]) };
+    if (/SELECT id FROM compra WHERE factura_proveedor_id/.test(texto)) return { rows: [] };
     if (/FROM proveedor WHERE identificacion/.test(texto)) return { rows: proveedorId ? [{ id: proveedorId }] : [] };
     if (/INSERT INTO compra \(/.test(texto)) {
       const facturaId = params[7]; // f.id, por orden del INSERT
       return { rows: [{ id: `compra-${facturaId}` }] };
     }
-    if (/FROM productos_factura_proveedor WHERE factura_id/.test(texto)) {
-      const facturaId = params[0];
-      return { rows: (lineasPorFactura[facturaId] || []).map((l) => ({ ...l })) };
-    }
-    if (/INSERT INTO compra_linea/.test(texto)) return { rows: [], rowCount: 1 };
+    if (/INSERT INTO compra_linea/.test(texto)) return { rows: [], rowCount: (lineasPorFactura[params[1]] || []).length };
     if (/FROM cuentas_por_pagar WHERE factura_id = \$1 FOR UPDATE/.test(texto)) {
       const facturaId = params[0];
       return { rows: cxpPorFactura[facturaId] ? [{ ...cxpPorFactura[facturaId] }] : [] };
@@ -93,7 +91,7 @@ describe('registrarComoCompra — camino feliz', () => {
     const linea = fila(log, /INSERT INTO compra_linea/);
     assert.ok(linea);
     // producto_id es NULL literal en el SQL, no un parámetro — se verifica en el texto.
-    assert.match(linea.sql, /VALUES \(\$1,\$2,NULL,/);
+    assert.match(linea.sql, /SELECT \$1, numero_linea, NULL,/);
   });
 
   test('la búsqueda de facturas pendientes excluye las que ya tienen compra', async () => {

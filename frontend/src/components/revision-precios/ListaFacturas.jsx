@@ -30,7 +30,7 @@ const VACIOS = {
  */
 export default function ListaFacturas({
   facturas, loading, error, tabActiva, setTabActiva,
-  onAbrirRevision
+  onAbrirRevision, onProcesarGasto
 }) {
   const navigate = useNavigate()
 
@@ -104,6 +104,7 @@ export default function ListaFacturas({
                 factura={factura}
                 paso={tabActiva}
                 onAbrir={abrir}
+                onProcesarGasto={onProcesarGasto}
               />
             ))}
           </div>

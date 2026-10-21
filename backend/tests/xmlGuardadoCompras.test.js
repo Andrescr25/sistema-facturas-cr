@@ -283,6 +283,7 @@ describe('factura de proveedor nueva: el XML se borra solo si la fila no llegó 
   const rutaAlmacenamiento = path.join(__dirname, '..', 'src', 'integrations', 'almacenamiento', 'index.js');
   const rutaXmlRuta = path.join(__dirname, '..', 'src', 'utils', 'xmlRutaComprobante.js');
   const rutaGastoRecurrente = path.join(__dirname, '..', 'src', 'modules', 'pagos-recurrentes', 'scrapers', 'facturas-recibidas.adapter.js');
+  const rutaRecepcionGasto = require.resolve('../src/modules/gastos-operativos/gastos.recepcion');
   const rutaRelacion = path.join(__dirname, '..', 'src', 'modules', 'productos-revision', 'relacionPropia.js');
   const rutaServicio = path.join(__dirname, '..', 'services', 'databaseService.js');
 
@@ -296,6 +297,10 @@ describe('factura de proveedor nueva: el XML se borra solo si la fila no llegó 
   };
 
   function montar({ falla }) {
+    require.cache[rutaRecepcionGasto] = {
+      id: rutaRecepcionGasto, filename: rutaRecepcionGasto, loaded: true,
+      exports: { tratamientoDelProveedor: async () => 'comercial', recibirGasto: async () => null }
+    };
     for (const r of [rutaPrisma, rutaAlmacenamiento, rutaXmlRuta, rutaGastoRecurrente, rutaRelacion, rutaServicio]) {
       delete require.cache[r];
     }
@@ -359,6 +364,7 @@ describe('factura de proveedor nueva: el XML se borra solo si la fila no llegó 
   }
 
   after(() => {
+    delete require.cache[rutaRecepcionGasto];
     for (const r of [rutaPrisma, rutaAlmacenamiento, rutaXmlRuta, rutaGastoRecurrente, rutaRelacion, rutaServicio]) {
       delete require.cache[r];
     }

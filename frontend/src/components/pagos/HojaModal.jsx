@@ -19,7 +19,7 @@ export default function HojaModal({
   useModal(onCerrar)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
+    <div role="dialog" aria-modal="true" aria-label={typeof titulo === 'string' ? titulo : undefined} className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
       <div className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl ${ancho}`}>
         {/* Agarradera: solo tiene sentido en la hoja que sube. */}
         <div className="pb-1 pt-3 sm:hidden">

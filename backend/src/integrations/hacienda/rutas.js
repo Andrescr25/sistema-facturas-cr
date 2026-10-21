@@ -309,4 +309,11 @@ module.exports = {
   iniciarSeguimiento: () => require("./trabajador").iniciar(servicio),
   // Para el módulo de Compras: aceptar la compra recién registrada.
   alRegistrarCompra: (compraId, usuarioId) => servicio.alRegistrarCompra(compraId, usuarioId),
+  // Gastos valida primero su documento. Reusa la misma confirmación fiscal,
+  // sin prestar las rutas de compras a usuarios de otro módulo.
+  estadoCompra: (compraId) => servicio.estadoDeCompra(compraId),
+  responderCompra: async (compraId, usuarioId) => {
+    const preparado = await servicio.aceptarCompra(compraId, {}, usuarioId);
+    return servicio.enviar(preparado.id);
+  },
 };

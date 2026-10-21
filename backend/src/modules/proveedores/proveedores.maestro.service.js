@@ -28,6 +28,7 @@ const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 const { validarWhatsappsProveedor } = require('../../utils/telefonosProveedor');
 const { TIPOS, LARGOS, NOMBRES, limpiar, calza } = require('../clientes/identificacion');
+const { TRATAMIENTOS } = require('../gastos-operativos/gastos.validacion');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const LIMITE_MAXIMO = 100;
@@ -53,7 +54,8 @@ const CAMPOS = {
   telefono: { etiqueta: 'Teléfono', validar: telefono },
   telefono_whatsapp: { etiqueta: 'WhatsApp', validar: validarWhatsappsProveedor },
   plazo_credito_id: { etiqueta: 'Plazo de crédito', validar: entero },
-  observaciones: { etiqueta: 'Observaciones', validar: texto(2000) }
+  observaciones: { etiqueta: 'Observaciones', validar: texto(2000) },
+  tratamiento_facturas: { etiqueta: 'Facturas recibidas', validar: opcion(TRATAMIENTOS) }
 };
 
 // ─── Utilidades ────────────────────────────────────────────────────────────

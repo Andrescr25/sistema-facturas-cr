@@ -1017,3 +1017,16 @@ descripción y código del proveedor. [Detalle](grafo/modulo/reporte-proveedores
 revision de precios / este ahora esta que los productos se ven muy enorme y
 casi no se ven / hazlo mas acorde a» (el mensaje llegó cortado; se tomó
 «acorde al sistema»). [Detalle](grafo/modulo/relacionar-productos.md).
+
+
+## 2026-10-21 — Combustible y alimentación sin inventario
+
+El usuario entrega el documento de proveedores de gastos operativos y pide
+«recicla codigo y hazlo simple». Proveedor Comercial por omisión, Combustible,
+Alimentación/viáticos y Mixto. Recepción sin catálogo/stock; acción por factura
+en Revisión y preferencia futura opcional. XML/PDF originales, responsable y
+placa opcionales, historial, una sola deuda y pago real desde Caja. Separar
+recepción, clasificación, confirmación fiscal, renta, IVA y pago; no conceder
+deducción/crédito ni enviar aceptación/rechazo automáticamente. Investigar
+Hacienda. Desarrollo/verificación local, sin nueva publicación a producción.
+[Implementación y fuentes](informes/gastos-operativos-2026-10-21.md).

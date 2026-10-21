@@ -12,8 +12,8 @@ archivos:
   - backend/migrations/independencia/048_factura_orden_compra_ciclo.sql
 aristas:
   depende_de: [bloqueo/prisma-no-se-regenera]
-  relacionado: [modulo/facturas-ordenes-compra, modulo/hacienda, bloqueo/xml-historico-sin-recuperar, modulo/archivo-ventas-electronicas]
-medido: 2026-10-20
+  relacionado: [modulo/facturas-ordenes-compra, modulo/hacienda, bloqueo/xml-historico-sin-recuperar, modulo/archivo-ventas-electronicas, modulo/gastos-operativos]
+medido: 2026-10-21
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -58,3 +58,10 @@ inmutables con tipo original adjuntado o representación; no regenerarlas al
 leer ni borrar al retirar vínculo. Respaldo debe incluir DB y
 ALMACENAMIENTO_PRIVADO_DIR/ordenes-facturas. La copia pequeña del PDF de la
 orden enviada (047, BYTEA) se conserva tal como ya fue implementada.
+
+GASTOS OPERATIVOS (061). XML/PDF siguen en el almacén privado existente;
+la ficha descarga con sesión y permiso propios. No se reemplaza un original.
+El correo sólo empareja PDF/XML por nombre inequívoco o por un único par;
+con varios candidatos se adjunta explícitamente desde la ficha. Los datos
+extraídos y las líneas XML de respaldo se conservan en los metadatos del
+gasto; ese JSON no sustituye al archivo original.

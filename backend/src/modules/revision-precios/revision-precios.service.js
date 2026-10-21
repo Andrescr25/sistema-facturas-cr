@@ -108,6 +108,9 @@ async function devolverFactura(facturaId) {
   if (!factura) {
     throw httpError(404, 'Factura no encontrada');
   }
+  if (factura.estado === 'GASTO_RECURRENTE') {
+    throw httpError(409, 'Esta factura se gestiona como gasto: no se devuelve al catálogo.');
+  }
 
   // UNA FACTURA YA REGISTRADA NO SE DEVUELVE.
   // En esta rama `ENVIADA` quiere decir que ya existe su fila en `compra`

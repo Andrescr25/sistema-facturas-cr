@@ -10,10 +10,12 @@ archivos:
   - backend/migrations/independencia/023_cuenta_por_pagar_de_compra.sql
   - backend/migrations/independencia/025_pago_proveedor.sql
   - backend/tests/pagosProveedor.test.js
+  - backend/src/modules/pagos-proveedores/pagoProveedorIdempotencia.js
 aristas:
   vive_en: [modulo/compras]
   depende_de: [tabla/facturas-proveedores, tabla/compra]
-medido: 2026-09-23
+  relacionado: [modulo/gastos-operativos]
+medido: 2026-10-21
 ---
 
 Modelo `CuentaPorPagar` (Prisma), tabla `cuentas_por_pagar`. Se crea al
@@ -41,3 +43,10 @@ mano; ese PATCH ahora responde 400.
 246 facturas): no hay dato de cuándo ni desde qué cuenta se pagó, así que no
 se inventaron pagos — quedó un número por factura, congelado una vez. Al
 aplicar la 025, los 318 saldos calculados dieron EXACTAMENTE los guardados.
+
+GASTOS OPERATIVOS (061). Reutilizan esta cuenta y su saldo, no otra cartera.
+Sólo se libera tras validar el original y registrar la compra sin producto;
+contado también queda pendiente hasta registrar un pago real. El pago lleva
+opcionalmente UUID y huella de idempotencia: repetir la misma petición
+devuelve el documento existente, sin otro egreso; cambiarla con la misma
+clave responde conflicto. Ni combustible ni alimentación se pagan solos.

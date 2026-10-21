@@ -16,6 +16,7 @@ const { crearCliente } = require("./transporte/cliente");
 const numeracion = require("./numeracion");
 const { crearUnClic } = require("./unClic.service");
 const { crearAceptacion } = require("./aceptacionCompra.service");
+const { aplicarRevisionGasto } = require("./gastoOperativo");
 const { enTransaccion } = require("../../utils/transaccion");
 const { registrarCambio } = require("../../utils/bitacora");
 const { error } = require("./errores");
@@ -102,6 +103,7 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
           "ESTADO_INVALIDO",
           "El documento debe estar emitido o la compra registrada.",
         );
+      if (origen === "compra") datos = await aplicarRevisionGasto(db, n, datos);
       if (origen !== "compra" && (d.electronica || d.alegra_id))
         throw error(
           "HISTORICO_NO_REEMITIR",

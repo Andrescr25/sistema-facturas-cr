@@ -1070,3 +1070,16 @@ nuevas semanas de cliente/documento. Rutas actuales, próxima visita, envíos
 inmutables, datos fiscales y tablas históricas se conservan. No implica una
 nueva migración ni modifica los conteos del corte. Ver
 [informe](informes/simplificacion-sin-semanas-2026-10-20.md).
+
+
+## Gastos operativos posteriores al corte — 2026-10-21
+
+- [x] GO-01: clasificación opcional por proveedor, comercial predeterminado y mixto.
+- [x] GO-02: XML/buzón y compra sin catálogo reutilizados; original, duplicados y guardas.
+- [x] GO-03: lista/ficha, revisión desde factura, responsable/placa opcionales y bitácora.
+- [x] GO-04: CxP/saldo/pago real/Caja reutilizados; reintento sin otro movimiento.
+- [x] GO-05: revisión de renta/IVA y respuesta expresa, separadas de recibir/pagar.
+- [x] GO-06: 235 archivos; 2936 pruebas correctas, 3 históricas de corte omitidas; PostgreSQL, build y 32 comprobaciones en navegador.
+- [ ] GO-07: aplicar SQL 061 en producción antes de publicar a main; esta entrega queda en developer.
+
+[Alcance y fuentes](informes/gastos-operativos-2026-10-21.md). No acredita pendientes del corte.

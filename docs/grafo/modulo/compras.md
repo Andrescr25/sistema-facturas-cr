@@ -15,8 +15,8 @@ archivos:
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-  relacionado: [modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion]
-medido: 2026-10-20
+  relacionado: [modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion, modulo/gastos-operativos]
+medido: 2026-10-21
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -128,3 +128,9 @@ físicos, con mismo origen compra/id. Compra anterior false mantiene entrada
 comercial; recepción no la acredita otra vez. No importar histórico sin kardex
 como stock nuevo. Advisory común 46005/1 antes del bloqueo de buzón protege
 el orden entre registro/vínculo/recepción.
+
+
+## Gastos operativos — 2026-10-21
+
+Combustible y alimentación usan registrarSinInventario, extraído del gasto recurrente. Una compra sin producto y una CxP; no stock, costos, pago ni aceptación automática. El flujo comercial permanece.
+Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.

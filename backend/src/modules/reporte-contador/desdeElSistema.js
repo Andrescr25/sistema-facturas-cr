@@ -186,6 +186,9 @@ async function comprasDelMes(anio, mes) {
         JOIN compra_linea l ON l.compra_id = c.id
         LEFT JOIN proveedor p ON p.id = c.proveedor_id
        WHERE c.estado <> 'anulada'
+         -- El IVA del gasto se revisa explícitamente en su ficha. No deducir
+         -- derecho a crédito desde los impuestos originales del combustible.
+         AND NOT EXISTS (SELECT 1 FROM gasto_operativo g WHERE g.compra_id=c.id)
          AND c.fecha_emision BETWEEN $1 AND $2
          AND l.impuesto > 0
        ORDER BY c.fecha_emision, c.numero_consecutivo, l.numero_linea;

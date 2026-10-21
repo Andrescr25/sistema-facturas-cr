@@ -15,8 +15,8 @@ archivos:
   - backend/migrations/independencia/028_cuenta_de_contado.sql
   - backend/src/modules/compras/liberarCuentaPorPagar.js
 aristas:
-  relacionado: [tabla/cuentas-por-pagar, modulo/compras]
-medido: 2026-09-23
+  relacionado: [tabla/cuentas-por-pagar, modulo/compras, modulo/gastos-operativos]
+medido: 2026-10-21
 ---
 
 DECISIÓN DEL USUARIO (2026-09-23): sin fondo fijo ni cajas separadas para
@@ -50,3 +50,9 @@ PENDIENTE, marcada `de_contado` y con estado CONTADO (no "vencida"). No se
 pagan solas —decisión del usuario—: una persona anota cómo se pagó y recién
 ahí sale de Caja General. Los gastos recurrentes no la crean: se pagan en
 Pagos Recurrentes, y una cuenta acá contaría la salida dos veces.
+
+COMBUSTIBLE Y ALIMENTACIÓN (061): son gastos operativos documentados por
+factura, distintos de los servicios de Pagos Recurrentes. Usan la cuenta
+por pagar y el MISMO pago a proveedor de esta vista. Recibir/clasificar no
+crea egresos, incluso si el XML dice contado. El método sigue diciendo cómo
+se pagó; el flujo existente conserva Caja General como centro.

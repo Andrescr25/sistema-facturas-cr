@@ -46,7 +46,8 @@ export default function Layout({ children }) {
         { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
         { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
         { name: 'Pago Proveedores', href: '/pagos-proveedores', icon: CreditCard },
-        { name: 'Pagos Recurrentes', href: '/pagos-recurrentes', icon: Repeat }
+        { name: 'Pagos Recurrentes', href: '/pagos-recurrentes', icon: Repeat },
+        { name: 'Gastos operativos', href: '/gastos-operativos', icon: ClipboardList }
       ]
     },
     {

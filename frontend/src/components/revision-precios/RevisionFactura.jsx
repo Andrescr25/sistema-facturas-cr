@@ -3,6 +3,7 @@ import FilaProducto from './FilaProducto'
 import Insignia from '../ui/Insignia'
 import { formatCurrency, formatDate } from '../../utils/pagos'
 import AceptacionCompra from './AceptacionCompra'
+import Boton from '../ui/Boton'
 
 /**
  * Revisar los precios de una factura.
@@ -35,7 +36,7 @@ import AceptacionCompra from './AceptacionCompra'
 export default function RevisionFactura({
   facturaSeleccionada, productos, productosDelCatalogo, sugerenciasPrecio, preciosAjustados,
   loading, devolviendo, enviando,
-  onVolver, onDevolver, onAjustarPrecio, onAplicarPrecioSugerido, onAbrirFactor, onEnviar
+  onVolver, onDevolver, onAjustarPrecio, onAplicarPrecioSugerido, onAbrirFactor, onEnviar, onProcesarGasto
 }) {
   const ajustados = Object.keys(preciosAjustados).filter(id => preciosAjustados[id] > 0).length
   const yaRegistrada = facturaSeleccionada?.estado === 'ENVIADA'
@@ -92,6 +93,8 @@ export default function RevisionFactura({
           )}
         </div>
       </div>
+
+      {!yaRegistrada && onProcesarGasto && <details className="mb-4 text-sm text-neutro-500"><summary className="cursor-pointer">Otras opciones de esta factura</summary><Boton variante="secundario" className="mt-2" onClick={() => onProcesarGasto(facturaSeleccionada)}>Procesar factura como gasto operativo</Boton></details>}
 
       {loading ? (
         <div className="py-16 text-center">

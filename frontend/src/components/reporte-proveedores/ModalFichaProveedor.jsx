@@ -6,6 +6,7 @@ import Insignia from '../ui/Insignia'
 import { fechaCorta } from '../../utils/fechaCR'
 import { useTelefonosProveedor } from '../../hooks/useTelefonosProveedor'
 import { filasTelefonosProveedor, revisarTelefonosProveedor, MAX_TELEFONOS_PROVEEDOR } from '../../utils/telefonosProveedor'
+import { TRATAMIENTOS_FACTURA } from '../../utils/gastosOperativos'
 
 /**
  * La ficha de un proveedor: quién es y qué le compramos.
@@ -21,7 +22,7 @@ import { filasTelefonosProveedor, revisarTelefonosProveedor, MAX_TELEFONOS_PROVE
 
 const CAMPOS = [
   'nombre', 'tipo_identificacion', 'identificacion', 'correo',
-  'telefono', 'telefono_whatsapp', 'plazo_credito_id', 'observaciones'
+  'telefono', 'telefono_whatsapp', 'plazo_credito_id', 'observaciones', 'tratamiento_facturas'
 ]
 const NUMERICOS = new Set(['plazo_credito_id'])
 const CLASE_CAMPO = 'input h-11 w-full rounded-xl border border-neutro-300'
@@ -39,7 +40,7 @@ const TIPOS = [
 function valoresDe(p) {
   return Object.fromEntries(CAMPOS.map(campo => {
     const revisados = campo === 'telefono_whatsapp' && revisarTelefonosProveedor(filasTelefonosProveedor(p?.[campo]))
-    const v = revisados && !revisados.error ? revisados.valor : p?.[campo]
+    const v = revisados && !revisados.error ? revisados.valor : campo === 'tratamiento_facturas' ? p?.[campo] || 'comercial' : p?.[campo]
     return [campo, v === null || v === undefined ? '' : String(v)]
   }))
 }
@@ -176,6 +177,14 @@ export default function ModalFichaProveedor({ proveedor, plazos, guardando, onGu
               {opcionesPlazo.map(p => <option key={p.id} value={String(p.id)}>{p.nombre}{p.activo ? '' : ' (inactivo)'}</option>)}
             </select>
           </div>
+        </section>
+
+        <section>
+          <Etiqueta htmlFor="proveedor-tratamiento">Facturas recibidas</Etiqueta>
+          <select id="proveedor-tratamiento" className={CLASE_CAMPO} value={valores.tratamiento_facturas} onChange={cambiar('tratamiento_facturas')}>
+            {TRATAMIENTOS_FACTURA.map(t => <option key={t.valor} value={t.valor}>{t.texto}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-neutro-500">Combustible y alimentación se registran como gastos. La opción mixta permite elegir en cada factura. Aplica a nuevas facturas.</p>
         </section>
 
         <section>

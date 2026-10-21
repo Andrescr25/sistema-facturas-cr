@@ -44,6 +44,7 @@ const { validarXml } = require("./xml/validar");
 const { decimal } = require("./xml/v4.4");
 const { registrarCambio } = require("../../utils/bitacora");
 const { error } = require("./errores");
+const { gastoDeCompra, opcionesDelGasto } = require("./gastoOperativo");
 
 const AMBIENTE = "produccion";
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -107,11 +108,17 @@ function crearAceptacion({ pool, tx, preparar, enviar, vista, id }) {
    */
   async function estadoDeCompra(ref) {
     const compra = await compraDe(ref);
+    const gasto = await gastoDeCompra(pool, compra.id);
     const configurado = (
       await pool.query("SELECT habilitada, datos FROM hacienda_configuracion WHERE ambiente=$1", [AMBIENTE])
     ).rows[0];
     const elegida = configurado?.datos?.condicion_iva_compras;
-    const condicion = CONDICIONES_IVA_COMPRAS.includes(elegida) ? elegida : null;
+    let opciones = null, motivoGasto = null;
+    if (gasto) {
+      try { opciones = opcionesDelGasto(gasto); } catch (e) { motivoGasto = e.message; }
+    }
+    const condicion = gasto ? opciones?.condicionImpuesto || null
+      : CONDICIONES_IVA_COMPRAS.includes(elegida) ? elegida : null;
     const c = (
       await pool.query(
         "SELECT * FROM hacienda_comprobante WHERE ambiente=$1 AND origen='compra' AND origen_id=$2 ORDER BY revision_documento DESC LIMIT 1",
@@ -123,12 +130,13 @@ function crearAceptacion({ pool, tx, preparar, enviar, vista, id }) {
     return {
       compraId: compra.id,
       ambiente: AMBIENTE,
-      tipo: "05",
+      tipo: gasto ? { 1: "05", 2: "06", 3: "07" }[gasto.respuesta] || "05" : "05",
+      ...(gasto ? { esGasto: true, opcionesRevisadas: opciones } : {}),
       condicion,
       necesitaXml: !enCurso && compra.estado === "registrada" && !compra.xml_ruta,
       motivoNoEmitible: enCurso
         ? null
-        : motivoDeNoAceptar({ compra, habilitada: configurado?.habilitada === true, condicion }),
+        : motivoGasto || motivoDeNoAceptar({ compra, habilitada: configurado?.habilitada === true, condicion }),
       comprobante: vista(c),
       declarado: c ? await declaradoEn(c) : null,
     };
@@ -144,7 +152,8 @@ function crearAceptacion({ pool, tx, preparar, enviar, vista, id }) {
     return preparar(
       "compra",
       e.compraId,
-      { ambiente: AMBIENTE, mensaje: "1", condicionImpuesto: e.condicion, sustituir: datos.sustituir === true },
+      { ambiente: AMBIENTE, mensaje: "1", condicionImpuesto: e.condicion,
+        ...(e.opcionesRevisadas || {}), sustituir: datos.sustituir === true },
       usuarioId,
     );
   }
@@ -162,6 +171,9 @@ function crearAceptacion({ pool, tx, preparar, enviar, vista, id }) {
   async function alRegistrar(compraId, usuarioId) {
     let preparado = null;
     try {
+      if (await gastoDeCompra(pool, compraId)) {
+        return { estado: "pendiente", motivo: "Un gasto operativo se confirma expresamente desde su ficha; no se acepta automáticamente." };
+      }
       preparado = await aceptarCompra(compraId, {}, usuarioId);
       return { estado: "enviada", comprobante: await enviar(preparado.id) };
     } catch (e) {

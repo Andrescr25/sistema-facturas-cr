@@ -115,7 +115,8 @@ const MODULOS = [
     // "Registrar compra" (independencia-alegra, sección 8). No es un módulo
     // aparte a propósito — nace con permiso nuevo obligaría a repartirlo de
     // nuevo a quien ya tenía acceso a Revisión de Precios.
-    rutasApi: ['/revision-precios', '/productos-revision', '/compras']
+    rutasApi: ['/revision-precios', '/productos-revision', '/compras'],
+    tambienUsa: [{ prefijo: '/gastos-operativos/desde-factura', exacta: true, metodos: ['POST'] }]
   },
   {
     clave: 'gestionar-relaciones',
@@ -160,6 +161,13 @@ const MODULOS = [
     grupo: 'Compras',
     ruta: '/pagos-recurrentes',
     rutasApi: ['/pagos-recurrentes']
+  },
+  {
+    clave: 'gastos-operativos',
+    nombre: 'Gastos operativos',
+    grupo: 'Compras',
+    ruta: '/gastos-operativos',
+    rutasApi: ['/gastos-operativos']
   },
 
   // ---- Inventario ----

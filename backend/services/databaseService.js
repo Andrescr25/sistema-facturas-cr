@@ -64,6 +64,18 @@ class DatabaseService {
                 return facturaExistente;
             }
 
+            // Antes de buscar mapeos: un restaurante/gasolinera configurado no
+            // crea relaciones, costos ni stock. Su registro es una transacción
+            // documental propia, sin aceptación fiscal ni pago automáticos.
+            const gastos = require('../src/modules/gastos-operativos/gastos.recepcion');
+            const tratamiento = await gastos.tratamientoDelProveedor(facturaData.emisor.identificacion.numero);
+            const gasto = await gastos.recibirGasto(facturaData, archivoXML, emailId, xmlRuta, tratamiento);
+            if (gasto) {
+                facturaCreada = !gasto.duplicada;
+                if (gasto.duplicada && xmlRuta) await almacenamiento.borrarPrivado(xmlRuta).catch(() => {});
+                return gasto;
+            }
+
             // PASO 1: Buscar mapeos existentes para auto-relacionar productos
             const proveedorCedula = facturaData.emisor.identificacion.numero;
             const productosConMapeo = [];
@@ -76,7 +88,8 @@ class DatabaseService {
             // mapeo: un producto creado en el sistema, sin ficha allá, se
             // relacionaba a mano una vez y a la factura siguiente volvía a
             // quedar a medias.
-            const mapeos = await mapeosDelProveedor(proveedorCedula, facturaData.productos.map(p => p.codigo));
+            const mapeos = tratamiento === 'mixto' ? new Map()
+                : await mapeosDelProveedor(proveedorCedula, facturaData.productos.map(p => p.codigo));
 
             for (const producto of facturaData.productos) {
                 const mapeo = mapeos.get(String(producto.codigo)) || null;
@@ -203,6 +216,11 @@ class DatabaseService {
             });
 
             facturaCreada = true;
+
+            if (tratamiento === 'mixto') {
+                await require('../config/database').query(
+                    "UPDATE facturas_proveedores SET tratamiento='mixto' WHERE id=$1", [facturaGuardada.id]);
+            }
 
             // La ruta del XML y los totales del resumen se guardan aparte,
             // por SQL (ver el porqué en xmlRutaComprobante.js). No falla si

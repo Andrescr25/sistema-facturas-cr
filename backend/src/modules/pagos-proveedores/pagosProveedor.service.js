@@ -27,6 +27,7 @@ const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { idCajaGeneral } = require('../../utils/cajaGeneral');
+const { leerIdempotencia, pagoPrevio } = require('./pagoProveedorIdempotencia');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const dinero = (v) => Math.round((Number(v) || 0) * 100) / 100;
@@ -123,8 +124,11 @@ async function registrarPago(datos = {}, usuarioId = null) {
   const fecha = datos.fecha ? String(datos.fecha).slice(0, 10) : hoyEnCostaRica();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw httpError(400, 'La fecha del pago no es válida.');
   if (fecha > hoyEnCostaRica()) throw httpError(400, 'La fecha del pago no puede ser futura.');
+  const intento = leerIdempotencia(datos, aplicaciones, fecha, usuarioId);
 
   return enTransaccion(async (cliente) => {
+    const previo = await pagoPrevio(cliente, intento);
+    if (previo) return { ...previo, monto: num(previo.monto), existente: true };
     const ids = aplicaciones.map((a) => a.id);
     // El bloqueo va sobre las filas de la tabla; la vista se lee DESPUÉS,
     // ya con las facturas tomadas.
@@ -180,13 +184,14 @@ async function registrarPago(datos = {}, usuarioId = null) {
     const { rows } = await cliente.query(
       `INSERT INTO pago_proveedor (fecha, proveedor_id, proveedor_nombre, proveedor_cedula,
                                    cuenta_dinero_id, metodo_pago_id, metodo_pago_texto, referencia,
-                                   monto, observaciones, registrado_por)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                                   monto, observaciones, registrado_por, clave_idempotencia, huella_idempotencia)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         fecha, proveedorId, primera.proveedor_nombre, primera.proveedor_cedula,
         cuentaDineroId, metodo.id, String(metodo.nombre).slice(0, 40), referencia,
-        total, datos.observaciones ? String(datos.observaciones).slice(0, 2000) : null, usuarioId
+        total, datos.observaciones ? String(datos.observaciones).slice(0, 2000) : null, usuarioId,
+        intento?.clave || null, intento?.huella || null
       ]
     );
     const pago = rows[0];

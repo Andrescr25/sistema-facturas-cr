@@ -35,6 +35,7 @@ function montar({ compra = COMPRA, habilitada = true, condicion = '01', comproba
   const consultas = [], preparados = [], enviados = [];
   const pool = { query: async (sql, p) => {
     consultas.push([sql, p]);
+    if (/FROM gasto_operativo/.test(sql)) return { rows: [] };
     if (/FROM compra WHERE/.test(sql)) return { rows: compra ? [compra] : [] };
     if (/FROM hacienda_configuracion/.test(sql)) return { rows: [{ habilitada, datos: { condicion_iva_compras: condicion } }] };
     if (/FROM hacienda_comprobante/.test(sql)) return { rows: comprobante ? [comprobante] : [] };

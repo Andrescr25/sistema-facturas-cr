@@ -24,8 +24,8 @@ archivos:
   - frontend/src/utils/revisionPreciosUtils.js
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
-  relacionado: [modulo/relacionar-productos, modulo/compras, modulo/facturas-ordenes-compra, decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-20
+  relacionado: [modulo/relacionar-productos, modulo/compras, modulo/facturas-ordenes-compra, decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/gastos-operativos]
+medido: 2026-10-21
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -166,3 +166,9 @@ lo resume en una etiqueta («Aceptada en Hacienda», «Aceptación en camino»,
 siguen diciendo «Registrada»). Todo el detalle en [[modulo/hacienda]], "LA
 COMPRA SE ACEPTA SOLA".
 
+
+
+## Gastos operativos — 2026-10-21
+
+El menú de cada factura pendiente permite procesarla como gasto operativo sin relacionar productos. La preferencia futura es opcional. Los gastos no se devuelven al catálogo ni se registran por el botón comercial.
+Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.

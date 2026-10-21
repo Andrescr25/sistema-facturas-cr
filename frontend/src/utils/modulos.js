@@ -30,6 +30,7 @@ export const MODULOS = [
   { clave: 'reporte-proveedores', nombre: 'Reporte Proveedores', grupo: 'Compras', ruta: '/reportes/proveedores' },
   { clave: 'pagos-proveedores', nombre: 'Pago Proveedores', grupo: 'Compras', ruta: '/pagos-proveedores' },
   { clave: 'pagos-recurrentes', nombre: 'Pagos Recurrentes', grupo: 'Compras', ruta: '/pagos-recurrentes' },
+  { clave: 'gastos-operativos', nombre: 'Gastos operativos', grupo: 'Compras', ruta: '/gastos-operativos' },
 
   { clave: 'inventario-auditoria', nombre: 'Auditoría Inventario', grupo: 'Inventario', ruta: '/inventario-auditoria' },
   { clave: 'gestion-catalogo', nombre: 'Gestión de Catálogo', grupo: 'Inventario', ruta: '/gestion-catalogo' },

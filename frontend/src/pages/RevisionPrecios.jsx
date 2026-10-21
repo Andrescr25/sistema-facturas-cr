@@ -4,6 +4,8 @@ import ConfirmModal from '../components/ConfirmModal'
 import ListaFacturas from '../components/revision-precios/ListaFacturas'
 import RevisionFactura from '../components/revision-precios/RevisionFactura'
 import ModalFactorConversion from '../components/revision-precios/ModalFactorConversion'
+import ModalProcesarGasto from '../components/revision-precios/ModalProcesarGasto'
+import { useProcesarFacturaGasto } from '../hooks/useProcesarFacturaGasto'
 
 export default function RevisionPrecios() {
   const {
@@ -40,8 +42,9 @@ export default function RevisionPrecios() {
 
     toasts,
     removeToast,
-    dialogProps
+    dialogProps, recargar
   } = useRevisionPrecios()
+  const gasto = useProcesarFacturaGasto(() => { volverALista(); recargar() })
 
   return (
     <>
@@ -55,6 +58,7 @@ export default function RevisionPrecios() {
           tabActiva={tabActiva}
           setTabActiva={setTabActiva}
           onAbrirRevision={abrirRevision}
+          onProcesarGasto={gasto.abrir}
         />
       ) : (
         <RevisionFactura
@@ -72,6 +76,7 @@ export default function RevisionPrecios() {
           onAplicarPrecioSugerido={aplicarPrecioSugerido}
           onAbrirFactor={abrirFactor}
           onEnviar={registrarCompra}
+          onProcesarGasto={gasto.abrir}
         />
       )}
 
@@ -89,6 +94,7 @@ export default function RevisionPrecios() {
       )}
 
       <ConfirmModal {...dialogProps} />
+      {gasto.factura && <ModalProcesarGasto key={gasto.factura.id} estado={gasto} />}
     </>
   )
 }

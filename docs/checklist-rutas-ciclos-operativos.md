@@ -794,3 +794,10 @@ la entrega de Codex en `a020b89`. Viajan SIM-01/04 y ROT-08 verificados,
 con el retiro del enlace OC que reemplaza RP-04/RP-06; sin SQL nuevo. No
 cierra la definición futura de lo facturado por proveedores ni las revisiones
 humanas del corte. [Registro](informes/simplificacion-sin-semanas-2026-10-20.md).
+
+
+**2026-10-21, gastos operativos:** configuración del proveedor y registro de
+combustible/alimentación sin inventario, reutilizando buzón/compras/CxP/Caja.
+No cambia rutas, próxima visita ni pedidos enviados. SQL 061 local; producción
+pendiente. Ver GO-01/07 en el checklist de independencia y
+[el informe](informes/gastos-operativos-2026-10-21.md).

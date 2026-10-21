@@ -68,8 +68,8 @@ archivos:
   - docs/informes/proveedores-redisenados-2026-10-07.md
 aristas:
   depende_de: [modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/permisos]
-  relacionado: [modulo/rutas-clientes, modulo/facturas-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion, decision/rotacion-por-cliente-sin-ciclos]
-medido: 2026-10-20
+  relacionado: [modulo/rutas-clientes, modulo/facturas-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion, decision/rotacion-por-cliente-sin-ciclos, modulo/gastos-operativos]
+medido: 2026-10-21
 ---
 
 ## El PDF de la orden ya no muestra el factor — 2026-10-20
@@ -293,3 +293,9 @@ por migraciones queda resuelto; la publicación incluye rotación, Reporte
 Clientes, Preventa, Carga/entregas y Proveedores. Ver
 [registro del despliegue](../../informes/despliegue-main-2026-10-13.md).
 Los párrafos de entregas previas describen su estado histórico al publicarlas.
+
+
+## Gastos operativos — 2026-10-21
+
+La ficha configura Comercial, Combustible, Alimentación/viáticos o Mixto para facturas futuras. Se conserva el comportamiento de proveedores existentes y el reporte de faltantes; no cambia sus envíos.
+Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.
