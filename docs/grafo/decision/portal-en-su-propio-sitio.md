@@ -81,7 +81,11 @@ LO QUE CUIDA LA PRUEBA. `portalAparte.test.js` recorre los imports desde
 armado reemplaza, el manifiesto del portal sin atajos y que los enlaces al
 cliente no se armen con el origen interno.
 
-CONFIGURAR EN RENDER (lo hace el usuario):
+CONFIGURAR EN RENDER (lo hace el usuario). Son TRES servicios y cada uno
+tiene sus variables: las `VITE_*` del frontend se graban al armar el sitio
+estático, así que puestas en la API no hacen nada (pasó el 2026-10-20 con
+`VITE_PORTAL_URL`). El armado del portal se detiene si falta `VITE_API_URL`:
+sin ella pedía /api a su propia dirección y publicaba un catálogo vacío.
 1. Nuevo *Static Site* del mismo repositorio, rama `main`, raíz `frontend`.
    Build: `npm install && npm run build:portal`. Publicar: `dist`.
    Variable: `VITE_API_URL` igual que el sitio interno. Regla de reescritura

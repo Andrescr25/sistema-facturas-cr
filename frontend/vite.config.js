@@ -57,6 +57,12 @@ export default defineConfig(({ command, mode }) => {
   // metido en un build hecho en esta máquina. Vale igual para el del portal.
   const apiUrl = command === 'build' ? process.env.VITE_API_URL : env.VITE_API_URL
   const apiOrigen = (apiUrl || 'http://localhost:3000').replace(/\/api\/?$/, '')
+  // Sin la variable, el portal le pide /api a su propia dirección (un sitio
+  // estático) y publica un catálogo vacío sin ningún error a la vista: pasó
+  // al crear el sitio en Render el 2026-10-20. Mejor que el armado se detenga.
+  if (portal && command === 'build' && !apiUrl) {
+    throw new Error('Falta VITE_API_URL en el sitio del portal (la dirección de la API, p. ej. https://sistema-facturas-cr-web.onrender.com)')
+  }
 
   return {
     plugins: [react(), ...(portal ? [htmlDelPortal()] : [])],
