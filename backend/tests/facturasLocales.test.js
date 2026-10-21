@@ -96,29 +96,11 @@ const VIEJA = {
   client: { id: 7, name: 'Ficha histórica' }, total: 3390,
   items: [{ id: 888, productoId: 12, name: 'Tornillo', quantity: 3, price: 1000, tax: [{ percentage: 13 }] }]
 };
-test('un acuse parcial conserva anticipado y semana; null explícito confirma Sin ciclo', () => {
-  const ciclo = { id: 10, rutaId: 2, rutaNombre: 'Ruta original', semana: '2026-10-12', orden: 1 };
-  const anterior = { ...copias.facturaEscrita(PROPIA), ciclo, anticipado: true };
-  const parcial = copias.combinarCopiaFactura(anterior,
-    copias.facturaEscrita({ id: PROPIA.id, numero: PROPIA.numero, yaExistia: true }));
-  assert.deepEqual(parcial.ciclo, ciclo); assert.equal(parcial.anticipado, true);
-  const canonica = copias.combinarCopiaFactura(anterior,
-    copias.facturaEscrita({ id: PROPIA.id, numero: PROPIA.numero, yaExistia: true, ciclo: null, preventa_anticipada: false }));
-  assert.equal(canonica.ciclo, null); assert.equal(canonica.anticipado, false);
-  assert.deepEqual(canonica.lineas, anterior.lineas);
-});
-test('una edición con metadata incompleta no borra el origen anticipado ya descargado', () => {
-  const anterior = { ...copias.facturaEscrita(PROPIA), anticipado: true };
-  const siguiente = copias.combinarCopiaFactura(anterior, copias.facturaEscrita(PROPIA));
-  assert.equal(siguiente.anticipado, true);
-  assert.equal(copias.facturaEscrita({ ...PROPIA, ciclo: null }).ciclo, null);
-  assert.equal(copias.facturaEscrita(PROPIA).ciclo, undefined);
-});
 test('edición y acuse conservan la procedencia histórica aun sin cache previo', () => {
-  for (const respuesta of [{ ...PROPIA, alegra_id: 'histórico-otro-id', ciclo: null },
-    { id: PROPIA.id, yaExistia: true, alegra_id: 'histórico-otro-id', ciclo: null }]) {
+  for (const respuesta of [{ ...PROPIA, alegra_id: 'histórico-otro-id' },
+    { id: PROPIA.id, yaExistia: true, alegra_id: 'histórico-otro-id' }]) {
     const copia = copias.facturaEscrita(respuesta);
-    assert.equal(copia.historica, true); assert.equal(copia.ciclo, null);
+    assert.equal(copia.historica, true);
     assert.equal(copia.id, PROPIA.id, 'la referencia histórica nunca reemplaza el id propio');
   }
 });

@@ -9,8 +9,6 @@ const router = express.Router();
 const reportController = new ReportController();
 
 // Reporte de faltantes por proveedor
-// Ciclos y «necesidades por semana» se retiraron el 2026-10-20 con los ciclos:
-// ninguna pantalla los pedía.
 router.get('/faltantes/proveedor', reportController.getMissingItemsBySupplier);
 router.get('/faltantes/proveedor/exportar', reportController.exportarProveedores);
 

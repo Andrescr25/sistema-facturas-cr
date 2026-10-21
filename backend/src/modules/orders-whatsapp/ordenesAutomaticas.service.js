@@ -4,7 +4,7 @@ const {interno:{enOrden,obtenerEn,proveedorEn,necesidadesEn,agrupar,micros,canti
 const {faltantesEn}=require('./comprasProveedores.service');
 const {insertarLineasEn}=require('./ordenesCicloLineas.service');
 
-/** Una abierta por proveedor, sin agrupar por semana. La enviada/intento
+/** Una abierta por proveedor. La enviada/intento
  * incierto nunca recibe nuevos productos. Se llama dentro de la transacción de Bodega/asignación, antes del COMMIT. */
 async function sincronizarEn(db,filtros={},usuarioId,incrementos=null) {
   await db.query('SELECT pg_advisory_xact_lock(46005,1)');
@@ -15,7 +15,7 @@ async function sincronizarEn(db,filtros={},usuarioId,incrementos=null) {
     contextos.set(f.proveedor_id,{proveedorId:f.proveedor_id});
   }
   for(const {proveedorId} of contextos.values()){
-    const cicloId=null,p=await proveedorEn(db,proveedorId);
+    const p=await proveedorEn(db,proveedorId);
     const {rows:[abierta]}=await db.query(`SELECT id FROM orden_compra_ciclo WHERE proveedor_id=$1 AND estado IN ('borrador','pendiente_enviar') AND envio_id IS NULL ORDER BY id DESC LIMIT 1 FOR UPDATE`,[proveedorId]);
     let o=abierta?await obtenerEn(db,abierta.id,{bloquear:true}):null;
     const libres=await necesidadesEn(db,p,null,{bloquear:true});
@@ -57,8 +57,8 @@ async function sincronizarEn(db,filtros={},usuarioId,incrementos=null) {
         o=null;estadoAnterior=null;
       }
       if(!o){
-        const {rows:[n]}=await db.query(`INSERT INTO orden_compra_ciclo(proveedor_id,proveedor_nombre,proveedor_cedula,ciclo_id,ruta_nombre,semana,clave,solicitud)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,[p.id,p.nombre,p.identificacion,cicloId,null,null,randomUUID(),{automatica:true,sinCiclos:true,proveedorId,cicloId:null}]);
+        const {rows:[n]}=await db.query(`INSERT INTO orden_compra_ciclo(proveedor_id,proveedor_nombre,proveedor_cedula,clave,solicitud)
+          VALUES($1,$2,$3,$4,$5) RETURNING *`,[p.id,p.nombre,p.identificacion,randomUUID(),{automatica:true,proveedorId}]);
         o={...n,lineas:[]};ordenes.push(o.id);
       }
       if(!pendientes.length&&o.estado==='pendiente_enviar'){

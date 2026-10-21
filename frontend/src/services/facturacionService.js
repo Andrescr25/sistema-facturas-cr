@@ -41,7 +41,7 @@ class FacturacionService {
     const anterior = await indexedDBService.getFacturaById(fila.id).catch(() => null);
     // Al pasar de local-UUID al id definitivo se conserva la fotografía,
     // sin cambiar el cuerpo ni la clave del envío. El dato del servidor
-    // prevalece, incluso cuando confirma explícitamente Sin ciclo.
+    // prevalece.
     const base = combinarCopiaFactura(copia, { ...anterior, id: fila.id });
     return { ...combinarCopiaFactura(base, facturaEscrita(fila)),
       estado: fila.estado || anterior?.estado || 'emitida',
@@ -1166,9 +1166,6 @@ class FacturacionService {
 
       const response = await api.post('/facturacion/facturas', {
         ...facturaData,
-        // Una cola anterior conserva este campo solo para reconocer su huella.
-        // El servidor ya no lo asigna a la factura ni exige una semana abierta.
-        ...(guardada?.cicloId !== undefined ? { cicloId: guardada.cicloId } : {}),
         claveIdempotencia: guardada?.claveIdempotencia || null
       });
 

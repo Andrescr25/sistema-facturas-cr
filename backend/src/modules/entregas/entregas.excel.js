@@ -1,8 +1,6 @@
 const service=require('./entregas.service');
 const {generarExcel}=require('../../utils/exportarExcel');
-// Cantidades con seis decimales visibles: cero no significa desconocido. La
-// versión «por ciclo» (contexto de semana, orden y Maps de la semana) se retiró
-// el 2026-10-20 con los ciclos; el Excel es siempre el de la ruta.
+// Cantidades con seis decimales visibles: cero no significa desconocido.
 const col=(clave,titulo,tipo='texto',ancho=22)=>({clave,titulo,tipo,ancho,...(tipo==='numero'?{formato:'#,##0.######'}:{})});
 const siNo=v=>v?'Sí':'No';
 const identificacion=[col('clave','Parada'),col('cliente','Cliente','texto',35),col('ruta','Ruta','texto',32),col('rutaId','ID ruta','numero'),col('parada','Orden de entrega','numero')];

@@ -954,3 +954,13 @@ pide «subelo al main». Autoriza publicar el cambio `a020b89`: sin OC visibles
 ni enlace en Revisión de precios, y sin semanas de cliente/pedido. Próxima
 visita, documentos anteriores y envíos inmutables conservados. No necesita
 migración nueva. [Registro y verificación](informes/simplificacion-sin-semanas-2026-10-20.md).
+
+
+## 2026-10-20 — Quitar todo lo que quedaba de la semana del pedido
+
+A Claude, después de la publicación: «en facturacion sigo viendo cosas como
+estas / Ruta y semana del pedido / Seleccioná la ruta y semana / Request
+failed with status code 404 / elimina todo lo recionado con eso». El selector
+venía de una pestaña abierta antes del despliegue; se retiran además los
+restos de compatibilidad con ciclos en órdenes, colas, Preventa y Reporte
+Clientes. Próxima visita y la historia en SQL no cambian. [Detalle](informes/simplificacion-sin-semanas-2026-10-20.md).

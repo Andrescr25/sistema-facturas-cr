@@ -2,7 +2,7 @@ const { query } = require('../../../config/database');
 const { httpError } = require('../../utils/validacion');
 
 /** La ruta de la ficha, compartida por Reporte Clientes y la agenda.
- * No lee ciclos ni expone ubicaciones en el selector de rutas.
+ * No expone ubicaciones en el selector de rutas.
  */
 function filtroRutaActual(rutaId, params) {
   if (rutaId == null || rutaId === '') return '';

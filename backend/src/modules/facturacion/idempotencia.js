@@ -69,11 +69,6 @@ function huellaAnteriorDe(facturaData) {
  * y uno de Alegra con el mismo número no den nunca la misma huella.
  */
 function huellaDe(facturaData) {
-  // La fórmula anterior queda intacta cuando no se eligió ciclo: una cola
-  // vieja conserva su huella. Una venta de otra semana sí es otro contenido.
-  if (tiene(facturaData?.cicloId)) {
-    return sha(['ciclo-ruta-1', huellaDe({ ...facturaData, cicloId: undefined }), Number(facturaData.cicloId)].join('~'));
-  }
   if (!tiene(facturaData?.clienteId)) return huellaAnteriorDe(facturaData);
 
   return sha([
@@ -97,7 +92,7 @@ function huellaDe(facturaData) {
  */
 function esElMismoDocumento(huellaGuardada, facturaData) {
   return huellaGuardada === huellaDe(facturaData) ||
-    (!tiene(facturaData?.cicloId) && huellaGuardada === huellaAnteriorDe(facturaData));
+    huellaGuardada === huellaAnteriorDe(facturaData);
 }
 
 /**

@@ -137,7 +137,7 @@ caso('borradores históricos separados se reúnen al enviar sin reservas ocultas
   primera=await env.preparar(primera.id,{version:primera.version,clave:randomUUID(),telefono:'88888888',mensaje:`ZZ ${primera.referencia}`});
   const bytes=await env.descargar(primera.id,primera.envios[0].id);
   await c.query("INSERT INTO faltantes(factura_propia_id,producto_propio_id,cantidad_faltante,tipo_faltante,estado,proveedor_asignado,proveedor_cedula) VALUES($1,$2,5,'parcial','pendiente',$3,$4)",[f.facturas[1],f.productos[1],f.p.nombre,f.p.identificacion]);
-  const segunda=await motor.crear({clave:randomUUID(),proveedorId:f.p.id,cicloId:f.ciclo,lineas:[{productoId:f.productos[1],cantidadProveedor:5}]});
+  const segunda=await motor.crear({clave:randomUUID(),proveedorId:f.p.id,lineas:[{productoId:f.productos[1],cantidadProveedor:5}]});
   const r=await s.enviar(await pedido());assert.equal(r.orden.id,segunda.id);assert.equal(envios,1);
   assert.deepEqual(new Map(r.orden.lineas.map(l=>[l.producto_id,l.cantidad_proveedor])),new Map([[f.productos[0],10],[f.productos[1],5]]));
   const anterior=await motor.obtener(primera.id);assert.equal(anterior.estado,'cerrada');assert.deepEqual(anterior.lineas,primera.lineas);assert.deepEqual((await env.descargar(primera.id,primera.envios[0].id)).pdf,bytes.pdf);

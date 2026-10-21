@@ -3,7 +3,7 @@ import { Contact, Map, ClipboardList, ShieldCheck } from 'lucide-react'
 
 const SECCIONES = [
   { id: 'fichas', titulo: 'Clientes', detalle: 'Fichas y contacto', icono: Contact },
-  { id: 'rutas', titulo: 'Rutas', detalle: 'Visitas y semanas', icono: Map },
+  { id: 'rutas', titulo: 'Rutas', detalle: 'Clientes y próxima visita', icono: Map },
   { id: 'pedidos', titulo: 'Pedidos', detalle: 'Revisión y facturación', icono: ClipboardList },
   { id: 'clientes', titulo: 'Accesos', detalle: 'Portal y tablets', icono: ShieldCheck }
 ]

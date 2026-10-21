@@ -8,11 +8,10 @@ const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { vistaReporteClientes, MOVIMIENTOS_REPORTE, JOIN_HISTORIAL_REPORTE } = require('./historialClientes.sql');
 const { filtroRutaActual, listarRutasActuales: listarRutas } = require('../rutas/rutaActual.service');
 
-async function getMissingItemsByClient({ rutaId, cicloId, vista: vistaCruda } = {}) {
+async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
   try {
     console.log('📋 Generando reporte de faltantes por la ruta del cliente...');
 
-    if (cicloId !== undefined) return { success: false, status: 400, error: 'Actualizá Reporte Clientes para consultar sin semanas.' };
     const vista = vistaReporteClientes(vistaCruda);
     const params = [];
     const whereRuta = filtroRutaActual(rutaId, params);

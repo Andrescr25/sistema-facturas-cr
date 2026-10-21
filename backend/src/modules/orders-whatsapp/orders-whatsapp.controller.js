@@ -11,21 +11,6 @@ class OrdersWhatsappController {
     this.ordersService = new OrdersWhatsappService();
   }
 
-  /**
-   * GET /orden-compra/enviados?desde=YYYY-MM-DD
-   * A qué proveedores ya se les mandó el pedido en el período del reporte.
-   */
-  getOrdenesEnviadas = async (req, res) => {
-    try {
-      const { desde } = req.query;
-      const result = await this.ordersService.getOrdenesEnviadas(desde);
-      return ResponseHelper.success(res, result, 'Órdenes enviadas obtenidas');
-    } catch (error) {
-      console.error('❌ Error obteniendo órdenes enviadas:', error);
-      return ResponseHelper.error(res, error.message, 500);
-    }
-  };
-
   getCantidades = async (req, res) => {
     try {
       const result = await this.ordersService.getCantidadesModificadas();

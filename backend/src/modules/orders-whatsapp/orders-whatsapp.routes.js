@@ -8,9 +8,7 @@ const OrdersWhatsappController = require('./orders-whatsapp.controller');
 const router = express.Router();
 const controller = new OrdersWhatsappController();
 
-// Entrada por proveedor. /por-ciclo (listar, editar, facturas, recepciones,
-// cierre y archivo de cada orden «OC-xx») se retiró el 2026-10-20: ninguna
-// pantalla lo usaba y el usuario pidió quitar el número de orden y su enlace.
+// Entrada por proveedor.
 router.use('/proveedor', require('./ordenesProveedor.routes'));
 
 // El envío global no registra cobertura y permitiría comprar otra vez lo ya
@@ -20,9 +18,6 @@ router.post('/enviar-whatsapp', (req, res) => res.status(409).json({
   success: false,
   message: 'Abrí el proveedor en Faltantes y revisá una orden de compra antes de enviarla.'
 }));
-
-// A quiénes ya se les mandó el pedido (para la marca en la tarjeta)
-router.get('/enviados', controller.getOrdenesEnviadas);
 
 // Cantidades modificadas
 router.get('/cantidades', controller.getCantidades);

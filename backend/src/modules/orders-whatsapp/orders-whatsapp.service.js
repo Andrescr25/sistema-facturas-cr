@@ -53,7 +53,6 @@ class OrdersWhatsappService {
   // ruta de envío ya respondía 409) y armaban la referencia «OC-fecha», que el
   // usuario pidió quitar. Hoy se envía desde el Reporte (envioDesdeReporte).
 
-  getOrdenesEnviadas(desde) { return require('./historialEnviosProveedor.service').getOrdenesEnviadas(desde); }
   eliminarRegistroTemporal(...args) { return require('./temporalesProveedor.service').eliminarRegistroTemporal(...args); }
   getCantidadesModificadas() { return require('./temporalesProveedor.service').getCantidadesModificadas(); }
   guardarCantidades(...args) { return require('./temporalesProveedor.service').guardarCantidades(...args); }

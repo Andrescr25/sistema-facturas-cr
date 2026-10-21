@@ -157,8 +157,6 @@ async function crearPedido(cuentaId, { observaciones } = {}) {
         FROM cliente_portal cp LEFT JOIN cliente c ON c.id = cp.cliente_id
        WHERE cp.id = $1 AND cp.activo = TRUE FOR UPDATE OF cp`, [cuentaId]);
     if (!cuenta || !cuenta.cliente_id || !cuenta.cliente_activo) throw httpError(403, 'Su cuenta está desactivada.');
-    // Sin semana de ruta (2026-10-20): el pedido ya no se ata a un ciclo; a
-    // quién se le visita y cuándo lo dice la próxima visita del cliente.
     await bloquearCarrito(db, cuentaId);
     const carrito = await obtenerCarrito(cuentaId, db, { bloquearProductos: true });
     if (!carrito.lineas.length) throw httpError(400, carrito.noDisponibles.length

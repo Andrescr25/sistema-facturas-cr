@@ -23,9 +23,9 @@ async function reemplazarLineasEn(db,o,lineas,p) {
   for (const l of lineas) await reemplazarLineaEn(db,o,l,productos.find(p=>p.productoId===l.productoId),previas.get(l.productoId));
 }
 async function crear(datos,usuarioId) {
-  const cicloId=datos?.cicloId==='sin-ciclo'?null:datos?.cicloId??null,proveedorId=entero(datos?.proveedorId),lineas=lineasValidas(datos?.lineas),clave=datos?.clave;
+  const proveedorId=entero(datos?.proveedorId),lineas=lineasValidas(datos?.lineas),clave=datos?.clave;
   if (typeof clave!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clave)) throw httpError(400,'Clave de solicitud inválida.');
-  const solicitud={proveedorId,cicloId,lineas};
+  const solicitud={proveedorId,lineas};
   return enOrden(async db=>{
     const {rows:[previa]}=await db.query('SELECT id,solicitud FROM orden_compra_ciclo WHERE clave=$1',[clave]);
     if (previa) {
@@ -33,9 +33,9 @@ async function crear(datos,usuarioId) {
         throw httpError(409,'Esa clave ya corresponde a otra solicitud.');
       return obtenerEn(db,previa.id);
     }
-    const p=await proveedorEn(db,proveedorId),c=cicloId?(await db.query('SELECT ruta_nombre,semana::text FROM ciclo_ruta WHERE id=$1',[cicloId])).rows[0]:null;
-    const {rows:[o]}=await db.query(`INSERT INTO orden_compra_ciclo(proveedor_id,proveedor_nombre,proveedor_cedula,ciclo_id,ruta_nombre,semana,clave,solicitud)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,[p.id,p.nombre,p.identificacion,cicloId,c?.ruta_nombre??null,c?.semana??null,clave,solicitud]);
+    const p=await proveedorEn(db,proveedorId);
+    const {rows:[o]}=await db.query(`INSERT INTO orden_compra_ciclo(proveedor_id,proveedor_nombre,proveedor_cedula,clave,solicitud)
+      VALUES($1,$2,$3,$4,$5) RETURNING *`,[p.id,p.nombre,p.identificacion,clave,solicitud]);
     await reemplazarLineasEn(db,o,lineas,p);const nueva=await obtenerEn(db,o.id);
     await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:'crear',despues:nueva,usuarioId});return nueva;
   });

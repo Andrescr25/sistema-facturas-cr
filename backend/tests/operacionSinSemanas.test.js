@@ -19,6 +19,7 @@ if (activo) {
     const ruta = require.resolve('../config/database');
     require.cache[ruta] = { id: ruta, filename: ruta, loaded: true, exports: baseEnTransaccion(c, 'sinsem') };
     f = await sembrar(c);
+    Object.assign(f, await semanaHistorica(c, f));
     clientes = require('../src/modules/clientes/clientes.service');
     await clientes.editarCliente(f.cliente.id, { ruta_id: f.ruta.id, rotacion_dias: 22 });
     await c.query('UPDATE producto SET precio_sin_iva=1000 WHERE id=ANY($1::int[])', [f.productos]);
@@ -28,6 +29,17 @@ if (activo) {
     bodega = require('../src/modules/warehouse/bodegaPropia');
   });
   after(async () => { if (c) { await c.query('ROLLBACK'); c.release(); } await pool?.end(); });
+}
+/** Una semana de las de antes con su factura, para probar que la historia se
+ * conserva aunque ya nada nuevo cree semanas. La factura nace atada: un
+ * trigger impide reclasificar después el contexto de un documento. */
+async function semanaHistorica(db, { ruta, cliente, productos: [producto] }) {
+  const ciclo = (await db.query("INSERT INTO ciclo_ruta(ruta_id,ruta_nombre,semana) VALUES($1,$2,'2026-10-12') RETURNING id", [ruta.id, ruta.nombre])).rows[0].id;
+  const rc = (await db.query('INSERT INTO ciclo_ruta_cliente(ciclo_id,cliente_id,orden,cliente_nombre) VALUES($1,$2,1,$3) RETURNING id', [ciclo, cliente.id, cliente.nombre])).rows[0].id;
+  await db.query('UPDATE ciclo_ruta SET recorrido_fijado=TRUE WHERE id=$1', [ciclo]);
+  const historica = (await db.query("INSERT INTO factura(numero,estado,fecha,cliente_id,cliente_nombre,ciclo_ruta_cliente_id,total) VALUES($1,'emitida','2026-10-13',$2,$3,$4,20) RETURNING id", ['ZZ semana ' + randomUUID().slice(0, 8), cliente.id, cliente.nombre, rc])).rows[0].id;
+  await db.query("INSERT INTO factura_linea(factura_id,numero_linea,producto_id,nombre,cantidad,precio_unitario,total) VALUES($1,1,$2,'ZZ',20,1,20)", [historica, producto]);
+  return { ciclo, historica };
 }
 const datosFactura = () => ({ clienteId: f.cliente.id, items: [{ productoId: f.productos[0], quantity: 2, price: 1000 }] });
 const datosPedido = () => ({ clienteId: f.cliente.id, lineas: [{ productoId: f.productos[0], cantidad: 2 }], claveIdempotencia: 'ZZ-' + randomUUID() });
@@ -102,7 +114,7 @@ caso('Bodega incluye pendientes antiguos al elegir ruta, sin exigir ni inferir s
   assert.ok((await bodega.listar({ rutaId: 'sin-ruta' })).data.pendientes.some(x => x.factura_id === f.facturas[0]));
 });
 caso('editar una factura histórica conserva su referencia a la semana original', async () => {
-  const antes = await fila(f.facturas[0]);
+  const antes = await fila(f.historica);
   await facturas.editarFactura(antes.id, datosFactura());
   assert.equal((await fila(antes.id)).ciclo_ruta_cliente_id, antes.ciclo_ruta_cliente_id);
   const otro = await clientes.crearCliente({ nombre: 'ZZ otro ' + randomUUID() });
@@ -114,7 +126,7 @@ caso('los triggers siguen impidiendo alterar o borrar un recorrido histórico', 
     await assert.rejects(c.query(sql, [f.ciclo]), /recorrido/);
     await c.query('ROLLBACK TO SAVEPOINT historia');
   }
-  assert.ok((await fila(f.facturas[0])).ciclo_ruta_cliente_id);
+  assert.ok((await fila(f.historica)).ciclo_ruta_cliente_id);
 });
 test('la copia local de Bodega filtra por ruta conocida, sin usar la semana vieja como ruta actual', async () => {
   const { coincideRutaBodega } = await import('../../frontend/src/utils/facturasBodegaUtils.js');

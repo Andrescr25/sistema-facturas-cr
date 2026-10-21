@@ -44,13 +44,13 @@ if(habilitado){
   after(async()=>{wa.enviarDocumento=original;if(c){await c.query('ROLLBACK');c.release()}await pool.end()});
 }
 async function pendiente(serv=s,d=fixture,q=10){
-  const o=await serv.crear({proveedorId:d.proveedor.id,cicloId:d.ciclo,clave:randomUUID(),lineas:[{productoId:d.producto,cantidadProveedor:q}]});
+  const o=await serv.crear({proveedorId:d.proveedor.id,clave:randomUUID(),lineas:[{productoId:d.producto,cantidadProveedor:q}]});
   return serv.cambiarEstado(o.id,{version:o.version,estado:'pendiente_enviar'});
 }
 const datos=o=>({version:o.version,telefono:'8888 8888',mensaje:`Orden ${o.referencia} para su semana`,clave:randomUUID()});
 async function copia(o=undefined){o=o||await pendiente();const n=await env.preparar(o.id,datos(o));return {o:n,e:n.envios[0]};}
 const mandar=(o,e)=>env.enviar(o.id,e.id,{confirmar:true});
-const sugerir=()=>s.sugerir({proveedorId:fixture.proveedor.id,cicloId:fixture.ciclo});
+const sugerir=()=>s.sugerir({proveedorId:fixture.proveedor.id});
 const protegido=async(sql,params)=>{await c.query('SAVEPOINT proteger');try{await assert.rejects(c.query(sql,params))}finally{await c.query('ROLLBACK TO SAVEPOINT proteger')}};
 
 caso('copia privada guarda bytes/huella/numero/mensaje y DTO nunca expone el PDF',async()=>{
@@ -73,7 +73,7 @@ caso('descarga ajena o UUID inválido no concede acceso; copia anterior sigue in
   const nuevo=await s.editar(b.id,{version:b.version,lineas:[{productoId:fixture.producto,cantidadProveedor:7}]});
   assert.deepEqual((await env.descargar(o.id,e.id)).pdf,a.pdf);await assert.rejects(mandar(nuevo,e),e=>e.status===409);
   await assert.rejects(env.descargar(o.id,'../otro'),e=>e.status===400);
-  const otra=await s.crear({proveedorId:fixture.proveedor.id,cicloId:fixture.proximo,clave:randomUUID(),lineas:[{productoId:fixture.producto,cantidadProveedor:4}]});
+  const otra=await s.crear({proveedorId:fixture.proveedor.id,clave:randomUUID(),lineas:[{productoId:fixture.producto,cantidadProveedor:4}]});
   await assert.rejects(env.descargar(otra.id,e.id),e=>e.status===404);
 });
 caso('enviar usa exactamente PDF y caption revisados aunque cambien maestro/mapeos/ficha',async()=>{
@@ -95,9 +95,9 @@ caso('orden enviada no vuelve a borrador, no cambia líneas ni se cierra sin rec
 caso('10 enviadas y 3 nuevas: nueva orden solo 3, anterior conserva 10 y próxima semana 4',async()=>{
   const {o,e}=await copia();await mandar(o,e);await c.query('UPDATE faltantes SET cantidad_faltante=cantidad_faltante+3 WHERE id=$1',[fixture.faltantes[1].id]);
   const p=(await sugerir()).productos[0];assert.equal(p.faltante,17);assert.equal(p.solicitada,10);assert.equal(p.pendienteRecibir,10);assert.equal(p.reservadaBorrador,0);assert.equal(p.disponible,7);
-  const otra=await s.crear({proveedorId:fixture.proveedor.id,cicloId:fixture.ciclo,clave:randomUUID(),lineas:[{productoId:fixture.producto,cantidadProveedor:3}]});
+  const otra=await s.crear({proveedorId:fixture.proveedor.id,clave:randomUUID(),lineas:[{productoId:fixture.producto,cantidadProveedor:3}]});
   assert.equal(otra.lineas[0].cantidad_propia,3);assert.equal((await s.obtener(o.id)).lineas[0].cantidad_proveedor,10);
-  assert.equal((await s.sugerir({proveedorId:fixture.proveedor.id,cicloId:fixture.proximo})).productos[0].disponible,4);
+  assert.equal((await sugerir()).productos[0].disponible,4);
 });
 caso('mismo envío repetido tras confirmación no vuelve a tocar transporte',async()=>{
   const {o,e}=await copia(),a=await mandar(o,e),b=await mandar(o,e);assert.equal(llamadas.length,1);assert.deepEqual(a,b);
@@ -147,7 +147,7 @@ caso('conversión conserva cobertura por origen entre semanas históricas',async
     VALUES($1,$2,$3,'ZZ-CAJA','ZZ Caja','','',$4,$5,6)`,[randomUUID(),fixture.proveedor.nombre,fixture.proveedor.identificacion,fixture.producto,fixture.proveedor.id]);
   const {o,e}=await copia(await pendiente(s,fixture,2)),n=await mandar(o,e);
   assert.equal(n.lineas[0].cantidad_propia,12);assert.equal(n.lineas[0].origenes.reduce((a,r)=>a+Number(r.cantidad),0),12);
-  assert.equal((await sugerir()).productos[0].pendienteRecibir,12);assert.equal((await s.sugerir({proveedorId:fixture.proveedor.id,cicloId:fixture.proximo})).productos[0].disponible,2);
+  assert.equal((await sugerir()).productos[0].pendienteRecibir,12);assert.equal((await sugerir()).productos[0].disponible,2);
 });
 caso('envío no registra compra, entrada de inventario ni modifica documentos/faltantes',async()=>{
   const tablas=['compra','compra_linea','movimiento_inventario','inventario_saldo','factura','factura_linea','faltantes'];

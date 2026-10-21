@@ -28,7 +28,6 @@ archivos:
   - backend/tests/identidadEnvioProveedor.test.js
   - backend/src/modules/orders-whatsapp/temporalesProveedor.service.js
   - backend/src/modules/orders-whatsapp/revisionTemporalesProveedor.service.js
-  - backend/src/modules/orders-whatsapp/historialEnviosProveedor.service.js
   - backend/src/modules/orders-whatsapp/comprobacionEnviosReporte.service.js
   - backend/tests/temporalesProveedores.test.js
   - frontend/src/utils/reporteProveedoresUtils.js

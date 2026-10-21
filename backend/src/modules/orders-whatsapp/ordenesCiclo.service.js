@@ -45,7 +45,7 @@ async function necesidadesEn(db,p,excluirOrden=null,{ bloquear=false }={}) {
   // La reserva se cuenta por FALTANTE, incluso si se reasigna el proveedor.
   // No descontar stock provisional ni llamar al borrador «ya pedido».
   const {rows}=await db.query(`SELECT f.id AS "faltanteId",f.producto_propio_id AS "productoId",${cantidadPendiente()} AS cantidad_faltante,
-    p.nombre,p.referencia,fa.id AS "facturaId",fa.numero,fa.cliente_id,fa.cliente_nombre,fa.preventa_anticipada,rc.orden,
+    p.nombre,p.referencia,fa.id AS "facturaId",fa.numero,fa.cliente_id,fa.cliente_nombre,
     m.id AS mapping_id,m.supplier_code,m.supplier_desc,COALESCE(m.factor_conversion,1) AS factor_conversion,
     COALESCE((SELECT SUM(r.cobertura) FROM orden_compra_ciclo_cobertura r
       WHERE r.faltante_id=f.id AND ($3::int IS NULL OR r.orden_id<>$3)),0) AS reservada,
@@ -56,7 +56,6 @@ async function necesidadesEn(db,p,excluirOrden=null,{ bloquear=false }={}) {
     COALESCE((SELECT SUM(r.cantidad_recibida) FROM orden_compra_ciclo_cobertura r
       WHERE r.faltante_id=f.id AND ($3::int IS NULL OR r.orden_id<>$3)),0) AS recibida
     FROM faltantes f JOIN producto p ON p.id=f.producto_propio_id JOIN factura fa ON fa.id=f.factura_propia_id
-    LEFT JOIN ciclo_ruta_cliente rc ON rc.id=fa.ciclo_ruta_cliente_id
     LEFT JOIN LATERAL (${mappingProveedor('p.id','$1','$2')}) m ON TRUE
     WHERE ${faltanteOperativo()} AND ${cantidadPendiente()}>0
       AND ${asignadoAlProveedor('$1','$2','$4')}
@@ -83,9 +82,9 @@ function agrupar(rows) {
     return {...p,...totales,factorValido,cantidadSugerida:factorValido?Number((disponible+factor-1n)/factor):null};
   });
 }
-function dto(o) { return {...o,referencia:String(o.id),ciclo:o.ciclo_id?{id:o.ciclo_id,rutaNombre:o.ruta_nombre,semana:o.semana}:null}; }
+function dto(o) { return {...o,referencia:String(o.id)}; }
 async function obtenerEn(db,id,{ bloquear=false }={}) {
-  const {rows:[o]}=await db.query(`SELECT *,semana::text FROM orden_compra_ciclo_operativa WHERE id=$1 ${bloquear?'FOR UPDATE':'FOR SHARE'}`,[entero(id)]);
+  const {rows:[o]}=await db.query(`SELECT * FROM orden_compra_ciclo_operativa WHERE id=$1 ${bloquear?'FOR UPDATE':'FOR SHARE'}`,[entero(id)]);
   if (!o) throw httpError(404,'No existe esa orden.');
   const {rows:lineas}=await db.query(`SELECT l.*,COALESCE((SELECT SUM(rl.cantidad) FROM orden_compra_ciclo_recepcion_linea rl JOIN orden_compra_ciclo_recepcion re ON re.id=rl.recepcion_id JOIN compra_linea cl ON cl.id=rl.compra_linea_id WHERE re.orden_id=l.orden_id AND cl.producto_id=l.producto_id),0) cantidad_recibida,COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.orden_visita,r.faltante_id) FILTER(WHERE r.linea_id IS NOT NULL),'[]') origenes
     FROM orden_compra_ciclo_linea l LEFT JOIN orden_compra_ciclo_origen r ON r.linea_id=l.id
@@ -111,11 +110,11 @@ async function listarEn(db,{proveedorId,vista='activas'}={}, {detalleId=null}={}
   if (!['activas','historial'].includes(vista)) throw httpError(400,'Vista inválida.');
   const filtros=[],params=[];
   // La vista usa la hora de PostgreSQL. Archivar no libera cobertura ni
-  // cambia el estado comercial; parciales siguen activas sin límite semanal.
+  // cambia el estado comercial; parciales siguen activas sin límite de tiempo.
   if(detalleId==null)filtros.push(vista==='activas'?"o.estado<>'cerrada' AND NOT o.archivada":"(o.estado='cerrada' OR o.archivada)");
   else{params.push(entero(detalleId));filtros.push(`o.id=$${params.length}`)}
   if (proveedorId!=null&&proveedorId!=='') {params.push(entero(proveedorId));filtros.push(`o.proveedor_id=$${params.length}`)}
-  const {rows}=await db.query(`SELECT o.*,o.semana::text,CURRENT_TIMESTAMP AS consultada_en,l.productos,l.cantidad_propia
+  const {rows}=await db.query(`SELECT o.*,CURRENT_TIMESTAMP AS consultada_en,l.productos,l.cantidad_propia
     FROM orden_compra_ciclo_operativa o
     LEFT JOIN LATERAL (SELECT COUNT(*)::int productos,COALESCE(SUM(cantidad_propia),0) cantidad_propia
       FROM orden_compra_ciclo_linea WHERE orden_id=o.id) l ON TRUE

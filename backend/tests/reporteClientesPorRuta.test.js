@@ -91,14 +91,12 @@ describe('Reporte clientes por ficha actual — PostgreSQL local y ROLLBACK', { 
     assert.equal(await huella(), antes);
     assert.equal((await c.query('SELECT proveedor_asignado FROM faltantes WHERE id=$1', [f.facturas[0].faltante])).rows[0].proveedor_asignado, null);
   });
-  test('ruta mal formada o semana antigua rechazan sin devolver el reporte global', async () => {
+  test('ruta mal formada rechaza sin devolver el reporte global', async () => {
     for (const rutaId of ['1 OR 1=1', [], {}, true, '0', '1.2', '2147483648', 'sin-ciclo']) {
       const r = await servicio.getMissingItemsByClient({ rutaId });
       assert.equal(r.success, false); assert.equal(r.status, 400);
       await assert.rejects(excel.exportarClientes({ rutaId }), e => e.status === 400);
     }
-    const r = await servicio.getMissingItemsByClient({ cicloId: '1' });
-    assert.equal(r.status, 400);
     for (const nombre of ['clienteId', 'facturaId']) await assert.rejects(excel.exportarClientes({ [nombre]: true }), e => e.status === 400);
   });
 });

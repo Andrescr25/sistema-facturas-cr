@@ -24,8 +24,7 @@ async function listarPedidos({ estado = 'pendiente', rutaId, origen } = {}) {
   const agregar = v => { params.push(v); return '$' + params.length; };
   if (!['pendiente','facturado','rechazado','todos'].includes(estado)) throw httpError(400, 'Estado de pedido inválido.');
   if (estado !== 'todos') where.push(`p.estado=${agregar(estado)}`);
-  // La ruta es la de la ficha del cliente, como en Reporte Clientes y la
-  // agenda: desde el 2026-10-20 los pedidos no se atan a una semana de ruta.
+  // La ruta es la de la ficha del cliente, como en Reporte Clientes y la agenda.
   const ruta = filtroRutaActual(rutaId, params);
   if (ruta) where.push(ruta.replace(/^AND /, ''));
   if (origen) {

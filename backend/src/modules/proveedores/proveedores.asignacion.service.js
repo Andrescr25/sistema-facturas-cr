@@ -26,8 +26,7 @@ const { AHORA_CR_SQL } = require('../../utils/fechaCR');
  * @param {{productoId: number, proveedorId: number}} datos
  * @returns {Promise<{proveedor: string, faltantesActualizados: number, mappingId: string|null}>}
  */
-async function asignarProveedorAProducto({ productoId, proveedorId, cicloId } = {}) {
-  if (cicloId !== undefined) throw httpError(400, 'Actualizá Reporte Proveedores para asignar sin semanas.');
+async function asignarProveedorAProducto({ productoId, proveedorId } = {}) {
   const idProducto = idValido(productoId);
   const idProveedor = idValido(proveedorId);
   return enTransaccion(pool, async (db) => {

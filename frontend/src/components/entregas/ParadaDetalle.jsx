@@ -11,7 +11,6 @@ export default function ParadaDetalle({parada,onActualizar}) {
     {parada.documentos.map(d=><article key={`${d.tipo}-${d.id}`} className="card p-5 space-y-3">
       <h3 className="break-words text-xl font-bold">{d.tipo==='factura'?`Factura ${d.numero}`:`Pedido #${d.id} · por facturar`}</h3>
       {d.pedidoId&&d.tipo==='factura'&&<p className="text-sm">Pedido de origen #{d.pedidoId}</p>}
-      {d.anticipado&&<p className="font-semibold text-nota-700">Preventa anticipada</p>}
       {d.origen&&<p className="text-sm">{d.origen==='portal'?'Pedido en línea':'Pedido del agente'}</p>}
       <p className="font-semibold">{d.tipo==='pedido'?'Pendiente de revisión y facturación':d.revisionBodega?'Revisión de bodega registrada':'Por preparar en bodega'}</p>
       {d.faltantes>0&&<p className="rounded-lg bg-alerta-50 p-3 text-alerta-800">{d.faltantes} faltantes registrados. Revisá los paquetes antes de cargar.</p>}

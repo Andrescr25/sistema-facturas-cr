@@ -91,8 +91,8 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   const { rows:abiertas } = await db.query(`SELECT * FROM orden_compra_ciclo WHERE proveedor_id=$1
     AND estado IN ('borrador','pendiente_enviar') AND envio_id IS NULL ORDER BY id DESC FOR UPDATE`,[p.id]);
   let o = abiertas[0];
-  // Antes se abría una por semana. La revisión visible ahora reúne al
-  // proveedor completo; liberar borradores anteriores conservando su historia
+  // La revisión visible reúne al proveedor completo; liberar borradores
+  // anteriores conservando su historia
   // evita que reservas ocultas bloqueen el pedido que acaba de revisar.
   for (const anterior of abiertas.slice(1)) {
     const motivo = 'Borrador sustituido por las cantidades revisadas en Reporte Proveedores.';
@@ -100,7 +100,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
     await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:anterior.id,accion:'cerrada',despues:{sustituidaPor:o.id},usuarioId:actor,motivo});
   }
   if (!o) o = (await db.query(`INSERT INTO orden_compra_ciclo(proveedor_id,proveedor_nombre,proveedor_cedula,clave,solicitud)
-    VALUES($1,$2,$3,$4,$5) RETURNING *`,[p.id,p.nombre,p.identificacion,randomUUID(),{sinCiclos:true,desdeReporte:true}])).rows[0];
+    VALUES($1,$2,$3,$4,$5) RETURNING *`,[p.id,p.nombre,p.identificacion,randomUUID(),{desdeReporte:true}])).rows[0];
   // La pantalla es la revisión: reemplazar la abierta con lo que allí se vio
   // retira orígenes resueltos y ediciones anteriores, sin tocar una enviada.
   await limpiarBorradorEn(db,o);

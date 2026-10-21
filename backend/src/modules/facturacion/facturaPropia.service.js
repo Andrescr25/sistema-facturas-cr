@@ -313,11 +313,6 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preci
     alegraClienteId: datos.client
   });
 
-  // SIN CICLOS (2026-10-20, el usuario: «quita la lógica de los clientes de
-  // ciclo — Ruta y semana del pedido —; esto solo va a ser con la lógica de
-  // próxima visita»). La factura ya no se ata a una semana de ruta: nace sin
-  // `ciclo_ruta_cliente_id`. Las pocas que lo tienen lo conservan (historia).
-
   // Una cola o pantalla anterior a esta función no vio la rebaja: cambiarle
   // el total al sincronizar también cambiaría lo cobrado o prometido.
   if (exigirDescuentoRevisado && Number(clienteFacturado.descuento_global) > 0 && datos.descuentoClienteRevisado === undefined) {

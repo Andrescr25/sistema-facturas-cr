@@ -27,20 +27,20 @@ describe('Proveedores simplificado — faltantes originales y órdenes por prove
   servidor=await new Promise(r=>{const s=app.listen(0,'127.0.0.1',()=>r(s))});url=`http://127.0.0.1:${servidor.address().port}/api/orden-compra/proveedor`;
  });
  after(async()=>{if(servidor)await new Promise(r=>servidor.close(r));if(c){await c.query('ROLLBACK');c.release()}await pool?.end()});
- test('semana histórica cerrada no impide preparar y la orden no tiene ciclo',async()=>{
-  await c.query("UPDATE ciclo_ruta SET estado='cerrado' WHERE id=$1",[f.ciclo]);await faltante(0,10);
-  const [o]=await lista();assert.equal(o.ciclo,null);assert.equal(o.solicitud.sinCiclos,true);assert.equal(o.estado,'borrador');assert.equal((await ordenes.obtener(o.id)).lineas[0].cantidad_proveedor,10);
+ test('un faltante prepara una orden del proveedor en borrador',async()=>{
+  await faltante(0,10);
+  const [o]=await lista();assert.equal(o.estado,'borrador');assert.equal((await ordenes.obtener(o.id)).lineas[0].cantidad_proveedor,10);
  });
  test('faltantes y cantidades mantienen el reporte global de main',async()=>{
   const p=await datosReporte();assert.equal(p.nombre,f.p.nombre);assert.equal(p.total_productos,1);assert.equal(p.total_cantidad,10);
-  const a=p.productos_faltantes[0];assert.equal(a.producto_id,f.productos[0]);assert.equal(a.cantidad_faltante,10);assert.equal(a.origenes[0].facturaId,f.facturas[0]);assert.equal(a.origenes[0].cicloId,undefined);
+  const a=p.productos_faltantes[0];assert.equal(a.producto_id,f.productos[0]);assert.equal(a.cantidad_faltante,10);assert.equal(a.origenes[0].facturaId,f.facturas[0]);
  });
  test('enviada10 → nueva factura faltante3 crea otra; anterior/PDF idénticos',async()=>{
   let original=await ordenes.obtener((await lista())[0].id);original=await ordenes.cambiarEstado(original.id,{version:original.version,estado:'pendiente_enviar'},actor);
   original=await env.preparar(original.id,{version:original.version,clave:randomUUID(),telefono:'88888888',mensaje:`ZZ compra simple ${original.referencia}`},actor);
   const enviada=await env.enviar(original.id,original.envios[0].id,{confirmar:true},actor),pdf=(await env.descargar(enviada.id,enviada.envio_id)).pdf;
   await faltante(0,3,1);const ls=await lista();assert.equal(ls.length,2);assert.notEqual(ls[0].id,enviada.id);
-  const nueva=await ordenes.obtener(ls[0].id);assert.equal(nueva.lineas[0].cantidad_proveedor,3);assert.equal(nueva.ciclo,null);
+  const nueva=await ordenes.obtener(ls[0].id);assert.equal(nueva.lineas[0].cantidad_proveedor,3);
   assert.deepEqual(await ordenes.obtener(enviada.id),enviada);assert.deepEqual((await env.descargar(enviada.id,enviada.envio_id)).pdf,pdf);
   assert.equal((await datosReporte()).productos_faltantes[0].cantidad_faltante,3);
   const reporteCompleto=await reporte.getMissingItemsBySupplier(null,{asignarProveedores:false});
@@ -66,14 +66,13 @@ describe('Proveedores simplificado — faltantes originales y órdenes por prove
   assert.equal((await fetch(url.replace('/proveedor','/Proveedor')+'/Ordenes/?cedula='+f.p.identificacion,{headers})).status,200);
   await c.query('UPDATE usuario SET activo=false WHERE id=$1',[actor]);assert.equal((await pedir('/estados')).status,401);
  });
- test('una abierta previa con semana se reutiliza sin reclasificar sus datos históricos',async()=>{
+ test('una abierta previa se reutiliza y acumula el faltante nuevo',async()=>{
   const g=await sembrar(c);
   await c.query(`INSERT INTO faltantes(factura_propia_id,producto_propio_id,cantidad_faltante,tipo_faltante,estado,proveedor_asignado,proveedor_cedula)
     VALUES($1,$2,10,'parcial','pendiente',$3,$4)`,[g.facturas[0],g.productos[0],g.p.nombre,g.p.identificacion]);
-  const o=await ordenes.crear({clave:randomUUID(),proveedorId:g.p.id,cicloId:g.ciclo,lineas:[{productoId:g.productos[0],cantidadProveedor:10}]});
-  await c.query("UPDATE ciclo_ruta SET estado='cerrado' WHERE id=$1",[g.ciclo]);
+  const o=await ordenes.crear({clave:randomUUID(),proveedorId:g.p.id,lineas:[{productoId:g.productos[0],cantidadProveedor:10}]});
   await require('../src/modules/warehouse/bodegaPropia').registrarFaltantes(g.facturas[1],[{producto_id:g.productos[0],cantidad_faltante:3,tipo_faltante:'parcial'}]);
-  const nueva=await ordenes.obtener(o.id);assert.equal(nueva.lineas[0].cantidad_proveedor,13);assert.equal(nueva.ciclo.id,g.ciclo);
+  const nueva=await ordenes.obtener(o.id);assert.equal(nueva.lineas[0].cantidad_proveedor,13);
   assert.deepEqual(nueva.solicitud,o.solicitud);assert.equal((await ordenes.listar({proveedorId:g.p.id})).length,1);
   const preparada=await ordenes.cambiarEstado(nueva.id,{version:nueva.version,estado:'pendiente_enviar'});assert.equal(preparada.estado,'pendiente_enviar');
  });

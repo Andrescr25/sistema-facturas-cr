@@ -908,10 +908,6 @@ export function useFacturacion() {
         esPropia: !modoEdicion || Boolean(facturaEditando?.esPropia),
         cliente: { id: clienteSeleccionado.id, nombre: clienteSeleccionado.name,
           identificacion: clienteSeleccionado.identification },
-        // Editar no convierte una copia incompleta en Sin ciclo ni pierde
-        // su origen anticipado. El servidor completa el contexto al responder.
-        ciclo: modoEdicion ? facturaEditando?.ciclo : null,
-        anticipado: modoEdicion ? facturaEditando?.anticipado : false,
         lineas: lineasVista,
         total: calcularTotal(items, descuentoGlobal, impuestoPrincipal, impuestos),
         numero: facturaEditando?.numero || `LOCAL-${Date.now()}`,

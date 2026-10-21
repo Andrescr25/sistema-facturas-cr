@@ -42,8 +42,10 @@ conservan su funcionamiento y sus rutas.
 `GET /preventa/rutas`: solo id/nombre/activo; rutas activas sin ciclos e
 inactivas con fichas asignadas. `GET /preventa/agenda?rutaId=…`: hoy de Costa
 Rica y fichas activas, contacto/dirección, ruta actual y rotación. No expone
-saldos, notas privadas ni XML fiscales. Falta de selección, id inválido o
-`cicloId` no vacío responde 400; ruta válida sin clientes devuelve vacío.
+saldos, notas privadas ni XML fiscales. Falta de selección o id inválido
+responde 400; ruta válida sin clientes devuelve vacío. Desde el 2026-10-20 un
+`cicloId` de una pestaña vieja ya no se revisa: se ignora como cualquier otro
+parámetro desconocido.
 
 Una consulta de clientes, con `ULTIMA_ATENCION_SQL`, sin consultas por
 producto ni llamadas a otras integraciones. Última factura emitida vigente

@@ -80,8 +80,6 @@ function aPlan({ ruta, paradas }, { pagina, tamano, vista }) {
       revisadas: documentos.filter(d => d.revisionBodega).length, pedidosSinFacturar: 0 },
     paginacion: { pagina, tamano, paginas: Math.max(1, Math.ceil(paradas.length / tamano)), total: paradas.length } };
 }
-// La lectura histórica por ciclo (`cicloId`) se retiró el 2026-10-20 con los
-// ciclos: la pantalla nunca la usó; todo se consulta por ruta.
 async function plan(datos) {
   const filtros = validar(datos);
   return lectura(async db => aPlan(await recorridoEn(db, filtros), filtros));

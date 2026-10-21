@@ -61,7 +61,7 @@ export default function Clientes() {
   const [rutasEnfoque, setRutasEnfoque] = useState(false)
   const sinCabecera = enFicha || (vista === 'rutas' && rutasEnfoque)
   // El contador pertenece a los pedidos cargados de esta selección; nunca
-  // presentar el filtro de una ruta/semana como el total general.
+  // presentar el filtro de una ruta como el total general.
   const pendientes = !cargandoPedidos && !errorPedidos && filtroPedidos === 'pendiente' ? pedidos.length : 0
 
   return (

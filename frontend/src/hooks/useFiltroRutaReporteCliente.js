@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import api from '../services/api'
 
-/** Cada ruta se puede elegir aunque nunca haya tenido una semana/ciclo.
+/** Las rutas del filtro: la de la ficha de cada cliente.
  * Los metadatos usan el permiso de Reporte Clientes, sin pedir el de Clientes.
  */
 export function useFiltroRutaReporteCliente(endpoint = '/reportes/faltantes/cliente/rutas') {

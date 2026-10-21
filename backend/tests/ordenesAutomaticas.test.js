@@ -63,7 +63,7 @@ caso('cancelada conserva historia; el próximo faltante genera otra orden',async
 });
 caso('dos conexiones detectan el mismo faltante y crean una sola orden',async()=>{
  const seed=await pool.connect();let g;try{await seed.query('BEGIN');g=await sembrar(seed);await seed.query("INSERT INTO faltantes(factura_propia_id,producto_propio_id,cantidad_faltante,tipo_faltante,estado,proveedor_asignado,proveedor_cedula) VALUES($1,$2,10,'parcial','pendiente',$3,$4)",[g.facturas[0],g.productos[0],g.p.nombre,g.p.identificacion]);await seed.query('COMMIT')}finally{seed.release()}
- const trabajar=async()=>{const db=await pool.connect();try{await db.query('BEGIN');const r=await auto.sincronizarEn(db,{proveedorId:g.p.id,cicloId:g.ciclo});await db.query('COMMIT');return r}finally{db.release()}};
+ const trabajar=async()=>{const db=await pool.connect();try{await db.query('BEGIN');const r=await auto.sincronizarEn(db,{proveedorId:g.p.id});await db.query('COMMIT');return r}finally{db.release()}};
  const r=await Promise.all([trabajar(),trabajar()]);assert.deepEqual(r.map(r=>r.ordenes.length).sort(),[0,1]);const filas=(await c.query('SELECT id FROM orden_compra_ciclo WHERE proveedor_id=$1',[g.p.id])).rows;assert.equal(filas.length,1);assert.equal((await c.query('SELECT cantidad_proveedor FROM orden_compra_ciclo_linea WHERE orden_id=$1',[filas[0].id])).rows[0].cantidad_proveedor,10);
 });
 caso('consulta con READ ONLY/REPEATABLE READ reales no cambia órdenes',async()=>{
@@ -77,15 +77,12 @@ caso('consulta con READ ONLY/REPEATABLE READ reales no cambia órdenes',async()=
  require.cache[rutaDb]={id:rutaDb,filename:rutaDb,loaded:true,exports:db};delete require.cache[rutaResumen];
  try{const r=await require(rutaResumen).resumen({proveedorId:f.p.id});assert.deepEqual(r,[]);assert.equal(verificada,true)}finally{require.cache[rutaDb]=previaDb;require.cache[rutaResumen]=previaResumen}
 });
-caso('faltantes de otra semana se acumulan en la misma abierta del proveedor, sin ciclos',async()=>{
+caso('faltantes de otra factura se acumulan en la misma abierta del proveedor',async()=>{
  await guardar([[0,10]]);const primera=await obtener();
- const nueva=(await c.query("INSERT INTO ciclo_ruta(ruta_id,ruta_nombre,semana) SELECT ruta_id,ruta_nombre,'2026-10-19' FROM ciclo_ruta WHERE id=$1 RETURNING id",[f.ciclo])).rows[0].id;
- const rc=(await c.query("INSERT INTO ciclo_ruta_cliente(ciclo_id,cliente_id,orden,cliente_nombre) SELECT $1,cliente_id,orden,cliente_nombre FROM ciclo_ruta_cliente WHERE ciclo_id=$2 RETURNING id",[nueva,f.ciclo])).rows[0].id;
- await c.query('UPDATE ciclo_ruta SET recorrido_fijado=TRUE WHERE id=$1',[nueva]);
- const factura=(await c.query("INSERT INTO factura(numero,estado,fecha,cliente_id,cliente_nombre,ciclo_ruta_cliente_id) SELECT $1,'emitida','2026-10-19',cliente_id,cliente_nombre,$2 FROM factura WHERE id=$3 RETURNING id",[zz('futura'),rc,f.facturas[0]])).rows[0].id;
+ const factura=(await c.query("INSERT INTO factura(numero,estado,fecha,cliente_id,cliente_nombre) SELECT $1,'emitida','2026-10-19',cliente_id,cliente_nombre FROM factura WHERE id=$2 RETURNING id",[zz('futura'),f.facturas[0]])).rows[0].id;
  await c.query("INSERT INTO factura_linea(factura_id,numero_linea,producto_id,nombre,cantidad,precio_unitario,total) VALUES($1,1,$2,\'ZZ\',20,1,20)",[factura,f.productos[0]]);
  await guardar([[0,3]],factura);const otras=await lista();assert.equal(otras.length,1);assert.equal(otras[0].id,primera.id);
- assert.equal((await s.obtener(primera.id)).lineas[0].cantidad_proveedor,13);assert.equal(otras[0].ciclo,null);
+ assert.equal((await s.obtener(primera.id)).lineas[0].cantidad_proveedor,13);
 });
 caso('fallo al preparar la orden revierte también faltante y asignación',async()=>{
  const query=c.query;

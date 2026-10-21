@@ -28,13 +28,14 @@ async function insertarLineasEn(db,o,entradas) {
       const libre=micros(f.disponible),cantidad=disponible<libre?disponible:libre;
       if (cantidad<=0n) continue;
       origenes.push({linea_id:nueva.id,faltante_id:f.faltanteId,factura_id:f.facturaId,factura_numero:f.numero,
-        cliente_id:f.cliente_id,cliente_nombre:f.cliente_nombre,orden_visita:f.orden,anticipado:f.preventa_anticipada,cantidad:cantidadDe(cantidad)});
+        cliente_id:f.cliente_id,cliente_nombre:f.cliente_nombre,cantidad:cantidadDe(cantidad)});
       disponible-=cantidad;
     }
   }
-  if (origenes.length) await db.query(`INSERT INTO orden_compra_ciclo_origen(linea_id,faltante_id,factura_id,factura_numero,cliente_id,cliente_nombre,orden_visita,anticipado,cantidad)
-    SELECT x.linea_id,x.faltante_id,x.factura_id,x.factura_numero,x.cliente_id,x.cliente_nombre,x.orden_visita,x.anticipado,x.cantidad
-    FROM jsonb_to_recordset($1::jsonb) AS x(linea_id int,faltante_id int,factura_id int,factura_numero text,cliente_id int,cliente_nombre text,orden_visita int,anticipado boolean,cantidad numeric)`,[JSON.stringify(origenes)]);
+  // `anticipado` es una columna histórica que no admite NULL: va en FALSE.
+  if (origenes.length) await db.query(`INSERT INTO orden_compra_ciclo_origen(linea_id,faltante_id,factura_id,factura_numero,cliente_id,cliente_nombre,anticipado,cantidad)
+    SELECT x.linea_id,x.faltante_id,x.factura_id,x.factura_numero,x.cliente_id,x.cliente_nombre,FALSE,x.cantidad
+    FROM jsonb_to_recordset($1::jsonb) AS x(linea_id int,faltante_id int,factura_id int,factura_numero text,cliente_id int,cliente_nombre text,cantidad numeric)`,[JSON.stringify(origenes)]);
   return lineas;
 }
 

@@ -35,7 +35,7 @@ describe('facturas anuladas en Bodega — PostgreSQL local', { skip: !activo }, 
       VALUES($1,1,$2,$3,$3,2,1000,2000)`, [f.id, p.id, nombre]);
     return { id: f.id, productoId: p.id };
   }
-  const listar = () => bodega.listar({ cicloId: 'sin-ciclo' });
+  const listar = () => bodega.listar();
   const pendiente = async id => (await listar()).data.pendientes.some(f => f.factura_id === id);
   const crearNota = (f, cantidad) => notas.crearNotaCredito({ facturaId: f.id, motivo: 'anulacion',
     motivoTexto: 'ZZ comprobación local', ...(cantidad ? { lineas: [{ numeroLinea: 1, cantidad }] } : {}) });

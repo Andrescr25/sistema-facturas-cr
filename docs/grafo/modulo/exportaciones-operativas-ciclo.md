@@ -5,7 +5,6 @@ titulo: Excel operativo — necesidades, órdenes y recorrido completos por cicl
 estado: retirado
 archivos:
   - docs/informes/simplificacion-sin-semanas-2026-10-20.md
-  - backend/src/modules/rutas/operacionExcel.js
   - backend/src/modules/reports/report.routes.js
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
   - backend/src/modules/entregas/entregas.excel.js

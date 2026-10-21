@@ -130,10 +130,6 @@ const misPedidos = (req, res) =>
 const miPedido = (req, res) =>
   responder(res, clienteSvc.detallePedido(req.cliente.id, req.params.pedidoId), 'Error obteniendo el pedido');
 
-// La «preventa por enlace» (catálogo y PDF por cliente y semana de ruta) se
-// retiró el 2026-10-20 con los ciclos: dependía de una semana en preventa y
-// en producción nunca se envió una.
-
 module.exports = {
   listarClientes, generarInvitacion, enviarInvitacionWhatsApp, revocarAcceso, reactivarAcceso,
   listarPedidos, detallePedido, facturarPedido, rechazarPedido, contarPendientes, enviarAvisoPedido,

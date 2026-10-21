@@ -2,11 +2,10 @@
 id: modulo/recorrido-visual-operativo
 tipo: modulo
 titulo: Recorrido visual — acciones reales del catálogo a recepción y entrega
-estado: vigente
+estado: retirado
 archivos:
   - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - docs/informes/recorrido-visual-2026-10-07.md
-  - backend/tests/e2e/recorridoOperativo.cjs
   - backend/tests/proveedorDeFaltantesPropio.test.js
   - backend/src/modules/reports/report.service.js
   - backend/src/modules/proveedores/proveedores.asignacion.service.js
@@ -20,6 +19,12 @@ medido: 2026-10-20
 ---
 
 ## Vigencia desde el 2026-10-20
+
+**Retirado.** El runner `backend/tests/e2e/recorridoOperativo.cjs` se borró:
+recorría el flujo por semanas (filtro de semana, recorrido, anticipadas,
+órdenes por ciclo, recepción y cierre), que ya no existe, y ni siquiera
+cargaba porque su fixture `contextoCadena` ya se había quitado. Lo que sigue
+describe ese recorrido como historia.
 
 Se retiraron los selectores/asignaciones de semana y el enlace de compras
 a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen

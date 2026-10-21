@@ -49,8 +49,8 @@ faltantes e impresión. La agenda de TODOS los clientes vive en
 ## Ruta e identidad
 
 `GET /reportes/faltantes/cliente` y su Excel filtran `rutaId` por
-`factura.cliente_id → cliente.ruta_id` de HOY. Ya no filtran por semana:
-`cicloId` no vacío responde 400 e indica recargar. `sin-ruta` incluye clientes
+`factura.cliente_id → cliente.ruta_id` de HOY. No filtran por semana, y desde
+el 2026-10-20 un `cicloId` de una pestaña vieja se ignora. `sin-ruta` incluye clientes
 sin asignación y documentos históricos sin ficha propia. La ruta inexistente
 pero válida devuelve vacío, nunca la vista conjunta por omisión.
 

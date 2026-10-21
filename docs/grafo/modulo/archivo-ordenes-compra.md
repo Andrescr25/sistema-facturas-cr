@@ -7,7 +7,6 @@ archivos:
   - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - backend/migrations/independencia/050_archivo_individual_ordenes.sql
   - backend/src/modules/orders-whatsapp/ordenesCiclo.service.js
-  - backend/src/modules/orders-whatsapp/cicloPedidos.js
   - backend/src/modules/orders-whatsapp/orders-whatsapp.service.js
   - backend/src/modules/orders-whatsapp/orders-whatsapp.controller.js
   - backend/src/modules/reports/report.service.js
@@ -15,7 +14,7 @@ archivos:
   - backend/server.js
   - frontend/src/components/configuracion/Mantenimiento.jsx
   - frontend/src/services/alegraService.js
-  - backend/tests/cicloPedidos.test.js
+  - backend/tests/limpiezaSemanalRetirada.test.js
   - docs/informes/archivo-ordenes-2026-10-06.md
 aristas:
   depende_de: [modulo/recepcion-ordenes-compra, modulo/ordenes-compra-por-ciclo]
@@ -61,7 +60,9 @@ RETIRO GLOBAL. server.js no importa/programa scheduledCleanup. El archivo
 permanece solo como compatibilidad que rechaza 410, sin importar cron/DB.
 DELETE /reportes/faltantes/proveedor/limpiar y /orden-compra/cantidades
 rechazan 410 sin consultar/modificar; conservan ACL original (401/403).
-Reinicio antiguo cicloPedidos.reiniciar también 410. La consulta del envío
+Reinicio antiguo cicloPedidos.reiniciar también 410 (el archivo se borró el
+2026-10-20; las dos rutas 410 y el cron siguen probados en
+`limpiezaSemanalRetirada.test.js`). La consulta del envío
 histórico conserva corte ya anotado/fecha explícita; sin corte lee toda la
 historia (-infinity), nunca lunes actual ni DDL desde un GET. SQL050 asegura
 tabla antigua si faltaba, sin cambiar cortes/filas anteriores. Ajustes

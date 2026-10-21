@@ -89,3 +89,32 @@ endpoints públicos queda en `permiso-subir-a-main.md` de la memoria compartida;
 una respuesta de salud sola no demuestra la versión exacta de la API.
 Recargar la pantalla y las tablets después de actualizar, porque los
 selectores y rutas anteriores se retiraron.
+
+
+## Restos retirados por Claude — 2026-10-20
+
+Después de la publicación, el usuario todavía veía en Facturación «Ruta y
+semana del pedido / Seleccioná la ruta y semana» y un 404. Ese selector ya no
+existe en `main`: era una pestaña abierta antes del despliegue de las 18:46,
+con el JavaScript anterior. El pedido fue «elimina todo lo relacionado con
+eso», así que se quitó lo que quedaba solo por compatibilidad:
+
+- Ninguna orden nueva guarda `ciclo_id`/`ruta_nombre`/`semana` ni lee
+  `ciclo_ruta_cliente` para preparar líneas; `anticipado` va en `FALSE`
+  porque la columna histórica no admite NULL.
+- Se borran `cicloPedidos.js`, `historialEnviosProveedor.service.js`,
+  `rutas/operacionExcel.js` y la ruta `/enviados`, que ninguna pantalla
+  llamaba, y el recorrido Chromium `tests/e2e/recorridoOperativo.cjs`, que
+  recorría el flujo por semanas y ya no cargaba. Los dos permisos `…/ciclos` de reportes salen de `modulos.js`.
+- Facturación, colas locales e idempotencia dejan de cargar `cicloId` y
+  `anticipado`; una cola vieja que todavía lo trae da la misma huella, y no
+  duplica la factura. Preventa y Reporte Clientes ignoran el `cicloId` de
+  una pestaña vieja en vez de responder 400.
+- Entregas deja de mostrar «Preventa anticipada»; la pestaña Rutas dice
+  «Clientes y próxima visita».
+
+Se conservan: las tablas y columnas `ciclo_*` como historia, el 409 que
+impide cambiar el cliente de las facturas viejas atadas a una semana, el
+error `documento_en_hacienda`, la próxima visita, y las protecciones 410 de
+la limpieza semanal, que pasan a `tests/limpiezaSemanalRetirada.test.js`.
+Sin SQL nuevo.

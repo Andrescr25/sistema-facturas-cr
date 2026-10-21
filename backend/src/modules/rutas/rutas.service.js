@@ -3,7 +3,7 @@ const { enTransaccion } = require('../../utils/transaccion');
 const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, idValido, texto, booleano } = require('../../utils/validacion');
 
-// Mismo bloqueo ANTES de bloquear clientes en asignación, orden y ciclos.
+// Mismo bloqueo ANTES de bloquear clientes en asignación y orden.
 // Evita que dos pantallas pierdan miembros o calculen el mismo último puesto.
 const bloquearRutasEn = db => db.query('SELECT pg_advisory_xact_lock(44005, 1)');
 const enRuta = trabajo => enTransaccion(pool, async db => { await bloquearRutasEn(db); return trabajo(db); });
@@ -152,9 +152,6 @@ function listaDeIds(valor, etiqueta) {
  * cliente compacta el recorrido de la ruta que deja. No se pide `version`:
  * agregar o quitar no depende del orden que hubiera, así que reordenar en
  * otra pantalla no hace perder la selección.
- *
- * Los recorridos de las semanas ya creadas no cambian: son una foto
- * (ciclo_ruta_cliente).
  */
 async function asignarClientes(id, datos, usuarioId) {
   const pedidos = listaDeIds(datos?.agregar, 'Agregar').map(a => ({

@@ -297,19 +297,17 @@ describe('idempotencia al crear facturas propias', () => {
     }
   });
 
-  test('otra semana cambia la huella sin modificar las colas que no tienen ciclo', () => {
-    const { huellaDe, huellaAnteriorDe } = require('../src/modules/facturacion/idempotencia');
-    const vieja = { ...FACTURA };
-    assert.equal(huellaDe(vieja), huellaDe({ ...vieja, cicloId: null }));
-    assert.notEqual(huellaDe({ ...vieja, cicloId: 1 }), huellaDe({ ...vieja, cicloId: 2 }));
-    assert.notEqual(huellaDe({ ...vieja, cicloId: 1 }), huellaDe(vieja));
-    assert.equal(huellaAnteriorDe({ ...vieja, cicloId: 1 }), huellaAnteriorDe(vieja));
+  // Las semanas de ruta se retiraron el 2026-10-20. Una cola guardada antes
+  // en una tablet puede traer todavía `cicloId`: no cambia lo que se factura.
+  test('una cola vieja que todavía trae cicloId da la misma huella', () => {
+    const { huellaDe } = require('../src/modules/facturacion/idempotencia');
+    assert.equal(huellaDe({ ...FACTURA, cicloId: 7 }), huellaDe(FACTURA));
   });
 
-  test('un intento anterior sin ciclo no se reutiliza para facturar otra semana', async () => {
+  test('reenviar la misma clave con o sin cicloId no duplica la factura', async () => {
     const { servicio, estado } = montar();
-    await servicio.crearFactura(FACTURA, 1, { clave: 'zz-sin-ciclo' });
-    await assert.rejects(servicio.crearFactura({ ...FACTURA, cicloId: 123 }, 1, { clave: 'zz-sin-ciclo' }), /otro contenido|distinto|misma clave/i);
+    await servicio.crearFactura({ ...FACTURA, cicloId: 123 }, 1, { clave: 'zz-cola-vieja' });
+    await servicio.crearFactura(FACTURA, 1, { clave: 'zz-cola-vieja' });
     assert.equal(estado.emitidas, 1);
   });
 

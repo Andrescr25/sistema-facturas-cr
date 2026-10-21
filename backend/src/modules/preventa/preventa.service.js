@@ -8,8 +8,7 @@ const { httpError } = require('../../utils/validacion');
  * faltantes. Leerla no crea visitas, pedidos ni facturas. La fecha se calcula
  * desde la venta vigente con la misma regla de la ficha y el reporte.
  */
-async function agenda({ rutaId, cicloId } = {}) {
-  if (cicloId != null && cicloId !== '') throw httpError(400, 'Preventa se consulta por ruta, sin semana.');
+async function agenda({ rutaId } = {}) {
   if (rutaId == null || rutaId === '') throw httpError(400, 'Seleccioná una ruta o los clientes sin ruta.');
   const params = [], where = filtroRutaActual(rutaId, params), hoy = hoyEnCostaRica();
   const { rows } = await query(`SELECT c.id, c.nombre, c.correo, c.telefono,

@@ -63,11 +63,10 @@ describe('Preventa — agenda completa y permisos, PostgreSQL local', { skip: !a
     assert.deepEqual(Object.keys(rutas[0]).sort(), ['activo', 'id', 'nombre']);
     assert.equal((await lista(f.inactiva.id))[0].id, f.enInactiva.id);
   });
-  test('ruta vacía, inválida o semana rechazan antes de consultar el conjunto', async () => {
+  test('ruta vacía o inválida rechazan antes de consultar el conjunto', async () => {
     for (const rutaId of ['', null, undefined, '0', '1.5', [], {}, true, '1 OR 1=1', '2147483648']) {
       await assert.rejects(servicio.agenda({ rutaId }), e => e.status === 400);
     }
-    await assert.rejects(servicio.agenda({ rutaId: f.a.id, cicloId: '1' }), e => e.status === 400);
   });
   test('leer agenda y rutas no escribe; también funciona en transacción READ ONLY real', async () => {
     const huella = async () => (await c.query(`SELECT md5(jsonb_agg(to_jsonb(c) ORDER BY id)::text) AS h FROM cliente c`)).rows[0].h;

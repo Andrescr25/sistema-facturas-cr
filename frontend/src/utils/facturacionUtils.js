@@ -113,10 +113,6 @@ export function enriquecerFacturasPendientes(facturasPendientes, facturasPrecarg
 
     return {
       localId: pendiente.localId,
-      // Solo la copia del documento conoce el recorrido. El maestro actual
-      // o el ciclo activo no completan un dato faltante de una cola antigua.
-      ciclo: cache?.ciclo,
-      anticipado: cache?.anticipado,
       clienteNombre: cache?.cliente?.nombre || clienteInfo?.name || `Cliente #${pendiente.clienteId ?? pendiente.client}`,
       total,
       items,
