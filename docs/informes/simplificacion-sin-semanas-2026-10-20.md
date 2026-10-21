@@ -65,11 +65,27 @@ protección histórica y el envío fijo con nueva demanda independiente.
 ## Entrega
 
 Retomado por Codex desde el parche incompleto de Claude, con ambas autorías
-reconocidas en el commit. Se publica únicamente `developer`; `main` conserva
-`1a7bfed`. No necesita aplicar SQL. La nueva relación con facturas de proveedor
+reconocidas en el commit. Primera entrega en `developer` como `a020b89`; en ese momento `main`
+conservaba `1a7bfed`. No necesita aplicar SQL. La nueva relación con facturas de proveedor
 queda pendiente de la definición anunciada por el usuario.
 
 Vista local: <http://localhost:5173>; backend en el puerto 3000. Refrescar la
 pestaña para descargar la versión nueva. Las credenciales son las del clon
 local y la sesión es local.
 
+
+## Publicación a main autorizada — 2026-10-20
+
+El usuario pide «subelo al main». Codex publica `developer:main` por avance
+sin fusión: el cambio funcional `a020b89` (parche de Claude retomado,
+completado y verificado por Codex, ambas firmas) y este registro de destino.
+Se inspeccionó todo lo que viaja; no hay otros cambios funcionales pendientes
+ni SQL nuevo. La evidencia local anterior corresponde al código publicado;
+este registro solo actualiza documentación. No se conecta a la base de
+producción ni se mandan mensajes para verificar el despliegue.
+
+Render despliega desde main. La confirmación de lo observado desde sus
+endpoints públicos queda en `permiso-subir-a-main.md` de la memoria compartida;
+una respuesta de salud sola no demuestra la versión exacta de la API.
+Recargar la pantalla y las tablets después de actualizar, porque los
+selectores y rutas anteriores se retiraron.

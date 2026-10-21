@@ -945,3 +945,12 @@ faltantes, el modal WhatsApp, el PDF comercial y el mensaje acordado.
 Se retiran semanas de las pantallas y nuevas escrituras, no la historia,
 las rutas actuales ni la frecuencia/próxima visita. Sin SQL nuevo ni acceso
 a producción. [Implementación y límites](informes/simplificacion-sin-semanas-2026-10-20.md).
+
+
+## 2026-10-20 — Publicar la simplificación a main
+
+Después de revisar la entrega del relevo de Claude en developer, el usuario
+pide «subelo al main». Autoriza publicar el cambio `a020b89`: sin OC visibles
+ni enlace en Revisión de precios, y sin semanas de cliente/pedido. Próxima
+visita, documentos anteriores y envíos inmutables conservados. No necesita
+migración nueva. [Registro y verificación](informes/simplificacion-sin-semanas-2026-10-20.md).

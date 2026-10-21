@@ -787,3 +787,10 @@ inician en 0 %. Usuario autoriza migración y publicación a main.
 
 La comprobación y las limitaciones están en el informe del retiro, no se
 acredita aceptación fiscal ni la nueva regla futura para facturas de proveedores.
+
+
+**Publicación autorizada, 2026-10-20:** el usuario pide «subelo al main» tras
+la entrega de Codex en `a020b89`. Viajan SIM-01/04 y ROT-08 verificados,
+con el retiro del enlace OC que reemplaza RP-04/RP-06; sin SQL nuevo. No
+cierra la definición futura de lo facturado por proveedores ni las revisiones
+humanas del corte. [Registro](informes/simplificacion-sin-semanas-2026-10-20.md).

@@ -183,3 +183,11 @@ misma vista; una factura nueva del cliente sigue activa. Validación PostgreSQL
 en ROLLBACK y navegador con corte, actualización automática y reenvío. Los
 párrafos anteriores que dicen pendiente describen las entregas de esas fechas.
 No acredita el resto de ROT-08 ni redefine la agenda de Preventa.
+
+
+## Publicación del retiro autorizada — 2026-10-20
+
+El usuario pide subir a main la continuación de Claude entregada por Codex
+en `a020b89`. Se conserva la frecuencia y el cálculo de próxima visita; se
+retiran semanas de operación sin borrar historia. No hay migración nueva.
+[Registro y pruebas](../../informes/simplificacion-sin-semanas-2026-10-20.md).
