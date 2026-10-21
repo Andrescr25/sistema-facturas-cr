@@ -5,29 +5,30 @@
  * POR QUÉ. El 2026-10-20 el usuario pidió separar los sistemas: «no quiero
  * que los clientes puedan llegar al sistema interno». El portal se publica
  * como otro sitio (`npm run build:portal`, otro servicio en Render) y todo
- * enlace que se le manda a un cliente apunta allá, con VITE_PORTAL_URL.
- * Mientras ese sitio no esté configurado, las páginas del cliente siguen en
- * esta misma dirección, como antes: publicar esto no cambia nada hasta que se
- * ponga la variable.
+ * enlace que se le manda a un cliente apunta allá. El sistema interno ya no
+ * trae las páginas del cliente: solo lo manda al portal (IrAlPortal).
+ *
+ * La dirección va escrita acá y no depende de que alguien ponga
+ * VITE_PORTAL_URL en Render (que la cambia si hace falta, p. ej. con un
+ * dominio propio). En la máquina de desarrollo, el portal local.
  *
  * Sin imports a propósito: las pruebas lo leen tal cual, pasando la
  * configuración y el origen en vez de depender del navegador.
  */
+const PORTAL_EN_RENDER = 'https://distribuidora-tachi-portal-clientes.onrender.com'
+const PORTAL_LOCAL = 'http://localhost:5183'   // npm run dev:portal
+
 const sinBarraFinal = (texto) => String(texto || '').replace(/\/+$/, '')
 
-/** El origen del portal: el configurado o, si no hay, el que está abierto. */
+/** El origen del portal: el configurado o, si no hay, el de Render (o el local). */
 export function basePortal(configurada = import.meta.env?.VITE_PORTAL_URL, actual = globalThis.location?.origin) {
-  return sinBarraFinal(configurada || actual)
+  if (configurada) return sinBarraFinal(configurada)
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(String(actual || '')) ? PORTAL_LOCAL : PORTAL_EN_RENDER
 }
 
 /** El enlace completo a una página del portal. */
 export function urlPortal(ruta = '/catalogo', base = basePortal()) {
   return `${sinBarraFinal(base)}${ruta.startsWith('/') ? '' : '/'}${ruta}`
-}
-
-/** Si el portal vive en otro sitio que el que está abierto ahora. */
-export function portalEnOtroSitio(configurada = import.meta.env?.VITE_PORTAL_URL, actual = globalThis.location?.origin) {
-  return Boolean(configurada) && sinBarraFinal(configurada) !== sinBarraFinal(actual)
 }
 
 /*

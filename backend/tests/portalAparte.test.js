@@ -71,6 +71,19 @@ describe('el sitio de los clientes no trae el sistema interno', () => {
     assert.ok(!interno.includes('AppPortal.jsx'), 'el sistema interno no necesita la aplicación del portal');
   });
 
+  test('y al revés: el sistema interno no trae las páginas ni la sesión del cliente', () => {
+    // «quitá el acceso al portal clientes desde el sistema normal» (2026-10-20):
+    // en la dirección de siempre, /catalogo y /portal/* solo mandan al portal.
+    const interno = alcanzables(path.join(SRC, 'main.jsx'));
+    const delCliente = interno.filter(r => r.startsWith('pages/portal/') ||
+      ['pages/CatalogoClientes.jsx', 'pages/CotizacionPublica.jsx', 'contexts/PortalClienteContext.jsx'].includes(r));
+    assert.deepEqual(delCliente, [], 'una página del cliente volvió al sistema interno');
+    assert.ok(interno.includes('components/IrAlPortal.jsx'), 'los enlaces viejos tienen que seguir llevando al portal');
+    for (const r of ['pages/Ingresar.jsx', 'pages/Dashboard.jsx']) {
+      assert.doesNotMatch(fs.readFileSync(path.join(SRC, r), 'utf8'), /urlPortal|['"]\/catalogo['"]/, `${r} volvió a ofrecer el catálogo de clientes`);
+    }
+  });
+
   test('el index.html tiene lo que el armado del portal reemplaza', () => {
     // htmlDelPortal (vite.config.js) cambia estas dos cosas; si faltaran,
     // el portal saldría con la entrada del sistema interno.
@@ -88,20 +101,17 @@ describe('el sitio de los clientes no trae el sistema interno', () => {
 });
 
 describe('los enlaces que se le mandan al cliente', () => {
-  test('van al portal cuando está configurado y, si no, al sitio abierto', async () => {
+  test('van al portal: el configurado o, sin configurar, el de Render', async () => {
     const { basePortal, urlPortal } = await import('../../frontend/src/utils/urlPortal.js');
     assert.equal(basePortal('https://clientes.ejemplo/', 'https://interno.ejemplo'), 'https://clientes.ejemplo');
-    assert.equal(basePortal(undefined, 'https://interno.ejemplo'), 'https://interno.ejemplo');
+    // Sin VITE_PORTAL_URL ya no cae al sitio abierto: eso dejaba al cliente
+    // en el sistema interno (se vio el 2026-10-20 en el ingreso del personal).
+    assert.equal(basePortal(undefined, 'https://sistema-facturas-cr.onrender.com'), 'https://distribuidora-tachi-portal-clientes.onrender.com');
+    assert.equal(basePortal('', 'https://sistema-facturas-cr.onrender.com'), 'https://distribuidora-tachi-portal-clientes.onrender.com');
+    assert.equal(basePortal(undefined, 'http://localhost:5173'), 'http://localhost:5183', 'en desarrollo, el portal local');
+    assert.equal(basePortal(undefined, 'http://127.0.0.1:5174'), 'http://localhost:5183');
     assert.equal(urlPortal('/portal/activar/abc', 'https://clientes.ejemplo/'), 'https://clientes.ejemplo/portal/activar/abc');
     assert.equal(urlPortal('portal/pedidos', 'https://clientes.ejemplo'), 'https://clientes.ejemplo/portal/pedidos');
-  });
-
-  test('el sistema interno solo redirige si el portal vive en otro sitio', async () => {
-    const { portalEnOtroSitio } = await import('../../frontend/src/utils/urlPortal.js');
-    assert.equal(portalEnOtroSitio(undefined, 'https://interno.ejemplo'), false, 'sin configurar, todo sigue como antes');
-    assert.equal(portalEnOtroSitio('', 'https://interno.ejemplo'), false);
-    assert.equal(portalEnOtroSitio('https://clientes.ejemplo/', 'https://clientes.ejemplo'), false, 'abierto en el mismo portal no hay a dónde ir');
-    assert.equal(portalEnOtroSitio('https://clientes.ejemplo', 'https://interno.ejemplo'), true);
   });
 
   test('la sesión viaja con el cliente redirigido, solo desde el sitio de siempre', async () => {

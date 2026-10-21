@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ClipboardList, Wallet, UserCircle, DollarSign, Boxes, PackageX,
-  Repeat, FileWarning, Loader2, ArrowRight, Tablet, Store, FileText, CheckCircle2
+  Repeat, FileWarning, Loader2, ArrowRight, Tablet, FileText, CheckCircle2
 } from 'lucide-react'
 import api from '../services/api'
 import { colones } from '../utils/colones'
-import { urlPortal } from '../utils/urlPortal'
 import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 // es-CR separa los miles con un espacio duro (U+00A0): "₡204 879" se lee
@@ -96,15 +95,6 @@ export default function Dashboard() {
       href: '/catalogo-agente',
       icono: Tablet,
       color: 'bg-neutro-900'
-    },
-    {
-      nombre: 'Catálogo de clientes',
-      descripcion: 'Lo que ven desde el enlace',
-      // En su propio sitio cuando el portal está separado: Link abre una
-      // dirección completa de otro sitio como una página nueva.
-      href: urlPortal('/catalogo'),
-      icono: Store,
-      color: 'bg-exito-600'
     },
     {
       nombre: 'Facturar',
@@ -211,7 +201,7 @@ export default function Dashboard() {
 
           <div>
             <h2 className="text-sm font-bold text-neutro-900 mb-3">Accesos rápidos</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {accesos.map((a) => {
                 const Icono = a.icono
                 return (

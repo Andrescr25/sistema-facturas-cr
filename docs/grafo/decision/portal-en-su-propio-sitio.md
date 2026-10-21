@@ -69,14 +69,20 @@ omisión sistema-facturas-cr.onrender.com), para que nadie arme un enlace que
 meta a un cliente en una cuenta ajena, y no pisa una sesión que el portal ya
 tenga. Si algo falla, el cliente ingresa con su usuario como siempre.
 
-POR ETAPAS, A PROPÓSITO. Sin `VITE_PORTAL_URL` todo funciona como antes: se
-puede publicar a main antes de crear el sitio en Render. Cuando el portal
-esté en línea y probado, el paso siguiente es sacar las páginas del cliente
-del paquete interno (dejando solo IrAlPortal) y el `PortalClienteProvider`
-de `main.jsx`.
+POR ETAPAS. Primero se publicó con las páginas del cliente todavía en el
+sistema interno (sin `VITE_PORTAL_URL` nada cambiaba). El 2026-10-20, con el
+portal ya en línea en https://distribuidora-tachi-portal-clientes.onrender.com,
+el usuario pidió «quites el acceso al portal clientes desde el sistema
+normal»: el ingreso del personal y el Dashboard ya no ofrecen el catálogo de
+clientes, `App.jsx` no importa ninguna página del cliente (solo IrAlPortal en
+`/catalogo`, `/cotizacion/:token` y `/portal/*`) y `main.jsx` no monta la
+sesión del cliente. La dirección del portal va escrita en `urlPortal.js`
+(`VITE_PORTAL_URL` la reemplaza si hace falta; en localhost, el portal local
+5183): poner la variable en Render ya no es necesario.
 
 LO QUE CUIDA LA PRUEBA. `portalAparte.test.js` recorre los imports desde
-`mainPortal.jsx` y falla si alcanza una pantalla del personal, `App.jsx`,
+`mainPortal.jsx` y falla si alcanza una pantalla del personal; desde
+`main.jsx`, si alcanza una página o la sesión del cliente; `App.jsx`,
 `AuthContext`, `Layout` o `RequiereSesion`; revisa el index.html que el
 armado reemplaza, el manifiesto del portal sin atajos y que los enlaces al
 cliente no se armen con el origen interno.

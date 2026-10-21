@@ -981,3 +981,13 @@ servicio exista, todo sigue en la dirección de siempre. El dominio
 distribuidoratachi.com quedó para después, por decisión suya.
 [Decisión y pasos en Render](grafo/decision/portal-en-su-propio-sitio.md) ·
 [Portal](grafo/modulo/portal-clientes.md).
+
+
+## 2026-10-20 — Quitar el acceso al portal desde el sistema interno
+
+Con el portal ya en línea: «ocupo que quites el acceso al portal clientes
+desde el sistema normal / aún me sale esto [Catálogo de clientes, en el
+ingreso del personal] / y aún puedo entrar desde ese acceso». Se quitó del
+ingreso y del Dashboard, y el sistema interno ya no trae las páginas del
+cliente: sus direcciones viejas solo llevan al portal, con la sesión.
+[Decisión](grafo/decision/portal-en-su-propio-sitio.md).

@@ -19,12 +19,6 @@ import Cotizaciones from './pages/Cotizaciones'
 import InventarioAuditoria from './pages/InventarioAuditoria'
 import GestionCatalogo from './pages/GestionCatalogo'
 import CatalogoAgente from './pages/CatalogoAgente'
-import CatalogoClientes from './pages/CatalogoClientes'
-import CotizacionPublica from './pages/CotizacionPublica'
-import PortalIngresar from './pages/portal/PortalIngresar'
-import PortalActivar from './pages/portal/PortalActivar'
-import PortalPedidos from './pages/portal/PortalPedidos'
-import PortalFacturas from './pages/portal/PortalFacturas'
 import Clientes from './pages/Clientes'
 import Preventa from './pages/Preventa'
 import Entregas from './pages/Entregas'
@@ -35,9 +29,6 @@ import Usuarios from './pages/Usuarios'
 import Bitacora from './pages/Bitacora'
 import Rentabilidad from './pages/Rentabilidad'
 import IrAlPortal from './components/IrAlPortal'
-import { portalEnOtroSitio } from './utils/urlPortal'
-
-const delCliente = (pagina) => (portalEnOtroSitio() ? <IrAlPortal /> : pagina)
 
 function App() {
   // 🔄 Keep-alive para mantener el backend activo
@@ -89,27 +80,14 @@ function App() {
           auth.middleware.js. */}
       <Route path="/catalogo-agente" element={<CatalogoAgente />} />
 
-      {/* Las páginas del cliente viven en su propio sitio (AppPortal.jsx)
-          cuando VITE_PORTAL_URL está puesta: acá solo se lo manda allá, para
-          que los enlaces ya enviados sigan sirviendo. Sin la variable se
-          dibujan acá, como antes de separar los sistemas. */}
-
-      {/* Catálogo que se le manda al cliente. Público y sin
-          sincronización: lee del catálogo ya guardado en el servidor. */}
-      <Route path="/catalogo" element={delCliente(<CatalogoClientes />)} />
-
-      {/* La cotización que el cliente abre desde el enlace del WhatsApp: la
-          misma del PDF pero con la foto de cada producto. Sin cuenta — pedir
-          registro para ver un precio que se acaba de mandar es la forma más
-          rápida de que no lo miren. La protege el token firmado de la URL. */}
-      <Route path="/cotizacion/:token" element={delCliente(<CotizacionPublica />)} />
-
-      {/* Portal de clientes: sesión propia, separada de la del personal.
-          Mirar el catálogo no pide cuenta; enviar un pedido, sí. */}
-      <Route path="/portal/ingresar" element={delCliente(<PortalIngresar />)} />
-      <Route path="/portal/activar/:token" element={delCliente(<PortalActivar />)} />
-      <Route path="/portal/pedidos" element={delCliente(<PortalPedidos />)} />
-      <Route path="/portal/facturas" element={delCliente(<PortalFacturas />)} />
+      {/* Las páginas del cliente (catálogo, cotización, cuenta, pedidos y
+          facturas) viven en su propio sitio (AppPortal.jsx) y este paquete no
+          las trae: «no quiero que los clientes puedan llegar al sistema
+          interno» (2026-10-20). Acá solo se manda al cliente allá, con su
+          sesión, para que los enlaces ya enviados por WhatsApp sirvan. */}
+      <Route path="/catalogo" element={<IrAlPortal />} />
+      <Route path="/cotizacion/:token" element={<IrAlPortal />} />
+      <Route path="/portal/*" element={<IrAlPortal />} />
 
       {/* Las tablets de los agentes tienen guardada la ruta vieja. */}
       <Route path="/catalogo-publico" element={<Navigate to="/catalogo-agente" replace />} />
