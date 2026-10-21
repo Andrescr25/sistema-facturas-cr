@@ -7,9 +7,11 @@ archivos:
   - backend/src/utils/fechaCR.js
   - backend/tests/fechaCR.test.js
   - backend/tests/horaEnvioImpresion.test.js
+  - frontend/src/utils/fechaCR.js
+  - backend/tests/portalAparte.test.js
 aristas:
   relacionado: [leccion/la-db-local-es-produccion, decision/rotacion-por-cliente-sin-ciclos]
-medido: 2026-10-13
+medido: 2026-10-20
 ---
 
 `new Date().toISOString().slice(0, 10)` da el día en UTC. Costa Rica es
@@ -52,3 +54,10 @@ de `facturaPropia.service.js`; se mudó acá para que el vencimiento de una
 factura y la próxima visita de un cliente
 ([[decision/rotacion-por-cliente-sin-ciclos]]) usen la misma cuenta.
 
+**El mismo error al LEER (2026-10-20).** `factura.fecha` es DATE y `pg` la
+entrega como medianoche UTC (`2026-10-10T00:00:00.000Z`). En el navegador,
+`new Date(f).toLocaleDateString()` en Costa Rica la muestra como el 9: así
+veían los clientes sus compras y facturas en el portal. Para mostrar una fecha
+de calendario: `fechaCorta` (dd/mm/aaaa) o `fechaEnPalabras` («10 de octubre
+de 2026») de `frontend/src/utils/fechaCR.js`, que toman el día del texto y no
+lo pasan por la zona del dispositivo.

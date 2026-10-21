@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo } from 'react'
-import { X, Loader2, Minus, Plus, Trash2, Package, AlertCircle, ShoppingCart } from 'lucide-react'
+import { X, Loader2, Trash2, AlertCircle, ShoppingCart } from 'lucide-react'
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
 import { useModal } from '../../hooks/useModal'
-import { urlArchivo } from '../../utils/urlArchivo'
+import InputCantidad from './InputCantidad'
+import MiniaturaProducto from './MiniaturaProducto'
+import { fechaEnPalabras } from '../../utils/fechaCR'
 
 /**
  * Una compra anterior, abierta para revisarla antes de repetirla.
@@ -74,7 +76,7 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-4">
+    <div role="dialog" aria-modal="true" aria-label="Repetir esta compra" className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCerrar} />
 
       <div className="relative bg-white w-full sm:max-w-lg sm:rounded-3xl rounded-t-3xl max-h-[88vh] flex flex-col overflow-hidden">
@@ -83,7 +85,7 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
             <h2 className="font-bold text-neutro-900 text-[14px] leading-tight">Repetir esta compra</h2>
             {compra && (
               <p className="text-[11px] text-neutro-400">
-                {new Date(compra.fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {fechaEnPalabras(compra.fecha)}
                 {' · '}Quite o ajuste lo que no vaya
               </p>
             )}
@@ -110,12 +112,7 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
                       fuera ? 'border-neutro-200 bg-neutro-50 opacity-60' : 'border-neutro-200 bg-white'
                     }`}
                   >
-                    <div className="w-11 h-11 shrink-0 bg-neutro-50 rounded-lg overflow-hidden flex items-center justify-center">
-                      {i.imagen
-                        ? <img src={urlArchivo(i.imagen)} alt="" loading="lazy" className="w-full h-full object-contain"
-                               onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
-                        : <Package size={15} className="text-neutro-300" />}
-                    </div>
+                    <MiniaturaProducto imagen={i.imagen} />
 
                     <div className="min-w-0 flex-1">
                       <p className="text-[12px] font-semibold text-neutro-900 leading-tight line-clamp-2">{i.nombre}</p>
@@ -135,32 +132,10 @@ export default function ModalCompraAnterior({ facturaId, onCerrar, onAgregado })
                       </button>
                     ) : (
                       <div className="shrink-0 flex items-center gap-1">
-                        <div className="flex items-center gap-0.5 rounded-lg border border-neutro-200 p-0.5">
-                          <button
-                            type="button"
-                            aria-label={`Quitar uno de ${i.nombre}`}
-                            onClick={() => cambiar(i.id, n - 1)}
-                            className="w-7 h-7 rounded-md hover:bg-neutro-100 flex items-center justify-center text-neutro-600"
-                          >
-                            <Minus size={13} />
-                          </button>
-                          <input
-                            type="number"
-                            min="0"
-                            inputMode="numeric"
-                            aria-label={`Cantidad de ${i.nombre}`}
-                            value={n}
-                            onChange={(e) => cambiar(i.id, e.target.value)}
-                            className="w-8 text-center text-[12px] font-extrabold text-neutro-900 bg-transparent focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            aria-label={`Agregar uno de ${i.nombre}`}
-                            onClick={() => cambiar(i.id, n + 1)}
-                            className="w-7 h-7 rounded-md bg-cliente-600 hover:bg-cliente-700 text-white flex items-center justify-center"
-                          >
-                            <Plus size={13} />
-                          </button>
+                        {/* El control compartido: borrar el número para
+                            escribir otro ya no saca el producto de la lista. */}
+                        <div className="w-28">
+                          <InputCantidad cantidad={n} onCambiar={(v) => cambiar(i.id, v)} etiqueta={i.nombre} compacto />
                         </div>
                         <button
                           type="button"

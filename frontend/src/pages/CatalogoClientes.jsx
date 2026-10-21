@@ -85,10 +85,12 @@ export default function CatalogoClientes() {
     <div className="min-h-screen bg-neutro-50 pb-28">
       <header className="bg-white border-b border-neutro-200 sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 pt-3 pb-2.5 space-y-2.5">
-          <div className="flex items-center justify-between gap-3">
+          {/* flex-wrap: en un teléfono de 320 px los enlaces no caben al lado
+              del logo y empujaban la página hacia el costado; ahora bajan. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
             <img src="/tachi-logo.png" alt={config.negocio || 'Catálogo'} className="h-7 w-auto shrink-0" />
             {cliente ? (
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-3 shrink-0 ml-auto">
                 <Link to="/portal/facturas" className="flex items-center gap-1.5 text-[12px] font-semibold text-neutro-500 hover:text-cliente-700">
                   <Receipt size={14} />
                   Mis facturas

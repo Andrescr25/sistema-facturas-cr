@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import api from '../services/api'
 import { colones } from '../utils/colones'
+import { urlPortal } from '../utils/urlPortal'
 import BotonExportarExcel from '../components/ui/BotonExportarExcel'
 
 // es-CR separa los miles con un espacio duro (U+00A0): "₡204 879" se lee
@@ -99,7 +100,9 @@ export default function Dashboard() {
     {
       nombre: 'Catálogo de clientes',
       descripcion: 'Lo que ven desde el enlace',
-      href: '/catalogo',
+      // En su propio sitio cuando el portal está separado: Link abre una
+      // dirección completa de otro sitio como una página nueva.
+      href: urlPortal('/catalogo'),
       icono: Store,
       color: 'bg-exito-600'
     },

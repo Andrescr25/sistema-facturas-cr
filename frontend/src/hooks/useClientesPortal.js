@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import api from '../services/api'
 import { useContextoConsulta } from './useContextoConsulta'
+import { urlPortal } from '../utils/urlPortal'
 
 /**
  * Pantalla "Clientes" del sistema: cuentas del portal y pedidos que entraron.
@@ -74,7 +75,7 @@ export function useClientesPortal({ showToast, confirm }) {
     setProcesando(cliente.clienteId)
     try {
       const { data } = await api.post(`/portal-clientes/clientes/${cliente.clienteId}/invitacion`)
-      const enlace = `${window.location.origin}/portal/activar/${data.data.token}`
+      const enlace = urlPortal(`/portal/activar/${data.data.token}`)
       // El id va también: hace falta para mandar el enlace por WhatsApp
       // desde el modal, y el que vuelve del servidor no lo trae.
       setInvitacion({

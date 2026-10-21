@@ -18,6 +18,7 @@ import FichaCliente from '../components/clientes/FichaCliente'
 import ModalInvitacion from '../components/clientes/ModalInvitacion'
 import ModalEnviarWhatsApp from '../components/whatsapp/ModalEnviarWhatsApp'
 import { mensajePedido } from '../utils/mensajesWhatsApp'
+import { urlPortal } from '../utils/urlPortal'
 import api from '../services/api'
 
 /**
@@ -177,7 +178,7 @@ export default function Clientes() {
             etapa: avisando.estado === 'facturado' ? 'en_preparacion'
               : avisando.estado === 'rechazado' ? 'no_procesado'
               : 'en_revision',
-            enlace: `${window.location.origin}/portal/pedidos`
+            enlace: urlPortal('/portal/pedidos')
           })}
           onEnviar={async ({ telefono, mensaje }) => {
             const { data } = await api.post(`/portal-clientes/pedidos/${avisando.id}/whatsapp`, { telefono, mensaje })

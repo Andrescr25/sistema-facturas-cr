@@ -4,6 +4,7 @@ import { Loader2, ArrowLeft, FileText, AlertTriangle, CheckCircle2, LogOut } fro
 import { usePortalCliente } from '../../contexts/PortalClienteContext'
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
+import { fechaEnPalabras } from '../../utils/fechaCR'
 
 /**
  * Lo que el cliente tiene pendiente de pago.
@@ -102,7 +103,7 @@ export default function PortalFacturas() {
                         <p className="text-[13px] font-bold text-neutro-900 truncate">{f.numero}</p>
                       </div>
                       <p className="text-[11px] text-neutro-400 mt-0.5">
-                        Emitida {new Date(f.fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        Emitida {fechaEnPalabras(f.fecha, { day: 'numeric', month: 'short', year: 'numeric' })}
                         {f.vencimiento && <> · vence {new Date(f.vencimiento).toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })}</>}
                       </p>
                     </div>

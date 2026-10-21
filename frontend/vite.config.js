@@ -1,4 +1,5 @@
-import { existsSync, realpathSync } from 'node:fs'
+import { existsSync, realpathSync, rmSync } from 'node:fs'
+import path from 'node:path'
 import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -10,6 +11,35 @@ import react from '@vitejs/plugin-react'
 // normal, las dos cosas no cambian nada.
 const nodeModulesReal = existsSync('node_modules') ? realpathSync('node_modules') : null
 
+// El portal de clientes es otro sitio armado con este mismo código
+// (`--mode portal`, ver AppPortal.jsx): el mismo index.html con otra entrada,
+// otro título y otro manifiesto, para no tener dos copias de la página que se
+// desfasen. Si index.html deja de cargar /src/main.jsx, se detiene: sin el
+// reemplazo, el sitio de los clientes saldría con el sistema interno adentro.
+const htmlDelPortal = () => {
+  let salida = null
+  return {
+    name: 'html-del-portal',
+    configResolved(config) { salida = path.resolve(config.root, config.build.outDir) },
+    // public/ se copia entero; el manifiesto del sistema, con sus atajos a
+    // Facturación y Revisión de precios, no tiene nada que hacer en el portal.
+    closeBundle() { if (salida) rmSync(path.join(salida, 'manifest.json'), { force: true }) },
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        if (!html.includes('/src/main.jsx') || !html.includes('/manifest.json')) {
+          throw new Error('index.html cambió: revisá htmlDelPortal en vite.config.js antes de armar el portal')
+        }
+        return html
+          .replace('/src/main.jsx', '/src/mainPortal.jsx')
+          .replace('/manifest.json', '/manifest-portal.json')
+          .replace(/<title>[^<]*<\/title>/, '<title>Distribuidora Tachi — Catálogo</title>')
+          .replace(/(<meta name="description" content=")[^"]*"/, '$1Catálogo, pedidos y facturas de Distribuidora Tachi"')
+      }
+    }
+  }
+}
+
 // El puerto y la API salen del entorno para que dos ramas corran a la vez sin
 // pisarse: developer en 5173 → 3000 (base de producción) e
 // independencia-alegra en 5174 → 3002 (copia local). Los de esta rama están
@@ -18,19 +48,22 @@ const nodeModulesReal = existsSync('node_modules') ? realpathSync('node_modules'
 // strictPort: si el puerto está ocupado, se detiene en vez de saltar al
 // siguiente. Saltar dejaría esta rama en un puerto que nadie espera, y es
 // fácil terminar trabajando en la pestaña equivocada.
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
+export default defineConfig(({ command, mode }) => {
+  const portal = mode === 'portal'
+  // En desarrollo el portal usa los mismos archivos .env que el sistema.
+  const env = loadEnv(portal ? 'development' : mode, process.cwd(), '')
   // El build de producción sigue leyendo solo la variable de Render, como
   // siempre: si tomara los archivos, un .env.local con localhost:3000 quedaría
-  // metido en un build hecho en esta máquina.
-  const apiUrl = mode === 'production' ? process.env.VITE_API_URL : env.VITE_API_URL
+  // metido en un build hecho en esta máquina. Vale igual para el del portal.
+  const apiUrl = command === 'build' ? process.env.VITE_API_URL : env.VITE_API_URL
   const apiOrigen = (apiUrl || 'http://localhost:3000').replace(/\/api\/?$/, '')
 
   return {
-    plugins: [react()],
+    plugins: [react(), ...(portal ? [htmlDelPortal()] : [])],
     cacheDir: 'node_modules/.vite-independencia',
     server: {
-      port: Number(env.PUERTO_FRONTEND) || 5173,
+      // El portal en su propio puerto, para correrlo a la par del sistema.
+      port: Number(portal ? env.PUERTO_PORTAL : env.PUERTO_FRONTEND) || (portal ? 5183 : 5173),
       strictPort: true,
       host: true,
       fs: {

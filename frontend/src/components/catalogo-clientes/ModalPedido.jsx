@@ -28,21 +28,26 @@ export default function ModalPedido({ resumen, carrito, onCambiar, onAgregar, on
   const { enviando, enviado, error, enviar } = usePedidoCliente(onEnviado)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-4">
+    <div role="dialog" aria-modal="true" aria-label="Su pedido" className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onCerrar} />
 
-      <div className="relative w-full sm:w-auto flex flex-col sm:flex-row sm:items-start sm:gap-3">
+      {/* En el teléfono, sugerencias y pedido juntos nunca pasan del alto de
+          la pantalla: la franja de arriba queda entera y el pedido toma el
+          resto, con su lista desplazable. Antes el pedido tenía un 70 % fijo
+          y, con varias líneas, el total y el botón quedaban muy abajo. `dvh`
+          descuenta la barra del navegador; donde no existe, queda el 85 %. */}
+      <div className="relative w-full sm:w-auto flex flex-col sm:flex-row sm:items-start sm:gap-3 max-h-[85vh] supports-[height:100dvh]:max-h-[92dvh] sm:max-h-none sm:supports-[height:100dvh]:max-h-none">
         {/* En móvil el orden visual es: sugerencias arriba, pedido abajo.
             En escritorio se invierte con `sm:order-2` para que el pedido
             quede a la izquierda, que es donde se lo busca primero.
             Con el pedido ya enviado no se muestran. */}
         {onAgregar && !enviado && (
-          <div className="sm:order-2">
+          <div className="sm:order-2 shrink-0">
             <PanelSugerencias habituales={habituales} perdidos={perdidos} onAgregar={onAgregar} carrito={carrito} />
           </div>
         )}
 
-        <div className="sm:order-1">
+        <div className="sm:order-1 min-h-0 flex flex-col">
           <PanelPedido
             resumen={resumen}
             onCambiar={onCambiar}

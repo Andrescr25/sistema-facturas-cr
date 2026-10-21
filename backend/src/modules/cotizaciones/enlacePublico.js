@@ -85,9 +85,13 @@ function leerToken(token) {
   return null;
 }
 
-/** La dirección completa que se le manda al cliente. */
+/**
+ * La dirección completa que se le manda al cliente. Va al portal de clientes
+ * (PORTAL_URL) cuando está separado del sistema interno; si no, al sitio de
+ * siempre, que la redirige allá cuando el portal ya existe.
+ */
 function enlaceDe(id) {
-  const base = (process.env.APP_URL || 'https://sistema-facturas-cr.onrender.com').replace(/\/+$/, '');
+  const base = (process.env.PORTAL_URL || process.env.APP_URL || 'https://sistema-facturas-cr.onrender.com').replace(/\/+$/, '');
   return `${base}/cotizacion/${tokenDe(id)}`;
 }
 

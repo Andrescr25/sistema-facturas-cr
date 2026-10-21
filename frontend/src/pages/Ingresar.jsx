@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Lock, User, Loader2, AlertCircle, Tablet, ShoppingBag } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import AccesoLayout from '../components/acceso/AccesoLayout'
+import { urlPortal } from '../utils/urlPortal'
 
 export default function Ingresar() {
   const { entrar } = useAuth()
@@ -108,7 +109,7 @@ export default function Ingresar() {
             <span className="text-[10px] leading-tight text-neutro-400">Para las tablets en ruta</span>
           </Link>
           <Link
-            to="/catalogo"
+            to={urlPortal('/catalogo')}
             className="flex flex-col items-center gap-1.5 rounded-xl border-2 border-neutro-200 px-3 py-3 text-center transition-colors hover:border-neutro-300 hover:bg-neutro-50"
           >
             <ShoppingBag size={18} className="text-neutro-400" />

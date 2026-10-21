@@ -1,7 +1,7 @@
-import { Sparkles, Plus, Package } from 'lucide-react'
+import { Sparkles, Plus } from 'lucide-react'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
 import { notaHabitual, notaPerdido } from '../../utils/notasCatalogo'
-import { urlArchivo } from '../../utils/urlArchivo'
+import MiniaturaProducto from './MiniaturaProducto'
 
 const TOPE = 8
 
@@ -57,14 +57,7 @@ export default function PanelSugerencias({ habituales, perdidos, onAgregar, carr
           ? 'w-36 shrink-0 bg-white rounded-xl border border-neutro-200 p-2 flex flex-col gap-1.5'
           : 'flex items-center gap-2.5 bg-white rounded-xl border border-neutro-200 p-2'}
       >
-        <div className={compacto
-          ? 'w-full h-16 bg-neutro-50 rounded-lg flex items-center justify-center overflow-hidden'
-          : 'w-11 h-11 shrink-0 bg-neutro-50 rounded-lg flex items-center justify-center overflow-hidden'}>
-          {p.imagen
-            ? <img src={urlArchivo(p.imagen)} alt="" loading="lazy" className="w-full h-full object-contain"
-                   onError={(e) => { e.currentTarget.style.visibility = 'hidden' }} />
-            : <Package size={16} className="text-neutro-300" />}
-        </div>
+        <MiniaturaProducto imagen={p.imagen} className={compacto ? 'w-full h-16' : undefined} />
 
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold text-neutro-900 leading-tight line-clamp-2">{p.nombre}</p>

@@ -964,3 +964,20 @@ failed with status code 404 / elimina todo lo recionado con eso». El selector
 venía de una pestaña abierta antes del despliegue; se retiran además los
 restos de compatibilidad con ciclos en órdenes, colas, Preventa y Reporte
 Clientes. Próxima visita y la historia en SQL no cambian. [Detalle](informes/simplificacion-sin-semanas-2026-10-20.md).
+
+
+## 2026-10-20 — Portal de clientes: pedido editable y sistemas separados
+
+A Claude: «lo que quiero es mejorar el portal de clientes / hay 2 cosas,
+cuando se están añadiendo productos no se pueden editar / entonces / ajustar
+modal para editar producto en modulo de cliente que sea mas flexible / y hay
+que separar los sistemas, no quiero que los clientes puedan llegar al sistema
+interno / puedo subir otra img a render».
+
+Se entendió así: «Su pedido» deja cambiar cantidades y sacar productos ahí
+mismo, con un alto que se adapta al teléfono, y el portal se publica como
+otro servicio de Render que no lleva nada del sistema interno. Hasta que ese
+servicio exista, todo sigue en la dirección de siempre. El dominio
+distribuidoratachi.com quedó para después, por decisión suya.
+[Decisión y pasos en Render](grafo/decision/portal-en-su-propio-sitio.md) ·
+[Portal](grafo/modulo/portal-clientes.md).

@@ -83,6 +83,19 @@ describe('el token de una cotización', () => {
     assert.ok(url.startsWith('http'), 'tiene que ser una dirección completa para mandarla por WhatsApp');
   });
 
+  test('con el portal separado, el enlace va al sitio de los clientes y no al interno', () => {
+    const previos = { PORTAL_URL: process.env.PORTAL_URL, APP_URL: process.env.APP_URL };
+    try {
+      process.env.APP_URL = 'https://interno.ejemplo';
+      process.env.PORTAL_URL = 'https://clientes.ejemplo/';
+      assert.ok(enlaceDe('8').startsWith('https://clientes.ejemplo/cotizacion/8-'));
+      delete process.env.PORTAL_URL;
+      assert.ok(enlaceDe('8').startsWith('https://interno.ejemplo/cotizacion/8-'), 'sin portal configurado, el de siempre');
+    } finally {
+      for (const [k, v] of Object.entries(previos)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    }
+  });
+
   test('un enlace viejo de Alegra NO abre la cotización propia con el mismo número', () => {
     // El 11 de Alegra es de un cliente; el 11 propio, de otro. Si se firmaran
     // igual, el enlace viejo mostraría nombre y precios ajenos.

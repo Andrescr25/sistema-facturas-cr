@@ -120,6 +120,7 @@ su estado indica el retiro. [Alcance y pruebas](../informes/simplificacion-sin-s
 ## Decisiones
 
 - [Rotación por cliente — cada uno con su frecuencia; los ciclos se retiran por partes](decision/rotacion-por-cliente-sin-ciclos.md)
+- [El portal de clientes se publica en su propio sitio, sin el sistema interno adentro](decision/portal-en-su-propio-sitio.md)
 - [El ciclo conserva recorrido/documentos, órdenes, envío y recepción](decision/ciclo-de-ruta-como-contexto.md) · *en retiro desde el 2026-10-13*
 - [Archivo individual 24 h y retiro de limpieza semanal](modulo/archivo-ordenes-compra.md)
 - [Orden enviada inmutable y archivo individual tras recepción](decision/orden-enviada-y-archivo-por-recepcion.md)

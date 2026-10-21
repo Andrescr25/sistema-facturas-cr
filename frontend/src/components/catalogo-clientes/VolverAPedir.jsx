@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { RotateCcw, Loader2, Package, ChevronRight } from 'lucide-react'
 import apiPortal from '../../services/apiPortal'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
+import { fechaEnPalabras } from '../../utils/fechaCR'
 
 /**
  * "Volver a pedir": las compras anteriores del cliente.
@@ -57,7 +58,7 @@ export default function VolverAPedir({ onAbrir }) {
             >
             <div>
               <p className="text-[12px] font-bold text-neutro-900 leading-tight">
-                {new Date(c.fecha).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {fechaEnPalabras(c.fecha, { day: 'numeric', month: 'short', year: 'numeric' })}
               </p>
               <p className="text-[11px] text-neutro-400 flex items-center gap-1">
                 <Package size={10} />

@@ -28,6 +28,19 @@ export function fechaCorta(f, vacio = '—') {
   return f ? String(f).slice(0, 10).split('-').reverse().join('/') : vacio
 }
 
+/**
+ * Una fecha de calendario en palabras ("10 de octubre de 2026"). Mismo
+ * cuidado que fechaCorta: `factura.fecha` llega del servidor como medianoche
+ * UTC ("2026-10-10T00:00:00.000Z"), y `new Date(f).toLocaleDateString()` en
+ * Costa Rica la mostraba como el 9 (visto en el portal el 2026-10-20). Se toma
+ * el día del texto y se formatea en UTC, donde no se corre.
+ */
+export function fechaEnPalabras(f, opciones = { day: 'numeric', month: 'long', year: 'numeric' }, vacio = '—') {
+  const [a, m, d] = String(f || '').slice(0, 10).split('-').map(Number)
+  if (!a || !m || !d) return vacio
+  return new Date(Date.UTC(a, m - 1, d)).toLocaleDateString('es-CR', { ...opciones, timeZone: 'UTC' })
+}
+
 
 /** Instantes del servidor con zona (timestamptz), a la hora de Costa Rica. */
 export function fechaHoraEnCostaRica(valor) {

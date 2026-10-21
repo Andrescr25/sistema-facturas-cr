@@ -22,6 +22,14 @@ archivos:
   - frontend/src/hooks/useCarritoCliente.js
   - frontend/src/hooks/useClientesPortal.js
   - frontend/src/pages/CatalogoClientes.jsx
+  - frontend/src/components/catalogo-clientes/PanelPedido.jsx
+  - frontend/src/components/catalogo-clientes/ModalPedido.jsx
+  - frontend/src/components/catalogo-clientes/ModalCompraAnterior.jsx
+  - frontend/src/components/catalogo-clientes/InputCantidad.jsx
+  - frontend/src/components/catalogo-clientes/MiniaturaProducto.jsx
+  - frontend/src/components/catalogo-clientes/VolverAPedir.jsx
+  - frontend/src/pages/portal/PortalFacturas.jsx
+  - frontend/src/utils/fechaCR.js
   - frontend/src/pages/Clientes.jsx
   - frontend/src/components/clientes/ListaCuentas.jsx
   - frontend/src/components/clientes/NavegacionClientes.jsx
@@ -29,9 +37,28 @@ archivos:
   - backend/tests/facturarPedidoConImpuesto.test.js
 aristas:
   depende_de: [tabla/venta-linea, modulo/facturacion]
-  relacionado: [modulo/rutas-clientes, modulo/catalogo-agente, modulo/facturas-bodega, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
+  relacionado: [decision/portal-en-su-propio-sitio, leccion/fecha-utc-costa-rica, modulo/rutas-clientes, modulo/catalogo-agente, modulo/facturas-bodega, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
 medido: 2026-10-20
 ---
+
+## 2026-10-20 — el pedido se edita adentro; el portal, en su propio sitio
+
+Pedido del usuario: «cuando se están añadiendo productos no se pueden editar
+/ ajustar modal para editar producto en módulo de cliente que sea más
+flexible». En «Su pedido» cada línea tenía solo «2 × ₡…» y una X: ahora lleva
+foto, `InputCantidad` (−, número escribible, +) y papelera; el total de la
+línea se actualiza al instante. En el teléfono el pedido ya no tiene un 70 %
+fijo: toma el alto que deja la franja de sugerencias (máximo 92dvh entre las
+dos) y la lista se desplaza adentro; en una pantalla angosta la cantidad baja
+debajo del nombre. «Repetir esta compra» usa el mismo `InputCantidad`: su
+control propio pasaba la línea a «Volver a poner» al borrar el número para
+escribir otro. Los dos modales dicen `role=dialog`. Las fechas de «Volver a
+pedir», «Repetir esta compra» y «Mis facturas» salían un día antes en Costa
+Rica: ahora usan `fechaEnPalabras` ([[leccion/fecha-utc-costa-rica]]). La
+cabecera del catálogo ya no desborda a 320 px.
+
+El mismo día el portal pasa a publicarse aparte del sistema interno:
+[[decision/portal-en-su-propio-sitio]].
 
 ## Vigencia desde el 2026-10-20
 

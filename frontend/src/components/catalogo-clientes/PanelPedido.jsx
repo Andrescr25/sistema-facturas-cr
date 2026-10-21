@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { X, Loader2, AlertCircle, Check, LogIn, Package } from 'lucide-react'
+import { X, Loader2, AlertCircle, Check, LogIn, Package, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
 import { usePortalCliente } from '../../contexts/PortalClienteContext'
 import SeguimientoPedido from './SeguimientoPedido'
+import InputCantidad from './InputCantidad'
+import MiniaturaProducto from './MiniaturaProducto'
 
 /**
  * El pedido, antes y después de enviarlo.
@@ -29,7 +31,9 @@ export default function PanelPedido({
   const vacio = resumen.lineas.length === 0
 
   return (
-    <div className="bg-white w-full sm:w-[26rem] sm:rounded-3xl rounded-t-3xl max-h-[70vh] sm:max-h-[88vh] flex flex-col overflow-hidden">
+    // Sin alto fijo en el teléfono: toma lo que deja la franja de sugerencias
+    // (ver ModalPedido) y la lista se desplaza adentro.
+    <div className="bg-white w-full sm:w-[30rem] sm:rounded-3xl rounded-t-3xl min-h-0 sm:max-h-[88vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-neutro-100">
           <h2 className="font-extrabold text-neutro-900">{enviado ? 'Pedido enviado' : 'Su pedido'}</h2>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="p-1 text-neutro-400 hover:text-neutro-700">
@@ -79,23 +83,41 @@ export default function PanelPedido({
           </div>
         ) : (
           <>
-            <div className="overflow-y-auto p-4 space-y-3 flex-1">
+            {/* Cada línea se edita acá mismo: antes solo decía «2 × ₡…» con
+                una X, y para cambiar una cantidad había que cerrar el pedido
+                y buscar el producto otra vez en el catálogo. */}
+            <div className="overflow-y-auto min-h-0 p-4 space-y-2 flex-1">
               {resumen.lineas.map(({ producto, cantidad }) => (
-                <div key={producto.id} className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-neutro-900 truncate">{producto.nombre}</p>
-                    <p className="text-xs text-neutro-400">{cantidad} × {formatearColones(producto.precio)}</p>
+                <div key={producto.id} className="flex items-start gap-2.5 rounded-xl border border-neutro-200 p-2">
+                  <MiniaturaProducto imagen={producto.imagen} />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-xs font-bold text-neutro-900 leading-tight line-clamp-2">{producto.nombre}</p>
+                    {/* Precio y cantidad comparten fila si caben; en un
+                        teléfono angosto la cantidad baja y el nombre no se
+                        aprieta hasta quedar ilegible. */}
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                      <p className="text-[11px] text-neutro-400">
+                        {formatearColones(producto.precio)} ·{' '}
+                        <strong className="text-neutro-700">{formatearColones(cantidad * producto.precio)}</strong>
+                      </p>
+                      <div className="w-28 shrink-0">
+                        <InputCantidad
+                          cantidad={cantidad}
+                          onCambiar={(n) => onCambiar(producto, n)}
+                          etiqueta={producto.nombre}
+                          compacto
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm font-extrabold text-neutro-900 shrink-0">
-                    {formatearColones(cantidad * producto.precio)}
-                  </p>
                   <button
                     type="button"
                     onClick={() => onCambiar(producto, 0)}
-                    aria-label={`Quitar ${producto.nombre}`}
-                    className="p-1 text-neutro-300 hover:text-peligro-600 shrink-0"
+                    aria-label={`Sacar ${producto.nombre} del pedido`}
+                    disabled={enviando}
+                    className="w-7 h-7 shrink-0 rounded-md text-neutro-300 hover:text-peligro-600 hover:bg-peligro-50 flex items-center justify-center disabled:opacity-40"
                   >
-                    <X size={14} />
+                    <Trash2 size={13} />
                   </button>
                 </div>
               ))}
