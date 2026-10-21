@@ -991,3 +991,12 @@ ingreso del personal] / y aún puedo entrar desde ese acceso». Se quitó del
 ingreso y del Dashboard, y el sistema interno ya no trae las páginas del
 cliente: sus direcciones viejas solo llevan al portal, con la sesión.
 [Decisión](grafo/decision/portal-en-su-propio-sitio.md).
+
+
+## 2026-10-20 — Las órdenes enviadas salen a los 3 días
+
+«ok, ahora las ordenes de compra que ya fueron enviadas y tienen mas de 3
+dias de enviadas se pueden eliminar». Se dejan de mostrar en Reporte
+Proveedores pasadas 72 h de enviadas, sin borrarlas de la base: borrarlas
+haría volver sus productos a «por pedir» y pedirlos de nuevo.
+[Detalle](grafo/modulo/reporte-proveedores.md).

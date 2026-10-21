@@ -43,6 +43,18 @@ caso('misma clave tras respuesta perdida no reenvía; distinto cuerpo con esa cl
   await assert.rejects(s.enviar({...datos,productos:[{...datos.productos[0],cantidad:3,cantidadOriginal:3}]}),e=>e.status===409);
   assert.deepEqual((await env.descargar(r.orden.id,datos.clave)).pdf,copia.pdf);assert.equal(envios,1);
 });
+caso('a los 3 días la enviada sale del reporte, pero lo que cubre no vuelve a «por pedir»',async()=>{
+  // Pedido del usuario (2026-10-20): se ocultan, no se borran.
+  await guardar(0,10);const r=await s.enviar(await pedido());
+  const {enviadasEn,DIAS_VISIBLE}=require('../src/modules/orders-whatsapp/ordenesReporte.service');
+  const enviada=new Date(r.orden.enviada_en).getTime(),visibles=async seg=>(await enviadasEn(db,{ahora:new Date(enviada+seg*1000).toISOString()})).map(o=>o.orden_id);
+  assert.equal(DIAS_VISIBLE,3);
+  assert.ok((await visibles(71*3600)).includes(r.orden.id),'a las 71 h sigue a la vista');
+  assert.ok(!(await visibles(72*3600+1)).includes(r.orden.id),'pasadas las 72 h ya no');
+  assert.ok(!(await visibles(30*24*3600)).includes(r.orden.id));
+  assert.equal(await reporte(),undefined,'lo enviado sigue descontado: el proveedor no vuelve a «por pedir»');
+  assert.deepEqual(await motor.obtener(r.orden.id),r.orden,'la orden sigue guardada, igual');
+});
 caso('A10 enviada y nuevo A3: reporte3 y otra orden; fotografía/PDF anteriores idénticos',async()=>{
   await guardar(0,10);const primera=await s.enviar(await pedido()),pdf=await env.descargar(primera.orden.id,primera.orden.envio_id);
   await guardar(0,3,1);assert.equal((await reporte()).productos_faltantes[0].cantidad_faltante,3);

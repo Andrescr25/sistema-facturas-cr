@@ -69,6 +69,17 @@ aristas:
 medido: 2026-10-20
 ---
 
+## Las enviadas salen del reporte a los 3 días — 2026-10-20
+
+Pedido del usuario: «las ordenes de compra que ya fueron enviadas y tienen
+mas de 3 dias de enviadas se pueden eliminar». `enviadasEn` deja de listar
+la enviada cuando pasan 72 h desde `enviada_en` (`DIAS_VISIBLE`). Se OCULTA,
+no se borra: su cobertura sigue restando en `cantidadSinEnviar`, así que sus
+productos no vuelven a «por pedir»; borrarla los haría pedir dos veces. La
+orden, sus líneas y su PDF siguen guardados. Una sin confirmar
+(enviando/incierto) sigue a la vista hasta que se resuelva. Ese día había 15
+enviadas en producción, todas del 14/10: salen todas del reporte.
+
 ## Vigencia desde el 2026-10-20
 
 Los documentos nuevos ya no muestran OC-xx; conservan el formato comercial
