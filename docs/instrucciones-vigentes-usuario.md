@@ -1102,3 +1102,11 @@ referencia visual. Sin filas por factura ni hojas auxiliares. Mismos datos
 y descuento aplicado una vez, sin inventar IVA de combustible o mezclar monedas.
 Desarrollo local y publicación en developer; no solicita otra subida a main.
 [Alcance y pruebas](informes/contador-resumen-2026-10-21.md).
+
+
+## 2026-10-21 — Publicar el Excel simplificado
+
+Usuario: «subelo al main», después de revisar la entrega de tres resúmenes
+0a4e7ed. Publicar ese cambio verificado y su registro de Codex, sin migraciones
+ni nuevas decisiones fiscales. Conservar la vista local y comprobar el despliegue.
+[Alcance y validación](informes/contador-resumen-2026-10-21.md).

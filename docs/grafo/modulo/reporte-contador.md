@@ -108,3 +108,8 @@ Depende de SQL061/062 de Gastos, ambas aplicadas en producción por Codex el
 
 El formato ampliado de [la entrega inicial](../../informes/contador-excel-2026-10-21.md)
 queda reemplazado por [el resumen solicitado](../../informes/contador-resumen-2026-10-21.md).
+
+Publicación del resumen autorizada después por «subelo al main»: 0a4e7ed de
+Codex y su registro, sin SQL nuevo. Descarga/adjunto del mes usan sólo las tres
+hojas; los reportes históricos mantienen su formato. Evidencia en el informe
+anterior y estado Render en el relevo compartido de publicaciones.

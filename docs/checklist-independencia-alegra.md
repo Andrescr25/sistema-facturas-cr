@@ -1112,7 +1112,8 @@ nueva migración ni modifica los conteos del corte. Ver
   Tabla corta, totales originales/notas/monedas conservados, descarga y correo
   con el mismo generador. Suite2946 correctas/3 históricas omitidas, 23
   comprobaciones de navegador y vista nativa del XLSX correctas. Sin SQL nuevo ni cambios de datos o reportes históricos.
-  [Verificación](informes/contador-resumen-2026-10-21.md).
+  Publicación a main autorizada después de la entrega 0a4e7ed, sin SQL nuevo.
+  [Verificación y publicación](informes/contador-resumen-2026-10-21.md).
 
 
 [Alcance y pruebas de aprobación](informes/gastos-aprobacion-2026-10-21.md).

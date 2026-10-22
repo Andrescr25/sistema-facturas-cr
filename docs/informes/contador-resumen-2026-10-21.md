@@ -57,4 +57,9 @@ autenticada de la vista local: 200 y las mismas tres hojas, sin cambios de datos
 Muestra sólo con datos ficticios: `~/.local/share/sistema-facturas-cr/muestras/reporte-contador-resumen.xlsx`.
 Evidencia privada: `/private/tmp/codex-contador-resumen-20261021/`.
 Desarrollo y ensayos en clones locales; producción no se conecta ni se modifica.
-Entrega en developer y vista 5173/3000; main conserva la publicación anterior.
+La entrega inicial 0a4e7ed se publicó en developer y vista 5173/3000.
+Después el usuario autoriza «subelo al main»: Codex publica ese cambio propio
+verificado junto con este registro, sin otros commits pendientes ni SQL nuevo.
+No se repiten migraciones ni se modifica la base de producción. El estado
+del despliegue de Render se conserva en el registro compartido de publicación
+`permiso-subir-a-main.md`.
