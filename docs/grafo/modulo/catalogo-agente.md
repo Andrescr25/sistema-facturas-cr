@@ -95,7 +95,8 @@ Refinamiento del mismo día, pedido del usuario después de ver localhost:
 las subcategorías necesitaban protagonismo y los productos entradas tipo Apple.
 `Cuadricula` muestra navegación horizontal por familia, fija bajo las categorías,
 y títulos al empezar una familia. Cuando dos familias comparten fila, aparecen
-sus nombres sobre ella y cada tarjeta conserva su etiqueta. `filasCatalogo.js`
+sus nombres sobre ella y cada tarjeta conserva su etiqueta. (La portada de una
+marca ocupa dos casillas; ver [[modulo/marcas-catalogo]].) `filasCatalogo.js`
 consume el orden ya calculado: no reordena ni deja huecos al cambiar de familia.
 Dos consultas de ancho compartidas ajustan las filas a 2/3/4 columnas. Los
 saltos se dirigen a la fila inicial de la familia con margen para las barras.

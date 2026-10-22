@@ -1141,3 +1141,12 @@ del agente abra una vista previa para apreciarla mejor. Se reutiliza el modal
 existente de las presentaciones de marca, también en búsqueda/ofertas, con
 foto individual y sin nueva consulta. Mantener navegación, scroll, teclado,
 consulta sin señal y rapidez. Es una ampliación del catálogo recién publicado.
+
+
+## 2026-10-22 — La foto de marca como portada; la vista previa al revés
+
+Continuando lo de Codex: «la foto de marca es una foto con fondo, todo
+llamativo..etc / no una card mas de prouducto, sino una portada para dar a
+presentar los productos / hay que cambiar el diseño para que encage mejor» y
+«la vista previa viene con el nombre de la linea abajo y el del producto
+arriba / hazlo al reves sino confunde». [Detalle](grafo/modulo/marcas-catalogo.md).

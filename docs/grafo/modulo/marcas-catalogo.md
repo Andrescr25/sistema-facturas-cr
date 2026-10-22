@@ -24,11 +24,30 @@ archivos:
   - frontend/src/utils/precioCatalogoAgente.js
   - frontend/src/utils/cacheImagenesCatalogo.js
   - frontend/src/utils/buscarCatalogoAgente.js
+  - frontend/src/utils/filasCatalogo.js
+  - backend/tests/filasCatalogo.test.js
 aristas:
   depende_de: [tabla/subcategoria]
   relacionado: [modulo/gestion-catalogo, modulo/catalogo-agente, decision/orden-canonico-compartido, leccion/fotos-del-catalogo-en-la-tablet, leccion/precio-sin-iva-costo-con-iva, leccion/lo-publico-no-lleva-costo-ni-margen]
 medido: 2026-10-22
 ---
+
+## La foto de marca es una portada — 2026-10-22
+
+Pedido del usuario: «la foto de marca es una foto con fondo, todo llamativo…
+no una card más de producto, sino una portada para dar a presentar los
+productos». `TarjetaMarca` ocupa dos casillas (`anchoEnFila`: la fila entera
+en tablet y teléfono). El póster va a sangre sobre su propia foto ampliada y
+desenfocada, sin recortar el arte; el nombre de la marca va al lado (abajo en
+el teléfono), nunca encima de las letras del póster. Sin foto, la portada es
+el nombre sobre los colores del sistema. Si la portada no cabe en lo que queda
+de la fila, la siguiente ficha suelta de la misma subcategoría se adelanta
+para no dejar hueco (se respeta «llenar las filas» del 2026-10-07); entre
+subcategorías no se adelanta nada.
+
+Vista previa: la MARCA es el título y el producto va abajo con su precio
+(«hazlo al revés sino confunde»). Un producto sin marca conserva su nombre
+de título.
 
 La agrupación es una **marca dentro de una subcategoría**, con foto propia.
 Tricicle en Candados puede tener otra foto que Tricicle en otra subcategoría.
