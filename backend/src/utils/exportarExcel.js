@@ -28,34 +28,42 @@ function celda(valor, tipo) {
   return tipo === 'porcentaje' ? numero / 100 : numero;
 }
 
+function agregarTablaExcel(libro, { nombre, columnas, filas, encabezado = [] }) {
+  const valores = [columnas.map(c => c.titulo), ...filas.map(f => columnas.map(c => celda(f[c.clave], c.tipo || 'texto')))];
+  const inicio = encabezado.length;
+  const hoja = XLSX.utils.aoa_to_sheet([...encabezado, ...valores]);
+  hoja['!cols'] = columnas.map(c => ({ wch: c.ancho || 18 }));
+  hoja['!autofilter'] = { ref: `${XLSX.utils.encode_cell({ r: inicio, c: 0 })}:${XLSX.utils.encode_cell({ r: inicio + filas.length, c: columnas.length - 1 })}` };
+  for (let fila = 1; fila < valores.length; fila++) {
+    columnas.forEach((c, columna) => {
+      const direccion = XLSX.utils.encode_cell({ r: fila + inicio, c: columna });
+      if (hoja[direccion]) hoja[direccion].z = c.formato || FORMATOS[c.tipo || 'texto'];
+    });
+  }
+  // Los textos van como celdas de tipo string, incluso si empiezan con
+  // '=' o '+'. Un nombre escrito por alguien nunca se vuelve una fórmula.
+  XLSX.utils.book_append_sheet(libro, hoja, nombre);
+  return hoja;
+}
+
+function escribirExcel(libro, { prefijo, presentacion }) {
+  const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx', compression: true });
+  return {
+    buffer: presentacion ? require('./excelPresentacion').presentarExcel(buffer, presentacion) : buffer,
+    nombre: `${prefijo}-${hoyEnCostaRica()}.xlsx`
+  };
+}
+
 function generarExcel({ titulo, prefijo, informacion = [], hojas }) {
-  const dia = hoyEnCostaRica();
   const libro = XLSX.utils.book_new();
   const info = XLSX.utils.aoa_to_sheet([
-    ['Reporte', titulo], ['Generado (Costa Rica)', dia],
+    ['Reporte', titulo], ['Generado (Costa Rica)', hoyEnCostaRica()],
     ['Fuente', 'Datos guardados del sistema; descarga de solo lectura.'], ...informacion
   ]);
   info['!cols'] = [{ wch: 30 }, { wch: 90 }];
   XLSX.utils.book_append_sheet(libro, info, 'Información');
-  for (const { nombre, columnas, filas } of hojas) {
-    const valores = [columnas.map(c => c.titulo), ...filas.map(f => columnas.map(c => celda(f[c.clave], c.tipo || 'texto')))];
-    const hoja = XLSX.utils.aoa_to_sheet(valores);
-    hoja['!cols'] = columnas.map(c => ({ wch: c.ancho || 18 }));
-    hoja['!autofilter'] = { ref: hoja['!ref'] };
-    for (let fila = 1; fila < valores.length; fila++) {
-      columnas.forEach((c, columna) => {
-        const direccion = XLSX.utils.encode_cell({ r: fila, c: columna });
-        if (hoja[direccion]) hoja[direccion].z = c.formato || FORMATOS[c.tipo || 'texto'];
-      });
-    }
-    // Los textos van como celdas de tipo string, incluso si empiezan con
-    // '=' o '+'. Un nombre escrito por alguien nunca se vuelve una fórmula.
-    XLSX.utils.book_append_sheet(libro, hoja, nombre);
-  }
-  return {
-    buffer: XLSX.write(libro, { type: 'buffer', bookType: 'xlsx', compression: true }),
-    nombre: `${prefijo}-${dia}.xlsx`
-  };
+  for (const hoja of hojas) agregarTablaExcel(libro, hoja);
+  return escribirExcel(libro, { prefijo });
 }
 
 function enviarExcel(res, { buffer, nombre }) {
@@ -68,4 +76,4 @@ function enviarExcel(res, { buffer, nombre }) {
   return res.send(buffer);
 }
 
-module.exports = { generarExcel, enviarExcel, fechaValida };
+module.exports = { generarExcel, agregarTablaExcel, escribirExcel, enviarExcel, fechaValida };

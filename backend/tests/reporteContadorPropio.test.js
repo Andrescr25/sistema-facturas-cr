@@ -302,13 +302,17 @@ describe(
     test('Excel con todas las secciones, precisión y pendientes vacíos', () => {
       const b = XLSX.read(excelMensual(mes).buffer, { type: 'buffer' });
       assert.deepEqual(b.SheetNames, [
-        'Información',
         'Resumen',
-        'Documentos',
+        'Ventas',
+        'Compras',
+        'Gastos operativos',
+        'Pendientes',
+        'Impuestos de ventas',
         'Detalle comercial',
-        'Gastos operativos'
+        'Soporte documental',
+        'Guía'
       ]);
-      const gastos = XLSX.utils.sheet_to_json(b.Sheets['Gastos operativos'], { defval: null });
+      const gastos = XLSX.utils.sheet_to_json(b.Sheets['Gastos operativos'], { range: 5, defval: null });
       assert.equal(gastos.length, 4);
       assert.equal(gastos[0]['Subtotal original'], 100);
       assert.equal(gastos[0]['Impuestos originales'], 13);
@@ -323,7 +327,7 @@ describe(
         )
       );
       assert.equal(
-        XLSX.utils.sheet_to_json(b.Sheets.Documentos).find((d) => d.Tipo === 'Venta')[
+        XLSX.utils.sheet_to_json(b.Sheets.Ventas, { range: 5 }).find((d) => d['Tipo de documento'] === 'Venta')[
           'Total comprobante'
         ],
         113.37

@@ -1053,3 +1053,15 @@ ventas/notas, compras y gastos operativos (combustible/alimentación), con
 Excel y originales de gastos en el envío mensual explícito. No implica
 programar correos ni enviar comprobantes reales para probar.
 [Publicación](informes/despliegue-gastos-contador-2026-10-21.md).
+
+
+## 2026-10-21 — Excel mensual claro para el contador
+
+Usuario: «el excel que descarga esta muy desordenado / busca que informacion
+ocupan realment los contadores [...] colores, tamaños, todo bien presentado
+y resumido». Investigar fuentes oficiales de Costa Rica y reorganizar la
+descarga y el mismo adjunto del correo: resumen por moneda, ventas/compras/
+gastos separados, impuestos registrados por tarifa y pendientes visibles.
+Conservar documentos/importes reales, sin decidir deducciones ni crédito al
+exportar. Desarrollo y pruebas locales; no solicita otra publicación a main.
+[Formato y validación](informes/contador-excel-2026-10-21.md).

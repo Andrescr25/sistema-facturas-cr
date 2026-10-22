@@ -1089,3 +1089,9 @@ nueva migración ni modifica los conteos del corte. Ver
 - [x] GO-10: 2915 pruebas correctas, 3 históricas omitidas; PostgreSQL, 21 comprobaciones en navegador, build, lint y estructura/grafo correctos.
 
 [Alcance mensual](informes/contador-mensual-2026-10-21.md). Sin SQL adicional; 061 aplicada. [Despliegue](informes/despliegue-gastos-contador-2026-10-21.md).
+
+- [x] GO-11: formato mensual investigado con Hacienda; resumen/empresa/período,
+  ventas/compras/gastos, pendientes y tarifas de ventas; estilos reales,
+  filtros, paneles e impresión. Descarga y adjunto usan el mismo generador.
+  Sin SQL nuevo ni declaración fiscal automática.
+  [Formato y verificación local](informes/contador-excel-2026-10-21.md).

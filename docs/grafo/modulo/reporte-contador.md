@@ -7,6 +7,9 @@ archivos:
   - backend/src/modules/reporte-contador/desdeElSistema.js
   - backend/src/modules/reporte-contador/contador.mes.js
   - backend/src/modules/reporte-contador/contador.excel.js
+  - backend/src/modules/reporte-contador/contador.excelDatos.js
+  - backend/src/utils/excelPresentacion.js
+  - backend/tests/contadorExcel.test.js
   - backend/src/modules/reporte-contador/contador.comprobantes.js
   - backend/src/modules/reporte-contador/contador.historico.js
   - backend/src/modules/reporte-contador/reporte-contador.service.js
@@ -29,7 +32,7 @@ medido: 2026-10-21
 ## El mes del sistema actual
 
 Al abrir consulta el último mes completo de Costa Rica; Mes actual muestra
-el avance. Cinco consultas por clase dentro de REPEATABLE READ READ ONLY:
+el avance. Cinco consultas por clase y la identificación de empresa dentro de REPEATABLE READ READ ONLY:
 ventas emitidas, sus notas de crédito, compras vigentes, notas de proveedor
 no eliminadas y gastos operativos. Sin importar Excel ni rellenar períodos.
 Toda línea entra, también exenta o sin impuesto asignado. Identidad propia,
@@ -45,9 +48,23 @@ deducción y crédito aprobados quedan vacíos. Anulados visibles fuera de sumas
 Saldo/pagado/métodos vienen de los pagos vigentes, sin crear movimientos.
 Notas de proveedor aparte, sin compensar automáticamente el IVA de gastos.
 
-Excel conjunto reutiliza utils/exportarExcel: Información, Resumen,
-Documentos, Detalle comercial y Gastos operativos, con números, fechas y
-claves tipados. ZIP reutiliza CFB de SheetJS instalado; XML/PDF originales,
+Excel conjunto reutiliza utils/exportarExcel para celdas tipadas y escritura.
+Abre en Resumen: empresa/cédula, período y cierre, ventas netas/base/impuestos,
+compras, notas de proveedor, gastos, deducción/crédito revisados y pendientes
+por moneda. Ventas, Compras y Gastos operativos separan las listas principales;
+Pendientes enumera cada documento una vez con sus motivos. Impuestos de ventas
+agrupa líneas por tarifa registrada/moneda, restando notas; sin deducir tarifas
+de compras ni equiparar 0 % a exento. Detalle comercial y Soporte documental
+conservan líneas, claves completas, referencias y revisión/pagos. Guía explica
+alcance y fuentes oficiales. Cada hoja tiene regreso al resumen.
+
+Presentación optativa compartida: roles de la paleta, Aptos, bandas alternas,
+totales/alertas, encabezados y primeras columnas fijos, filtros sólo en tabla,
+impresión a una página de ancho con encabezados repetidos. SheetJS CE no
+escribe esos estilos: excelPresentacion completa el SpreadsheetML recién
+generado con el CFB ya instalado, sin paquetes ni formato HTML disfrazado de
+XLSX. No se aplica al exportador histórico ni a los otros reportes.
+ZIP reutiliza CFB de SheetJS instalado; XML/PDF originales,
 nombres por id de gasto y LEEME con faltantes. No inventa comprobantes ni
 publica rutas privadas en JSON. Tope 32 MB originales y 18 MB adjuntos de
 correo; al superarlo informa y conserva descargas individuales de Gastos.
@@ -70,3 +87,5 @@ Depende de SQL 061 de Gastos, aplicada en producción por Codex el 21/10 a las
 [Alcance y verificación](../../informes/contador-mensual-2026-10-21.md).
 
 [Publicación autorizada y respaldo](../../informes/despliegue-gastos-contador-2026-10-21.md).
+
+[Formato contable y verificación](../../informes/contador-excel-2026-10-21.md).

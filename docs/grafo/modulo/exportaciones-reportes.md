@@ -26,7 +26,7 @@ archivos:
   - backend/tests/rentabilidad.test.js
 aristas:
   relacionado: [modulo/exportaciones-operativas-ciclo, modulo/dashboard, modulo/rentabilidad, modulo/faltantes, modulo/reporte-contador, modulo/permisos, leccion/fecha-utc-costa-rica, leccion/ids-propios-y-de-alegra-no-se-mezclan]
-medido: 2026-10-20
+medido: 2026-10-21
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -100,6 +100,12 @@ siguen siendo strings, nunca fórmulas. Las fechas son seriales de calendario
 Excel con formato `yyyy-mm-dd`: no se convierten a un instante local.
 La ganancia de Rentabilidad conserva su significado: estimada al costo de
 hoy, solo con costo confiable; las últimas tres series son promedios.
+
+El libro mensual de [[modulo/reporte-contador]] abre en su Resumen en lugar
+de Información. Reutiliza agregarTablaExcel/escribirExcel de este ayudante,
+con títulos antes de la tabla; conserva tipos, formatos, filtros y seguridad
+de textos. Su presentación optativa aplica estilos/impresión al XLSX generado.
+No cambia formatos de descargas operativas ni reportes antiguos del contador.
 
 PERMISOS. Inicio y Rentabilidad heredan su módulo. Cada ruta de exportación
 de faltantes tiene un prefijo específico de Reporte Clientes/Proveedores en

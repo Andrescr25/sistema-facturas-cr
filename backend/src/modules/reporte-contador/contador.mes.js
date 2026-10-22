@@ -97,8 +97,9 @@ async function obtenerMes(filtros, conexion = pool) {
       }))
       .sort((a, b) => b.fecha.localeCompare(a.fecha) || a.identidad.localeCompare(b.identidad));
     const gastos = (await datos.gastos(db, p.desde, p.siguiente)).map(prepararGasto);
+    const empresa = (await db.query('SELECT nombre,nombre_comercial,identificacion FROM empresa WHERE id=1')).rows[0] || null;
     await db.query('COMMIT');
-    const contenido = { documentos, gastos };
+    const contenido = { documentos, gastos, empresa };
     const huella = createHash('sha256').update(JSON.stringify(contenido)).digest('hex');
     // Las rutas privadas sólo se usan para armar el respaldo, nunca salen en JSON.
     return { ...p, ...contenido, resumen: resumir(documentos, gastos), huella };
