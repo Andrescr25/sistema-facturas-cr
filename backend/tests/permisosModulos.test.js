@@ -80,11 +80,22 @@ describe('moduloDeRuta — a qué módulo pertenece cada llamada', () => {
 
   test('los módulos con datos de plata SÍ están mapeados', () => {
     // Son los que no pueden quedar sin protección por descuido.
-    for (const clave of ['rentabilidad', 'reporte-contador', 'cuentas-por-cobrar', 'pagos-proveedores']) {
+    for (const clave of ['caja-general', 'rentabilidad', 'reporte-contador', 'cuentas-por-cobrar', 'pagos-proveedores']) {
       const m = MODULOS.find(x => x.clave === clave);
       assert.ok(m.rutasApi.length > 0, `${clave} no tiene rutasApi: quedaría abierto`);
     }
   });
+});
+
+test('Caja General es independiente de cobros y cierres, también en el menú', async () => {
+  assert.equal(moduloDeRuta('/Cuentas-Por-Cobrar/propios/caja/movimientos/'), 'caja-general');
+  for (const ruta of ['/cuentas-por-cobrar/propios/caja', '/cuentas-por-cobrar/propios/caja/cerrar', '/cuentas-por-cobrar/propios/deudores']) {
+    assert.equal(moduloDeRuta(ruta), 'cuentas-por-cobrar');
+  }
+  const { puedeVer } = await import('../../frontend/src/utils/modulos.js');
+  assert.equal(puedeVer({ modulos: ['caja-general'] }, '/caja-general'), true);
+  assert.equal(puedeVer({ modulos: ['caja-general'] }, '/cuentas-por-cobrar'), false);
+  assert.equal(puedeVer({ modulos: ['cuentas-por-cobrar'] }, '/caja-general'), false);
 });
 
 describe('rutas compartidas y de administrador', () => {

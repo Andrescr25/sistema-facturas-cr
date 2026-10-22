@@ -138,4 +138,4 @@ no paga ni acepta. La decisión explícita desde Revisión confirma el gasto y
 paga el saldo completo con su medio en la misma transacción; después manda
 el mensaje receptor. Rechazar bloquea la deuda y anula sólo ese registro
 documental. El flujo comercial permanece.
-Ver [[modulo/gastos-operativos]]; SQL061 aplicada, SQL062 sólo local.
+Ver [[modulo/gastos-operativos]]; SQL061/062 aplicadas en producción; ver despliegue del 21/10.

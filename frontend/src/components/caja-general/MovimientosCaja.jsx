@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { ArrowDownLeft, ArrowUpRight, Loader2, RefreshCw, Scale, Wallet } from 'lucide-react'
-import { getMovimientosCaja } from '../../services/cuentasPorCobrarService'
+import { useCajaGeneral } from '../../hooks/useCajaGeneral'
 import { formatCurrency, formatDate } from '../../utils/pagos'
-import { hoyEnCostaRica } from '../../utils/fechaCR'
 
 /**
  * Caja General: el punto central por donde pasa la plata (decisión del
@@ -20,33 +18,9 @@ const TIPO = {
   gasto: 'Gasto:'
 }
 
-function primeroDelMes(dia) { return `${dia.slice(0, 8)}01` }
-
-export default function CajaGeneral() {
-  const hoy = hoyEnCostaRica()
-  const [desde, setDesde] = useState(primeroDelMes(hoy))
-  const [hasta, setHasta] = useState(hoy)
-  const [sentido, setSentido] = useState('todos')
-  const [datos, setDatos] = useState(null)
-  const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState('')
-
-  const cargar = useCallback(async () => {
-    setCargando(true)
-    setError('')
-    try {
-      setDatos(await getMovimientosCaja({ desde, hasta }))
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || 'No se pudieron cargar los movimientos')
-      setDatos(null)
-    } finally {
-      setCargando(false)
-    }
-  }, [desde, hasta])
-
-  useEffect(() => { cargar() }, [cargar])
-
-  const movimientos = (datos?.movimientos || []).filter((m) => sentido === 'todos' || m.sentido === sentido)
+export default function MovimientosCaja() {
+  const { hoy, inicioMes, desde, setDesde, hasta, setHasta, sentido, setSentido,
+    datos, cargando, error, cargar, movimientos } = useCajaGeneral()
   const t = datos?.totales
 
   return (
@@ -61,7 +35,7 @@ export default function CajaGeneral() {
           <input type="date" value={hasta} min={desde} max={hoy} onChange={(e) => setHasta(e.target.value)} className="input mt-1 block h-11 text-base" />
         </label>
         <button type="button" onClick={() => { setDesde(hoy); setHasta(hoy) }} className="btn btn-outline h-11">Hoy</button>
-        <button type="button" onClick={() => { setDesde(primeroDelMes(hoy)); setHasta(hoy) }} className="btn btn-outline h-11">Este mes</button>
+        <button type="button" onClick={() => { setDesde(inicioMes); setHasta(hoy) }} className="btn btn-outline h-11">Este mes</button>
         <button type="button" onClick={cargar} title="Volver a cargar" className="btn btn-outline h-11"><RefreshCw size={16} /></button>
       </div>
 

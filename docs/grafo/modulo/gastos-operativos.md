@@ -127,5 +127,7 @@ SQL061 aplicada en producción por Codex el 21/10 a las 17:20:18 CR,
 con respaldo restaurado y 144 tablas conservadas. Usuario autoriza publicar
 Gastos y Reporte Contador en main. [Registro](../../informes/despliegue-gastos-contador-2026-10-21.md).
 
-SQL062 sólo local para la aprobación nueva; no publicar este código en main
-sin aplicarla antes. [Validación](../../informes/gastos-aprobacion-2026-10-21.md).
+SQL062 aplicada en producción por Codex el 21/10 a las 21:46 CR, antes de
+publicar la aprobación nueva. Respaldo restaurado y datos anteriores conservados.
+[Validación inicial](../../informes/gastos-aprobacion-2026-10-21.md) y
+[publicación con Caja General](../../informes/despliegue-aprobacion-caja-2026-10-21.md).

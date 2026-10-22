@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, ClipboardList, Clock, Landmark, Users, Wallet } from 'lucide-react'
+import { AlertTriangle, ClipboardList, Clock, Users, Wallet } from 'lucide-react'
 import { useCuentasPorCobrar } from '../hooks/useCuentasPorCobrar'
 import ToastContainer from '../components/ToastContainer'
 import ConfirmModal from '../components/ConfirmModal'
@@ -9,7 +9,6 @@ import ListaContrapartes from '../components/pagos/ListaContrapartes'
 import SkeletonContraparte from '../components/pagos/SkeletonContraparte'
 import ClienteDetalle from '../components/cuentas-por-cobrar/ClienteDetalle'
 import CuadreCajaDia from '../components/cuentas-por-cobrar/CuadreCajaDia'
-import CajaGeneral from '../components/cuentas-por-cobrar/CajaGeneral'
 import { formatCurrency } from '../utils/pagos'
 
 /**
@@ -49,8 +48,7 @@ export default function CuentasPorCobrar() {
   const [tab, setTab] = useState('pendientes')
   const tabs = [
     { key: 'pendientes', label: 'Pendientes', icon: ClipboardList },
-    { key: 'cobros-dia', label: 'Cobros del día', icon: Wallet },
-    { key: 'caja', label: 'Caja General', icon: Landmark }
+    { key: 'cobros-dia', label: 'Cobros del día', icon: Wallet }
   ]
 
   const tarjetas = resumen ? [
@@ -108,7 +106,7 @@ export default function CuentasPorCobrar() {
           return (
             <button
               key={t.key}
-              onClick={() => { setTab(t.key); setClienteActivoId(null) }}
+              onClick={() => { setTab(t.key); setClienteActivoId(undefined) }}
               className={`flex-1 py-3 text-center text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all ${
                 activa ? 'bg-white text-primario-600 shadow-md ring-1 ring-black/5' : 'text-neutro-600 hover:text-neutro-900'
               }`}
@@ -175,7 +173,6 @@ export default function CuentasPorCobrar() {
       )}
 
       {tab === 'cobros-dia' && <CuadreCajaDia />}
-      {tab === 'caja' && <CajaGeneral />}
     </div>
   )
 }

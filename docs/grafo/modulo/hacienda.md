@@ -552,4 +552,4 @@ acreditar impuesto único de combustible. Si el proceso cae después de pagar,
 el trabajador retoma sólo la respuesta de la decisión durable, sin otro pago.
 Un rechazo explícito de gasto puede emitir desde su compra documental anulada;
 otras anuladas siguen bloqueadas. El estado sólo dice Aceptada al confirmarlo
-Hacienda. Ver [[modulo/gastos-operativos]]; SQL061 aplicada, SQL062 sólo local.
+Hacienda. Ver [[modulo/gastos-operativos]]; SQL061/062 aplicadas en producción; ver despliegue del 21/10.

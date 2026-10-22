@@ -1103,7 +1103,20 @@ nueva migración ni modifica los conteos del corte. Ver
   total del contador. Módulo Gastos abre en Aprobados, ficha simple.
   Verificado con suite completa: 2941 correctas, 3 históricas omitidas;
   PostgreSQL, 49 comprobaciones de navegador, build y lint correctos.
-- [ ] GO-14: aplicar SQL062 y publicar la aprobación nueva en producción;
-  por ahora sólo local/developer. SQL061 ya está aplicada.
+- [x] GO-14: SQL062 aplicada en producción el 21/10 a las 21:46 CR y
+  aprobación incluida en la publicación autorizada, junto con el Excel previo.
 
 [Alcance y pruebas de aprobación](informes/gastos-aprobacion-2026-10-21.md).
+
+
+## Caja General en Finanzas — 2026-10-21
+
+- [x] FIN-01: misma vista de Caja General movida a Finanzas, sin duplicación;
+  componente/hook/página y permiso independiente del cierre/cobros.
+- [x] FIN-02: SQL063 aplicada antes de publicar, conserva acceso previo de
+  CxC. Suite 2943 correctas/3 históricas omitidas, 59 comprobaciones en
+  navegador, build/lint y ensayo sobre respaldo restaurado correctos.
+
+[Publicación de aprobación y Caja General](informes/despliegue-aprobacion-caja-2026-10-21.md).
+
+[Ubicación y permisos](grafo/modulo/caja-general.md).

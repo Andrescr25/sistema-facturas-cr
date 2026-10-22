@@ -191,6 +191,21 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
     assert.equal(ok.bloqueado, false);
   });
 
+  test('Caja General autoriza movimientos, sin prestar deudores ni cierres', async () => {
+    for (const modulo of ['caja-general', 'cuentas-por-cobrar', 'facturacion']) {
+      const { middleware } = cargarConDobles({
+        'FROM usuario WHERE id': [USUARIO()],
+        'FROM usuario_modulo WHERE usuario_id': [{ modulo }]
+      });
+      const movimientos = await correr(middleware, { ruta: '/cuentas-por-cobrar/propios/caja/movimientos', usuario: { id: 4 } });
+      assert.equal(movimientos.bloqueado, modulo !== 'caja-general');
+      for (const [ruta, metodo] of [['/cuentas-por-cobrar/propios/deudores', 'GET'], ['/cuentas-por-cobrar/propios/caja/cerrar', 'POST']]) {
+        const r = await correr(middleware, { ruta, metodo, usuario: { id: 4 } });
+        assert.equal(r.bloqueado, modulo !== 'cuentas-por-cobrar');
+      }
+    }
+  });
+
   test('cambiar lo que se le entregó a un cliente pide Reporte Clientes', async () => {
     const sinModulo = cargarConDobles({
       'FROM usuario WHERE id': [USUARIO()],

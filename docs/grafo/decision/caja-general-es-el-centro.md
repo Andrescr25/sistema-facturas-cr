@@ -10,12 +10,15 @@ archivos:
   - backend/src/modules/cuentas-por-cobrar/cobros.service.js
   - backend/src/modules/cuentas-por-cobrar/cierreCaja.service.js
   - backend/src/modules/pagos-proveedores/pagosProveedor.service.js
-  - frontend/src/components/cuentas-por-cobrar/CajaGeneral.jsx
+  - frontend/src/components/caja-general/MovimientosCaja.jsx
+  - frontend/src/hooks/useCajaGeneral.js
+  - frontend/src/pages/CajaGeneral.jsx
+  - backend/migrations/independencia/063_caja_general_permiso.sql
   - frontend/src/components/pagos/ModalPagoVarias.jsx
   - backend/migrations/independencia/028_cuenta_de_contado.sql
   - backend/src/modules/compras/liberarCuentaPorPagar.js
 aristas:
-  relacionado: [tabla/cuentas-por-pagar, modulo/compras, modulo/gastos-operativos]
+  relacionado: [tabla/cuentas-por-pagar, modulo/compras, modulo/gastos-operativos, modulo/caja-general]
 medido: 2026-10-21
 ---
 
@@ -60,4 +63,9 @@ se pagó; el flujo existente conserva Caja General como centro.
 Nueva decisión del usuario, 21/10: aprobar un gasto operativo confirma que
 ya se pagó de contado, eligiendo su medio. Ese pago completo y la aprobación
 comparten transacción y documento de pago a proveedor; el rechazo no crea
-salida. Recibir sigue sin registrar pagos por sí solo. SQL062, sólo local.
+salida. Recibir sigue sin registrar pagos por sí solo. SQL062 aplicada en producción el 21/10.
+
+Otra decisión del 21/10: la misma vista sale del tab de Cuentas por cobrar
+y pasa a Finanzas → Caja General, con permiso independiente. Se conservan
+servicio, vista SQL y filtros; no se crea otro libro. SQL063 copia únicamente
+el acceso previo de CxC al nuevo módulo. Detalle en [[modulo/caja-general]].

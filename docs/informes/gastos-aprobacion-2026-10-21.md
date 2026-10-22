@@ -1,5 +1,10 @@
 # Gastos de contado: aprobación sencilla — 2026-10-21
 
+**Actualización posterior:** el usuario autorizó main; SQL062 aplicada en
+producción antes de publicar, junto con Caja General. Las menciones a sólo
+developer/local de este informe describen la entrega inicial.
+[Registro del despliegue](despliegue-aprobacion-caja-2026-10-21.md).
+
 El usuario pide conservar las facturas operativas en Revisión de Precios y
 aprobar o rechazar, indicando sólo el medio de pago. Confirma usar la condición
 de IVA ya elegida en Configuración → Hacienda. Reemplaza los formularios por

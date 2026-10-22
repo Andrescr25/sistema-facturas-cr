@@ -1080,3 +1080,13 @@ esos datos por factura. Recibir no confirma pagos ni respuestas por sí solo.
 La respuesta fiscal se reintenta sin volver a registrar el pago. SQL062 sólo
 local; este pedido no incluye nueva publicación a main.
 [Validación](informes/gastos-aprobacion-2026-10-21.md).
+
+
+## 2026-10-21 — Publicar aprobación y mover Caja General a Finanzas
+
+Usuario: «ok dale subelo a main» y mover «tal cual» el tab Caja General de
+Cuentas por cobrar a un módulo dentro de Finanzas. Publicar los cambios
+verificados del Excel/aprobación junto con esta ubicación, aplicando primero
+SQL062 y SQL063 necesarias. Conservar movimientos, filtros e importes;
+separar permiso y copiar sólo el acceso que ya tenía CxC. Sin probar con
+escrituras de negocio en producción ni enviar mensajes para verificar.

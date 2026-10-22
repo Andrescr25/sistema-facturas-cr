@@ -190,6 +190,15 @@ const MODULOS = [
 
   // ---- Finanzas ----
   {
+    clave: 'caja-general',
+    nombre: 'Caja General',
+    grupo: 'Finanzas',
+    ruta: '/caja-general',
+    // Se conserva el servicio de movimientos y su URL. El prefijo específico
+    // separa esta lectura de los cobros y cierres que siguen en CxC.
+    rutasApi: ['/cuentas-por-cobrar/propios/caja/movimientos']
+  },
+  {
     clave: 'rentabilidad',
     nombre: 'Rentabilidad',
     grupo: 'Finanzas',

@@ -22,8 +22,8 @@ archivos:
   - backend/tests/dobles/sinComentarios.js
   - backend/tests/permisosPrestados.test.js
 aristas:
-  relacionado: [modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
-medido: 2026-10-13
+  relacionado: [modulo/caja-general, modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
+medido: 2026-10-21
 ---
 
 `usuarios/modulos.js` es el registro: cada módulo declara sus `rutasApi`, y
@@ -223,3 +223,11 @@ pendientes sin semana, conserva historia y exige revisión de Bodega antes
 de carga física. 057 local; pendiente de aplicar en producción antes de main.
 Historial físico de entregas es distinto del historial de impresos ROT-06/07,
 que aún falta. Permiso entregas y acción admin corregir-entrega conservados.
+
+## 2026-10-21 — Caja General en Finanzas
+
+La lectura global de movimientos tiene ahora dueño `caja-general` por su
+prefijo específico `/cuentas-por-cobrar/propios/caja/movimientos`. Cobros,
+deudores y cierre del día siguen en CxC. SQL063 conserva el acceso previo
+copiando sólo sus permisos, después asignables/revocables independientemente.
+El menú y la API separan los dos módulos. Ver [[modulo/caja-general]].

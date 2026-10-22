@@ -15,6 +15,7 @@ import PagosRecurrentes from './pages/PagosRecurrentes'
 import GastosOperativos from './pages/GastosOperativos'
 import ReporteContador from './pages/ReporteContador'
 import CuentasPorCobrar from './pages/CuentasPorCobrar'
+import CajaGeneral from './pages/CajaGeneral'
 import FacturasBodega from './pages/FacturasBodega'
 import Cotizaciones from './pages/Cotizaciones'
 import InventarioAuditoria from './pages/InventarioAuditoria'
@@ -122,6 +123,7 @@ function App() {
               <Route path="/gastos-operativos" element={<GastosOperativos />} />
               <Route path="/reporte-contador" element={<ReporteContador />} />
               <Route path="/cuentas-por-cobrar" element={<CuentasPorCobrar />} />
+              <Route path="/caja-general" element={<CajaGeneral />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/preventa" element={<Preventa />} />
               <Route path="/entregas" element={<Entregas />} />

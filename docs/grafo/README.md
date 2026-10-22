@@ -100,6 +100,7 @@ su estado indica el retiro. [Alcance y pruebas](../informes/simplificacion-sin-s
 - [Revisión de Precios — costos y precios de la factura del proveedor, contra el maestro propio](modulo/revision-precios.md)
 - [Usuarios y permisos — cada ruta de la API tiene un dueño](modulo/permisos.md)
 - [Inventario propio — apertura en cero, conteo y kardex](modulo/inventario.md)
+- [Caja General — módulo de Finanzas con los movimientos existentes](modulo/caja-general.md)
 - [Reporte Contador — ventas, compras y gastos del mes con sus comprobantes](modulo/reporte-contador.md)
 - [Rentabilidad — margen por producto, rotación real y cuándo se vende, en una sola pantalla](modulo/rentabilidad.md) · *todo por `producto.id`, también el costo de las compras*
 - [WhatsApp — adentro del sistema con Baileys, con Evolution API de respaldo durante la mudanza](modulo/whatsapp.md) · *en esta rama no sale nada*

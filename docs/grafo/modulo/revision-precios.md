@@ -177,4 +177,4 @@ Aprobar pide sólo medio de pago, registra
 el saldo completo y envía aceptación. Rechazar no paga. Decisiones y pagos
 atómicos, reintentos sin duplicados, condición fiscal ya configurada.
 No usa el registro comercial ni expone pagos/listas de otro permiso.
-Ver [[modulo/gastos-operativos]]; SQL061 aplicada en producción, SQL062 sólo local.
+Ver [[modulo/gastos-operativos]]; SQL061/062 aplicadas en producción; ver despliegue del 21/10.

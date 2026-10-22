@@ -11,66 +11,67 @@ import PieSesion from './PieSesion'
 import { useAuth } from '../contexts/AuthContext'
 import { puedeVer } from '../utils/modulos'
 
+// Agrupado por flujo de negocio, no por orden de aparición: eran 17
+// entradas planas y no cabían en pantalla. Cada grupo se abre solo cuando
+// la ruta actual está adentro, y SidebarNav recuerda los que se dejaron
+// abiertos — así el grupo del trabajo diario de cada quien queda a la
+// vista sin tener que desplegarlo cada vez.
+const navigation = [
+  { name: 'Dashboard', href: '/', icon: Home },
+  {
+    name: 'Ventas',
+    icon: ShoppingCart,
+    children: [
+      { name: 'Facturación', href: '/facturacion', icon: FileText },
+      { name: 'Cotizaciones', href: '/cotizaciones', icon: FileText },
+      { name: 'Facturas en Bodega', href: '/facturas-bodega', icon: ClipboardList },
+      { name: 'Clientes', href: '/clientes', icon: UserCircle },
+      { name: 'Preventa', href: '/preventa', icon: CalendarDays },
+      { name: 'Carga y Entregas', href: '/entregas', icon: Truck },
+      { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },
+      { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
+      { name: 'Impresión', href: '/impresion', icon: Printer }
+    ]
+  },
+  {
+    name: 'Compras',
+    icon: Truck,
+    children: [
+      { name: 'Revisión de Precios', href: '/revision-precios', icon: DollarSign },
+      { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
+      { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
+      { name: 'Pago Proveedores', href: '/pagos-proveedores', icon: CreditCard },
+      { name: 'Pagos Recurrentes', href: '/pagos-recurrentes', icon: Repeat },
+      { name: 'Gastos operativos', href: '/gastos-operativos', icon: ClipboardList }
+    ]
+  },
+  {
+    name: 'Inventario',
+    icon: Boxes,
+    children: [
+      { name: 'Auditoría Inventario', href: '/inventario-auditoria', icon: Boxes },
+      { name: 'Gestión de Catálogo', href: '/gestion-catalogo', icon: Image }
+    ]
+  },
+  {
+    name: 'Finanzas',
+    icon: LineChart,
+    children: [
+      { name: 'Caja General', href: '/caja-general', icon: Landmark },
+      { name: 'Rentabilidad', href: '/rentabilidad', icon: PieChart },
+      { name: 'Reporte Contador', href: '/reporte-contador', icon: Landmark }
+    ]
+  },
+  { name: 'Configuración', href: '/configuracion', icon: Settings },
+  // Solo para administradores. Se filtra abajo junto con todo lo demás.
+  { name: 'Usuarios y permisos', href: '/usuarios', icon: ShieldCheck, soloAdmin: true },
+  { name: 'Bitácora', href: '/usuarios/bitacora', icon: History, soloAdmin: true }
+]
+
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const { usuario } = useAuth()
-
-  // Agrupado por flujo de negocio, no por orden de aparición: eran 17
-  // entradas planas y no cabían en pantalla. Cada grupo se abre solo cuando
-  // la ruta actual está adentro, y SidebarNav recuerda los que se dejaron
-  // abiertos — así el grupo del trabajo diario de cada quien queda a la
-  // vista sin tener que desplegarlo cada vez.
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    {
-      name: 'Ventas',
-      icon: ShoppingCart,
-      children: [
-        { name: 'Facturación', href: '/facturacion', icon: FileText },
-        { name: 'Cotizaciones', href: '/cotizaciones', icon: FileText },
-        { name: 'Facturas en Bodega', href: '/facturas-bodega', icon: ClipboardList },
-        { name: 'Clientes', href: '/clientes', icon: UserCircle },
-        { name: 'Preventa', href: '/preventa', icon: CalendarDays },
-        { name: 'Carga y Entregas', href: '/entregas', icon: Truck },
-        { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },
-        { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
-        { name: 'Impresión', href: '/impresion', icon: Printer }
-      ]
-    },
-    {
-      name: 'Compras',
-      icon: Truck,
-      children: [
-        { name: 'Revisión de Precios', href: '/revision-precios', icon: DollarSign },
-        { name: 'Gestionar Relaciones', href: '/gestionar-relaciones', icon: Link2 },
-        { name: 'Reporte Proveedores', href: '/reportes/proveedores', icon: Users },
-        { name: 'Pago Proveedores', href: '/pagos-proveedores', icon: CreditCard },
-        { name: 'Pagos Recurrentes', href: '/pagos-recurrentes', icon: Repeat },
-        { name: 'Gastos operativos', href: '/gastos-operativos', icon: ClipboardList }
-      ]
-    },
-    {
-      name: 'Inventario',
-      icon: Boxes,
-      children: [
-        { name: 'Auditoría Inventario', href: '/inventario-auditoria', icon: Boxes },
-        { name: 'Gestión de Catálogo', href: '/gestion-catalogo', icon: Image }
-      ]
-    },
-    {
-      name: 'Finanzas',
-      icon: LineChart,
-      children: [
-        { name: 'Rentabilidad', href: '/rentabilidad', icon: PieChart },
-        { name: 'Reporte Contador', href: '/reporte-contador', icon: Landmark }
-      ]
-    },
-    { name: 'Configuración', href: '/configuracion', icon: Settings },
-    // Solo para administradores. Se filtra abajo junto con todo lo demás.
-    { name: 'Usuarios y permisos', href: '/usuarios', icon: ShieldCheck, soloAdmin: true },
-    { name: 'Bitácora', href: '/usuarios/bitacora', icon: History, soloAdmin: true }
-  ]
 
   // El menú muestra únicamente lo que esta persona puede abrir. Es cosmética,
   // no seguridad: quien sepa la URL de la API la llama igual, y por eso el

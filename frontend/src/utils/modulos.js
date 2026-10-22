@@ -35,6 +35,7 @@ export const MODULOS = [
   { clave: 'inventario-auditoria', nombre: 'Auditoría Inventario', grupo: 'Inventario', ruta: '/inventario-auditoria' },
   { clave: 'gestion-catalogo', nombre: 'Gestión de Catálogo', grupo: 'Inventario', ruta: '/gestion-catalogo' },
 
+  { clave: 'caja-general', nombre: 'Caja General', grupo: 'Finanzas', ruta: '/caja-general' },
   { clave: 'rentabilidad', nombre: 'Rentabilidad', grupo: 'Finanzas', ruta: '/rentabilidad' },
   { clave: 'reporte-contador', nombre: 'Reporte Contador', grupo: 'Finanzas', ruta: '/reporte-contador' },
 
