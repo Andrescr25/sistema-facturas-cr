@@ -96,10 +96,14 @@ export function fotoDe(producto) {
 export function fotosEnOrden(productos, completar = null, configCatalogo = null) {
   const porLlave = new Map()
   for (const p of productos) {
-    const url = direccionCompleta(fotoDe(p), completar)
-    if (!url) continue
-    const llave = llaveImagen(url)
-    if (!porLlave.has(llave)) porLlave.set(llave, url)
+    // La foto general y la individual deben sobrevivir sin señal: la segunda
+    // se pide al abrir la vista previa, aunque no aparezca en la lista.
+    for (const ruta of [p.marca?.imagen?.url, fotoDe(p)]) {
+      const url = direccionCompleta(ruta, completar)
+      if (!url) continue
+      const llave = llaveImagen(url)
+      if (!porLlave.has(llave)) porLlave.set(llave, url)
+    }
   }
   // Ambas versiones deben seguir dentro de esta MISMA caché: su renovación
   // borra lo ajeno al conjunto. Un teléfono usa la vertical y una tablet puede

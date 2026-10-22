@@ -243,7 +243,7 @@ export default function CatalogoAgente() {
               ? `los ${filteredData.flat.length} más parecidos de ${filteredData.totalCoincidencias}`
               : `${filteredData.flat.length} productos`}
             icono={ChevronRight} color="bg-neutro-100 text-neutro-500">
-            <Cuadricula productos={filteredData.flat} statsPorProducto={statsPorProducto} animar={false}
+            <Cuadricula productos={filteredData.flat} statsPorProducto={statsPorProducto} animar={false} agruparMarcas={false}
               />
           </Seccion>
         ) : clienteNuevo ? (

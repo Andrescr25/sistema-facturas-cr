@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, ArrowDown, ArrowUp, Check, Layers, Pencil, Trash2, X } from 'lucide-react'
 import FilaProducto from './FilaProducto'
+import MarcasSubcategoria from './MarcasSubcategoria'
 
 const BOTON_ICONO = 'rounded-lg border border-neutro-200 bg-white p-2 text-neutro-500 transition-colors hover:border-primario-300 hover:text-primario-700 disabled:opacity-30 disabled:hover:border-neutro-200 disabled:hover:text-neutro-500'
 
@@ -99,6 +100,7 @@ export default function SeccionSubcategoria({
 
         {esSub && !editando && (
           <div className="flex flex-wrap items-center gap-2">
+            <MarcasSubcategoria subcategoria={seccion.sub} />
             <button type="button" onClick={onSubir} disabled={esPrimera} className={BOTON_ICONO} title="Subir (así la ve el agente)">
               <ArrowUp size={18} />
             </button>

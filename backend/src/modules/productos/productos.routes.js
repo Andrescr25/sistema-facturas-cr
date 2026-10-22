@@ -12,6 +12,7 @@
 const express = require('express');
 const multer = require('multer');
 const controller = require('./productos.controller');
+const marcas = require('./marcas.controller');
 
 // La foto se valida por sus bytes en el almacenamiento; acá solo se limita el
 // tamaño. Un archivo grande es un error de quien sube: 400, no 500.
@@ -35,6 +36,12 @@ const subirImagenCategoria = (req, res, next) => uploadCategoria.single('imagen'
 const routes = express.Router();
 // El rediseño de Gestión de Catálogo (el de `main`, sobre `producto`). Van
 // ANTES de '/productos/:id': si no, Express lee "lote" como un id.
+routes.get('/subcategorias/:subId/marcas', marcas.listar);
+routes.post('/subcategorias/:subId/marcas', marcas.crear);
+routes.put('/subcategorias/:subId/marcas/:id', marcas.editar);
+routes.delete('/marcas/:id', marcas.eliminar);
+routes.post('/marcas/:id/imagen', subirImagenCategoria, marcas.imagen);
+routes.delete('/marcas/:id/imagen', marcas.quitarImagen);
 routes.get('/arbol', controller.arbol);
 routes.get('/buscar', controller.buscar);
 routes.get('/categorias/:id/productos', controller.productosDeCategoria);

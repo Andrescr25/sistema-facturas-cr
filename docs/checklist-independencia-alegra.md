@@ -1130,3 +1130,19 @@ nueva migración ni modifica los conteos del corte. Ver
 [Publicación de aprobación y Caja General](informes/despliegue-aprobacion-caja-2026-10-21.md).
 
 [Ubicación y permisos](grafo/modulo/caja-general.md).
+
+
+## Marcas del catálogo — 2026-10-22
+
+- [x] MC-01 — SQL064: marca por subcategoría y enlace opcional al producto
+  existente, índices y consistencia al cambiar categoría/subcategoría.
+- [x] MC-02 — Gestión conserva diseño; botón Marcas para nombre, selección de
+  presentaciones y foto general optimizada, independiente de fotos propias.
+- [x] MC-03 — Agente: marca, foto, lista de tamaños con IVA real, ofertas por
+  presentación y vista previa con foto individual sin lecturas adicionales.
+- [x] MC-04 — Suite239:2941 correctas/0fallos/3históricasomitidas;10 pruebas
+  PostgreSQL,30comprobaciones en navegador móvil/tablet/offline, build y lint
+  del cambio correctos. Publicación sólo developer; SQL064 pendiente en
+  producción. [Evidencia](informes/marcas-catalogo-2026-10-22.md).
+
+Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).

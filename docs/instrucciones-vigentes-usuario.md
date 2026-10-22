@@ -1110,3 +1110,14 @@ Usuario: «subelo al main», después de revisar la entrega de tres resúmenes
 0a4e7ed. Publicar ese cambio verificado y su registro de Codex, sin migraciones
 ni nuevas decisiones fiscales. Conservar la vista local y comprobar el despliegue.
 [Alcance y validación](informes/contador-resumen-2026-10-21.md).
+
+
+## Marcas del catálogo — 2026-10-22
+
+El usuario pide Categoría → Subcategoría → Marca, con una foto representativa
+(por ejemplo, candado sin medida) y una lista de presentaciones/precios con
+IVA en el agente. Aclara: Gestión de Catálogo se mantiene tal cual, agregando
+la opción de asignar la foto de marca; al tocar Candado32mm se abre una vista
+previa con SU foto. No sustituir imágenes individuales ni duplicar productos.
+Se implementa en worktree propio, con SQL064 y copias PostgreSQL locales;
+no se publica a main en esta entrega. Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).

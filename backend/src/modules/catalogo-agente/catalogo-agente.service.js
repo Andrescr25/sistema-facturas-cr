@@ -70,8 +70,8 @@ function aFormaDeTablet(row) {
  * para trabajar sin señal: pedirla aparte obligaría a una segunda descarga
  * que en el campo no siempre se puede hacer.
  *
- * Si la consulta falla, el catálogo sale sin subcategorías en vez de no
- * salir: es un dato para ordenar la vista, no para vender.
+ * Si falla la lectura, falla esta página: la sincronización conserva la copia
+ * anterior completa, en vez de guardar una clasificación perdida a medias.
  */
 async function conSubcategoria(productos) {
   if (productos.length === 0) return productos;
@@ -79,21 +79,28 @@ async function conSubcategoria(productos) {
   try {
     const ids = productos.map((p) => p.productoId).filter(Boolean);
     const { rows } = await query(
-      `SELECT p.id AS producto_id, s.id AS sub_id, s.nombre AS sub_nombre
+      `SELECT p.id AS producto_id, s.id AS sub_id, s.nombre AS sub_nombre,
+              m.id AS marca_id,m.nombre AS marca_nombre,m.imagen AS marca_imagen
          FROM producto p
          JOIN subcategoria s ON s.id = p.subcategoria_id AND s.activo = true
+         LEFT JOIN marca_catalogo m ON m.id=p.marca_catalogo_id AND m.subcategoria_id=s.id
         WHERE p.id = ANY($1::int[])`,
       [ids]
     );
 
-    const porId = new Map(rows.map((r) => [r.producto_id, { id: r.sub_id, nombre: r.sub_nombre }]));
+    const porId = new Map(rows.map(r => [r.producto_id, r]));
     return productos.map((p) => {
       const sub = porId.get(p.productoId);
-      return sub ? { ...p, subcategoria: sub } : p;
+      if (!sub) return p;
+      // Lista explícita también dentro de la foto: JSON no es permiso para
+      // publicar cualquier dato que se haya guardado en él.
+      const imagen = sub.marca_imagen?.url ? { url:sub.marca_imagen.url,ancho:sub.marca_imagen.ancho,alto:sub.marca_imagen.alto } : null;
+      return { ...p,subcategoria:{ id:sub.sub_id,nombre:sub.sub_nombre },
+        ...(sub.marca_id ? { marca:{ id:sub.marca_id,nombre:sub.marca_nombre,imagen } } : {}) };
     });
   } catch (error) {
-    console.error('⚠️ No se pudieron adjuntar subcategorías al catálogo:', error.message);
-    return productos;
+    console.error('⚠️ No se pudo adjuntar la clasificación al catálogo:', error.message);
+    throw error;
   }
 }
 

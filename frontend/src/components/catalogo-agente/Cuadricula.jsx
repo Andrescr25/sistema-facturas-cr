@@ -1,17 +1,24 @@
-import { memo, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, Layers } from 'lucide-react'
 import TarjetaProductoAgente from './TarjetaProductoAgente'
+import TarjetaMarca from './TarjetaMarca'
+import VistaPreviaProducto from './VistaPreviaProducto'
+import { agruparMarcasCatalogo } from '../../utils/marcasCatalogo'
 import { useColumnasCatalogo } from '../../hooks/useColumnasCatalogo'
 import { filasDelCatalogo, nombreDeFamilia } from '../../utils/filasCatalogo'
 import { observarFilasDelCatalogo, vigilarColeccion, terminarEntrada } from '../../utils/entradaCategoria'
 import './cuadricula.css'
 
-function Cuadricula({ productos, familias, statsPorProducto, animar = true, nivel = 3 }) {
+function Cuadricula({ productos, familias, statsPorProducto, animar = true, nivel = 3, agruparMarcas = true }) {
   const elemento = useRef(null)
   const entradas = useRef(null)
   const columnas = useColumnasCatalogo()
+  const [vistaPrevia, setVistaPrevia] = useState(null)
+  const visual = useMemo(() => agruparMarcas
+    ? { productos: agruparMarcasCatalogo(productos), familias: familias?.map(f => ({ ...f, productos: agruparMarcasCatalogo(f.productos) })) }
+    : { productos, familias }, [productos, familias, agruparMarcas])
   const { filas, grupos, inicioPorFamilia } = useMemo(
-    () => filasDelCatalogo(productos, familias, columnas), [productos, familias, columnas]
+    () => filasDelCatalogo(visual.productos, visual.familias, columnas), [visual, columnas]
   )
   const Titulo = `h${nivel}`
 
@@ -55,8 +62,8 @@ function Cuadricula({ productos, familias, statsPorProducto, animar = true, nive
           <div className="catalogo-familias__opciones">
             {grupos.map((f, i) => (
               <button type="button" key={i} onClick={() => irAFamilia(i)}
-                aria-label={`Ver ${nombreDeFamilia(f)}, ${f.productos.length} productos`}>
-                {nombreDeFamilia(f)} <span>{f.productos.length}</span>
+                aria-label={`Ver ${nombreDeFamilia(f)}, ${f.productos.reduce((n, p) => n + (p.presentaciones?.length || 1), 0)} productos`}>
+                {nombreDeFamilia(f)} <span>{f.productos.reduce((n, p) => n + (p.presentaciones?.length || 1), 0)}</span>
               </button>
             ))}
           </div>
@@ -71,13 +78,15 @@ function Cuadricula({ productos, familias, statsPorProducto, animar = true, nive
                   <div className="catalogo-fila__titulo" key={indice}>
                     <span className="catalogo-fila__linea" aria-hidden="true" />
                     <Titulo>{nombreDeFamilia(grupos[indice])}</Titulo>
-                    <span className="catalogo-fila__cantidad">{grupos[indice].productos.length}</span>
+                    <span className="catalogo-fila__cantidad">{grupos[indice].productos.reduce((n, p) => n + (p.presentaciones?.length || 1), 0)}</span>
                   </div>
                 ))}
                 <ArrowDown size={15} className="catalogo-fila__flecha" aria-hidden="true" />
               </div>
             )}
-            {fila.productos.map(p => (
+            {fila.productos.map(p => p.esMarca ? (
+              <TarjetaMarca key={p.id} grupo={p} onVerProducto={setVistaPrevia} />
+            ) : (
               <TarjetaProductoAgente key={p.id} product={p}
                 stats={p._stats || statsPorProducto?.get(String(p.id))}
                 mostrarSinSubcategoria={Boolean(familias)} />
@@ -85,6 +94,7 @@ function Cuadricula({ productos, familias, statsPorProducto, animar = true, nive
           </div>
         ))}
       </div>
+      {vistaPrevia && <VistaPreviaProducto key={vistaPrevia.id} producto={vistaPrevia} onCerrar={() => setVistaPrevia(null)} />}
     </div>
   )
 }

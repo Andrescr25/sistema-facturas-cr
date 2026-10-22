@@ -42,8 +42,8 @@ archivos:
   - backend/tests/categoriaEnElRecorrido.test.js
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
-  relacionado: [modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-20
+  relacionado: [modulo/marcas-catalogo, modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
+medido: 2026-10-22
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -327,3 +327,13 @@ vez de 780 (64 cuadros). El tiempo por cuadro es el mismo. Prueba:
 `backend/tests/categoriaEnElRecorrido.test.js` (no vuelven las capas fijas ni
 los tramos del alto de la pantalla).
 
+
+
+## Marcas y presentaciones — 2026-10-22
+
+Gestión conserva categorías, subcategorías y filas existentes. El botón
+«Marcas» de cada subcategoría permite nombrar una agrupación, seleccionar sus
+productos existentes y subir una imagen general independiente. En el agente
+se muestra marca/foto/lista de presentaciones con IVA; tocar una presentación
+abre su fotografía individual sin consultar al servidor. Ver
+[[modulo/marcas-catalogo]]. Desarrollo local; SQL064 pendiente en producción.

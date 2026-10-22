@@ -14,10 +14,9 @@ const path = require('path');
  * Esta prueba seguía con la versión de main (cruce por id de Alegra) y
  * fallaba desde que la rama pasó al id propio; se puso al día el 2026-09-29.
  *
- * SE PRUEBA PORQUE FALLA EN SILENCIO. Si la consulta se rompe, no hay error
- * en pantalla: las subcategorías simplemente dejan de aparecer y el catálogo
- * se ve igual que siempre. Eso puede pasar semanas sin que nadie lo note, así
- * que el fallo suave tiene que estar probado, no solo escrito.
+ * La clasificación incluye marcas desde el2026-10-22. Si falla su lectura,
+ * la sincronización falla y conserva la última copia completa de la tablet;
+ * no se sustituye por productos que perdieron silenciosamente su agrupación.
  */
 
 const rutaDb = path.join(__dirname, '..', 'config', 'database.js');
@@ -61,14 +60,20 @@ describe('la subcategoría viaja con el catálogo del agente', () => {
     assert.equal('subcategoria' in otro, false);
   });
 
-  test('si la consulta falla el catálogo sale igual, sin subcategorías', async () => {
-    // Es un dato para ordenar la vista, no para vender: que no se pueda leer
-    // no puede dejar al agente sin catálogo en la calle.
+  test('si falla la clasificación, se rechaza la página para conservar la copia anterior', async () => {
     const conSubcategoria = montar(async () => { throw new Error('la base dijo que no'); });
-    const productos = await conSubcategoria([{ id: '1004', productoId: 5004, name: 'UNION' }]);
+    await assert.rejects(conSubcategoria([{ id: '1004', productoId: 5004, name: 'UNION' }]), /la base dijo que no/);
+  });
 
-    assert.equal(productos.length, 1);
-    assert.equal(productos[0].name, 'UNION');
+  test('marca e imagen salen por campos explícitos, en la misma consulta por página', async () => {
+    let llamadas=0;
+    const conSubcategoria=montar(async()=>{
+      llamadas++;
+      return { rows:[{...FILAS[0],marca_id:7,marca_nombre:'Tricicle',marca_imagen:{url:'/archivos/marcas/7.webp',ancho:800,alto:600,costo:99,interno:'ZZ'}}] };
+    });
+    const [p]=await conSubcategoria([{id:'5004',productoId:5004,name:'UNION'}]);
+    assert.equal(llamadas,1);
+    assert.deepEqual(p.marca,{id:7,nombre:'Tricicle',imagen:{url:'/archivos/marcas/7.webp',ancho:800,alto:600}});
   });
 
   test('sin productos no se consulta la base', async () => {

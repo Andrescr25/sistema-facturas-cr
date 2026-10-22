@@ -45,8 +45,8 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
-  relacionado: [modulo/rentabilidad, tabla/venta-linea, modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, tabla/alegra-products-cache]
-medido: 2026-10-14
+  relacionado: [modulo/marcas-catalogo, modulo/rentabilidad, tabla/venta-linea, modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, tabla/alegra-products-cache]
+medido: 2026-10-22
 ---
 
 QUÉ ES
@@ -210,3 +210,13 @@ aporta su fotografía de factor/importes; una anulada no aporta costo.
 Sin SQL nuevo ni consultas/escrituras a producción.
 
 [Pruebas y alcance](../../informes/catalogo-proveedores-producto-2026-10-14.md).
+
+
+## Marcas y presentaciones — 2026-10-22
+
+Gestión conserva categorías, subcategorías y filas existentes. El botón
+«Marcas» de cada subcategoría permite nombrar una agrupación, seleccionar sus
+productos existentes y subir una imagen general independiente. En el agente
+se muestra marca/foto/lista de presentaciones con IVA; tocar una presentación
+abre su fotografía individual sin consultar al servidor. Ver
+[[modulo/marcas-catalogo]]. Desarrollo local; SQL064 pendiente en producción.

@@ -68,7 +68,7 @@ export function puntuar(producto, termino) {
   if (!t) return 0
 
   const ref = normalizar(producto.reference?.reference ?? producto.reference ?? '')
-  const nombre = normalizar(producto.name ?? producto.nombre ?? '')
+  const nombre = normalizar(`${producto.name ?? producto.nombre ?? ''} ${producto.marca?.nombre || ''}`.trim())
   const soloDigitos = /^\d+$/.test(t)
 
   if (ref && ref === t) return PUNTAJE.REFERENCIA_EXACTA

@@ -3,6 +3,7 @@ import { Package, Flame, Repeat, Tag } from 'lucide-react'
 import Etiqueta from './Etiqueta'
 import { colones } from '../../utils/colones'
 import { urlArchivo } from '../../utils/urlArchivo'
+import { precioCatalogoAgente } from '../../utils/precioCatalogoAgente'
 
 /**
  * Un producto en el catálogo del agente.
@@ -59,31 +60,10 @@ import { urlArchivo } from '../../utils/urlArchivo'
  * sacarla de su lugar. Liquidación conserva otra etiqueta y su cálculo.
  */
 function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, mostrarSinSubcategoria = false }) {
-  const descuentoPorcentaje = product.descuentoPorcentaje > 0 ? product.descuentoPorcentaje : 0
-  const precioAntes = Number(product.precioAntes) > 0 ? Number(product.precioAntes) : 0
-
+  const { final: precioFinal, tachado: precioTachado, rebaja, esOferta, descuento: descuentoPorcentaje } = precioCatalogoAgente(product)
   const favorita = product.images?.find((i) => i.favorite === true) || product.images?.[0]
   const foto = urlArchivo(favorita?.url)
   const subcategoria = product.subcategoria?.nombre || (mostrarSinSubcategoria ? 'Sin subcategoría' : '')
-
-  const listaPrecio = product.price?.[0]
-  const base = listaPrecio?.price
-    ? parseFloat(String(listaPrecio.price).replace(/,/g, ''))
-    : 0
-  const iva = (product.tax || []).reduce((s, t) => s + (parseFloat(t.percentage) || 0), 0)
-  const precioConIva = base * (1 + iva / 100)
-  const precioFinal = descuentoPorcentaje > 0
-    ? precioConIva * (1 - descuentoPorcentaje / 100)
-    : precioConIva
-
-  // El tachado sale de la clase de oferta que corresponda; si no hay, no hay.
-  const precioTachado = descuentoPorcentaje > 0
-    ? precioConIva
-    : (precioAntes > precioConIva ? precioAntes : 0)
-  const rebaja = descuentoPorcentaje > 0
-    ? descuentoPorcentaje
-    : (precioTachado > 0 ? Math.round(((precioTachado - precioConIva) / precioTachado) * 100) : 0)
-  const esOferta = descuentoPorcentaje === 0 && precioTachado > 0
 
   return (
     <article

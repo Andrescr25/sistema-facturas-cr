@@ -95,6 +95,7 @@ su estado indica el retiro. [Alcance y pruebas](../informes/simplificacion-sin-s
 - [Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra](modulo/facturas-bodega.md)
 - [Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios](modulo/faltantes.md)
 - [Gestión de Catálogo — el rediseño de main, sobre el maestro propio](modulo/gestion-catalogo.md)
+- [Marcas del catálogo — foto general y presentaciones con vista previa](modulo/marcas-catalogo.md)
 - [Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar](modulo/catalogo-agente.md)
 - [Relacionar Productos — la línea del proveedor se cuelga de `producto.id`](modulo/relacionar-productos.md) · *relacionar, crear producto y el buzón: todo por `producto.id`*
 - [Revisión de Precios — costos y precios de la factura del proveedor, contra el maestro propio](modulo/revision-precios.md)
