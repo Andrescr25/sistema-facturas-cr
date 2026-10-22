@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Marcas del catálogo — foto general y presentaciones con vista previa
 estado: vigente
 archivos:
+  - docs/informes/despliegue-marcas-2026-10-22.md
   - docs/informes/marcas-catalogo-2026-10-22.md
   - backend/migrations/independencia/064_marcas_catalogo.sql
   - backend/src/modules/productos/marcas.service.js
@@ -72,11 +73,17 @@ Tocar una presentación abre Modal con la foto individual, nombre, código y
 precio; sin petición adicional, con cierre Escape y conservación del scroll.
 Fotos lazy y decodificación asíncrona; animaciones y observador existentes.
 
-Desarrollo y verificaciones locales. SQL064 no está aplicada en producción;
-main se conserva hasta una publicación posterior con la migración preparada.
+El usuario autoriza publicar a main el2026-10-22, después de suavizar la
+tipografía del título. SQL064 aplicada a producción antes del push, con respaldo
+restaurado y ensayo local: las145 tablas anteriores y29 triggers se conservan.
+[Publicación y comprobaciones](../../informes/despliegue-marcas-2026-10-22.md).
 
 Verificado: suite239 archivos/2941 correctas/0fallos/3históricasomitidas;
 10casos con PostgreSQL y disco desechables,30 comprobaciones Chromium390/700/1440
 y recarga offline, sin erroresJS. Build y lint de archivos cambiados correctos.
 SQL064 aplicada sólo a clones y vista local limpia5173/3000.
 [Evidencia y alcance](../../informes/marcas-catalogo-2026-10-22.md).
+
+El título de marca usa el mismo tipo de letra del sistema con peso medio,
+tamaño16/18px, espacio entre letras más compacto y color neutro. Respeta las
+mayúsculas/minúsculas guardadas, sin transformación forzada ni fuentes nuevas.

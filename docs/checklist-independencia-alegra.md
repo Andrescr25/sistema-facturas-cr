@@ -1146,3 +1146,9 @@ nueva migración ni modifica los conteos del corte. Ver
   producción. [Evidencia](informes/marcas-catalogo-2026-10-22.md).
 
 Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
+
+- [x] MC-05 — Publicación autorizada a main con título de marca más suave:
+  peso medio,16/18px, sin mayúsculas forzadas ni nueva fuente. SQL064 aplicada
+  el22/10 con respaldo restaurado;145 tablas previas intactas y29 triggers
+  conservados. Suite2941/0fallos/3omitidas,28dirigidas sobre restauración y
+ 30navegador correctas. [Entrega](informes/despliegue-marcas-2026-10-22.md).

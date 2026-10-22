@@ -1121,3 +1121,14 @@ la opción de asignar la foto de marca; al tocar Candado32mm se abre una vista
 previa con SU foto. No sustituir imágenes individuales ni duplicar productos.
 Se implementa en worktree propio, con SQL064 y copias PostgreSQL locales;
 no se publica a main en esta entrega. Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
+
+
+## Publicar marcas y suavizar el título — 2026-10-22
+
+Usuario: «subelo a main [...] antes, mejora la tipografia [...] ahora se ve
+muy tosco y brusco». Autoriza publicar la función36af6b9 con título más ligero,
+legible y discreto. Se conserva la fuente actual y se reduce peso/tamaño,
+sin convertir automáticamente el nombre a mayúsculas. SQL064 aplicada antes
+del push, con respaldo comprobado y ensayo local; ningún dato ficticio o
+prueba de negocio en producción.
+[Resultado](informes/despliegue-marcas-2026-10-22.md).

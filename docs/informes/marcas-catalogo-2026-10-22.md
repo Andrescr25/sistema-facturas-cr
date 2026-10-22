@@ -64,3 +64,11 @@ No se consultó ni modificó producción ni se enviaron mensajes reales.
 
 Publicación **sólo developer**. Main conserva7ab6e1c; SQL064 debe aplicarse
 como paso explícito de una publicación posterior, antes del push de main.
+
+
+## Publicación posterior del mismo día
+
+Después de aprobar la función, el usuario autoriza main y pide un título menos
+tosco. El ajuste tipográfico y la migración064 aplicada antes del push se
+registran en [el despliegue](despliegue-marcas-2026-10-22.md). Los párrafos de
+entrega anterior describen su estado al publicar sólo developer.

@@ -219,4 +219,6 @@ Gestión conserva categorías, subcategorías y filas existentes. El botón
 productos existentes y subir una imagen general independiente. En el agente
 se muestra marca/foto/lista de presentaciones con IVA; tocar una presentación
 abre su fotografía individual sin consultar al servidor. Ver
-[[modulo/marcas-catalogo]]. Desarrollo local; SQL064 pendiente en producción.
+[[modulo/marcas-catalogo]]. SQL064 aplicada en producción el2026-10-22 antes de publicar a main, con
+respaldo restaurado y verificación de conservación de los datos. Ver
+[publicación](../../informes/despliegue-marcas-2026-10-22.md).

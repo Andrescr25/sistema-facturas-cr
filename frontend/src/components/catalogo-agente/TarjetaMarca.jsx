@@ -8,7 +8,7 @@ function TarjetaMarca({ grupo, onVerProducto }) {
   const foto = urlArchivo(grupo.marca.imagen?.url)
   return (
     <article className="catalogo-ficha min-w-0 overflow-hidden rounded-2xl bg-white ring-1 ring-neutro-200">
-      <h3 className="px-4 pb-2 pt-4 text-lg font-extrabold uppercase tracking-wide text-primario-900 sm:text-xl">{grupo.marca.nombre}</h3>
+      <h3 className="break-words px-4 pb-2 pt-5 text-base font-medium leading-snug tracking-tight text-neutro-800 sm:text-lg">{grupo.marca.nombre}</h3>
       <div className="flex h-40 items-center justify-center px-4 pb-3 sm:h-48">
         {foto ? <img src={foto} alt={grupo.marca.nombre} loading="lazy" decoding="async" className="h-full w-full object-contain" />
           : <div className="flex h-full w-full items-center justify-center rounded-xl bg-neutro-50 text-neutro-300"><Package size={42} aria-label="Sin foto de marca" /></div>}
