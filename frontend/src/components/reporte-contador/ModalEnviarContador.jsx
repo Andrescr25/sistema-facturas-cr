@@ -59,7 +59,7 @@ export default function ModalEnviarContador({ estado: e }) {
     >
       <div className="space-y-4 p-5">
         <p className="text-sm text-neutro-600">
-          Mes {e.datos.etiqueta}: Excel con ventas, notas de crédito, compras y gastos operativos.
+          Mes {e.datos.etiqueta}: Excel con tres resúmenes: ventas, compras y gastos operativos.
           Incluye un ZIP con los XML/PDF disponibles de los gastos y la lista de respaldos
           faltantes.
         </p>

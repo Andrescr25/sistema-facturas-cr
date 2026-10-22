@@ -1106,6 +1106,15 @@ nueva migración ni modifica los conteos del corte. Ver
 - [x] GO-14: SQL062 aplicada en producción el 21/10 a las 21:46 CR y
   aprobación incluida en la publicación autorizada, junto con el Excel previo.
 
+
+- [x] GO-15: Excel mensual reducido a tres resúmenes (Ventas/Compras/Gastos
+  operativos), siguiendo imagen del usuario; reemplaza el formato de GO-11.
+  Tabla corta, totales originales/notas/monedas conservados, descarga y correo
+  con el mismo generador. Suite2946 correctas/3 históricas omitidas, 23
+  comprobaciones de navegador y vista nativa del XLSX correctas. Sin SQL nuevo ni cambios de datos o reportes históricos.
+  [Verificación](informes/contador-resumen-2026-10-21.md).
+
+
 [Alcance y pruebas de aprobación](informes/gastos-aprobacion-2026-10-21.md).
 
 

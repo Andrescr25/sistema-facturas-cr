@@ -299,39 +299,17 @@ describe(
       const publico = require('../src/modules/reporte-contador/contador.mes').vistaPublica(mes);
       assert.ok(publico.gastos.every((g) => !('xml_ruta' in g) && !('pdf_ruta' in g)));
     });
-    test('Excel con todas las secciones, precisión y pendientes vacíos', () => {
+    test('Excel contiene sólo los tres resúmenes y conserva los totales reales', () => {
       const b = XLSX.read(excelMensual(mes).buffer, { type: 'buffer' });
-      assert.deepEqual(b.SheetNames, [
-        'Resumen',
-        'Ventas',
-        'Compras',
-        'Gastos operativos',
-        'Pendientes',
-        'Impuestos de ventas',
-        'Detalle comercial',
-        'Soporte documental',
-        'Guía'
-      ]);
-      const gastos = XLSX.utils.sheet_to_json(b.Sheets['Gastos operativos'], { range: 5, defval: null });
-      assert.equal(gastos.length, 4);
-      assert.equal(gastos[0]['Subtotal original'], 100);
-      assert.equal(gastos[0]['Impuestos originales'], 13);
-      assert.ok(
-        gastos.some(
-          (g) => g['Revisión'] === 'Por revisar' && g['Gasto deducible revisado'] === null
-        )
-      );
-      assert.ok(
-        gastos.some(
-          (g) => g['Gasto deducible revisado'] === 100 && g['IVA acreditable revisado'] === 13
-        )
-      );
-      assert.equal(
-        XLSX.utils.sheet_to_json(b.Sheets.Ventas, { range: 5 }).find((d) => d['Tipo de documento'] === 'Venta')[
-          'Total comprobante'
-        ],
-        113.37
-      );
+      assert.deepEqual(b.SheetNames, ['Ventas', 'Compras', 'Gastos operativos']);
+      const filas = nombre => XLSX.utils.sheet_to_json(b.Sheets[nombre], { header: 1, defval: null });
+      const totales = nombre => filas(nombre).filter(f => f[0] === 'TOTAL');
+      assert.equal(totales('Gastos operativos')[0][4], 133);
+      assert.equal(totales('Gastos operativos')[1][4], 5);
+      assert.equal(totales('Ventas')[0][4], 103.37, 'la nota de crédito de 10 ya está restada');
+      assert.ok(!JSON.stringify(filas('Gastos operativos')).includes('ZZ almuerzo'));
+      assert.ok(!JSON.stringify(filas('Ventas')).includes('ZZ-venta'));
+      assert.equal(filas('Compras').find(f => f[0] === 'Notas de proveedor por clasificar')[4], -4);
     });
     test('el pago real y su método se reflejan sin otro registro ni otra compra', async () => {
       delete require.cache[

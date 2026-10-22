@@ -1,110 +1,77 @@
-const etiquetas = {
-  pendiente: 'Por revisar', deducible: 'Deducible', parcial: 'Parcial',
-  no_deducible: 'No deducible', total: 'Total', sin_credito: 'Sin crédito',
-  PAGADA: 'Pagado', PARCIAL: 'Pago parcial', PENDIENTE: 'Pendiente',
-  VENCIDA: 'Pendiente vencido', CONTADO: 'Pendiente de registrar pago'
-};
-const sumar = (filas, clave) => Math.round(filas.reduce((s, f) => s + Number(f[clave] || 0), 0) * 100) / 100;
-const monto = (v) => v == null ? null : Number(v);
-function gastosExcel(gastos) {
-  return gastos.map(g => ({
-    ...g, identidad: `gasto-${g.id}`, tipo: 'Gasto operativo',
-    subtotal_original: monto(g.totales_originales?.venta),
-    descuentos_originales: monto(g.totales_originales?.descuentos),
-    impuestos_originales: monto(g.totales_originales?.impuesto),
-    renta_texto: etiquetas[g.renta], iva_texto: etiquetas[g.iva],
-    respuesta_texto: { 1: 'Aceptación', 2: 'Aceptación parcial', 3: 'Rechazo' }[g.respuesta] || 'Por decidir',
-    pago_texto: etiquetas[g.estado_pago] || 'Por validar',
-    hacienda_texto: g.estado_hacienda || 'Sin respuesta registrada',
-    xml: g.tiene_xml ? `gasto-${g.id}.xml` : 'Falta XML',
-    pdf: g.tiene_pdf ? `gasto-${g.id}.pdf` : 'Sin PDF adjunto'
-  }));
+const CAMPOS = ['subtotal', 'descuento', 'impuestos', 'total'];
+const numero = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
+const suma = valores => valores.some(v => v == null) ? null : valores.reduce((s, v) => s + v, 0);
+const sumarFilas = filas => Object.fromEntries(CAMPOS.map(c => [c, suma(filas.map(f => f[c]))]));
+const signo = (fila, factor) => Object.fromEntries(CAMPOS.map(c => [c, fila[c] == null ? null : fila[c] * factor]));
+
+function importes(base, descuento, impuestos, total) {
+  const b = numero(base), d = numero(descuento);
+  return { subtotal: b == null || d == null ? null : b + d, descuento: d,
+    impuestos: numero(impuestos), total: numero(total) };
 }
 
-function pendientesExcel(documentos, gastos) {
-  const pendientes = [];
-  const agregar = (d, motivos) => {
-    if (motivos.length) pendientes.push({ ...d, observacion: motivos.join(' · ') });
-  };
+function tipoImpuesto(l) {
+  if (numero(l.tarifa) != null) return Number(l.tarifa) === 0 ? 'Sin impuesto' : `IVA ${Number(l.tarifa)}%`;
+  if (Number(l.impuestos) === 0 && l.impuestos != null) return 'Sin impuesto';
+  return 'Impuestos sin tarifa registrada';
+}
+
+/** Una fila por tipo, nunca una por factura. No se deduce una tarifa dividiendo. */
+function comerciales(documentos, tipo) {
+  const filas = [];
   for (const d of documentos) {
-    const motivos = [];
-    if (d.tipo === 'Nota de crédito proveedor') motivos.push('Revisar aplicación a compra/gasto; sin desglose de impuestos guardado');
-    else if (!d.lineas.length) motivos.push('Sin detalle de líneas guardado');
-    else {
-      const detalle = sumar(d.lineas, 'total');
-      if (Math.abs(detalle - d.total) > 0.02) motivos.push('Total del comprobante distinto del detalle; conciliar con el original');
+    if (![tipo, ...(tipo === 'Venta' ? ['Nota de crédito'] : [])].includes(d.tipo)) continue;
+    const factor = d.tipo === 'Nota de crédito' ? -1 : 1;
+    const lineas = d.lineas || [];
+    const descuento = d.descuento == null ? (lineas.length ? suma(lineas.map(l => numero(l.descuento))) : null) : numero(d.descuento);
+    const encabezado = importes(d.base, descuento, d.impuestos, d.total);
+    const detalle = lineas.map(l => ({ moneda: d.moneda, concepto: tipoImpuesto(l), ...importes(l.base, l.descuento, l.impuestos, l.total) }));
+    if (!detalle.length || detalle.some(l => CAMPOS.some(c => l[c] == null))) {
+      filas.push({ moneda: d.moneda, concepto: 'Sin desglose', ...signo(encabezado, factor) });
+      continue;
     }
-    if (d.tipo === 'Nota de crédito' && !d.documento_asociado) motivos.push('Sin factura asociada guardada');
-    agregar(d, motivos);
+    filas.push(...detalle.map(l => ({ ...l, ...signo(l, factor) })));
+    // El total del comprobante manda. Una diferencia real no desaparece al
+    // resumir ni se reparte inventando impuestos sobre las demás tarifas.
+    const sumado = sumarFilas(detalle);
+    const ajuste = Object.fromEntries(CAMPOS.map(c => [c, encabezado[c] == null ? null : encabezado[c] - sumado[c]]));
+    if (CAMPOS.some(c => ajuste[c] != null && Math.abs(ajuste[c]) > 0.000001)) {
+      filas.push({ moneda: d.moneda, concepto: 'Ajustes del comprobante', ...signo(ajuste, factor) });
+    }
   }
-  for (const g of gastos) {
-    if (['Anulado', 'Rechazado'].includes(g.revision)) continue;
-    const motivos = [];
-    if (g.revision !== 'Revisado') motivos.push('Revisión fiscal pendiente: deducción e IVA sin aprobar');
-    if (g.validacion !== 'validado') motivos.push(g.motivo_validacion || 'Validación del comprobante pendiente');
-    if (!g.tiene_xml) motivos.push('Falta XML original');
-    agregar(g, motivos);
-  }
-  return pendientes;
+  return filas;
 }
 
-function resumenMoneda(mes, moneda) {
-  // El Excel y la pantalla parten de los mismos totales del mes.
-  const r = mes.resumen.find(f => f.moneda === moneda);
-  const ds = mes.documentos.filter(d => d.moneda === moneda);
-  const gs = mes.gastos.filter(g => g.moneda === moneda && !['Anulado', 'Rechazado'].includes(g.revision));
-  const ventas = ds.filter(d => d.tipo === 'Venta'), notas = ds.filter(d => d.tipo === 'Nota de crédito');
-  const compras = ds.filter(d => d.tipo === 'Compra'), nc = ds.filter(d => d.tipo === 'Nota de crédito proveedor');
-  const revisados = gs.filter(g => g.revision === 'Revisado'), pendientes = gs.filter(g => g.revision !== 'Revisado');
-  const netoVentas = campo => {
-    if ([...ventas, ...notas].some(d => d[campo] == null)) return null;
-    return Math.round((sumar(ventas, campo) - sumar(notas, campo)) * 100) / 100;
-  };
+function gastos(gastos) {
+  return gastos.filter(g => g.estado !== 'anulada' && g.decision !== 'rechazado' && !['Anulado', 'Rechazado'].includes(g.revision))
+    .map(g => ({ moneda: g.moneda, concepto: g.categoria === 'combustible' ? 'Combustible' : 'Alimentación y viáticos',
+      subtotal: numero(g.totales_originales?.venta), descuento: numero(g.totales_originales?.descuentos),
+      impuestos: numero(g.totales_originales?.impuesto), total: numero(g.total) }));
+}
+
+function agrupar(filas) {
+  const grupos = new Map();
+  for (const f of filas) {
+    const clave = JSON.stringify([f.moneda, f.concepto]);
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(f);
+  }
+  return [...grupos.values()].map(g => ({ moneda: g[0].moneda, concepto: g[0].concepto, ...sumarFilas(g) }))
+    .sort((a, b) => a.moneda.localeCompare(b.moneda) || a.concepto.localeCompare(b.concepto, 'es', { numeric: true }));
+}
+
+function resumenExcel(mes) {
   return [
-    ['Ventas emitidas', ventas.length, r.ventas, 'Total de comprobantes del mes, con impuestos.'],
-    ['Notas de crédito de ventas', notas.length, -r.devoluciones, 'Se restan de las ventas.'],
-    ['VENTAS NETAS', ventas.length + notas.length, Math.round((r.ventas - r.devoluciones) * 100) / 100, 'Ventas menos notas de crédito de ventas.'],
-    ['Base neta de ventas', ventas.length + notas.length, netoVentas('base'), 'Base registrada de ventas menos base de sus notas; descuentos ya aplicados.'],
-    ['Impuestos netos de ventas', ventas.length + notas.length, netoVentas('impuestos'), 'Impuestos registrados de ventas menos los de sus notas; no es el impuesto final a pagar.'],
-    ['Compras de mercadería', compras.length, r.compras, 'Compras vigentes; los gastos operativos van aparte.'],
-    ['Notas de crédito de proveedores', nc.length, -r.creditos_proveedores, 'Ajustes por clasificar: compra/gasto e impuestos.'],
-    ['Gastos operativos', gs.length, r.gastos, 'Combustible y alimentación/viáticos, sin anulados.'],
-    ['Gasto deducible revisado', revisados.length, r.gasto_deducible, 'Importe aprobado en la revisión de gastos, para renta.'],
-    ['IVA acreditable de gastos revisados', revisados.length, r.iva_credito_gastos, 'Sólo IVA aprobado de gastos; no es todo el IVA de compras.'],
-    ['Gastos por revisar', pendientes.length, sumar(pendientes, 'total'), 'Ya incluidos en gastos; deducción/crédito aún sin aprobar.']
+    { nombre: 'Ventas', filas: agrupar(comerciales(mes.documentos, 'Venta')), notas: [] },
+    { nombre: 'Compras', filas: agrupar(comerciales(mes.documentos, 'Compra')),
+      // El vínculo de estas notas a mercadería/gasto no está resuelto. Se
+      // informa el ajuste aparte, sin descontarlo de una clase al azar.
+      notas: agrupar(mes.documentos.filter(d => d.tipo === 'Nota de crédito proveedor').map(d => ({
+        moneda: d.moneda, concepto: 'Notas de proveedor por clasificar',
+        subtotal: null, descuento: null, impuestos: null, total: -Number(d.total)
+      }))) },
+    { nombre: 'Gastos operativos', filas: agrupar(gastos(mes.gastos)), notas: [] }
   ];
 }
 
-function ventasPorTarifa(documentos) {
-  const grupos = new Map();
-  for (const d of documentos) {
-    if (!['Venta', 'Nota de crédito'].includes(d.tipo)) continue;
-    for (const l of d.lineas) {
-      const tarifa = l.tarifa == null ? null : Number(l.tarifa);
-      const clave = JSON.stringify([d.moneda, tarifa]);
-      if (!grupos.has(clave)) grupos.set(clave, {
-        moneda: d.moneda, tarifa, documentos: new Set(), lineas: 0,
-        base_neta: 0, impuestos_ventas: 0, impuestos_notas: 0, baseCompleta: true, impuestosCompletos: true
-      });
-      const g = grupos.get(clave), nota = d.tipo === 'Nota de crédito';
-      g.documentos.add(d.identidad);
-      g.lineas++;
-      if (l.base == null) g.baseCompleta = false;
-      else g.base_neta += Number(l.base) * (nota ? -1 : 1);
-      if (l.impuestos == null) g.impuestosCompletos = false;
-      else g[nota ? 'impuestos_notas' : 'impuestos_ventas'] += Number(l.impuestos);
-    }
-  }
-  return [...grupos.values()]
-    .sort((a, b) => a.moneda.localeCompare(b.moneda) || (a.tarifa ?? Infinity) - (b.tarifa ?? Infinity))
-    .map(g => ({
-      moneda: g.moneda, tarifa: g.tarifa == null ? 'Sin tarifa guardada' : `${g.tarifa} %`,
-      documentos: g.documentos.size, lineas: g.lineas,
-      base_neta: g.baseCompleta ? g.base_neta : null,
-      impuestos_ventas: g.impuestosCompletos ? g.impuestos_ventas : null,
-      impuestos_notas: g.impuestosCompletos ? g.impuestos_notas : null,
-      impuestos_netos: g.impuestosCompletos ? g.impuestos_ventas - g.impuestos_notas : null
-    }));
-}
-
-module.exports = { gastosExcel, pendientesExcel, resumenMoneda, ventasPorTarifa };
+module.exports = { resumenExcel, sumarFilas };

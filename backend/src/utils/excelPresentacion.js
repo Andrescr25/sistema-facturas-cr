@@ -84,7 +84,7 @@ function presentarExcel(buffer, hojas) {
       `<sheetViews><sheetView showGridLines="0" zoomScale="85" workbookViewId="0"><pane ${x ? `xSplit="${x}" ` : ''}ySplit="${encabezado}" topLeftCell="${esquina}" activePane="${panel}" state="frozen"/><selection pane="${panel}" activeCell="${esquina}" sqref="${esquina}"/></sheetView></sheetViews>`);
     const propiedades = `<sheetPr><tabColor rgb="FF${PALETA[opciones.color || 'primario']}"/><pageSetUpPr fitToPage="1"/></sheetPr>`;
     xml = xml.includes('<sheetPr') ? xml.replace(/<sheetPr[^>]*>[\s\S]*?<\/sheetPr>|<sheetPr[^>]*\/>/, propiedades) : xml.replace(/(<worksheet\b[^>]*>)/, `$1${propiedades}`);
-    const impresion = `<printOptions horizontalCentered="1"/><pageMargins left="0.3" right="0.3" top="0.45" bottom="0.45" header="0.2" footer="0.2"/><pageSetup paperSize="${portada ? 9 : 8}" orientation="${portada ? 'portrait' : 'landscape'}" fitToWidth="1" fitToHeight="0"/><headerFooter><oddFooter>&amp;L${ATRIBUTO(nombre)}&amp;R${ATRIBUTO('Página &P de &N')}</oddFooter></headerFooter>`;
+    const impresion = `<printOptions horizontalCentered="1"/><pageMargins left="0.3" right="0.3" top="0.45" bottom="0.45" header="0.2" footer="0.2"/><pageSetup paperSize="${portada ? 9 : 8}" orientation="${portada ? 'portrait' : 'landscape'}" fitToWidth="1" fitToHeight="${opciones.paginasAlto === 1 ? 1 : 0}"/><headerFooter><oddFooter>&amp;L${ATRIBUTO(nombre)}&amp;R${ATRIBUTO('Página &P de &N')}</oddFooter></headerFooter>`;
     // Orden SpreadsheetML: impresión va después de merges/filtros y antes de
     // ignoredErrors. Conservar ese orden evita la reparación al abrir en Excel.
     xml = xml.replace(/<pageMargins\b[^>]*\/>/, '');

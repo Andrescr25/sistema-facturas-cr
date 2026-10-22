@@ -1090,3 +1090,15 @@ verificados del Excel/aprobación junto con esta ubicación, aplicando primero
 SQL062 y SQL063 necesarias. Conservar movimientos, filtros e importes;
 separar permiso y copiar sólo el acceso que ya tenía CxC. Sin probar con
 escrituras de negocio en producción ni enviar mensajes para verificar.
+
+
+## 2026-10-21 — Excel de sólo tres resúmenes, según imagen
+
+Usuario: «hay demasiada informacion irrelevante [...] solo [...] ventas,
+compras y gastos operativos [...] un resumen de todo por hoja». Reemplaza
+el diseño de nueve hojas. Exactamente Ventas/Compras/Gastos operativos con
+período y tabla corta de subtotal, descuento, impuestos y total, siguiendo la
+referencia visual. Sin filas por factura ni hojas auxiliares. Mismos datos
+y descuento aplicado una vez, sin inventar IVA de combustible o mezclar monedas.
+Desarrollo local y publicación en developer; no solicita otra subida a main.
+[Alcance y pruebas](informes/contador-resumen-2026-10-21.md).

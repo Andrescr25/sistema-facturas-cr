@@ -1,5 +1,10 @@
 # Excel mensual para el contador — 2026-10-21
 
+**Formato reemplazado después:** el usuario pidió sólo tres hojas de resumen
+según una imagen, sin detalle de facturas ni hojas auxiliares. Ver
+[la simplificación](contador-resumen-2026-10-21.md). Este informe conserva
+el alcance de la entrega anterior.
+
 El usuario pide investigar qué necesita el contador y rehacer el Excel que
 descarga Reporte Contador: claro, resumido, con colores, tamaños y buen formato.
 Codex trabaja en copia propia sobre developer; ninguna consulta de desarrollo
