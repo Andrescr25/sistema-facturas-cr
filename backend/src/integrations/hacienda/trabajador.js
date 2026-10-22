@@ -7,6 +7,7 @@ function iniciar(servicio, { intervalo = 60000 } = {}) {
     if (ocupado) return;
     ocupado = true;
     try {
+      await servicio.recuperarGastosPendientes?.();
       await servicio.pendientes();
     } catch {
     } finally {
@@ -20,8 +21,9 @@ if (require.main === module) {
   require("../../../config/aislado");
   const { pool } = require("../../../config/database");
   const { crearServicio } = require("./emision.service");
-  crearServicio(pool)
-    .pendientes()
+  const servicio = crearServicio(pool);
+  servicio.recuperarGastosPendientes()
+    .then(() => servicio.pendientes())
     .then(() => pool.end())
     .catch(async () => {
       await pool.end();

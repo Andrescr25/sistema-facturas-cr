@@ -28,14 +28,14 @@ function periodo({ anio, mes } = {}) {
 const n = (v) => Number(v || 0);
 const redondear = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
 function prepararGasto(g) {
-  const revisado = Boolean(g.revisado_en) && g.validacion === 'validado' && g.estado !== 'anulada';
+  const revisado = Boolean(g.revisado_en) && g.validacion === 'validado' && g.estado !== 'anulada' && g.decision !== 'rechazado';
   return {
     ...g,
     total: n(g.total),
     saldo: g.saldo == null ? null : n(g.saldo),
     pagado: n(g.pagado),
     categoria_texto: g.categoria === 'combustible' ? 'Combustible' : 'Alimentación y viáticos',
-    revision: g.estado === 'anulada' ? 'Anulado' : revisado ? 'Revisado' : 'Por revisar',
+    revision: g.decision === 'rechazado' ? 'Rechazado' : g.estado === 'anulada' ? 'Anulado' : revisado ? 'Revisado' : 'Por revisar',
     gasto_deducible: revisado ? n(g.gasto_deducible) : null,
     iva_credito: revisado ? n(g.iva_credito) : null,
     tiene_xml: Boolean(g.xml_ruta),
@@ -47,7 +47,7 @@ function resumir(documentos, gastos) {
   const monedas = [...new Set([...documentos, ...gastos].map((d) => d.moneda))].sort();
   return monedas.map((moneda) => {
     const doc = documentos.filter((d) => d.moneda === moneda),
-      gs = gastos.filter((g) => g.moneda === moneda && g.estado !== 'anulada');
+      gs = gastos.filter((g) => g.moneda === moneda && g.estado !== 'anulada' && g.decision !== 'rechazado');
     const suma = (lista, campo) => redondear(lista.reduce((s, d) => s + n(d[campo]), 0));
     return {
       moneda,

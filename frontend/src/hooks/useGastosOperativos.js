@@ -16,7 +16,7 @@ export function useGastosOperativos() {
   const [total, setTotal] = useState(0)
   const [buscar, setBuscar] = useState('')
   const [categoria, setCategoria] = useState('')
-  const [revision, setRevision] = useState('todos')
+  const [revision, setRevision] = useState('aprobado')
   const [pagina, setPagina] = useState(1)
   const [cargando, setCargando] = useState(true)
   const [detalle, setDetalle] = useState(null)
@@ -34,7 +34,7 @@ export function useGastosOperativos() {
     const mia = ++peticion.current
     setCargando(true)
     try {
-      const { data } = await api.get('/gastos-operativos', { params: { buscar, categoria, revision, pagina } })
+      const { data } = await api.get('/gastos-operativos', { params: { buscar, categoria, decision: revision, pagina } })
       if (mia === peticion.current) { setGastos(data.data.gastos); setTotal(data.data.total) }
     } catch (e) { if (mia === peticion.current) setError(mensaje(e)) }
     finally { if (mia === peticion.current) setCargando(false) }
@@ -61,7 +61,9 @@ export function useGastosOperativos() {
       .finally(() => { if (actual.current === id) setAbriendo(false) })
   }, [id, leerDetalle])
 
-  const enCurso = fiscal?.comprobante && !['aceptada', 'rechazada'].includes(fiscal.comprobante.estado)
+  const enCurso = detalle?.compra_id && (fiscal?.comprobante
+    ? !['aceptada', 'rechazada'].includes(fiscal.comprobante.estado)
+    : detalle.decision !== 'pendiente')
   useEffect(() => {
     if (!id || !enCurso) return undefined
     const t = setInterval(() => leerDetalle(id).catch(() => {}), 15000)

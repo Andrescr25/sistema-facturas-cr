@@ -116,7 +116,7 @@ function leerAplicaciones(datos) {
  * @param {string} [datos.referencia]    obligatoria si el método la pide
  * @param {string} [datos.fecha]         YYYY-MM-DD; por omisión, hoy en Costa Rica
  */
-async function registrarPago(datos = {}, usuarioId = null) {
+function prepararRegistroPago(datos, usuarioId) {
   const aplicaciones = leerAplicaciones(datos);
   const metodoId = Number(datos.metodoPagoId);
   if (!metodoId) throw httpError(400, 'Falta el método de pago.');
@@ -125,109 +125,117 @@ async function registrarPago(datos = {}, usuarioId = null) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw httpError(400, 'La fecha del pago no es válida.');
   if (fecha > hoyEnCostaRica()) throw httpError(400, 'La fecha del pago no puede ser futura.');
   const intento = leerIdempotencia(datos, aplicaciones, fecha, usuarioId);
+  return { aplicaciones, metodoId, fecha, intento };
+}
 
-  return enTransaccion(async (cliente) => {
-    const previo = await pagoPrevio(cliente, intento);
-    if (previo) return { ...previo, monto: num(previo.monto), existente: true };
-    const ids = aplicaciones.map((a) => a.id);
-    // El bloqueo va sobre las filas de la tabla; la vista se lee DESPUÉS,
-    // ya con las facturas tomadas.
-    const { rows: cuentas } = await cliente.query(
-      `SELECT id, proveedor_id, proveedor_nombre, proveedor_cedula, numero_consecutivo, liberada
-         FROM cuentas_por_pagar
-        WHERE id = ANY($1::uuid[])
-        FOR UPDATE`,
-      [ids]
-    );
-    if (cuentas.length !== ids.length) throw httpError(404, 'Alguna de esas facturas no existe.');
-    const porId = new Map(cuentas.map((c) => [c.id, c]));
+async function registrarPagoEn(cliente, datos = {}, usuarioId = null, preparado = prepararRegistroPago(datos, usuarioId), opciones = {}) {
+  const { aplicaciones, metodoId, fecha, intento } = preparado;
+  const previo = await pagoPrevio(cliente, intento);
+  if (previo) return { ...previo, monto: num(previo.monto), existente: true };
+  const ids = aplicaciones.map((a) => a.id);
+  // El bloqueo va sobre las filas de la tabla; la vista se lee DESPUÉS,
+  // ya con las facturas tomadas.
+  const { rows: cuentas } = await cliente.query(
+    `SELECT id, proveedor_id, proveedor_nombre, proveedor_cedula, numero_consecutivo, liberada
+       FROM cuentas_por_pagar
+      WHERE id = ANY($1::uuid[])
+      FOR UPDATE`,
+    [ids]
+  );
+  if (cuentas.length !== ids.length) throw httpError(404, 'Alguna de esas facturas no existe.');
+  const porId = new Map(cuentas.map((c) => [c.id, c]));
 
-    const noLiberada = cuentas.find((c) => !c.liberada);
-    if (noLiberada) {
-      throw httpError(409,
-        `La factura ${noLiberada.numero_consecutivo} todavía no se registró como compra: no se le puede pagar.`);
+  const noLiberada = cuentas.find((c) => !c.liberada);
+  if (noLiberada) {
+    throw httpError(409,
+      `La factura ${noLiberada.numero_consecutivo} todavía no se registró como compra: no se le puede pagar.`);
+  }
+  const proveedores = new Set(cuentas.map((c) => c.proveedor_id));
+  if (proveedores.size > 1) throw httpError(400, 'Un pago solo puede cubrir facturas del mismo proveedor.');
+  const proveedorId = cuentas[0].proveedor_id;
+  if (!proveedorId) {
+    throw httpError(409, `La factura ${cuentas[0].numero_consecutivo} no tiene el proveedor enlazado.`);
+  }
+
+  const saldos = await saldosDeCuentas(ids, cliente);
+  const detalle = aplicaciones.map((a) => {
+    const cuenta = porId.get(a.id);
+    const saldo = saldos.get(a.id)?.saldo ?? 0;
+    if (saldo <= 0) throw httpError(409, `La factura ${cuenta.numero_consecutivo} ya no tiene saldo pendiente.`);
+    const monto = a.pagarTodo ? saldo : a.monto;
+    if (monto > saldo + 0.01) {
+      throw httpError(400,
+        `El pago de ₡${monto} supera el saldo de la factura ${cuenta.numero_consecutivo}, que es ₡${saldo}.`);
     }
-    const proveedores = new Set(cuentas.map((c) => c.proveedor_id));
-    if (proveedores.size > 1) throw httpError(400, 'Un pago solo puede cubrir facturas del mismo proveedor.');
-    const proveedorId = cuentas[0].proveedor_id;
-    if (!proveedorId) {
-      throw httpError(409, `La factura ${cuentas[0].numero_consecutivo} no tiene el proveedor enlazado.`);
-    }
-
-    const saldos = await saldosDeCuentas(ids, cliente);
-    const detalle = aplicaciones.map((a) => {
-      const cuenta = porId.get(a.id);
-      const saldo = saldos.get(a.id)?.saldo ?? 0;
-      if (saldo <= 0) throw httpError(409, `La factura ${cuenta.numero_consecutivo} ya no tiene saldo pendiente.`);
-      const monto = a.pagarTodo ? saldo : a.monto;
-      if (monto > saldo + 0.01) {
-        throw httpError(400,
-          `El pago de ₡${monto} supera el saldo de la factura ${cuenta.numero_consecutivo}, que es ₡${saldo}.`);
-      }
-      return { cuenta, monto: dinero(monto), saldoAntes: saldo };
-    });
-    const total = dinero(detalle.reduce((s, d) => s + d.monto, 0));
-
-    const cuentaDineroId = await idCajaGeneral(cliente);
-
-    const { rows: metodos } = await cliente.query(
-      'SELECT id, nombre, pide_referencia FROM metodo_pago WHERE id = $1 AND activo = TRUE', [metodoId]
-    );
-    const metodo = metodos[0];
-    if (!metodo) throw httpError(400, 'Ese método de pago no existe o está inactivo.');
-    const referencia = datos.referencia ? String(datos.referencia).trim().slice(0, 60) : null;
-    if (metodo.pide_referencia && !referencia) {
-      throw httpError(400, `${metodo.nombre}: falta el número de referencia del pago.`);
-    }
-
-    const primera = cuentas[0];
-    const { rows } = await cliente.query(
-      `INSERT INTO pago_proveedor (fecha, proveedor_id, proveedor_nombre, proveedor_cedula,
-                                   cuenta_dinero_id, metodo_pago_id, metodo_pago_texto, referencia,
-                                   monto, observaciones, registrado_por, clave_idempotencia, huella_idempotencia)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       RETURNING *`,
-      [
-        fecha, proveedorId, primera.proveedor_nombre, primera.proveedor_cedula,
-        cuentaDineroId, metodo.id, String(metodo.nombre).slice(0, 40), referencia,
-        total, datos.observaciones ? String(datos.observaciones).slice(0, 2000) : null, usuarioId,
-        intento?.clave || null, intento?.huella || null
-      ]
-    );
-    const pago = rows[0];
-
-    for (const d of detalle) {
-      await cliente.query(
-        'INSERT INTO pago_proveedor_cuenta (pago_id, cuenta_por_pagar_id, monto) VALUES ($1, $2, $3)',
-        [pago.id, d.cuenta.id, d.monto]
-      );
-    }
-
-    await registrarCambio(cliente, {
-      entidad: 'pago_proveedor', entidadId: pago.id, accion: 'crear',
-      despues: {
-        proveedor: primera.proveedor_nombre, monto: total, metodo: metodo.nombre,
-        referencia,
-        facturas: detalle.map((d) => ({
-          factura: d.cuenta.numero_consecutivo, monto: d.monto,
-          saldoAntes: d.saldoAntes, saldoDespues: dinero(d.saldoAntes - d.monto)
-        }))
-      },
-      usuarioId
-    });
-
-    return {
-      ...pago,
-      monto: num(pago.monto),
-      facturas: detalle.map((d) => ({
-        cuentaPorPagarId: d.cuenta.id,
-        numero: d.cuenta.numero_consecutivo,
-        monto: d.monto,
-        saldoAnterior: d.saldoAntes,
-        saldoNuevo: dinero(d.saldoAntes - d.monto)
-      }))
-    };
+    return { cuenta, monto: dinero(monto), saldoAntes: saldo };
   });
+  const total = dinero(detalle.reduce((s, d) => s + d.monto, 0));
+
+  const cuentaDineroId = await idCajaGeneral(cliente);
+
+  const { rows: metodos } = await cliente.query(
+    'SELECT id, nombre, pide_referencia FROM metodo_pago WHERE id = $1 AND activo = TRUE', [metodoId]
+  );
+  const metodo = metodos[0];
+  if (!metodo) throw httpError(400, 'Ese método de pago no existe o está inactivo.');
+  const referencia = datos.referencia ? String(datos.referencia).trim().slice(0, 60) : null;
+  if (metodo.pide_referencia && !referencia && opciones.referenciaOpcional !== true) {
+    throw httpError(400, `${metodo.nombre}: falta el número de referencia del pago.`);
+  }
+
+  const primera = cuentas[0];
+  const { rows } = await cliente.query(
+    `INSERT INTO pago_proveedor (fecha, proveedor_id, proveedor_nombre, proveedor_cedula,
+                                 cuenta_dinero_id, metodo_pago_id, metodo_pago_texto, referencia,
+                                 monto, observaciones, registrado_por, clave_idempotencia, huella_idempotencia)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     RETURNING *`,
+    [
+      fecha, proveedorId, primera.proveedor_nombre, primera.proveedor_cedula,
+      cuentaDineroId, metodo.id, String(metodo.nombre).slice(0, 40), referencia,
+      total, datos.observaciones ? String(datos.observaciones).slice(0, 2000) : null, usuarioId,
+      intento?.clave || null, intento?.huella || null
+    ]
+  );
+  const pago = rows[0];
+
+  for (const d of detalle) {
+    await cliente.query(
+      'INSERT INTO pago_proveedor_cuenta (pago_id, cuenta_por_pagar_id, monto) VALUES ($1, $2, $3)',
+      [pago.id, d.cuenta.id, d.monto]
+    );
+  }
+
+  await registrarCambio(cliente, {
+    entidad: 'pago_proveedor', entidadId: pago.id, accion: 'crear',
+    despues: {
+      proveedor: primera.proveedor_nombre, monto: total, metodo: metodo.nombre,
+      referencia,
+      facturas: detalle.map((d) => ({
+        factura: d.cuenta.numero_consecutivo, monto: d.monto,
+        saldoAntes: d.saldoAntes, saldoDespues: dinero(d.saldoAntes - d.monto)
+      }))
+    },
+    usuarioId
+  });
+
+  return {
+    ...pago,
+    monto: num(pago.monto),
+    facturas: detalle.map((d) => ({
+      cuentaPorPagarId: d.cuenta.id,
+      numero: d.cuenta.numero_consecutivo,
+      monto: d.monto,
+      saldoAnterior: d.saldoAntes,
+      saldoNuevo: dinero(d.saldoAntes - d.monto)
+    }))
+  };
+}
+
+/** El mismo registro puede pertenecer a una aprobación atómica de gasto. */
+async function registrarPago(datos = {}, usuarioId = null) {
+  const preparado = prepararRegistroPago(datos, usuarioId);
+  return enTransaccion(cliente => registrarPagoEn(cliente, datos, usuarioId, preparado));
 }
 
 /**
@@ -269,6 +277,7 @@ module.exports = {
   saldosDeCuentas,
   pagosDeCuentas,
   registrarPago,
+  registrarPagoEn,
   anularPago,
   leerAplicaciones
 };

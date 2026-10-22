@@ -1095,3 +1095,15 @@ nueva migración ni modifica los conteos del corte. Ver
   filtros, paneles e impresión. Descarga y adjunto usan el mismo generador.
   Sin SQL nuevo ni declaración fiscal automática.
   [Formato y verificación local](informes/contador-excel-2026-10-21.md).
+
+- [x] GO-12: gastos recibidos permanecen en Revisión hasta Aprobar/Rechazar;
+  medio de pago y saldo completo, decisión/pago atómicos e idempotentes.
+- [x] GO-13: aceptación/rechazo con configuración fiscal confirmada por el
+  usuario; recuperación de respuesta sin volver a pagar y rechazo fuera del
+  total del contador. Módulo Gastos abre en Aprobados, ficha simple.
+  Verificado con suite completa: 2941 correctas, 3 históricas omitidas;
+  PostgreSQL, 49 comprobaciones de navegador, build y lint correctos.
+- [ ] GO-14: aplicar SQL062 y publicar la aprobación nueva en producción;
+  por ahora sólo local/developer. SQL061 ya está aplicada.
+
+[Alcance y pruebas de aprobación](informes/gastos-aprobacion-2026-10-21.md).

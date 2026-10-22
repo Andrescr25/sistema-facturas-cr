@@ -41,7 +41,7 @@ async function compras(db, desde, hasta) {
 async function gastos(db, desde, siguiente) {
   return (
     await db.query(
-      `SELECT g.id, g.categoria, g.descripcion,g.empleado,g.placa,g.version,
+      `SELECT g.id, g.categoria, g.descripcion,g.empleado,g.placa,g.version,g.decision,
     g.validacion,g.motivo_validacion,g.renta,g.gasto_deducible,g.iva,g.iva_credito,g.revisado_en,
     g.respuesta,g.motivo_fiscal,g.iva_maximo, f.numero_consecutivo AS numero,f.clave,
     f.fecha_emision::date::text AS fecha,f.proveedor_nombre AS contraparte,f.proveedor_cedula AS cedula,

@@ -26,6 +26,7 @@ export function camposFiscalesGasto(g) {
 
 /** Saldo y pago vienen de CxP: no se deducen del medio de pago escrito en el XML. */
 export function pagoDelGasto(g) {
+  if (g.decision === 'rechazado') return { texto: 'Rechazado', tono: 'peligro' }
   if (!g.compra_id) return { texto: 'Revisar comprobante', tono: 'alerta' }
   if (Number(g.saldo) <= 0) return { texto: 'Sin saldo pendiente', tono: 'exito' }
   return { texto: g.estado_pago === 'PARCIAL' || Number(g.pagado) > 0 ? 'Pago parcial' : 'Pendiente de pago', tono: 'neutro' }
@@ -34,6 +35,13 @@ export function pagoDelGasto(g) {
 export function resumenFiscalGasto(g) {
   if (!g.revisado_en) return 'Tratamiento tributario por revisar'
   return RESPUESTAS_GASTO.find(r => r.valor === g.respuesta)?.texto || 'Revisado'
+}
+
+export function estadoFiscalGasto(g, estado = g.estado_hacienda) {
+  if (estado === 'aceptada') return { texto: g.decision === 'rechazado' ? 'Rechazo recibido por Hacienda' : 'Aceptada en Hacienda', tono: 'exito' }
+  if (estado === 'rechazada') return { texto: 'Respuesta rechazada por Hacienda', tono: 'peligro' }
+  if (['recibida', 'procesando', 'enviando', 'preparada', 'incierta'].includes(estado)) return { texto: 'Respuesta en proceso', tono: 'nota' }
+  return { texto: 'Respuesta pendiente', tono: 'alerta' }
 }
 
 export function camposCambiadosGasto(cambios) {

@@ -46,10 +46,13 @@ test('no se adjunta el PDF de otra factura cuando el correo es ambiguo', () => {
 });
 
 test('la presentación conserva moneda y distingue un pendiente tributario de un pago', async () => {
-  const { camposGeneralesGasto, pagoDelGasto, resumenFiscalGasto, TRATAMIENTOS_FACTURA } = await import('../../frontend/src/utils/gastosOperativos.js');
+  const { camposGeneralesGasto, pagoDelGasto, resumenFiscalGasto, estadoFiscalGasto, TRATAMIENTOS_FACTURA } = await import('../../frontend/src/utils/gastosOperativos.js');
   assert.equal(TRATAMIENTOS_FACTURA[0].valor, 'comercial');
   assert.deepEqual(camposGeneralesGasto({ categoria: 'combustible', descripcion: 'ZZ' }), { categoria: 'combustible', descripcion: 'ZZ', empleado: '', placa: '' });
   assert.equal(pagoDelGasto({ compra_id: 1, saldo: 113 }).texto, 'Pendiente de pago');
   assert.equal(pagoDelGasto({ compra_id: 1, saldo: 103, pagado: 10 }).texto, 'Pago parcial');
   assert.equal(resumenFiscalGasto({}).includes('por revisar'), true);
+  assert.equal(pagoDelGasto({ decision: 'rechazado', saldo: 0 }).texto, 'Rechazado');
+  assert.equal(estadoFiscalGasto({ decision: 'aprobado', estado_hacienda: 'recibida' }).texto, 'Respuesta en proceso');
+  assert.equal(estadoFiscalGasto({ decision: 'rechazado', estado_hacienda: 'aceptada' }).texto, 'Rechazo recibido por Hacienda');
 });

@@ -30,7 +30,7 @@ const VACIOS = {
  */
 export default function ListaFacturas({
   facturas, loading, error, tabActiva, setTabActiva,
-  onAbrirRevision, onProcesarGasto
+  onAbrirRevision, onProcesarGasto, gastosPendientes
 }) {
   const navigate = useNavigate()
 
@@ -62,6 +62,7 @@ export default function ListaFacturas({
         icono={DollarSign}
       />
 
+      {gastosPendientes}
       <Pestanas
         activa={tabActiva}
         onCambiar={setTabActiva}

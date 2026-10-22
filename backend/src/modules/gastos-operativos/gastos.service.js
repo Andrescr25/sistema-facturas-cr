@@ -11,23 +11,28 @@ const { categoria, revisionFiscal } = require('./gastos.validacion');
 const SELECT = `SELECT g.id, g.factura_id, g.compra_id, g.categoria, g.descripcion,
   g.empleado, g.placa, g.validacion, g.motivo_validacion, g.iva_maximo,
   g.renta, g.gasto_deducible, g.iva, g.iva_credito, g.respuesta, g.motivo_fiscal,
-  g.revisado_en, g.version, g.creado_en,
+  g.revisado_en, g.version, g.creado_en,g.decision,g.decidido_en,g.pago_aprobacion_id,
   f.proveedor_nombre, f.proveedor_cedula, f.numero_consecutivo, f.clave,
   f.fecha_emision, f.moneda, f.total_factura,
   (f.xml_ruta IS NOT NULL) AS tiene_xml, (f.pdf_ruta IS NOT NULL) AS tiene_pdf,
   cp.id AS cuenta_id, s.saldo, s.pagado, s.estado AS estado_pago,
-  h.estado AS estado_hacienda, (h.id IS NOT NULL) AS fiscal_reservada
+  h.estado AS estado_hacienda, (h.id IS NOT NULL) AS fiscal_reservada, pa.metodo_pago_texto AS metodo_pago
  FROM gasto_operativo g JOIN facturas_proveedores f ON f.id=g.factura_id
  LEFT JOIN cuentas_por_pagar cp ON cp.factura_id=f.id
  LEFT JOIN cuenta_por_pagar_saldo s ON s.id=cp.id
+ LEFT JOIN pago_proveedor pa ON pa.id=g.pago_aprobacion_id AND NOT pa.anulado
  LEFT JOIN LATERAL (SELECT id, estado FROM hacienda_comprobante
    WHERE origen='compra' AND origen_id=g.compra_id AND ambiente='produccion'
    ORDER BY revision_documento DESC LIMIT 1) h ON TRUE`;
 
-async function listar({ buscar = '', categoria: cat = '', revision = '', pagina = 1 } = {}) {
+async function listar({ buscar = '', categoria: cat = '', revision = '', decision = '', pagina = 1 } = {}) {
   const pag = Math.max(1, Math.min(100000, Number.parseInt(pagina, 10) || 1));
   const params = [];
   const where = [];
+  if (decision) {
+    if (!['pendiente', 'aprobado', 'rechazado'].includes(decision)) throw httpError(400, 'Estado de gasto inválido.');
+    params.push(decision); where.push(`g.decision=$${params.length}`);
+  }
   if (cat) { params.push(categoria(cat)); where.push(`g.categoria=$${params.length}`); }
   if (buscar) {
     params.push(`%${String(buscar).trim().slice(0, 160)}%`);
@@ -84,6 +89,7 @@ async function editar(id, datos = {}, usuarioId) {
     }
     if (!Object.keys(cambios).length) return;
     if ('categoria' in cambios || datos.fiscal !== undefined) {
+      if (g.decision !== 'pendiente') throw httpError(409, 'El gasto ya tiene una decisión confirmada. Se conservan su clasificación e importes.');
       if ((await db.query("SELECT id FROM hacienda_comprobante WHERE origen='compra' AND origen_id=$1 LIMIT 1", [g.compra_id])).rows.length) {
         throw httpError(409, 'La respuesta fiscal ya está preparada. Conservá la clasificación y los importes declarados.');
       }
@@ -120,6 +126,10 @@ async function revalidar(id, usuarioId) {
       compra = await registrarSinInventario(db, f, proveedor.id, usuarioId);
       const cuenta = await liberarCuentaPorPagar(db, f.id, compra.id);
       if (!cuenta) await crearCuentaDeContado(db, f, compra);
+      if (g.decision === 'rechazado') {
+        await db.query("UPDATE compra SET estado='anulada' WHERE id=$1", [compra.id]);
+        await db.query('UPDATE cuentas_por_pagar SET liberada=FALSE WHERE factura_id=$1', [f.id]);
+      }
     }
     await db.query(`UPDATE gasto_operativo SET compra_id=$2, originales=$3::jsonb, validacion=$4,
       motivo_validacion=$5, iva_maximo=$6, version=version+1, actualizado_en=CURRENT_TIMESTAMP WHERE id=$1`,
@@ -132,6 +142,7 @@ async function revalidar(id, usuarioId) {
 
 async function pagar(id, datos, usuarioId) {
   const gasto = await obtener(id);
+  if (gasto.decision === 'rechazado') throw httpError(409, 'Un gasto rechazado no se puede pagar.');
   if (!gasto.compra_id || !gasto.cuenta_id) throw httpError(409, 'Validá el comprobante antes de registrar un pago.');
   if (gasto.moneda !== 'CRC') throw httpError(409, 'La caja trabaja en colones. Este comprobante requiere registrar su conversión antes de pagar.');
   // Es el mismo pago que aparece en Pago Proveedores y en Caja, no otra salida.

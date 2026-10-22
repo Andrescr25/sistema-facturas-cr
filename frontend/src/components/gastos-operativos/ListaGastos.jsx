@@ -3,7 +3,7 @@ import EncabezadoPagina from '../ui/EncabezadoPagina'
 import Insignia from '../ui/Insignia'
 import Boton from '../ui/Boton'
 import Vacio from '../ui/Vacio'
-import { CATEGORIAS_GASTO, categoriaGasto, pagoDelGasto } from '../../utils/gastosOperativos'
+import { CATEGORIAS_GASTO, categoriaGasto, pagoDelGasto, estadoFiscalGasto } from '../../utils/gastosOperativos'
 import { fechaCorta } from '../../utils/fechaCR'
 import { formatearMoneda } from '../../utils/moneda'
 
@@ -20,16 +20,17 @@ export default function ListaGastos({ estado: e }) {
           <option value="">Todas las categorías</option>
           {CATEGORIAS_GASTO.map(c => <option key={c.valor} value={c.valor}>{c.texto}</option>)}
         </select>
-        <select aria-label="Revisión tributaria" className="input h-11" value={e.revision} onChange={ev => e.setRevision(ev.target.value)}>
-          <option value="todos">Todos</option><option value="pendiente">Por revisar</option>
+        <select aria-label="Estado del gasto" className="input h-11" value={e.revision} onChange={ev => e.setRevision(ev.target.value)}>
+          <option value="aprobado">Aprobados</option><option value="rechazado">Rechazados</option>
         </select>
       </div>
       {e.cargando ? <p className="py-12 text-center text-neutro-500">Cargando gastos…</p> : e.gastos.length === 0 ? (
-        <Vacio icono={Receipt} titulo="No hay gastos en esta vista" descripcion="Configurá el tratamiento en la ficha del proveedor o procesá una factura como gasto desde Revisión de Precios." />
+        <Vacio icono={Receipt} titulo="No hay gastos en esta vista" descripcion="Los comprobantes nuevos se aprueban desde Revisión de Precios y luego aparecen aquí." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {e.gastos.map(g => {
             const pago = pagoDelGasto(g)
+            const fiscal = estadoFiscalGasto(g)
             return (
               <button key={g.id} type="button" onClick={() => e.abrir(g.id)} className="rounded-2xl border border-neutro-200 bg-white p-5 text-left transition-colors hover:border-primario-300">
                 <div className="flex items-start justify-between gap-3">
@@ -38,7 +39,8 @@ export default function ListaGastos({ estado: e }) {
                 </div>
                 <p className="mt-3 text-2xl font-extrabold text-neutro-900">{formatearMoneda(g.total_factura, g.moneda)}</p>
                 <p className="mt-1 break-all text-xs text-neutro-500">Factura {g.numero_consecutivo}</p>
-                <div className="mt-4 flex flex-wrap gap-2"><Insignia tono={pago.tono}>{pago.texto}</Insignia>{!g.revisado_en && <Insignia tono="alerta">Tributación por revisar</Insignia>}</div>
+                {g.metodo_pago && <p className="mt-2 text-sm text-neutro-600">{g.metodo_pago}</p>}
+                <div className="mt-4 flex flex-wrap gap-2"><Insignia tono={pago.tono}>{pago.texto}</Insignia><Insignia tono={fiscal.tono}>{fiscal.texto}</Insignia></div>
               </button>
             )
           })}

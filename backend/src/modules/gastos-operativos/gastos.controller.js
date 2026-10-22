@@ -16,6 +16,8 @@ const responder = (fn, status = 200) => async (req, res) => {
 
 module.exports = {
   listar: responder(req => servicio.listar(req.query)),
+  pendientes: responder(req => servicio.listar({ ...req.query, decision: 'pendiente' })),
+  decidir: responder(req => require('./gastos.aprobacion').decidir(req.params.id, req.body || {}, req.usuario?.id)),
   obtener: responder(req => servicio.obtener(req.params.id)),
   editar: responder(req => servicio.editar(req.params.id, req.body, req.usuario?.id)),
   desdeFactura: responder(req => registro.desdeFactura(req.body?.facturaId, req.body, req.usuario?.id), 201),

@@ -39,7 +39,7 @@ function agregarPortada(libro, mes, pendientes) {
   if (!mes.documentos.length && !mes.gastos.length) fila(['Sin movimientos registrados en este mes.'], 'ayuda', 36, true);
   fila(['CONTROL DEL CIERRE'], 'seccion', 30, true);
   fila(['Documentos por revisar', pendientes.length, '', 'Ver hoja Pendientes. Un documento aparece una vez con todos sus motivos.'], pendientes.length ? 'alerta' : 'exito', 40);
-  fila(['Anulados de gastos', mes.gastos.filter(g => g.revision === 'Anulado').length, '', 'Conservados en Gastos operativos, fuera de los totales.'], 'ayuda', 36);
+  fila(['Gastos rechazados / anulados', mes.gastos.filter(g => ['Anulado', 'Rechazado'].includes(g.revision)).length, '', 'Conservados como respaldo, fuera de los totales.'], 'ayuda', 36);
   fila(['No se mezclan monedas ni se calcula automáticamente el impuesto a pagar.'], 'ayuda', 34, true);
   fila(['Los pagos manuales que no tienen un comprobante registrado como gasto operativo no se incluyen en este libro.'], 'ayuda', 38, true);
   fila(['HOJAS DEL LIBRO'], 'seccion', 30, true);
@@ -110,11 +110,11 @@ function excelMensual(mes) {
     mes.documentos.filter(d => ['Venta', 'Nota de crédito'].includes(d.tipo)));
   tabla('Compras', 'COMPRAS Y NOTAS DE PROVEEDORES', 'Mercadería sin gastos operativos duplicados. Impuestos sin desglose en notas quedan vacíos.', columnasComerciales,
     mes.documentos.filter(d => ['Compra', 'Nota de crédito proveedor'].includes(d.tipo)));
-  tabla('Gastos operativos', 'GASTOS OPERATIVOS DEL MES', 'Deducción e IVA vacíos: sin aprobar. Anulados visibles y fuera de los totales del Resumen.', [
+  tabla('Gastos operativos', 'GASTOS OPERATIVOS DEL MES', 'Deducción e IVA vacíos: sin aprobar. Rechazados y anulados visibles, fuera de los totales del Resumen.', [
     ...identificacion.slice(0, 3), c('categoria_texto', 'Categoría', 'texto', 24), c('descripcion', 'Concepto del gasto', 'texto', 38), identificacion[4],
     importe('subtotal_original', 'Subtotal original'), importe('descuentos_originales', 'Descuentos originales'), importe('impuestos_originales', 'Impuestos originales'),
     importe('total', 'Total comprobante'), c('revision', 'Revisión'), importe('gasto_deducible', 'Gasto deducible revisado'), importe('iva_credito', 'IVA acreditable revisado')
-  ], gastos, { color: 'exito', celdas: Object.fromEntries(gastos.map((g, i) => [`K${i + 7}`, g.revision === 'Revisado' ? 'exito' : g.revision === 'Anulado' ? 'peligro' : 'alerta'])) });
+  ], gastos, { color: 'exito', celdas: Object.fromEntries(gastos.map((g, i) => [`K${i + 7}`, g.revision === 'Revisado' ? 'exito' : ['Anulado', 'Rechazado'].includes(g.revision) ? 'peligro' : 'alerta'])) });
   tabla('Pendientes', 'PENDIENTES DEL CIERRE', 'Un documento por fila con sus motivos. Resolverlos desde el módulo correspondiente.', [
     ...identificacion, c('tipo', 'Tipo', 'texto', 28), importe('total', 'Total comprobante'), c('observacion', 'Qué revisar', 'texto', 95)
   ], pendientes, { color: 'alerta' });

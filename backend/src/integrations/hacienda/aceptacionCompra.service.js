@@ -36,6 +36,10 @@
  *
  * No firma ni envía por su cuenta: usa `preparar` y `enviar`, que le pasa el
  * servicio de emisión al armarlo.
+ *
+ * Gastos operativos: recibir no confirma. Desde 2026-10-21 Aprobar/Rechazar
+ * en Revisión de precios guarda la decisión; aquí se reutiliza sólo su
+ * respuesta fiscal explícita, incluyendo el rechazo de compra documental.
  */
 const almacen = require("./seguridad/almacen");
 const { CONDICIONES_IVA_COMPRAS } = require("./configuracion.service");
@@ -44,7 +48,7 @@ const { validarXml } = require("./xml/validar");
 const { decimal } = require("./xml/v4.4");
 const { registrarCambio } = require("../../utils/bitacora");
 const { error } = require("./errores");
-const { gastoDeCompra, opcionesDelGasto } = require("./gastoOperativo");
+const { gastoDeCompra, opcionesDelGasto, esRechazoDeGasto } = require("./gastoOperativo");
 
 const AMBIENTE = "produccion";
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -53,8 +57,8 @@ const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
  * Por qué una compra todavía no se puede aceptar, o null si se puede. Pura:
  * recibe lo ya leído. El orden es el de lo que hay que arreglar primero.
  */
-function motivoDeNoAceptar({ compra, habilitada, condicion }) {
-  if (compra.estado !== "registrada") return "La compra no está registrada: no se acepta ante Hacienda.";
+function motivoDeNoAceptar({ compra, habilitada, condicion, rechazoGasto = false }) {
+  if (compra.estado !== "registrada" && !(compra.estado === "anulada" && rechazoGasto)) return "La compra no está registrada: no se acepta ante Hacienda.";
   if (!compra.xml_ruta) return "Esta compra no conserva el XML del proveedor. Subilo para poder aceptarla.";
   if (!habilitada) return "Habilitá Producción en Configuración → Hacienda.";
   if (!condicion)
@@ -136,7 +140,7 @@ function crearAceptacion({ pool, tx, preparar, enviar, vista, id }) {
       necesitaXml: !enCurso && compra.estado === "registrada" && !compra.xml_ruta,
       motivoNoEmitible: enCurso
         ? null
-        : motivoGasto || motivoDeNoAceptar({ compra, habilitada: configurado?.habilitada === true, condicion }),
+        : motivoGasto || motivoDeNoAceptar({ compra, habilitada: configurado?.habilitada === true, condicion, rechazoGasto: esRechazoDeGasto(gasto) }),
       comprobante: vista(c),
       declarado: c ? await declaradoEn(c) : null,
     };
@@ -172,7 +176,7 @@ function crearAceptacion({ pool, tx, preparar, enviar, vista, id }) {
     let preparado = null;
     try {
       if (await gastoDeCompra(pool, compraId)) {
-        return { estado: "pendiente", motivo: "Un gasto operativo se confirma expresamente desde su ficha; no se acepta automáticamente." };
+        return { estado: "pendiente", motivo: "Un gasto operativo se aprueba o rechaza desde Revisión de precios; recibirlo no confirma su aceptación." };
       }
       preparado = await aceptarCompra(compraId, {}, usuarioId);
       return { estado: "enviada", comprobante: await enviar(preparado.id) };

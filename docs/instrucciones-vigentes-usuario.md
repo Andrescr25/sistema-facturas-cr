@@ -1065,3 +1065,18 @@ gastos separados, impuestos registrados por tarifa y pendientes visibles.
 Conservar documentos/importes reales, sin decidir deducciones ni crédito al
 exportar. Desarrollo y pruebas locales; no solicita otra publicación a main.
 [Formato y validación](informes/contador-excel-2026-10-21.md).
+
+
+## 2026-10-21 — Aprobar gastos de contado sin formularios por factura
+
+Usuario: «los gastos operativos cuando me llegan me sigan saliendo en
+revision de precios [...] aprobar o rechazar [...] aprobar, indique conque
+medio se pago y listo, se acepte en hacienda, en mi sistema y ya se registre
+el pago». Permanecen pendientes en esa pantalla; Aprobar elige medio y paga
+el saldo completo, Rechazar no paga. Tras decidir se consultan en Gastos:
+proveedor, categoría, fecha, importe, medio, comprobante y estado real fiscal.
+Confirmó «Usar la configuración actual de Hacienda» para el IVA, sin pedir
+esos datos por factura. Recibir no confirma pagos ni respuestas por sí solo.
+La respuesta fiscal se reintenta sin volver a registrar el pago. SQL062 sólo
+local; este pedido no incluye nueva publicación a main.
+[Validación](informes/gastos-aprobacion-2026-10-21.md).

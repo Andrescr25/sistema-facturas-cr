@@ -30,6 +30,9 @@ function revisionFiscal(datos, gasto) {
 
 /** Se usa también dentro del bloqueo fiscal; nadie salta la revisión por otra API. */
 function opcionesFiscales(gasto) {
+  if (gasto?.decision === 'aprobado' && gasto.condicion_iva_confirmada === '05' && gasto.validacion === 'validado' && gasto.compra_id) {
+    return { mensaje: '1', condicionImpuesto: '05', detalle: gasto.motivo_fiscal };
+  }
   if (!gasto?.revisado_en || gasto.validacion !== 'validado' || !gasto.compra_id) {
     throw httpError(409, 'Revisá el comprobante, la deducibilidad y el IVA del gasto antes de responder a Hacienda.');
   }

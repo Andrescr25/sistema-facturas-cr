@@ -6,6 +6,8 @@ async function gastoDeCompra(db, compraId) {
   return (await db.query("SELECT * FROM gasto_operativo WHERE compra_id=$1", [compraId])).rows[0] || null;
 }
 
+const esRechazoDeGasto = gasto => gasto?.decision === 'rechazado' && gasto.respuesta === '3';
+
 function opcionesDelGasto(gasto) {
   try {
     return opcionesFiscales(gasto);
@@ -22,4 +24,4 @@ async function aplicarRevisionGasto(db, compraId, datos) {
   return gasto ? { ...datos, ...opcionesDelGasto(gasto) } : datos;
 }
 
-module.exports = { gastoDeCompra, opcionesDelGasto, aplicarRevisionGasto };
+module.exports = { gastoDeCompra, opcionesDelGasto, aplicarRevisionGasto, esRechazoDeGasto };

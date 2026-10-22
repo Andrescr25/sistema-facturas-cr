@@ -46,6 +46,9 @@ Gastos por mes de emisión (inclusive último segundo), no recepción/pago.
 No se repiten en compras. Pendientes de validación/revisión también viajan:
 deducción y crédito aprobados quedan vacíos. Anulados visibles fuera de sumas.
 Saldo/pagado/métodos vienen de los pagos vigentes, sin crear movimientos.
+Desde la decisión simple de Gastos (SQL062), rechazados se conservan con
+etiqueta Rechazado y fuera de totales/deducciones/créditos. Aprobación y pago
+de contado no convierten proporcionalidad pendiente en crédito aprobado.
 Notas de proveedor aparte, sin compensar automáticamente el IVA de gastos.
 
 Excel conjunto reutiliza utils/exportarExcel para celdas tipadas y escritura.

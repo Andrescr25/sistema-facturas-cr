@@ -16,7 +16,7 @@ const { crearCliente } = require("./transporte/cliente");
 const numeracion = require("./numeracion");
 const { crearUnClic } = require("./unClic.service");
 const { crearAceptacion } = require("./aceptacionCompra.service");
-const { aplicarRevisionGasto } = require("./gastoOperativo");
+const { aplicarRevisionGasto, gastoDeCompra, esRechazoDeGasto } = require("./gastoOperativo");
 const { enTransaccion } = require("../../utils/transaccion");
 const { registrarCambio } = require("../../utils/bitacora");
 const { error } = require("./errores");
@@ -98,7 +98,8 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
             },
           ],
         };
-      if (d.estado !== (origen === "compra" ? "registrada" : "emitida"))
+      const rechazoGasto = origen === "compra" && d.estado === "anulada" && esRechazoDeGasto(await gastoDeCompra(db, n));
+      if (!rechazoGasto && d.estado !== (origen === "compra" ? "registrada" : "emitida"))
         throw error(
           "ESTADO_INVALIDO",
           "El documento debe estar emitido o la compra registrada.",
@@ -659,6 +660,10 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
     listar,
     archivo,
     pendientes,
+    recuperarGastosPendientes: () => require('./gastosPendientes').recuperarGastosPendientes(pool, async (compraId, usuarioId) => {
+      const preparado = await aceptacion.publico.aceptarCompra(compraId, {}, usuarioId);
+      await enviar(preparado.id);
+    }),
     alRegistrarCompra: aceptacion.alRegistrar,
     ...unClic.publico,
     ...aceptacion.publico,

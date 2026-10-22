@@ -72,6 +72,10 @@ aristas:
 medido: 2026-10-21
 ---
 
+Verificación 2026-10-21: la prueba de preparación sin envío filtra también
+`tipo='orden_compra'`. Una referencia numérica igual en envíos de facturas
+no prueba que se haya enviado la orden; se conserva el transporte simulado.
+
 ## El PDF de la orden ya no muestra el factor — 2026-10-20
 
 Pedido del usuario: «el pdf de orden de compra sale el factor, eso quitalo,

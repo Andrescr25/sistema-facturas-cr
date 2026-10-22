@@ -6,6 +6,9 @@
 const express = require('express');
 const router = express.Router();
 const revisionPreciosController = require('./revision-precios.controller');
+const gastos = require('../gastos-operativos/gastos.controller');
+router.get('/gastos-operativos', gastos.pendientes);
+router.post('/gastos-operativos/:id/decision', gastos.decidir);
 
 // Facturas
 router.get('/facturas', revisionPreciosController.getFacturas);

@@ -56,3 +56,8 @@ factura, distintos de los servicios de Pagos Recurrentes. Usan la cuenta
 por pagar y el MISMO pago a proveedor de esta vista. Recibir/clasificar no
 crea egresos, incluso si el XML dice contado. El método sigue diciendo cómo
 se pagó; el flujo existente conserva Caja General como centro.
+
+Nueva decisión del usuario, 21/10: aprobar un gasto operativo confirma que
+ya se pagó de contado, eligiendo su medio. Ese pago completo y la aprobación
+comparten transacción y documento de pago a proveedor; el rechazo no crea
+salida. Recibir sigue sin registrar pagos por sí solo. SQL062, sólo local.

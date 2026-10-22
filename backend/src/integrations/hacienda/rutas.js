@@ -313,7 +313,7 @@ module.exports = {
   // sin prestar las rutas de compras a usuarios de otro módulo.
   estadoCompra: (compraId) => servicio.estadoDeCompra(compraId),
   responderCompra: async (compraId, usuarioId) => {
-    const preparado = await servicio.aceptarCompra(compraId, {}, usuarioId);
+    const preparado = await servicio.aceptarCompra(compraId, { sustituir: true }, usuarioId);
     return servicio.enviar(preparado.id);
   },
 };

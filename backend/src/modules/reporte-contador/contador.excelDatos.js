@@ -38,7 +38,7 @@ function pendientesExcel(documentos, gastos) {
     agregar(d, motivos);
   }
   for (const g of gastos) {
-    if (g.revision === 'Anulado') continue;
+    if (['Anulado', 'Rechazado'].includes(g.revision)) continue;
     const motivos = [];
     if (g.revision !== 'Revisado') motivos.push('Revisión fiscal pendiente: deducción e IVA sin aprobar');
     if (g.validacion !== 'validado') motivos.push(g.motivo_validacion || 'Validación del comprobante pendiente');
@@ -52,7 +52,7 @@ function resumenMoneda(mes, moneda) {
   // El Excel y la pantalla parten de los mismos totales del mes.
   const r = mes.resumen.find(f => f.moneda === moneda);
   const ds = mes.documentos.filter(d => d.moneda === moneda);
-  const gs = mes.gastos.filter(g => g.moneda === moneda && g.revision !== 'Anulado');
+  const gs = mes.gastos.filter(g => g.moneda === moneda && !['Anulado', 'Rechazado'].includes(g.revision));
   const ventas = ds.filter(d => d.tipo === 'Venta'), notas = ds.filter(d => d.tipo === 'Nota de crédito');
   const compras = ds.filter(d => d.tipo === 'Compra'), nc = ds.filter(d => d.tipo === 'Nota de crédito proveedor');
   const revisados = gs.filter(g => g.revision === 'Revisado'), pendientes = gs.filter(g => g.revision !== 'Revisado');

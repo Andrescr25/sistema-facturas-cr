@@ -170,5 +170,11 @@ COMPRA SE ACEPTA SOLA".
 
 ## Gastos operativos — 2026-10-21
 
-El menú de cada factura pendiente permite procesarla como gasto operativo sin relacionar productos. La preferencia futura es opcional. Los gastos no se devuelven al catálogo ni se registran por el botón comercial.
-Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.
+El menú clasifica una factura comercial como gasto sin relacionar productos,
+con preferencia futura opcional. Permanece en esta pantalla, en Gastos por
+aprobar, igual que las recibidas de proveedores de combustible/alimentación.
+Aprobar pide sólo medio de pago, registra
+el saldo completo y envía aceptación. Rechazar no paga. Decisiones y pagos
+atómicos, reintentos sin duplicados, condición fiscal ya configurada.
+No usa el registro comercial ni expone pagos/listas de otro permiso.
+Ver [[modulo/gastos-operativos]]; SQL061 aplicada en producción, SQL062 sólo local.

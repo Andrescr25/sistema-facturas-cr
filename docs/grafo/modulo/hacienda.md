@@ -543,5 +543,13 @@ de un modal) y `DatosPendientesEmision` usa los botones del sistema.
 
 ## Gastos operativos — 2026-10-21
 
-Los gastos operativos son una excepción explícita a la aceptación automática comercial. La condición/importes provienen de su revisión documentada; también se valida bajo el bloqueo de preparar(). Envío expreso, no al recibir o pagar.
-Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.
+Los gastos no se aceptan al recibirlos. El usuario sustituye sus formularios
+por Aprobar/Rechazar en Revisión y confirma usar la configuración actual de
+IVA. Aprobar confirma pago completo y prepara su revisión; después envía
+aceptación. Rechazar envía mensaje 3 sin pago ni importes deducibles. Se
+reutilizan preparar/enviar y seguimiento, con condición 05 sin montos y sin
+acreditar impuesto único de combustible. Si el proceso cae después de pagar,
+el trabajador retoma sólo la respuesta de la decisión durable, sin otro pago.
+Un rechazo explícito de gasto puede emitir desde su compra documental anulada;
+otras anuladas siguen bloqueadas. El estado sólo dice Aceptada al confirmarlo
+Hacienda. Ver [[modulo/gastos-operativos]]; SQL061 aplicada, SQL062 sólo local.

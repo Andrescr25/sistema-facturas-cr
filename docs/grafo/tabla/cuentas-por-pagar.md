@@ -49,4 +49,8 @@ Sólo se libera tras validar el original y registrar la compra sin producto;
 contado también queda pendiente hasta registrar un pago real. El pago lleva
 opcionalmente UUID y huella de idempotencia: repetir la misma petición
 devuelve el documento existente, sin otro egreso; cambiarla con la misma
-clave responde conflicto. Ni combustible ni alimentación se pagan solos.
+clave responde conflicto. Recibir combustible/alimentación sigue sin pagar;
+desde SQL062 el operador confirma Aprobar y el medio en Revisión. El saldo
+completo se paga en la MISMA transacción que la decisión, con registrarPagoEn.
+Rechazar no paga y deja la cuenta sin liberar; si ya tiene pagos/notas exige
+revisión. La ficha muestra siempre el saldo real, incluso al anular un pago.

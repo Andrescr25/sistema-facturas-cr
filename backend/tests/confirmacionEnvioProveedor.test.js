@@ -35,7 +35,8 @@ caso('abrir y cancelar sólo prepara; el modal recibe destino y mensaje reales s
  assert.deepEqual(r.destino.telefonos.map(t=>t.numero),['50688888888']);
  assert.equal(copia.numero,r.destino.telefono);assert.equal(copia.mensaje,r.destino.mensaje);assert.ok((await env.descargar(r.orden.id,datos.clave)).pdf.length>0);
  const actual=await reportes.getMissingItemsBySupplier(null,{db,incluirEnviadas:false});assert.equal(actual.data.find(p=>p.cedula===f.p.identificacion).productos_faltantes[0].cantidad_faltante,10);
- assert.equal((await c.query('SELECT COUNT(*)::int n FROM envio_whatsapp WHERE referencia=$1',[r.orden.referencia])).rows[0].n,0);
+ // La referencia numérica también existe para facturas y otros documentos.
+ assert.equal((await c.query("SELECT COUNT(*)::int n FROM envio_whatsapp WHERE tipo='orden_compra' AND referencia=$1",[r.orden.referencia])).rows[0].n,0);
 });
 caso('confirmar reutiliza exactamente número, mensaje, PDF y clave mostrados; respuesta perdida no duplica',async()=>{
  await faltante(10);const datos=await pedido(),r=await s.revisarEnvio(datos),pdf=await env.descargar(r.orden.id,datos.clave);

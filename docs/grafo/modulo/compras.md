@@ -132,5 +132,10 @@ el orden entre registro/vínculo/recepción.
 
 ## Gastos operativos — 2026-10-21
 
-Combustible y alimentación usan registrarSinInventario, extraído del gasto recurrente. Una compra sin producto y una CxP; no stock, costos, pago ni aceptación automática. El flujo comercial permanece.
-Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.
+Combustible y alimentación usan registrarSinInventario, extraído del gasto
+recurrente: una compra sin producto y una CxP, sin stock ni costos. Recibir
+no paga ni acepta. La decisión explícita desde Revisión confirma el gasto y
+paga el saldo completo con su medio en la misma transacción; después manda
+el mensaje receptor. Rechazar bloquea la deuda y anula sólo ese registro
+documental. El flujo comercial permanece.
+Ver [[modulo/gastos-operativos]]; SQL061 aplicada, SQL062 sólo local.
