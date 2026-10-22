@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Package, Flame, Repeat, Tag } from 'lucide-react'
+import { Package, Flame, Repeat, Tag, ZoomIn } from 'lucide-react'
 import Etiqueta from './Etiqueta'
 import { colones } from '../../utils/colones'
 import { urlArchivo } from '../../utils/urlArchivo'
@@ -59,7 +59,7 @@ import { precioCatalogoAgente } from '../../utils/precioCatalogoAgente'
  * familia con fichas normales, borde, etiqueta y precio la destacan sin
  * sacarla de su lugar. Liquidación conserva otra etiqueta y su cálculo.
  */
-function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, mostrarSinSubcategoria = false }) {
+function TarjetaProductoAgente({ product, stats, onVerProducto, mostrarSubcategoria = true, mostrarSinSubcategoria = false }) {
   const { final: precioFinal, tachado: precioTachado, rebaja, esOferta, descuento: descuentoPorcentaje } = precioCatalogoAgente(product)
   const favorita = product.images?.find((i) => i.favorite === true) || product.images?.[0]
   const foto = urlArchivo(favorita?.url)
@@ -90,16 +90,21 @@ function TarjetaProductoAgente({ product, stats, mostrarSubcategoria = true, mos
           tarjeta pasa de 180 a 325px de ancho en la tablet, y una foto de
           96px se veía perdida en tanto blanco. El alto sigue siendo fijo
           —no cuadrada— para que tres filas entren de alto. */}
-      <div className="relative h-28 bg-white p-2 sm:h-36 lg:h-40">
-        {foto ? (
-          <img src={foto} alt={product.name} loading="lazy"
+      {foto ? (
+        <button type="button" onClick={() => onVerProducto(product)}
+          aria-label={`Ampliar imagen de ${product.name}`}
+          className="relative h-28 w-full shrink-0 cursor-zoom-in bg-white p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primario-500 sm:h-36 lg:h-40">
+          <img src={foto} alt={product.name} loading="lazy" decoding="async"
             className="h-full w-full object-contain mix-blend-multiply" />
-        ) : (
+          <span className="absolute bottom-2 right-2 rounded-lg bg-white/90 p-1.5 text-neutro-500 ring-1 ring-neutro-100" aria-hidden="true"><ZoomIn size={16} /></span>
+        </button>
+      ) : (
+        <div className="relative h-28 bg-white p-2 sm:h-36 lg:h-40">
           <div className="flex h-full w-full items-center justify-center rounded-lg bg-neutro-50">
             <Package size={26} className="text-neutro-200 sm:h-9 sm:w-9" />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className={`flex flex-1 flex-col gap-0.5 p-2 pt-1.5 sm:p-3 sm:pt-2 ${esOferta ? 'bg-acento-50' : ''}`}>
         {/* Dos familias pueden compartir fila. El rótulo tiene su espacio

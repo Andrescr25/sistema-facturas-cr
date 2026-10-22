@@ -87,7 +87,7 @@ function Cuadricula({ productos, familias, statsPorProducto, animar = true, nive
             {fila.productos.map(p => p.esMarca ? (
               <TarjetaMarca key={p.id} grupo={p} onVerProducto={setVistaPrevia} />
             ) : (
-              <TarjetaProductoAgente key={p.id} product={p}
+              <TarjetaProductoAgente key={p.id} product={p} onVerProducto={setVistaPrevia}
                 stats={p._stats || statsPorProducto?.get(String(p.id))}
                 mostrarSinSubcategoria={Boolean(familias)} />
             ))}

@@ -1132,3 +1132,12 @@ sin convertir automáticamente el nombre a mayúsculas. SQL064 aplicada antes
 del push, con respaldo comprobado y ensayo local; ningún dato ficticio o
 prueba de negocio en producción.
 [Resultado](informes/despliegue-marcas-2026-10-22.md).
+
+
+## Vista previa de las fotografías del catálogo — 2026-10-22
+
+El usuario pide que tocar la imagen de los productos en general del catálogo
+del agente abra una vista previa para apreciarla mejor. Se reutiliza el modal
+existente de las presentaciones de marca, también en búsqueda/ofertas, con
+foto individual y sin nueva consulta. Mantener navegación, scroll, teclado,
+consulta sin señal y rapidez. Es una ampliación del catálogo recién publicado.

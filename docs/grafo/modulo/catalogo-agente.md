@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar
 estado: vigente
 archivos:
+  - frontend/src/components/catalogo-agente/VistaPreviaProducto.jsx
   - frontend/src/pages/CatalogoAgente.jsx
   - frontend/src/utils/catalogoAgentePersonalizacion.js
   - frontend/src/utils/promocionesCatalogoAgente.js
@@ -339,3 +340,32 @@ abre su fotografía individual sin consultar al servidor. Ver
 [[modulo/marcas-catalogo]]. SQL064 aplicada en producción el2026-10-22 antes de publicar a main, con
 respaldo restaurado y verificación de conservación de los datos. Ver
 [publicación](../../informes/despliegue-marcas-2026-10-22.md).
+
+
+## Ampliar fotografías de todos los productos — 2026-10-22
+
+El usuario extiende la vista previa a las tarjetas normales: tocar la foto
+abre VistaPreviaProducto, el mismo modal de las presentaciones por marca.
+La zona de imagen es un botón nativo con nombre accesible, foco visible y
+lupa discreta. Sin foto se conserva el marcador y no se ofrece ampliación.
+Cuadricula comparte una sola selección/modal por colección; el callback de
+estado es estable para conservar memo y no repintar fichas al escribir.
+
+Funciona en categorías, búsqueda y selecciones de ofertas/nuevos/cliente.
+Usa el producto ya descargado y la misma foto de la tarjeta; no consulta la
+API ni agrega otra caché. Escape/botón/fondo cierran y devuelven el foco sin
+mover el scroll. No requiere migración, dependencia ni cambio en el servidor.
+
+
+Verificado en Chromium a390/700/1440:32 comprobaciones correctas, sin erroresJS
+ni desbordamiento. Foto correcta, botón con teclado, cierre por Escape y botón,
+foco/scroll restaurados, búsqueda plana, marcador sin foto sin ampliación y
+recarga offline con imagen desde caché. Build y lint del cambio correctos;
+grafo/estructura y reglas compartidas:33 pruebas correctas. Evidencia privada
+codex-catalogo-fotos-20261022. No requiere SQL ni acceso a producción para probar.
+
+
+La ampliación se publica a main por Codex como continuación del catálogo,
+con suite completa local:239 archivos,2941 correctas,0fallos y3 omisiones
+históricas, conservando el inventario de la copia. No viajan migraciones ni
+commits nuevos de otro agente. Vista local5173/3000 actualizada.

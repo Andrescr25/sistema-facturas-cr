@@ -1152,3 +1152,11 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   el22/10 con respaldo restaurado;145 tablas previas intactas y29 triggers
   conservados. Suite2941/0fallos/3omitidas,28dirigidas sobre restauración y
  30navegador correctas. [Entrega](informes/despliegue-marcas-2026-10-22.md).
+
+
+- [x] MC-06 — Vista previa también desde la foto de las tarjetas normales:
+  reutilizar modal, foco/scroll conservados, búsqueda y sin conexión; verificar
+  móvil/tablet y sin conexión:32 comprobaciones de navegador correctas,
+  sin nuevas peticiones API. Suite239/2941 correctas/0fallos/3omisiones
+  históricas, build/lint/grafo correctos. Ampliación publicada a main por
+  Codex, sin SQL nuevo.
