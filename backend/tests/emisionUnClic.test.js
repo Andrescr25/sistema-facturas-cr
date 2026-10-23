@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { sinComentarios } = require('./dobles/sinComentarios');
 const {
-  ambienteDeEmision, tipoDeFactura, datosPendientes, lineasDadas
+  ambienteDeEmision, tipoDeFactura, datosPendientes, lineasDadas, motivoPorModulo
 } = require('../src/integrations/hacienda/unClic.service');
 
 /**
@@ -319,6 +319,39 @@ describe('lo que dice cada renglón del avance', () => {
     assert.equal(u.nombreDeTipo('01'), 'Factura electrónica');
     assert.equal(u.nombreDeTipo('04'), 'Tiquete electrónico');
     assert.equal(u.nombreDeTipo(undefined), 'Comprobante electrónico');
+  });
+});
+
+describe('se emite desde Impresión, nunca mientras Bodega o Reporte Clientes la trabajan', () => {
+  // Pedido del usuario (2026-10-22): «si la factura está en bodega o reporte
+  // clientes o cualquier módulo que no sea impresión, esta no pueda emitirse
+  // electrónicamente». Emitida antes, Bodega ya no podía despacharla.
+  const f = (cambios) => ({ estado_bodega: 'procesado', cola_impresion: null, faltantes_pendientes: false, ...cambios });
+
+  test('en Bodega no, aunque no tenga faltantes ni cola', () => {
+    assert.match(motivoPorModulo(f({ estado_bodega: 'pendiente' })), /todavía está en Bodega/);
+    assert.match(motivoPorModulo(f({ estado_bodega: null })), /Bodega/);
+    assert.match(motivoPorModulo(f({ estado_bodega: 'pendiente', cola_impresion: 'pendiente' })), /Bodega/, 'Bodega manda');
+  });
+
+  test('con faltantes fuera de la cola, está en Reporte Clientes: no', () => {
+    assert.match(motivoPorModulo(f({ faltantes_pendientes: true })), /faltantes en Reporte Clientes/);
+    assert.match(motivoPorModulo(f({ faltantes_pendientes: true, cola_impresion: 'procesada' })), /Reporte Clientes/, 'recuperada desde Impresión');
+  });
+
+  test('en la cola de Impresión, o ya fuera de todos los módulos: sí', () => {
+    assert.equal(motivoPorModulo(f({ cola_impresion: 'pendiente', faltantes_pendientes: true })), null);
+    assert.equal(motivoPorModulo(f({ cola_impresion: 'procesada' })), null);
+    assert.equal(motivoPorModulo(f({})), null);
+  });
+
+  test('con un motivo el botón no se ofrece; el panel lo dice a la vista', () => {
+    const motivo = 'Esta factura todavía está en Bodega.';
+    assert.equal(u.botonDe({ estado: { comprobante: null, motivoNoEmitible: motivo } }), null);
+    assert.equal(u.botonDe({ estado: { comprobante: { estado: 'rechazada' }, motivoNoEmitible: motivo } }), null, 'ni «Volver a emitir»');
+    const panel = codigo('components', 'facturacion', 'PanelEmisionFactura.jsx');
+    assert.match(panel, /estado\.motivoNoEmitible/);
+    assert.match(panel, /Todavía no se emite electrónicamente/);
   });
 });
 

@@ -44,6 +44,32 @@ function tipoDeFactura(factura) {
 }
 
 /**
+ * SE EMITE DESDE IMPRESIÓN (2026-10-22, el usuario: «hagamos que si la
+ * factura está en bodega o reporte clientes o cualquier módulo que no sea
+ * impresión, esta no pueda emitirse electrónicamente»).
+ *
+ * Al emitirse, la factura queda congelada por el disparador
+ * documento_en_hacienda (migración 043), que protege la fila entera,
+ * `estado_bodega` incluido. Si eso pasa mientras Bodega o Reporte Clientes
+ * todavía la trabajan, Bodega ya no puede marcarla despachada ni Impresión
+ * ajustarla: «Documento reservado ante Hacienda». Pasó el 20/10 y el 22/10
+ * con facturas emitidas desde Facturación segundos después de crearlas.
+ *
+ * Recorrido de una factura: Bodega (`estado_bodega` sin «procesado») →
+ * Reporte Clientes si tiene faltantes pendientes → cola de Impresión (última
+ * fila de facturas_reimpresion «pendiente») → lista. Se emite en Impresión o
+ * cuando ya salió de todos; nunca antes.
+ */
+function motivoPorModulo(f) {
+  if (f.estado_bodega !== "procesado")
+    return "Esta factura todavía está en Bodega. Se emite electrónicamente desde Impresión, cuando Bodega ya la despachó.";
+  if (f.cola_impresion === "pendiente") return null;
+  if (f.faltantes_pendientes)
+    return "Esta factura tiene faltantes en Reporte Clientes. Se emite electrónicamente desde Impresión, cuando sus ajustes ya están listos.";
+  return null;
+}
+
+/**
  * Las líneas que necesitan un dato que solo una persona puede dar. Con una
  * sola, el clic NO emite: la factura pide ese dato ahí mismo y sigue.
  *  - el motivo de un descuento: Hacienda lo exige y cambia cómo se declara
@@ -250,7 +276,13 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
   async function estadoDeFactura(n, dadas = []) {
     const f = (
       await pool.query(
-        "SELECT id, numero, estado, electronica, alegra_id, cliente_identificacion, hacienda_comprobante_id, condicion_venta, metodo_pago_id FROM factura WHERE id=$1",
+        `SELECT f.id, f.numero, f.estado, f.electronica, f.alegra_id, f.cliente_identificacion, f.hacienda_comprobante_id,
+                f.condicion_venta, f.metodo_pago_id, f.estado_bodega,
+                (SELECT r.estado FROM facturas_reimpresion r WHERE r.factura_propia_id=f.id
+                  ORDER BY r.fecha_creacion DESC NULLS LAST, r.id DESC LIMIT 1) AS cola_impresion,
+                EXISTS (SELECT 1 FROM faltantes x WHERE x.factura_propia_id=f.id
+                  AND x.estado='pendiente' AND x.cantidad_faltante>0) AS faltantes_pendientes
+           FROM factura f WHERE f.id=$1`,
         [id(n)],
       )
     ).rows[0];
@@ -282,9 +314,8 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
         ? "Solo se emite electrónicamente una factura emitida."
         : f.alegra_id || f.electronica
           ? "Es un documento histórico o ya electrónico: no se vuelve a emitir."
-          : !a
-            ? "Habilitá un ambiente en Configuración → Hacienda."
-            : null;
+          : motivoPorModulo(f) ||
+            (!a ? "Habilitá un ambiente en Configuración → Hacienda." : null);
     // En contado Hacienda pide el medio de pago; si ni la factura ni sus
     // cobros lo dicen, lo tiene que decir quien emite.
     const ambiente = c?.ambiente || a;
@@ -507,6 +538,7 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
 module.exports = {
   crearUnClic,
   ambienteDeEmision,
+  motivoPorModulo,
   tipoDeFactura,
   datosPendientes,
   lineasDadas,

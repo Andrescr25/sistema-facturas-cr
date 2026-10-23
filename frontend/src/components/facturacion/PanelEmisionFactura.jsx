@@ -57,6 +57,21 @@ function Paso({ paso }) {
 export default function PanelEmisionFactura({ emision, incrustado = false, angosto = false }) {
   const { estado, fase, error, pidiendoDatos, bajar, bajando, errorDescarga } = emision
   const c = estado?.comprobante || null
+  // Una factura que todavía no se puede emitir (en Bodega, en Reporte
+  // Clientes…) no tiene botón: el motivo se dice acá, a la vista, en vez de
+  // esperar a que alguien toque y reciba un error (2026-10-22).
+  if (emision.activo && emision.origen === 'factura' && !c && !fase && !error && estado?.motivoNoEmitible) {
+    return (
+      <section data-panel-emision data-no-emitible
+        className={`flex items-start gap-3 ${incrustado ? 'rounded-xl' : 'rounded-2xl'} border border-alerta-200 bg-alerta-50 p-4`}>
+        <ShieldCheck size={18} className="mt-0.5 shrink-0 text-alerta-700" />
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-alerta-800">Todavía no se emite electrónicamente</p>
+          <p className="mt-0.5 break-words text-sm text-alerta-700">{estado.motivoNoEmitible}</p>
+        </div>
+      </section>
+    )
+  }
   if (!emision.activo || !(c || fase || error || pidiendoDatos)) return null
 
   const ambiente = c?.ambiente || estado?.ambiente

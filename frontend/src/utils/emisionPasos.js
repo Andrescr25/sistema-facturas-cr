@@ -147,6 +147,11 @@ export function resumenDe({ comprobante: c, fase, origen = 'factura' }) {
  * número); solo un rechazo prepara uno nuevo que referencia al rechazado.
  *
  * Una compra no se "emite": lo que sale es su aceptación (`origen: 'compra'`).
+ *
+ * Con un motivo para no emitir (la factura sigue en Bodega o en Reporte
+ * Clientes, no hay ambiente…) tampoco se ofrece: el botón solo respondería
+ * ese motivo como error. Se lee en el panel. Un comprobante a medias sí
+ * sigue, porque el servidor no le pone motivo.
  */
 export function botonDe({ estado: e, fase, origen = 'factura' }) {
   const compra = origen === 'compra'
@@ -155,6 +160,7 @@ export function botonDe({ estado: e, fase, origen = 'factura' }) {
   if (!e) return { texto: emitir, ocupado: true }
   const c = e.comprobante
   if (c?.estado === 'aceptada') return null
+  if (e.motivoNoEmitible) return null
   if (c?.estado === 'rechazada') return { texto: compra ? 'Volver a enviar la aceptación' : 'Volver a emitir', sustituir: true }
   if (c?.estado === 'preparada') return { texto: 'Enviar a Hacienda', continuar: true }
   if (c?.estado === 'error') return { texto: 'Volver a enviar', continuar: true }

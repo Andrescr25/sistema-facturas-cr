@@ -1150,3 +1150,13 @@ llamativo..etc / no una card mas de prouducto, sino una portada para dar a
 presentar los productos / hay que cambiar el diseño para que encage mejor» y
 «la vista previa viene con el nombre de la linea abajo y el del producto
 arriba / hazlo al reves sino confunde». [Detalle](grafo/modulo/marcas-catalogo.md).
+
+
+## 2026-10-22 — Solo se emite electrónicamente desde Impresión
+
+«volvio a pasar lo del otro dia / No se pudo guardar: Documento reservado
+ante Hacienda… / quiero pongamos un stop aca, hagamos que si la factura esta
+en bodega o reporte clientes o cualquier modulo que no sea impresion / esta
+no pueda emitirse electronicamente». El error en Bodega se conserva (pedido
+del 20/10); lo que cambia es que ya no se llega a él.
+[Detalle](grafo/modulo/hacienda.md).

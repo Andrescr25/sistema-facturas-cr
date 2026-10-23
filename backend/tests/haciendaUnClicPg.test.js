@@ -167,11 +167,20 @@ test(
           c.p12,
         );
 
+      /** Bodega la despacha y queda en la cola de Impresión, que es desde donde se emite. */
+      const aImpresion = async (f) => {
+        await db.query("UPDATE factura SET estado_bodega='procesado' WHERE id=$1", [f]);
+        await db.query(
+          "INSERT INTO facturas_reimpresion(factura_propia_id,ajustes_realizados,estado,categoria,total_ajustes,fecha_creacion) VALUES($1,'[]'::jsonb,'pendiente','sin_pendientes',0,NOW())",
+          [f],
+        );
+      };
       /**
        * Una factura ZZ de una línea; `cedula` vacía = cliente sin identificar.
        * `medio: null` = como nacen hoy las facturas: sin medio de pago.
+       * `enBodega`: recién hecha, todavía sin pasar por Bodega.
        */
-      const crear = async ({ cedula = "123456789", descuento = 0, extra = "", medio = pago, credito = false } = {}) => {
+      const crear = async ({ cedula = "123456789", descuento = 0, extra = "", medio = pago, credito = false, enBodega = false } = {}) => {
         const base = 100 - descuento,
           iva = Math.round(base * 13) / 100,
           total = base + iva;
@@ -185,6 +194,7 @@ test(
           "INSERT INTO factura_linea(factura_id,numero_linea,nombre,cabys,unidad,cantidad,precio_unitario,descuento_monto,impuesto_id,tarifa,impuesto_monto,total) VALUES($1,1,'ZZ producto','1234567890123','Unid',1,100,$3,$2,13,$4,$5)",
           [f, impuesto, descuento, iva, total],
         );
+        if (!enBodega) await aImpresion(f);
         return { id: f, total: String(total) };
       };
       /** Un clic completo, como lo encadena la pantalla. */
@@ -207,6 +217,47 @@ test(
         await assert.rejects(s.emitirFactura(f.id), (x) => x.code === "NO_EMITIBLE" && x.status === 409);
         await habilitar("pruebas", true);
         await habilitar("produccion", true);
+      });
+
+      await t.test("no se emite en Bodega ni en Reporte Clientes: se emite desde Impresión", async () => {
+        // Pedido del usuario (2026-10-22), después de que dos facturas
+        // emitidas desde Facturación quedaran trabadas en Bodega.
+        const f = await crear({ enBodega: true });
+        const motivo = async () => (await s.estadoDeFactura(f.id)).motivoNoEmitible;
+        assert.match(await motivo(), /todavía está en Bodega/);
+        await assert.rejects(s.emitirFactura(f.id), (x) => x.code === "NO_EMITIBLE" && x.status === 409);
+        assert.equal(
+          (await db.query("SELECT count(*)::int n FROM hacienda_comprobante WHERE origen='factura' AND origen_id=$1", [f.id])).rows[0].n,
+          0,
+          "no reservó número",
+        );
+
+        // Bodega la despacha con un faltante: queda en Reporte Clientes.
+        await db.query("UPDATE factura SET estado_bodega='procesado' WHERE id=$1", [f.id]);
+        const producto = (await db.query("INSERT INTO producto(nombre,referencia) VALUES('ZZ faltante','ZZ-FALT') RETURNING id")).rows[0].id;
+        const faltante = (
+          await db.query(
+            "INSERT INTO faltantes(factura_propia_id,producto_propio_id,cantidad_faltante,tipo_faltante,estado) VALUES($1,$2,1,'parcial','pendiente') RETURNING id",
+            [f.id, producto],
+          )
+        ).rows[0].id;
+        assert.match(await motivo(), /faltantes en Reporte Clientes/);
+        await assert.rejects(s.emitirFactura(f.id), (x) => x.code === "NO_EMITIBLE");
+
+        // Con sus ajustes, a la cola de Impresión: ahí sí.
+        await db.query(
+          "INSERT INTO facturas_reimpresion(factura_propia_id,ajustes_realizados,estado,categoria,total_ajustes,fecha_creacion) VALUES($1,'[]'::jsonb,'pendiente','con_ajustes',1,NOW())",
+          [f.id],
+        );
+        assert.equal(await motivo(), null);
+
+        // Impresión la procesó y ya no está en ningún módulo: también.
+        await db.query("UPDATE facturas_reimpresion SET estado='procesada' WHERE factura_propia_id=$1", [f.id]);
+        await db.query("UPDATE faltantes SET estado='procesado' WHERE id=$1", [faltante]);
+        assert.equal(await motivo(), null);
+        // «Recuperar» la devuelve a Reporte Clientes: otra vez no.
+        await db.query("UPDATE faltantes SET estado='pendiente' WHERE id=$1", [faltante]);
+        assert.match(await motivo(), /Reporte Clientes/);
       });
 
       await t.test("factura si el cliente tiene cédula, tiquete si no", async () => {

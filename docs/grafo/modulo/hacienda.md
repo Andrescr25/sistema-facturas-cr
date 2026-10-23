@@ -54,8 +54,27 @@ archivos:
   - docs/informes/hacienda-2026-10-05.md
 aristas:
   relacionado: [modulo/facturacion, leccion/la-estructura-se-cuida-con-una-prueba, modulo/compras, modulo/correo-facturas, modulo/permisos, modulo/ensayo-corte, modulo/archivo-ventas-electronicas, bloqueo/carga-electronica-historica, decision/la-ruta-no-el-contenido, bloqueo/prisma-no-se-regenera, modulo/faltantes, modulo/gastos-operativos]
-medido: 2026-10-21
+medido: 2026-10-22
 ---
+
+## Se emite desde Impresión, nunca antes — 2026-10-22
+
+Pedido del usuario, después de que volviera a aparecer «Documento reservado
+ante Hacienda» en Bodega: «si la factura está en bodega o reporte clientes o
+cualquier módulo que no sea impresión, esta no pueda emitirse
+electrónicamente». Causa: el disparador `documento_en_hacienda` (043)
+protege la fila entera de la factura, `estado_bodega` incluido; emitida desde
+Facturación segundos después de crearla (15094 y 15096 el 22/10; 15076 y
+15082 el 20/10), Bodega ya no podía despacharla.
+
+`motivoPorModulo` (unClic.service.js) da el motivo en `estadoDeFactura`, y
+`emitirFactura` responde 409 NO_EMITIBLE sin reservar número: en Bodega
+(`estado_bodega` sin «procesado»), o con faltantes pendientes fuera de la
+cola (Reporte Clientes, también tras «Recuperar»). Se emite con la última
+fila de `facturas_reimpresion` en «pendiente» (Impresión, incluido «Imprimir
+y emitir») o cuando ya salió de todos los módulos. Un comprobante a medias
+sigue sin motivo. En la pantalla no hay botón mientras haya motivo
+(`botonDe`), y `PanelEmisionFactura` lo dice a la vista.
 
 ## Vigencia desde el 2026-10-20
 
