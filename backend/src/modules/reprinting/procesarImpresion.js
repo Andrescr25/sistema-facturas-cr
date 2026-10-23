@@ -32,6 +32,7 @@ const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { editarFacturaEn } = require('../facturacion/facturaPropia.service');
 const { obtenerFactura } = require('../facturacion/facturaConsulta.service');
 const { generarPdfFactura } = require('../facturacion/factura.pdf');
+const { registrarCambio } = require('../../utils/bitacora');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -243,9 +244,15 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
 
     // ANTE HACIENDA NO SE EDITA (2026-10-20). Con un comprobante de producción
     // vigente la factura ya no cambia —el disparador documento_en_hacienda lo
-    // impide—: se marca impresa como se emitió y sus faltantes quedan
-    // pendientes, para entregarlos después o hacer la nota de crédito. Antes
-    // intentaba rebajarlos editándola y la dejaba trabada en la cola.
+    // impide—: se marca impresa como se emitió. Antes intentaba rebajarlos
+    // editándola y la dejaba trabada en la cola.
+    //
+    // Sus faltantes se cierran igual, sin rebajar nada (2026-10-22). Al
+    // dejarlos pendientes, Reporte Clientes volvía a ofrecer la factura y
+    // daba la vuelta otra vez: la 15083 se procesó cuatro veces en un día.
+    // Desde 4d44640 no se emite antes de Impresión, así que esto queda para
+    // las que se emitieron antes; lo que no llegó se corrige con nota de
+    // crédito, como dice el aviso de abajo.
     const anteHacienda = Boolean(datos.factura.ante_hacienda);
     if (anteHacienda && pantalla) {
       throw httpError(409, `La factura ${datos.factura.numero} ya está ante Hacienda: se imprime como se emitió. Lo que falte se corrige con una nota de crédito.`);
@@ -281,11 +288,11 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
       }
     }
 
-    for (const f of anteHacienda ? [] : datos.faltantes) {
+    for (const f of datos.faltantes) {
       await c.query(`
         UPDATE faltantes SET estado = 'procesado', cantidad_rebajada = $2, updated_at = ${AHORA_CR_SQL}
          WHERE id = $1
-      `, [f.id, rebajaObjetivo(f)]);
+      `, [f.id, anteHacienda ? numero(f.cantidad_rebajada) : rebajaObjetivo(f)]);
     }
     await c.query(`
       UPDATE facturas_reimpresion SET estado = 'procesada', fecha_procesamiento = ${AHORA_CR_SQL}
@@ -310,8 +317,12 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
  * POST /reimpresion/facturas/:facturaId/recuperar — Impresión recupera una ya
  * procesada: vuelve a la cola con sus ajustes, y sus faltantes a pendientes.
  * Lo ya rebajado se recuerda: volver a procesarla no rebaja dos veces.
+ *
+ * Queda en la bitácora quién la recuperó (2026-10-22): facturas ya impresas
+ * volvían a Impresión una y otra vez (la 15009 se procesó tres veces) y no
+ * había forma de saber quién tocaba el botón.
  */
-async function recuperarProcesada(facturaIdCrudo) {
+async function recuperarProcesada(facturaIdCrudo, usuario = {}) {
   const facturaId = idDeFactura(facturaIdCrudo);
   return enTransaccion(async (c) => {
     // Mismo bloqueo que procesar: recuperar espera a que la factura termine
@@ -328,6 +339,10 @@ async function recuperarProcesada(facturaIdCrudo) {
       RETURNING id
     `, [facturaId]);
     if (cola.rows.length === 0) throw httpError(404, 'Esa factura no está entre las procesadas.');
+    await registrarCambio(c, {
+      entidad: 'factura', entidadId: facturaId, accion: 'recuperar', usuarioId: usuario.id,
+      motivo: 'Impresión: recuperada de las procesadas, vuelve a la cola'
+    });
     return { factura_id: facturaId, faltantes_restaurados: faltantes.rows.length };
   });
 }

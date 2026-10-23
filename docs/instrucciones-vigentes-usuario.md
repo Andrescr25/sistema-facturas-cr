@@ -1160,3 +1160,12 @@ en bodega o reporte clientes o cualquier modulo que no sea impresion / esta
 no pueda emitirse electronicamente». El error en Bodega se conserva (pedido
 del 20/10); lo que cambia es que ya no se llega a él.
 [Detalle](grafo/modulo/hacienda.md).
+
+
+## 2026-10-22 — Facturas que vuelven a Reporte Clientes e Impresión
+
+«me aparece la factura de Randall Francisco Bolaños Barboza en reporte
+clientes sin importar cuantas veces lo envie a impresion y en impresion me
+han aparecido multiples veces la factura de maureen july n-1 y n-2». Sobre lo
+que no llegó en una factura ya ante Hacienda: «con el stop que pusimos antes
+esto ya no va a pasar». [Detalle](grafo/modulo/faltantes.md).

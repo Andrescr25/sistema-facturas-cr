@@ -114,7 +114,7 @@ async function procesarFacturaPropia(req, res) {
 
 async function recuperarFacturaPropia(req, res) {
   try {
-    res.json({ success: true, data: await procesarImpresion.recuperarProcesada(req.params.facturaId) });
+    res.json({ success: true, data: await procesarImpresion.recuperarProcesada(req.params.facturaId, quien(req)) });
   } catch (error) { responderError(res, error, 'recuperar'); }
 }
 

@@ -54,7 +54,7 @@ archivos:
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores, modulo/hacienda]
-medido: 2026-10-20
+medido: 2026-10-22
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -463,12 +463,32 @@ eligió «imprimir tal cual».
 - **Impresión ya no las traba.** `procesarImpresion` calcula
   `ante_hacienda` (electrónica, o con comprobante de producción no
   rechazado: la condición del disparador) y, si lo está, no propone rebajas,
-  no edita la factura, la marca impresa y deja sus faltantes PENDIENTES —
-  para entregarlos después o hacer la nota de crédito—. Editarla a mano
-  responde 409. Antes intentaba rebajar el faltante editándola y fallaba.
+  no edita la factura y la marca impresa. Editarla a mano responde 409.
+  (Al principio dejaba sus faltantes PENDIENTES; ver la corrección del
+  2026-10-22 abajo.) Antes intentaba rebajar el faltante editándola y fallaba.
 - Las dos que estaban trabadas (001000015076 y 001000015082) se pasaron a
   la cola con una excepción puntual solo de la marca de despacho (ver la
   memoria de escrituras en producción); las pruebas del 11/10 (015014 y
   015016) quedaron como estaban, por decisión del usuario.
 Pruebas: dos casos en `backend/tests/impresionPropiaLocal.test.js` (copia
 local desechable, `PROBAR_BASE_LOCAL=1`); con el código anterior fallan.
+
+## Ante Hacienda, los faltantes también se cierran — 2026-10-22
+
+El usuario: «me aparece la factura de Randall Francisco Bolaños Barboza en
+reporte clientes sin importar cuántas veces lo envíe a impresión». Con los
+faltantes pendientes, Reporte Clientes no la daba por enviada (`enviada`
+exige cola pendiente o todos procesados, `historialClientes.sql.js`) y la
+volvía a ofrecer: la 15083 se procesó cuatro veces el 22/10. Ahora Impresión
+los marca procesados SIN rebajar (`cantidad_rebajada` queda como estaba) y
+la factura sale como cualquier otra. Preguntado qué hacer con lo que no
+llegó, el usuario respondió que con el freno de ese día (solo se emite desde
+Impresión, `4d44640`) ya no va a pasar: queda para las emitidas antes; lo
+que no llegó se corrige con nota de crédito.
+
+En la misma revisión, facturas ya impresas que volvían a Impresión (Super
+July N-2: 15009 tres veces) volvían por «Recuperar» de la lista de
+procesadas: un toque, sin pregunta ni rastro. Ahora pregunta (y recuerda
+«Ver PDF» para otra copia) y queda en la bitácora (`accion` «recuperar»).
+Las 15023/15056 (N-1) no se habían procesado nunca: llegaron por primera
+vez desde Reporte Clientes, «sin cambios».

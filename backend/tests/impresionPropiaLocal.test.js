@@ -91,6 +91,10 @@ describe('impresión exacta con factura e inventario propios — PostgreSQL loca
     assert.equal(guardada.descripcion, 'ZZ nota del cliente');
     await assert.rejects(impresion.procesar(datos.facturaId), e => e.status === 409);
     await impresion.recuperarProcesada(datos.facturaId);
+    // 2026-10-22: queda quién la devolvió a la cola (antes no había rastro).
+    const { rows: [rastro] } = await c.query(
+      "SELECT count(*)::int n FROM bitacora_cambio WHERE entidad='factura' AND entidad_id=$1 AND accion='recuperar'", [String(datos.facturaId)]);
+    assert.equal(rastro.n, 1);
     await impresion.procesar(datos.facturaId);
     assert.deepEqual(await estado(datos), guardada);
   });
@@ -129,7 +133,7 @@ describe('impresión exacta con factura e inventario propios — PostgreSQL loca
   // «solo quiero que esas facturas las pases a impresión» y, para su faltante,
   // «imprimir tal cual». La protección sigue (no se edita); lo que cambió es
   // que se marca impresa en vez de quedar trabada en la cola.
-  test('una electrónica se marca impresa sin editarla y su faltante queda pendiente', async () => {
+  test('una electrónica se marca impresa sin editarla y su faltante se cierra sin rebajar', async () => {
     const datos = await fixture();
     // Estado fiscal sintético, únicamente dentro de esta copia y su ROLLBACK.
     await c.query("UPDATE factura SET electronica=true,hacienda_estado='aceptada' WHERE id=$1", [datos.facturaId]);
@@ -158,8 +162,12 @@ describe('impresión exacta con factura e inventario propios — PostgreSQL loca
     const despues = await estado(datos);
     assert.deepEqual([despues.total, despues.cantidad, despues.precio_unitario, despues.inventario], [antes.total, antes.cantidad, antes.precio_unitario, antes.inventario]);
     assert.equal(despues.estado_cola, 'procesada');
-    assert.equal(despues.estado_faltante, 'pendiente', 'el faltante sigue para entregarlo o hacer la nota de crédito');
-    assert.equal(Number(despues.cantidad_rebajada || 0), 0);
+    // 2026-10-22: pendiente, Reporte Clientes la volvía a ofrecer y daba la
+    // vuelta (la 15083 se procesó cuatro veces). Se cierra sin rebajar nada.
+    assert.equal(despues.estado_faltante, 'procesado');
+    assert.equal(Number(despues.cantidad_rebajada || 0), 0, 'no se rebajó: la factura no cambió');
+    await assert.rejects(cola.encolarDesdeReporte(datos.facturaId), e => e.status === 409 && /no tiene faltantes pendientes/.test(e.message),
+      'Reporte Clientes ya no la puede volver a mandar');
   }
 
   test('sin_pendientes conserva los precios de la factura al marcarla impresa', async () => {

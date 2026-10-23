@@ -137,3 +137,12 @@ export function preguntaAlProcesar(f, { soloImprimir, despues }) {
     : ''
   return `¿Marcar la factura ${f.numero_factura} como impresa${accion}?${ajustes}${emision}`
 }
+
+/**
+ * La pregunta antes de «Recuperar» una procesada (2026-10-22): un toque la
+ * devolvía a la cola sin preguntar, y facturas ya impresas aparecían otra vez
+ * en Impresión. Si lo que se quiere es otra copia, es «Ver PDF».
+ */
+export function preguntaAlRecuperar(f) {
+  return `¿Devolver la factura ${f.numero_factura} a la cola de Impresión?\n\nVuelve a pendientes y se procesa otra vez. Para imprimir otra copia sin cambiarla, usá «Ver PDF».`
+}

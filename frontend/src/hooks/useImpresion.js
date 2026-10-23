@@ -5,7 +5,8 @@ import {
   lineasParaProcesar,
   validarItemsParaProcesar,
   DESPUES,
-  preguntaAlProcesar
+  preguntaAlProcesar,
+  preguntaAlRecuperar
 } from '../utils/impresionUtils'
 import { useDialog } from './useDialog'
 
@@ -248,6 +249,7 @@ export function useImpresion() {
   }
 
   const handleRecuperarFactura = async (factura) => {
+    if (!(await confirm(preguntaAlRecuperar(factura)))) return
     try {
       setLoading(true)
       await colaImpresionService.recuperarProcesada(factura.factura_id)
