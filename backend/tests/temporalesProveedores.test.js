@@ -88,7 +88,6 @@ caso('faltantes nuevos rechazan guardar, agregar, excluir y deshacer desde la fo
  await faltante(3,1);assert.notEqual(await revisionActual(),revisionReporte);
  await assert.rejects(s.guardarCantidades([cantidad(7,undefined,{revisionReporte})]),e=>e.status===409);
  await assert.rejects(s.registrarProductoAgregado(f.p.nombre,`extra:id:${f.productos[0]}`,'ZZ',4,{productoId:f.productos[0],revisionReporte}),e=>e.status===409);
- await assert.rejects(s.registrarProductoEliminado(f.p.nombre,`id:${f.productos[0]}`,'ZZ',10,{productoId:f.productos[0],revisionReporte}),e=>e.status===409);
  await assert.rejects(s.eliminarRegistroTemporal(f.p.nombre,`extra:id:${f.productos[0]}`,'agregado',{producto_id:f.productos[0],revisionReporte}),e=>e.status===409);
  assert.deepEqual(await filas(),antes);
 });

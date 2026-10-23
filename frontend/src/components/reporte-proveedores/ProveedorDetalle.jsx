@@ -29,7 +29,7 @@ export default function ProveedorDetalle({
   toggleProductoSeleccionado,
   toggleTodosProductos,
   productosEliminados,
-  eliminarProductoDeOrden,
+  quitarDeCompras,
   restaurarProducto,
   productosAgregados,
   actualizarCantidadAgregado,
@@ -166,15 +166,17 @@ export default function ProveedorDetalle({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {estaEliminado ? (
+                    {/* Los tachados son exclusiones de antes del 2026-10-22,
+                        que solo lo sacaban de un envío: se pueden restaurar
+                        o quitar del todo, como cualquier otro. */}
+                    {estaEliminado && (
                       <button disabled={bloqueado} onClick={() => restaurarProducto(proveedor.nombre, claves.map(c => c.slice(proveedor.nombre.length + 1)), producto.producto_id)} className="text-xs bg-neutro-200 hover:bg-neutro-300 text-neutro-700 px-3 py-1.5 rounded transition">
                         Restaurar
                       </button>
-                    ) : (
-                      <button disabled={bloqueado || !pClave} onClick={() => eliminarProductoDeOrden(proveedor.nombre, pClave, producto.nombre, producto.cantidad_faltante, producto.producto_id)} aria-label={`Retirar ${producto.nombre} de la lista`} className="min-h-11 min-w-11 text-neutro-400 hover:text-peligro-600 p-2 rounded transition">
-                        <Trash2 size={18} />
-                      </button>
                     )}
+                    <button disabled={bloqueado || !pClave} onClick={() => quitarDeCompras(proveedor.nombre, producto)} aria-label={`Quitar ${producto.nombre} de las compras`} title="Quitar de las compras" className="min-h-11 min-w-11 text-neutro-400 hover:text-peligro-600 p-2 rounded transition">
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
               </div>

@@ -200,3 +200,11 @@ export function construirProductosParaOrden(proveedor, { productosEliminados, ca
 
   return productosParaPDF
 }
+
+/**
+ * La pregunta antes de quitar un producto de las compras (2026-10-22). Es
+ * del todo: dice qué pasa con el pedido y qué NO pasa con el cliente.
+ */
+export function preguntaQuitarDeCompras(producto) {
+  return `¿Quitar «${producto.nombre}» de las compras?\n\nSale de esta orden y ya no se le pide a ningún proveedor. El faltante del cliente sigue en Reporte Clientes.`
+}

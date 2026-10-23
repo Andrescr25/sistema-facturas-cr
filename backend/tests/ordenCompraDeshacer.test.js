@@ -37,7 +37,7 @@ describe('las rutas que el frontend llama existen', () => {
   const LLAMADAS = [
     ['producto-eliminado', 'delete'],
     ['producto-agregado', 'delete'],
-    ['producto-eliminado', 'post'],
+    ['sin-compra', 'post'],
     ['producto-agregado', 'post'],
   ];
 

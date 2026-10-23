@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react'
 import api from '../services/api'
-import { claveProductoReporte, claveTemporalProducto, agregarProductoManual, cantidadEnteraValida, clavesProductoProveedor, keyProductoProveedor, getCantidadFinal, edicionCantidadProducto, construirCantidadGuardada, contextoEdicionProveedor } from '../utils/reporteProveedoresUtils'
+import { claveProductoReporte, claveTemporalProducto, agregarProductoManual, cantidadEnteraValida, clavesProductoProveedor, keyProductoProveedor, getCantidadFinal, edicionCantidadProducto, construirCantidadGuardada, contextoEdicionProveedor, preguntaQuitarDeCompras } from '../utils/reporteProveedoresUtils'
 
 /** Edición del reporte conservada de main, separada de las órdenes enviadas. */
-export function useEdicionFaltantesProveedor({ prompt, showToast, cantidadesModificadas, cantidadesGuardadas, setCantidadesModificadas, proveedores = [], onRevisionInvalida = () => {}, onTemporalesGuardados = async () => {} }) {
+export function useEdicionFaltantesProveedor({ prompt, confirm, showToast, cantidadesModificadas, cantidadesGuardadas, setCantidadesModificadas, proveedores = [], onRevisionInvalida = () => {}, onTemporalesGuardados = async () => {}, onQuitadoDeCompras = async () => {} }) {
   // Estados Edición Manual
   const [productosEliminados, setProductosEliminados] = useState(new Set())
   const [clavesEliminadasGuardadas, setClavesEliminadasGuardadas] = useState(new Map())
@@ -19,18 +19,22 @@ export function useEdicionFaltantesProveedor({ prompt, showToast, cantidadesModi
     else showToast(error.response?.data?.message || mensaje || error.message, 'error')
   }
 
-  const eliminarProductoDeOrden = useCallback(async (proveedorNombre, productoCodigo, productoNombre, cantidadOriginal, productoId) => {
-    const key = `${proveedorNombre}-${productoCodigo}`
-    setProductosEliminados(prev => new Set(prev).add(key))
-
+  // Quitar es del todo (2026-10-22): sus faltantes ya no se le compran a
+  // nadie y el producto sale de la lista. Antes solo se tachaba y, enviado el
+  // pedido, volvía a aparecer por pedir: la orden nunca se cerraba.
+  const quitarDeCompras = useCallback(async (proveedorNombre, producto) => {
+    const faltanteIds = [...new Set((producto.origenes || []).map(o => o.faltanteId).filter(Boolean))]
+    if (!faltanteIds.length) { showToast('Este producto no tiene faltantes para quitar. Actualizá el reporte.', 'error'); return }
+    if (!(await confirm(preguntaQuitarDeCompras(producto)))) return
     try {
-      await api.post('/orden-compra/producto-eliminado', { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal: cantidadOriginal || 0, producto_id: productoId, ...contexto(proveedorNombre) })
+      await api.post('/orden-compra/sin-compra', { proveedorNombre, faltanteIds, ...contexto(proveedorNombre) })
+      showToast(`«${producto.nombre}» se quitó de las compras.`, 'success')
+      await onQuitadoDeCompras()
     } catch (error) {
-      console.error('Error:', error)
-      setProductosEliminados(prev => { const siguiente = new Set(prev); siguiente.delete(key); return siguiente })
-      avisarError(error, proveedorNombre, 'No se guardó la exclusión. Actualizá el reporte antes de continuar.')
+      console.error('No se pudo quitar el producto de las compras:', error)
+      avisarError(error, proveedorNombre, 'No se pudo quitar el producto. Actualizá el reporte e intentá de nuevo.')
     }
-  }, [proveedores, onRevisionInvalida, showToast])
+  }, [proveedores, confirm, onQuitadoDeCompras, onRevisionInvalida, showToast])
 
   const restaurarProducto = useCallback(async (proveedorNombre, productoCodigo, productoId) => {
     const codigos = Array.isArray(productoCodigo) ? productoCodigo : [productoCodigo]
@@ -170,7 +174,7 @@ export function useEdicionFaltantesProveedor({ prompt, showToast, cantidadesModi
 
   return { productosEliminados, setProductosEliminados, clavesEliminadasGuardadas, setClavesEliminadasGuardadas, productosAgregados, setProductosAgregados,
     modalAgregarProducto, setModalAgregarProducto, proveedorParaAgregar, busquedaProducto,
-    setBusquedaProducto, productosEncontrados, loadingProductos, eliminarProductoDeOrden,
+    setBusquedaProducto, productosEncontrados, loadingProductos, quitarDeCompras,
     restaurarProducto, abrirModalAgregarProducto, buscarProductos, solicitarCantidadYAgregar,
     eliminarProductoAgregado, actualizarCantidadAgregado }
 }

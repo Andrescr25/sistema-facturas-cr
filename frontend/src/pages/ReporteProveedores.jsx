@@ -60,7 +60,7 @@ export default function ReporteProveedores() {
     crearNuevoProveedor,
 
     productosEliminados,
-    eliminarProductoDeOrden,
+    quitarDeCompras,
     restaurarProducto,
 
     productosAgregados,
@@ -211,7 +211,7 @@ export default function ReporteProveedores() {
           toggleProductoSeleccionado={toggleProductoSeleccionado}
           toggleTodosProductos={toggleTodosProductos}
           productosEliminados={productosEliminados}
-          eliminarProductoDeOrden={eliminarProductoDeOrden}
+          quitarDeCompras={quitarDeCompras}
           restaurarProducto={restaurarProducto}
           productosAgregados={productosAgregados}
           actualizarCantidadAgregado={actualizarCantidadAgregado}

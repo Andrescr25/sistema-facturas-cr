@@ -27,6 +27,11 @@ archivos:
   - backend/src/modules/reports/proveedorCompra.sql.js
   - backend/tests/identidadEnvioProveedor.test.js
   - backend/src/modules/orders-whatsapp/temporalesProveedor.service.js
+  - backend/src/modules/orders-whatsapp/sinCompra.service.js
+  - backend/migrations/independencia/065_faltante_sin_compra.sql
+  - backend/src/modules/reports/faltantesCompra.sql.js
+  - backend/tests/sinCompraProveedor.test.js
+  - frontend/src/hooks/useEdicionFaltantesProveedor.js
   - backend/src/modules/orders-whatsapp/revisionTemporalesProveedor.service.js
   - backend/src/modules/orders-whatsapp/comprobacionEnviosReporte.service.js
   - backend/tests/temporalesProveedores.test.js
@@ -69,8 +74,26 @@ archivos:
 aristas:
   depende_de: [modulo/faltantes, modulo/ordenes-compra-por-ciclo, modulo/permisos]
   relacionado: [modulo/rutas-clientes, modulo/facturas-ordenes-compra, modulo/recepcion-ordenes-compra, modulo/cierre-ordenes-compra, modulo/archivo-ordenes-compra, decision/orden-enviada-y-archivo-por-recepcion, decision/rotacion-por-cliente-sin-ciclos, modulo/gastos-operativos]
-medido: 2026-10-21
+medido: 2026-10-22
 ---
+
+## Quitar un producto de las compras es del todo — 2026-10-22
+
+Pedido del usuario: «cuando estoy dentro de una orden de compra me deja
+borrar algún producto, pero estos solo se tachan, necesito poder eliminarlos
+por completo para ya cerrar esa orden de compra». La basura dejaba una
+exclusión TEMPORAL (`orden_compra_temporal`, «eliminado»): tachado y, al
+enviarse el pedido, otra vez por pedir; la tarjeta nunca se cerraba.
+
+Ahora pregunta y marca sus faltantes en `faltante_sin_compra` (065, por
+faltante, con quién y cuándo; bitácora «sin_compra»). `faltanteOperativo` ya
+no los ofrece: salen del reporte, de sus notas y de las órdenes nuevas, y la
+tarjeta se cierra cuando no le queda nada. El faltante del CLIENTE no cambia
+(Reporte Clientes e Impresión lo resuelven) y una venta nueva del mismo
+producto vuelve a aparecer. Exige la revisión del reporte que vio la
+pantalla y que los faltantes sean de la compra de ESE proveedor. Se borró la
+creación de exclusiones (POST /producto-eliminado); las 3 que quedaban en
+producción se pueden restaurar o quitar del todo.
 
 Verificación 2026-10-21: la prueba de preparación sin envío filtra también
 `tipo='orden_compra'`. Una referencia numérica igual en envíos de facturas

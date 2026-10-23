@@ -20,7 +20,7 @@ import { useEdicionFaltantesProveedor } from './useEdicionFaltantesProveedor'
 export function useReporteProveedores({activo=true}={}) {
   const peticion = useRef(0), peticionNotas = useRef(0)
   const proveedoresActuales = useRef([]), peticionCantidades = useRef(0)
-  const { prompt, dialogProps } = useDialog()
+  const { prompt, confirm, dialogProps } = useDialog()
   const { toasts, showToast, removeToast } = useToast()
 
   const [proveedores, setProveedores] = useState([])
@@ -53,10 +53,11 @@ export function useReporteProveedores({activo=true}={}) {
 
   const { productosEliminados, setProductosEliminados, setClavesEliminadasGuardadas, productosAgregados, setProductosAgregados,
     modalAgregarProducto, setModalAgregarProducto, proveedorParaAgregar, busquedaProducto,
-    setBusquedaProducto, productosEncontrados, loadingProductos, eliminarProductoDeOrden,
+    setBusquedaProducto, productosEncontrados, loadingProductos, quitarDeCompras,
     restaurarProducto, abrirModalAgregarProducto, buscarProductos, solicitarCantidadYAgregar,
-    eliminarProductoAgregado, actualizarCantidadAgregado } = useEdicionFaltantesProveedor({ prompt, showToast, cantidadesModificadas, cantidadesGuardadas, setCantidadesModificadas, proveedores,
+    eliminarProductoAgregado, actualizarCantidadAgregado } = useEdicionFaltantesProveedor({ prompt, confirm, showToast, cantidadesModificadas, cantidadesGuardadas, setCantidadesModificadas, proveedores,
       onTemporalesGuardados: () => loadCantidadesGuardadas(),
+      onQuitadoDeCompras: () => loadReporte(),
       onRevisionInvalida: nombre => { retirarBuffers(new Set([nombre]), proveedoresActuales.current); loadReporte() } })
 
   const retirarBuffers = (nombres, todos) => {
@@ -398,7 +399,7 @@ export function useReporteProveedores({activo=true}={}) {
     crearNuevoProveedor,
 
     productosEliminados,
-    eliminarProductoDeOrden,
+    quitarDeCompras,
     restaurarProducto,
 
     productosAgregados,

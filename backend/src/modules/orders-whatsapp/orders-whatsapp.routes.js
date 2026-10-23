@@ -24,9 +24,10 @@ router.get('/cantidades', controller.getCantidades);
 router.post('/cantidades', controller.guardarCantidades);
 router.delete('/cantidades', controller.limpiarCantidades);
 
-// Productos eliminados/agregados temporalmente
-router.post('/producto-eliminado', controller.registrarProductoEliminado);
+// Productos agregados a la compra; quitar uno es del todo (2026-10-22): sus
+// faltantes ya no se le compran a nadie (faltante_sin_compra).
 router.post('/producto-agregado', controller.registrarProductoAgregado);
+router.post('/sin-compra', controller.quitarDeCompras);
 
 // Deshacer. Estas dos faltaban: la pantalla ya las llamaba y daban 404, que
 // se perdía en un catch vacío — la vista mostraba el cambio y el servidor

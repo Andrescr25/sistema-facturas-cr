@@ -46,28 +46,16 @@ class OrdersWhatsappController {
     }
   };
 
-  registrarProductoEliminado = async (req, res) => {
+  /**
+   * Quitar un producto de las compras, del todo (2026-10-22). Reemplaza la
+   * exclusión temporal (POST /producto-eliminado), que solo lo tachaba.
+   */
+  quitarDeCompras = async (req, res) => {
     try {
-      const { proveedorNombre, productoCodigo, productoNombre, cantidadOriginal, producto_id, revisionReporte, fechaInicio } = req.body;
-
-      if (!proveedorNombre || !productoCodigo) {
-        return ResponseHelper.validationError(res, {
-          proveedorNombre: !proveedorNombre ? ['proveedorNombre es requerido'] : [],
-          productoCodigo: !productoCodigo ? ['productoCodigo es requerido'] : []
-        });
-      }
-
-      await this.ordersService.registrarProductoEliminado(
-        proveedorNombre,
-        productoCodigo,
-        productoNombre,
-        cantidadOriginal,
-        { productoId: producto_id, usuarioId: req.usuario?.id, revisionReporte, fechaInicio }
-      );
-
-      return ResponseHelper.success(res, {}, 'Producto eliminado registrado correctamente');
+      const quitados = await this.ordersService.quitarDeCompras(req.body || {}, req.usuario?.id);
+      return ResponseHelper.success(res, { quitados }, 'Producto quitado de las compras');
     } catch (error) {
-      console.error('❌ Error registrando producto eliminado:', error);
+      console.error('❌ Error quitando producto de las compras:', error);
       return ResponseHelper.error(res, error.message, error.status || 500);
     }
   };

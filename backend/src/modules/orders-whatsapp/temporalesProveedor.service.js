@@ -127,11 +127,9 @@ async function guardarCantidades(filas,usuarioId=null) {
     return limpias.length;
   });
 }
-async function registrarProductoEliminado(proveedor,codigo,nombre,original=0,opciones={}) {
-  const d={...datos(proveedor,codigo,nombre,opciones.productoId),revision:revision.contexto(opciones)},q=numero({min:0,max:1000000})(original,'Cantidad original');
-  if (q==null || !['number','string'].includes(typeof original)) throw httpError(400,'Cantidad original inválida.');
-  return revision.enEdicion(async db=>{await revision.comprobarEn(db,d.proveedor,d.revision);return guardarEn(db,d,Math.ceil(q),0,'eliminado',opciones.usuarioId)});
-}
+// Ya no se crean exclusiones temporales («eliminado»): quitar un producto es
+// del todo (sinCompra.service.js, 2026-10-22). Las que quedaron se siguen
+// leyendo y se pueden restaurar con eliminarRegistroTemporal.
 async function registrarProductoAgregado(proveedor,codigo,nombre,q,opciones={}) {
   const d={...datos(proveedor,codigo,nombre,opciones.productoId),revision:revision.contexto(opciones)},n=cantidad(q,'Cantidad agregada',{positiva:true});
   return revision.enEdicion(async db=>{await revision.comprobarEn(db,d.proveedor,d.revision);return guardarEn(db,d,0,n,'agregado',opciones.usuarioId)});
@@ -155,4 +153,4 @@ async function eliminarRegistroTemporal(proveedor,codigo,accion,opciones={}) {
 async function limpiarCantidades() {
   throw httpError(410,'La limpieza global fue retirada. Las órdenes conservan su historial.');
 }
-module.exports = { getCantidadesModificadas,guardarCantidades,registrarProductoAgregado,registrarProductoEliminado,eliminarRegistroTemporal,limpiarCantidades };
+module.exports = { getCantidadesModificadas,guardarCantidades,registrarProductoAgregado,eliminarRegistroTemporal,limpiarCantidades };

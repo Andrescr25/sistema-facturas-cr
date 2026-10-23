@@ -1169,3 +1169,11 @@ clientes sin importar cuantas veces lo envie a impresion y en impresion me
 han aparecido multiples veces la factura de maureen july n-1 y n-2». Sobre lo
 que no llegó en una factura ya ante Hacienda: «con el stop que pusimos antes
 esto ya no va a pasar». [Detalle](grafo/modulo/faltantes.md).
+
+
+## 2026-10-22 — Quitar productos de una orden de compra, del todo
+
+«en reporte proveedores cuando estoy dentro de una orden de compra me deja
+borrar algun producto, pero estos solo se tachan, necesito poder eliminarlos
+por completo para ya cerrar esa orden de compra». Sale de las compras; el
+faltante del cliente sigue. [Detalle](grafo/modulo/reporte-proveedores.md).

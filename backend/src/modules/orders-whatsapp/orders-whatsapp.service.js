@@ -57,7 +57,7 @@ class OrdersWhatsappService {
   getCantidadesModificadas() { return require('./temporalesProveedor.service').getCantidadesModificadas(); }
   guardarCantidades(...args) { return require('./temporalesProveedor.service').guardarCantidades(...args); }
   limpiarCantidades() { return require('./temporalesProveedor.service').limpiarCantidades(); }
-  registrarProductoEliminado(...args) { return require('./temporalesProveedor.service').registrarProductoEliminado(...args); }
+  quitarDeCompras(...args) { return require('./sinCompra.service').quitarDeCompras(...args); }
   registrarProductoAgregado(...args) { return require('./temporalesProveedor.service').registrarProductoAgregado(...args); }
 
   /**
