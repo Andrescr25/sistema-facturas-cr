@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - docs/informes/despliegue-portadas-065-2026-10-22.md
   - docs/informes/proveedores-rendimiento-2026-10-14.md
   - backend/src/modules/orders-whatsapp/destinoProveedor.service.js
   - backend/src/modules/orders-whatsapp/ordenesCicloLineas.service.js
@@ -94,6 +95,13 @@ producto vuelve a aparecer. Exige la revisión del reporte que vio la
 pantalla y que los faltantes sean de la compra de ESE proveedor. Se borró la
 creación de exclusiones (POST /producto-eliminado); las 3 que quedaban en
 producción se pueden restaurar o quitar del todo.
+
+El usuario autoriza a Codex aplicar la pendiente y publicar a main. SQL065
+aplicada en producción el2026-10-22 a las23:53:47CR antes del push, tras
+respaldo restaurado y ensayo local.146 tablas previas y30triggers intactos;
+la tabla nueva queda vacía y no retira productos por sí sola. Suite completa
+2955correctas/0fallos/3omisiones históricas y38comprobaciones de navegador con
+PostgreSQL/ROLLBACK correctas. [Entrega](../../informes/despliegue-portadas-065-2026-10-22.md).
 
 Verificación 2026-10-21: la prueba de preparación sin envío filtra también
 `tipo='orden_compra'`. Una referencia numérica igual en envíos de facturas

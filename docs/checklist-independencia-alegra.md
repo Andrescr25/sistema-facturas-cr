@@ -1165,5 +1165,11 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   imagen reservada, encuadre centrado que llena el panel y una sola foto lazy.
   Existentes y nuevas, teléfono/tablet/escritorio, sin nueva subida ni SQL.
   59 pruebas dirigidas y171 comprobaciones de navegador correctas, build/lint
-  correctos. Entrega en developer; SQL065 de otro cambio de Claude bloquea
-  avanzar main. [Detalle](grafo/modulo/marcas-catalogo.md).
+  correctos. Entrega inicial en developer; publicación posterior en MC-08.
+  [Detalle](grafo/modulo/marcas-catalogo.md).
+
+- [x] MC-08 — Usuario autoriza migración pendiente y main: Codex aplica065
+  con respaldo restaurado,146tablas previas/30triggers intactos y tabla nueva
+  vacía. Publica portadas propias y retirada de compras de Claude, revisada.
+  Suite240/2955correctas/0fallos/3omitidas,38navegador con PostgreSQL y171de
+  portadas correctas. [Entrega](informes/despliegue-portadas-065-2026-10-22.md).

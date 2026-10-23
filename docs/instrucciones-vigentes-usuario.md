@@ -1186,3 +1186,8 @@ se suban deben adaptarse al panel automáticamente. Se elimina el límite que
 dejaba la foto pequeña y se usa encuadre centrado a todo el panel, reservando
 la proporción antes de cargar para que no salte el contenido.
 [Detalle y verificación](grafo/modulo/marcas-catalogo.md).
+
+El usuario autoriza después «dale a main y haz la migración pendiente»:
+publicar portadas y el cambio previo de Claude sobre retiro de compras,
+aplicando SQL065 antes del push, con respaldo comprobado y ensayo local.
+[Entrega](informes/despliegue-portadas-065-2026-10-22.md).

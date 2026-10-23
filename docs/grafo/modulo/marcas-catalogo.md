@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Marcas del catálogo — foto general y presentaciones con vista previa
 estado: vigente
 archivos:
+  - docs/informes/despliegue-portadas-065-2026-10-22.md
   - docs/informes/despliegue-marcas-2026-10-22.md
   - docs/informes/marcas-catalogo-2026-10-22.md
   - backend/migrations/independencia/064_marcas_catalogo.sql
@@ -68,8 +69,11 @@ filas y caché), build y lint correctos;171 comprobaciones Chromium a
 presentaciones, copia sin dimensiones, imagen lenta sin salto de contenido,
 recarga offline y vista previa con Escape/foco/scroll. Sin erroresJS ni
 desbordamientos. Evidencia privada:codex-portadas-marcas-20261022.
-Sin SQL ni conexión a producción. La entrega queda en developer: el commit
-previo1a62b95 de Claude requiere SQL065 antes de poder avanzar main.
+La corrección de imagen no requiere SQL. Su entrega inicial quedó en
+developer porque1a62b95 de Claude requería SQL065. El usuario autoriza después
+migrar y publicar ambos: SQL065 aplicada el22/10 a las23:53:47CR, con respaldo
+restaurado y verificación de integridad antes de main.
+[Publicación y pruebas](../../informes/despliegue-portadas-065-2026-10-22.md).
 
 La agrupación es una **marca dentro de una subcategoría**, con foto propia.
 Tricicle en Candados puede tener otra foto que Tricicle en otra subcategoría.
