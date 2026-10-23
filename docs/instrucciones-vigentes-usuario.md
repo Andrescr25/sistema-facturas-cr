@@ -1177,3 +1177,12 @@ esto ya no va a pasar». [Detalle](grafo/modulo/faltantes.md).
 borrar algun producto, pero estos solo se tachan, necesito poder eliminarlos
 por completo para ya cerrar esa orden de compra». Sale de las compras; el
 faltante del cliente sigue. [Detalle](grafo/modulo/reporte-proveedores.md).
+
+## 2026-10-22 — Portadas de marca sin franjas
+
+El usuario pide revisar lo de Claude: la portada de llantas se ve bien, pero
+la de aldabas deja bordes arriba y abajo. Las imágenes existentes y las que
+se suban deben adaptarse al panel automáticamente. Se elimina el límite que
+dejaba la foto pequeña y se usa encuadre centrado a todo el panel, reservando
+la proporción antes de cargar para que no salte el contenido.
+[Detalle y verificación](grafo/modulo/marcas-catalogo.md).

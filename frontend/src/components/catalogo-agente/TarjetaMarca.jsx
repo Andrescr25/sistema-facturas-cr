@@ -14,23 +14,24 @@ import { precioCatalogoAgente } from '../../utils/precioCatalogoAgente'
  * como la foto de un producto. Ahora:
  *   · ocupa dos casillas (la fila entera en tablet y teléfono; ver
  *     anchoEnFila en utils/filasCatalogo.js);
- *   · el póster va a sangre sobre su propia foto ampliada y desenfocada, que
- *     llena el espacio sin recortar el arte ni sus textos;
+ *   · la foto llena la portada con encuadre centrado. Su proporción reserva
+ *     espacio antes de cargar; si la lista exige más alto, se adapta al marco.
+ *     No limitar el alto de la foto: dejaba franjas en marcas con más productos
+ *     (corrección pedida el mismo día, comparando aldabas y llantas);
  *   · el nombre de la marca va AL LADO (abajo en el teléfono), nunca encima:
  *     los pósters traen sus propias letras y taparlas arruinaría la portada.
  * Cada presentación sigue abriendo su vista previa con su foto individual.
  */
 function TarjetaMarca({ grupo, onVerProducto }) {
   const foto = urlArchivo(grupo.marca.imagen?.url)
+  const { ancho = 2, alto = 3 } = grupo.marca.imagen || {}
   const cantidad = grupo.presentaciones.length
   return (
     <article className="catalogo-ficha col-span-2 grid min-w-0 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-neutro-200 sm:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
       {foto ? (
-        <div className="relative isolate flex h-64 items-center justify-center overflow-hidden bg-neutro-900 sm:h-auto sm:min-h-[19rem]">
-          <img src={foto} alt="" aria-hidden="true" loading="lazy" decoding="async"
-            className="absolute inset-0 -z-10 h-full w-full scale-125 object-cover opacity-60 blur-2xl" />
-          <img src={foto} alt={grupo.marca.nombre} loading="lazy" decoding="async"
-            className="h-full max-h-[22rem] w-full object-contain drop-shadow-2xl" />
+        <div className="relative min-w-0 w-full self-stretch overflow-hidden bg-neutro-900" style={{ aspectRatio: `${ancho} / ${alto}` }}>
+          <img src={foto} alt={grupo.marca.nombre} width={ancho} height={alto} loading="lazy" decoding="async"
+            className="absolute inset-0 h-full w-full object-cover" />
         </div>
       ) : (
         // Sin foto todavía: la portada es el nombre, en los colores del sistema.

@@ -37,9 +37,9 @@ medido: 2026-10-22
 Pedido del usuario: «la foto de marca es una foto con fondo, todo llamativo…
 no una card más de producto, sino una portada para dar a presentar los
 productos». `TarjetaMarca` ocupa dos casillas (`anchoEnFila`: la fila entera
-en tablet y teléfono). El póster va a sangre sobre su propia foto ampliada y
-desenfocada, sin recortar el arte; el nombre de la marca va al lado (abajo en
-el teléfono), nunca encima de las letras del póster. Sin foto, la portada es
+en tablet y teléfono). La foto llena el panel con encuadre centrado; el nombre
+de la marca va al lado (abajo en el teléfono), nunca encima de las letras del
+póster. Sin foto, la portada es
 el nombre sobre los colores del sistema. Si la portada no cabe en lo que queda
 de la fila, la siguiente ficha suelta de la misma subcategoría se adelanta
 para no dejar hueco (se respeta «llenar las filas» del 2026-10-07); entre
@@ -48,6 +48,28 @@ subcategorías no se adelanta nada.
 Vista previa: la MARCA es el título y el producto va abajo con su precio
 («hazlo al revés sino confunde»). Un producto sin marca conserva su nombre
 de título.
+
+Corrección posterior del mismo día: el usuario compara aldabas (cinco
+presentaciones) y llantas (dos) y pide quitar las franjas de la portada. El
+tope de22rem dejaba la foto pequeña dentro de un panel que crecía con la
+lista. Ahora el panel reserva la proporción ancho/alto guardada al subir la
+foto (2:3 para copias antiguas sin dimensiones), y se estira si la lista
+necesita más alto. `object-cover` llena todo el panel con un posible recorte
+centrado de presentación; no modifica ni recorta el archivo guardado.
+`min-w-0 w-full` impide que la proporción ensanche la columna al estirarla.
+En teléfono la portada ocupa su propia fila y conserva su proporción.
+Una sola imagen lazy/asíncrona, sin copia desenfocada, límite de altura,
+dependencias ni consultas nuevas; aplica a imágenes existentes y nuevas sin
+volver a subirlas. Se conservan precios, agrupación y vista previa individual.
+
+Verificación del ajuste:59 pruebas dirigidas (estructura/grafo, marcas,
+filas y caché), build y lint correctos;171 comprobaciones Chromium a
+390/700/1100/1440px con fotos verticales/cuadradas/horizontales,2/5/20
+presentaciones, copia sin dimensiones, imagen lenta sin salto de contenido,
+recarga offline y vista previa con Escape/foco/scroll. Sin erroresJS ni
+desbordamientos. Evidencia privada:codex-portadas-marcas-20261022.
+Sin SQL ni conexión a producción. La entrega queda en developer: el commit
+previo1a62b95 de Claude requiere SQL065 antes de poder avanzar main.
 
 La agrupación es una **marca dentro de una subcategoría**, con foto propia.
 Tricicle en Candados puede tener otra foto que Tricicle en otra subcategoría.

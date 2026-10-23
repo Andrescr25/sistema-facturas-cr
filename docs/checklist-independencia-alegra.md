@@ -1160,3 +1160,10 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   sin nuevas peticiones API. Suite239/2941 correctas/0fallos/3omisiones
   históricas, build/lint/grafo correctos. Ampliación publicada a main por
   Codex, sin SQL nuevo.
+
+- [x] MC-07 — Portadas sin franjas por el tope de altura: proporción de la
+  imagen reservada, encuadre centrado que llena el panel y una sola foto lazy.
+  Existentes y nuevas, teléfono/tablet/escritorio, sin nueva subida ni SQL.
+  59 pruebas dirigidas y171 comprobaciones de navegador correctas, build/lint
+  correctos. Entrega en developer; SQL065 de otro cambio de Claude bloquea
+  avanzar main. [Detalle](grafo/modulo/marcas-catalogo.md).
