@@ -44,12 +44,13 @@
 const fs = require('fs');
 const {
   MARCA, LOGO, LOGO_RATIO, NEGOCIO,
-  registrarFuentes, colones, colonesExacto, fechaLarga
+  registrarFuentes, colones, colonesExacto, fechaLarga, medioDePago
 } = require('../../utils/marcaPdf');
 const { montoEnLetras } = require('../../utils/numeroALetras');
+// Lo que agrega el papel de un comprobante aceptado (lo pide Hacienda).
+const fiscalPdf = require('./papelFiscal.pdf');
 
 const M = 44;                 // margen
-const ALTO_FILA = 26;
 const PIE_RESERVADO = 56;
 
 const num = (v) => Number(v) || 0;
@@ -159,6 +160,7 @@ function datosEmisor(empresa) {
  */
 function papelDeFactura(f) {
   const fiscal = (f.electronica && f.haciendaEstado === 'aceptada' && f.fiscal) || null;
+  const condicion = f.condicionVenta === 'credito' ? (f.plazo || 'Crédito') : 'Contado';
   return {
     fiscal,
     titulo: fiscal
@@ -170,9 +172,9 @@ function papelDeFactura(f) {
       ...(f.fechaVencimiento ? [['Fecha de vencimiento:', fechaLarga(f.fechaVencimiento)]] : [])
     ],
     condiciones: [
-      ['Condición:', f.condicionVenta === 'credito' ? (f.plazo || 'Crédito') : 'Contado'],
+      ['Condición:', fiscal ? fiscalPdf.condicionFiscal(fiscal, condicion) : condicion],
       ['Moneda:', f.moneda || 'CRC'],
-      ['Medio de pago:', medioDePago(f.metodoPago)]
+      ['Medio de pago:', fiscal ? fiscalPdf.medioFiscal(fiscal, medioDePago(f.metodoPago)) : medioDePago(f.metodoPago)]
     ],
     observacion: f.observaciones ? { titulo: 'NOTA', texto: f.observaciones } : null,
     terminos: true
@@ -265,7 +267,7 @@ function encabezado(doc, f, ancho, F, emisor, papel) {
     doc.font(F.normal).fontSize(7).fillColor(MARCA.gris)
       .text('Clave: ' + fiscal.clave, xDer, yDer, { width: 240, align: 'right' });
     yDer += 24;
-    dato('Fecha fiscal:', String(fiscal.fecha));
+    for (const [etiqueta, valor] of fiscalPdf.datosFiscalesEncabezado(fiscal)) dato(etiqueta, valor);
     dato(papel.numeroPropio, f.numero);
   }
   for (const [etiqueta, valor] of papel.datos) dato(etiqueta, valor);
@@ -288,29 +290,6 @@ function encabezado(doc, f, ancho, F, emisor, papel) {
  * Teléfono y dirección salen de la COPIA guardada en la factura, no de la
  * ficha del cliente: el papel se reimprime igual dentro de dos años.
  */
-/**
- * El medio de pago, en español.
- *
- * Las 5.398 facturas copiadas lo guardan como lo llama Alegra ("cash",
- * "transfer"), y al reimprimir una el cliente leía un tecnicismo en inglés.
- * Las nuevas ya nacen con el nombre de nuestro catálogo.
- */
-const MEDIOS = {
-  cash: 'Efectivo',
-  transfer: 'Transferencia',
-  'credit-card': 'Tarjeta de crédito',
-  'debit-card': 'Tarjeta de débito',
-  check: 'Cheque',
-  sinpe_movil: 'SINPE Móvil'
-};
-
-function medioDePago(valor) {
-  if (!valor) return null;
-  const clave = String(valor).trim().toLowerCase();
-  if (MEDIOS[clave]) return MEDIOS[clave];
-  return String(valor).charAt(0).toUpperCase() + String(valor).slice(1).toLowerCase();
-}
-
 function bloqueCliente(doc, f, ancho, y, F, papel) {
   const anchoIzq = ancho * 0.62;
   const xDer = M + anchoIzq + 14;
@@ -331,7 +310,8 @@ function bloqueCliente(doc, f, ancho, y, F, papel) {
     f.cliente?.identificacion ? `${tipo}: ${f.cliente.identificacion}` : null,
     f.cliente?.telefono ? `Teléfono: ${f.cliente.telefono}` : null,
     f.cliente?.direccion ? `Dirección: ${f.cliente.direccion}` : null,
-    f.cliente?.correo ? `Email: ${f.cliente.correo}` : null
+    f.cliente?.correo ? `Email: ${f.cliente.correo}` : null,
+    papel.fiscal?.actividadReceptor ? `Actividad económica: ${papel.fiscal.actividadReceptor}` : null
   ].filter(Boolean);
   for (const linea of datos) {
     doc.text(linea, M, yIzq, { width: anchoIzq });
@@ -384,7 +364,7 @@ function cabeceraTabla(doc, col, ancho, y, F) {
  * EL CAByS VA EN EL PAPEL porque identifica el bien ante Hacienda; sin él, la
  * línea no se puede clasificar.
  */
-function filas(doc, f, col, ancho, yInicio, F) {
+function filas(doc, f, col, ancho, yInicio, F, fiscal = null) {
   let y = yInicio;
   const anchoNombre = col.desc.w - 8;
 
@@ -397,8 +377,12 @@ function filas(doc, f, col, ancho, yInicio, F) {
     const detalle = detalleLinea(l);
     doc.font(F.normal).fontSize(7.5);
     const altoDetalle = detalle ? doc.heightOfString(detalle, { width: anchoNombre }) + 2 : 0;
+    // Electrónica: lo que el XML firmado dice de la línea (unidad, total con IVA…).
+    const extra = fiscal ? fiscalPdf.textoLineaFiscal(fiscalPdf.lineaFiscalDe(fiscal, l.numeroLinea)) : null;
+    doc.font(F.normal).fontSize(6.3);
+    const altoExtra = extra ? doc.heightOfString(extra, { width: anchoNombre }) + 2 : 0;
     doc.font(F.negrita).fontSize(8.5);
-    const alto = Math.max(26, altoNombre + (alPie ? 14 : 6) + altoDetalle + 6);
+    const alto = Math.max(26, altoNombre + (alPie ? 14 : 6) + altoDetalle + altoExtra + 6);
 
     if (y + alto > doc.page.height - M - PIE_RESERVADO) {
       doc.addPage();
@@ -419,6 +403,10 @@ function filas(doc, f, col, ancho, yInicio, F) {
     if (detalle) {
       doc.font(F.normal).fontSize(7.5).fillColor(MARCA.gris)
         .text(detalle, col.desc.x + 4, y + 5 + altoNombre + (alPie ? 10 : 2), { width: anchoNombre });
+    }
+    if (extra) {
+      doc.font(F.normal).fontSize(6.3).fillColor(MARCA.grisSuave)
+        .text(extra, col.desc.x + 4, y + 5 + altoNombre + (alPie ? 10 : 2) + altoDetalle, { width: anchoNombre });
     }
 
     const yNum = y + 6;
@@ -654,11 +642,15 @@ function generarPdfFactura(f, empresa = null, papel = null) {
   let y = encabezado(doc, f, ancho, F, emisor, papel);
   y = bloqueCliente(doc, f, ancho, y, F, papel);
   y = cabeceraTabla(doc, col, ancho, y, F);
-  const yTrasFilas = filas(doc, f, col, ancho, y, F);
+  const yTrasFilas = filas(doc, f, col, ancho, y, F, papel.fiscal);
 
   // La observación va a la IZQUIERDA de los totales, bajo el monto en letras:
   // son las cosas que se leen al final y comparten ese espacio.
-  const yFinal = totales(doc, f, ancho, yTrasFilas, F, papel.observacion);
+  let yFinal = totales(doc, f, ancho, yTrasFilas, F, papel.observacion);
+  if (papel.fiscal) {
+    yFinal = fiscalPdf.dibujarResumenFiscal(doc, papel.fiscal,
+      { x: M, ancho, y: yFinal + 14, F, limite: doc.page.height - M - PIE_RESERVADO });
+  }
 
   // POR DÓNDE PAGA EL CLIENTE. Sin esto el papel no sirve para cobrar: son
   // las cuentas de SINPE y de banco, y viven en la configuración porque un

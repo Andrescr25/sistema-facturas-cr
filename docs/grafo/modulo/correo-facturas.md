@@ -22,6 +22,9 @@ archivos:
   - frontend/src/components/facturacion/PanelFacturasEmitidas.jsx
   - frontend/src/components/facturacion/VistaFactura.jsx
   - frontend/src/components/facturacion/ModalEnviarFacturaCorreo.jsx
+  - backend/src/modules/facturacion/papelFiscal.pdf.js
+  - backend/src/integrations/hacienda/lectura.service.js
+  - backend/tests/papelFiscal.test.js
 aristas:
   relacionado: [modulo/hacienda, modulo/facturacion, modulo/permisos, leccion/un-borrador-no-es-una-venta, leccion/la-db-local-es-produccion]
 medido: 2026-10-20
@@ -154,3 +157,39 @@ sustituido), `notaCreditoConsulta.test.js` (base de mentira) y tres casos
 nuevos en `haciendaUnClicPg.test.js`. Chromium real con Hacienda y correo
 simulados: nota aceptada con su correo, sin correo en la ficha, correo que
 falla, y nota sobre una factura de venta común; el PDF se abrió y se miró.
+
+## El papel de una electrónica muestra lo que dice su XML — 2026-10-24
+
+QUÉ PIDE LA NORMA. La representación gráfica «deberá mostrar el contenido de
+los comprobantes electrónicos, de forma legible» (MH-DGT-RES-0027-2024, art. 5;
+el Decreto 44739-H, art. 2 inciso 24, la define como el «documento impreso que
+expresa el contenido»). No hay lista de campos ni leyenda obligatoria. El QR
+del mismo artículo está SUSPENDIDO (Transitorio III) hasta que la DGT lo
+comunique: no se imprime. Fuentes leídas el 2026-10-24 en hacienda.go.cr.
+
+QUÉ FALTABA y ahora va, SOLO cuando el comprobante está aceptado
+(`papel.fiscal`; la factura de venta sale pixel por pixel igual):
+- encabezado: fecha de emisión legible (con la hora firmada), «Aceptada por
+  Hacienda» y el proveedor de sistemas;
+- cliente: «Crédito a N días» (plazo firmado), medio de pago con su código y
+  la actividad del receptor si va en el XML;
+- cada línea: unidad, subtotal, total con IVA y motivo del descuento;
+- debajo de los totales, el recuadro «Resumen del comprobante electrónico»:
+  gravado, exento, venta, descuentos, venta neta, IVA por código de tarifa,
+  impuesto y comprobante (servicios/mercancías y otros, solo si no dan cero).
+
+DE DÓNDE SALE: del XML aceptado (`lectura.service.js`, `contenidoDelXml`), no
+de la base. El XML trae la ubicación del emisor en códigos: `conNombres` pone
+los nombres de Configuración solo si los códigos configurados son los
+firmados. Teléfono y términos de pago (las cuentas) salen de Configuración,
+como en la factura de venta: antes la electrónica salía sin ellos.
+
+Lo fiscal se dibuja en `papelFiscal.pdf.js` (el archivo de la factura estaba
+en el tope de 700 líneas; `medioDePago` pasó a `utils/marcaPdf.js`). Vale
+igual para la nota de crédito electrónica. Pruebas: `papelFiscal.test.js`,
+con un XML armado por el mismo `generarVenta` que va a Hacienda.
+
+PENDIENTE (no se hizo): una electrónica todavía sin aceptar se imprime como
+«FACTURA DE VENTA». Hoy no le llega al cliente así (se imprime y se envía al
+aceptarse), pero el art. 18 del reglamento pide entregar el papel aunque
+falte la confirmación.

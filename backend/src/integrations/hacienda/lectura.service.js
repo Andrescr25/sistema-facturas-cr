@@ -3,17 +3,27 @@ const { leerXml } = require("./seguridad/almacen");
 const { parsear, texto } = require("./xml/util");
 // La representación impresa usa la foto FIRMADA del emisor y el número fiscal,
 // aunque Configuración cambie después. No devuelve rutas privadas ni secretos.
-async function leer(r) {
-  if (!r) return null;
-  const doc = parsear(await leerXml(r.xml_ruta, r.xml_sha256)),
-    e = doc.getElementsByTagNameNS("*", "Emisor")[0],
-    ref = doc.getElementsByTagNameNS("*", "InformacionReferencia")[0];
+//
+// Y EL CONTENIDO DEL COMPROBANTE (2026-10-24). El papel de una electrónica
+// «deberá mostrar el contenido de los comprobantes electrónicos, de forma
+// legible» (MH-DGT-RES-0027-2024, art. 5). Lo fiscal se lee del XML aceptado,
+// no de la base: así el PDF dice lo mismo que lo que Hacienda aceptó.
+const monto = (el, n) => {
+  const v = texto(el, n);
+  return v === "" ? null : Number(v);
+};
+const hijos = (el, n) => Array.from(el?.getElementsByTagNameNS("*", n) || []);
+function contenidoDelXml(xml) {
+  const doc = parsear(xml),
+    e = hijos(doc, "Emisor")[0],
+    r = hijos(doc, "ResumenFactura")[0],
+    ref = hijos(doc, "InformacionReferencia")[0];
   return {
-    id: r.id,
-    clave: r.clave,
-    consecutivo: r.consecutivo,
-    tipo: r.tipo,
     fecha: texto(doc, "FechaEmision"),
+    proveedorSistemas: texto(doc, "ProveedorSistemas") || null,
+    actividadReceptor: texto(doc, "CodigoActividadReceptor") || null,
+    condicionVenta: texto(doc, "CondicionVenta") || null,
+    plazoCredito: texto(doc, "PlazoCredito") || null,
     empresa: {
       nombre: texto(e, "Nombre"),
       tipo_identificacion: texto(e, "Tipo") === "02" ? "CJ" : "CF",
@@ -25,6 +35,46 @@ async function leer(r) {
       distrito: texto(e, "Distrito"),
       actividad_economica: texto(doc, "CodigoActividadEmisor"),
     },
+    lineas: hijos(doc, "LineaDetalle").map((l) => ({
+      numeroLinea: Number(texto(l, "NumeroLinea")),
+      unidad: texto(l, "UnidadMedida") || null,
+      codigoDescuento: texto(l, "CodigoDescuento") || null,
+      naturalezaDescuento: texto(l, "NaturalezaDescuento") || null,
+      subTotal: monto(l, "SubTotal"),
+      codigoTarifa: texto(l, "CodigoTarifaIVA") || null,
+      tarifa: monto(l, "Tarifa"),
+      montoTotalLinea: monto(l, "MontoTotalLinea"),
+    })),
+    resumen: r
+      ? {
+          servGravados: monto(r, "TotalServGravados"),
+          servExentos: monto(r, "TotalServExentos"),
+          servExonerados: monto(r, "TotalServExonerado"),
+          servNoSujetos: monto(r, "TotalServNoSujeto"),
+          mercGravadas: monto(r, "TotalMercanciasGravadas"),
+          mercExentas: monto(r, "TotalMercanciasExentas"),
+          mercExoneradas: monto(r, "TotalMercExonerada"),
+          mercNoSujetas: monto(r, "TotalMercNoSujeta"),
+          gravado: monto(r, "TotalGravado"),
+          exento: monto(r, "TotalExento"),
+          exonerado: monto(r, "TotalExonerado"),
+          noSujeto: monto(r, "TotalNoSujeto"),
+          venta: monto(r, "TotalVenta"),
+          descuentos: monto(r, "TotalDescuentos"),
+          ventaNeta: monto(r, "TotalVentaNeta"),
+          desglose: hijos(r, "TotalDesgloseImpuesto").map((d) => ({
+            codigoTarifa: texto(d, "CodigoTarifaIVA"),
+            monto: monto(d, "TotalMontoImpuesto"),
+          })),
+          impuesto: monto(r, "TotalImpuesto"),
+          otrosCargos: monto(r, "TotalOtrosCargos"),
+          comprobante: monto(r, "TotalComprobante"),
+          mediosPago: hijos(r, "MedioPago").map((m) => ({
+            tipo: texto(m, "TipoMedioPago"),
+            monto: monto(m, "TotalMedioPago"),
+          })),
+        }
+      : null,
     // Una nota de crédito declara sobre qué documento actúa: el papel lo dice
     // con lo que se firmó, no con lo que hoy diga la base.
     ...(ref
@@ -32,8 +82,50 @@ async function leer(r) {
       : {}),
   };
 }
+/**
+ * El XML lleva la ubicación del emisor en CÓDIGOS (2, 07, 02) y el papel decía
+ * «2 07 02». Los nombres de Configuración se usan solo si sus códigos son los
+ * firmados; si no coinciden, quedan los códigos. Igual con el nombre de la
+ * actividad. El teléfono y los términos de pago (las cuentas) no van en el
+ * XML: son los de Configuración, como en la factura de venta. Sin ellos la
+ * electrónica salía sin decir por dónde pagar.
+ */
+async function conNombres(db, empresa) {
+  const [{ rows: [h] }, { rows: [cfg] }] = await Promise.all([
+    db.query("SELECT datos FROM hacienda_configuracion WHERE ambiente='produccion'"),
+    db.query("SELECT * FROM empresa WHERE id=1"),
+  ]);
+  if (!cfg) return empresa;
+  const d = h?.datos || {};
+  const misma =
+    d.provincia_codigo === empresa.provincia &&
+    d.canton_codigo === empresa.canton &&
+    d.distrito_codigo === empresa.distrito;
+  return {
+    ...empresa,
+    ...(misma ? { provincia: cfg.provincia, canton: cfg.canton, distrito: cfg.distrito } : {}),
+    ...(cfg.actividad_economica === empresa.actividad_economica
+      ? { actividad_economica_nombre: cfg.actividad_economica_nombre }
+      : {}),
+    telefono: cfg.telefono,
+    terminos_pago: cfg.terminos_pago,
+  };
+}
+async function leer(db, r) {
+  if (!r) return null;
+  const contenido = contenidoDelXml(await leerXml(r.xml_ruta, r.xml_sha256));
+  return {
+    id: r.id,
+    clave: r.clave,
+    consecutivo: r.consecutivo,
+    tipo: r.tipo,
+    ...contenido,
+    empresa: await conNombres(db, contenido.empresa),
+  };
+}
 async function aceptada(db, id) {
   return leer(
+    db,
     (
       await db.query(
         "SELECT * FROM hacienda_comprobante WHERE id=$1 AND ambiente='produccion' AND origen='factura' AND estado='aceptada'",
@@ -48,6 +140,7 @@ async function aceptada(db, id) {
  */
 async function notaAceptada(db, notaId) {
   return leer(
+    db,
     (
       await db.query(
         "SELECT * FROM hacienda_comprobante WHERE ambiente='produccion' AND origen='nota_credito' AND origen_id=$1 AND estado='aceptada' ORDER BY revision_documento DESC LIMIT 1",
@@ -56,4 +149,4 @@ async function notaAceptada(db, notaId) {
     ).rows[0],
   );
 }
-module.exports = { aceptada, notaAceptada };
+module.exports = { aceptada, notaAceptada, contenidoDelXml, conNombres };

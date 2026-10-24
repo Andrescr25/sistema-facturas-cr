@@ -572,3 +572,11 @@ el trabajador retoma sólo la respuesta de la decisión durable, sin otro pago.
 Un rechazo explícito de gasto puede emitir desde su compra documental anulada;
 otras anuladas siguen bloqueadas. El estado sólo dice Aceptada al confirmarlo
 Hacienda. Ver [[modulo/gastos-operativos]]; SQL061/062 aplicadas en producción; ver despliegue del 21/10.
+
+## Representación gráfica — 2026-10-24
+
+`lectura.service.js` ya no lee solo el emisor y el número: `contenidoDelXml`
+devuelve también las líneas y el resumen del XML aceptado, porque el papel
+«deberá mostrar el contenido de los comprobantes electrónicos, de forma
+legible» (MH-DGT-RES-0027-2024, art. 5; el QR sigue suspendido por su
+Transitorio III). Cómo se dibuja, en [[modulo/correo-facturas]].

@@ -96,4 +96,29 @@ const fechaLarga = (f) => {
   return d.toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
-module.exports = { MARCA, LOGO, LOGO_RATIO, NEGOCIO, FUENTES, registrarFuentes, colones, colonesExacto, fechaLarga };
+/**
+ * El medio de pago, en español.
+ *
+ * Las 5.398 facturas copiadas lo guardan como lo llama Alegra ("cash",
+ * "transfer"), y al reimprimir una el cliente leía un tecnicismo en inglés.
+ * Las nuevas ya nacen con el nombre de nuestro catálogo.
+ */
+const MEDIOS = {
+  cash: 'Efectivo',
+  transfer: 'Transferencia',
+  'credit-card': 'Tarjeta de crédito',
+  'debit-card': 'Tarjeta de débito',
+  check: 'Cheque',
+  sinpe_movil: 'SINPE Móvil'
+};
+
+function medioDePago(valor) {
+  if (!valor) return null;
+  const clave = String(valor).trim().toLowerCase();
+  if (MEDIOS[clave]) return MEDIOS[clave];
+  return String(valor).charAt(0).toUpperCase() + String(valor).slice(1).toLowerCase();
+}
+
+module.exports = {
+  MARCA, LOGO, LOGO_RATIO, NEGOCIO, FUENTES, registrarFuentes, colones, colonesExacto, fechaLarga, medioDePago
+};
