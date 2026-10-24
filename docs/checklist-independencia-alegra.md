@@ -1235,3 +1235,15 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   existentes de Excel correctas; sin base de datos ni migración.
 
 [Detalle](grafo/modulo/reporte-contador.md). Entrega inicial en developer.
+
+
+### Ventas del resumen sólo electrónicas — 2026-10-24
+
+- [x] Sumar sólo facturas/tiquetes electrónicos y restar sólo notas electrónicas
+  por moneda, con el mismo alcance que la pestaña y el Excel mensual.
+- [x] Tarjeta Ventas electrónicas netas con aclaración; compras/gastos y datos
+  originales conservados.21 pruebas dirigidas con PostgreSQL y76 comprobaciones
+  Chromium390/700/1440, incluidos importe de tarjeta y total Excel coincidentes.
+  Build/lint correctos. Sin SQL nuevo; entrega inicial en developer.
+
+[Detalle](grafo/modulo/reporte-contador.md).

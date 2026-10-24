@@ -110,3 +110,24 @@ tres hojas y se comprobaron estilos reales OOXML, centrado sin sangría,
 números tipados y comportamiento por omisión en otra hoja. Validación directa de117celdas centradas y45valores numéricos. Evidencia
 privada y muestra ficticia en
 `/private/tmp/codex-contador-centrado-20261024/`. Entrega inicial en developer.
+
+
+## Resumen de ventas sólo electrónico — 2026-10-24
+
+El usuario detecta que la tarjeta seguía sumando ventas no electrónicas aunque
+la pestaña y hoja ya fueran sólo electrónicas. `resumir` ahora limita tanto
+ventas como devoluciones a `electronica=true`, por su propia emisión, e incluye
+facturas y tiquetes. La tarjeta dice Ventas electrónicas netas con aclaración.
+Por moneda, el total es facturas/tiquetes menos notas electrónicas, consistente
+con el Excel. Compras, notas de proveedor, gastos y documentos no se modifican;
+no hay consultas, esquema ni dependencias nuevos.
+
+Regresión con ventas/notas electrónicas y no electrónicas, estado pendiente/
+rechazado, ausencia de bandera y dos monedas. La integración PostgreSQL prueba
+que la tarjeta169,50−11,30 y la hoja electrónica158,20 coinciden; las ventas
+comerciales y notas sin emisión no entran.21 pruebas de reporte/Excel y76
+comprobaciones Chromium390/700/1440 correctas: importe de API/tarjeta por moneda,
+filtros, tiquete, descarga XLSX y correo simulado. Build/lint correctos, cero
+erroresJS o desborde. Clon local desechable/ROLLBACK; no producción ni mensajes.
+Evidencia privada:`/private/tmp/codex-contador-total-electronico-20261024/`.
+Se entrega en developer junto con el formato centrado previo, pendiente de main.

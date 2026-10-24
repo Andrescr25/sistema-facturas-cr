@@ -62,7 +62,7 @@ describe('el cierre mensual conserva las decisiones y las monedas', () => {
       null
     );
     const r = resumir(
-      [{ moneda: 'USD', tipo: 'Venta', total: 20 }],
+      [{ moneda: 'USD', tipo: 'Venta', total: 20, electronica: true }],
       [{ moneda: 'CRC', estado: 'registrada', total: 113, gasto_deducible: 100, iva_credito: 13 }]
     );
     assert.deepEqual(
@@ -72,6 +72,27 @@ describe('el cierre mensual conserva las decisiones y las monedas', () => {
         ['USD', 20, 0]
       ]
     );
+  });
+  test('el total fiscal excluye ventas/notas sin emitir y conserva monedas, compras y gastos', () => {
+    const d = (tipo, total, electronica, extra = {}) => ({ tipo, total, electronica, moneda: 'CRC', ...extra });
+    const documentos = [d('Venta', 113, true), d('Venta', 57, true, { tipo_documento: 'tiquete' }),
+      d('Nota de crédito', 10, true), d('Venta', 80, false), d('Nota de crédito', 5, false),
+      d('Venta', 12, undefined), d('Venta', 40, false, { hacienda_estado: 'pendiente' }),
+      d('Venta', 50, false, { hacienda_estado: 'rechazada' }),
+      d('Venta', 100, true, { moneda: 'USD' }), d('Nota de crédito', 20, true, { moneda: 'USD' }),
+      d('Nota de crédito', 30, false, { moneda: 'USD' }), d('Compra', 99, true),
+      d('Compra', 1, false), d('Nota de crédito proveedor', 4, undefined)];
+    const antes = JSON.stringify(documentos);
+    const [crc, usd] = resumir(documentos, [{ moneda: 'CRC', total: 20, estado: 'registrada' }]);
+    assert.equal(crc.ventas, 170);
+    assert.equal(crc.devoluciones, 10);
+    assert.equal(crc.ventas - crc.devoluciones, 160);
+    assert.equal(usd.ventas - usd.devoluciones, 80);
+    assert.equal(crc.compras, 100);
+    assert.equal(crc.creditos_proveedores, 4);
+    assert.equal(crc.gastos, 20);
+    assert.equal(JSON.stringify(documentos), antes);
+    assert.equal(resumir([d('Venta', 99, false)], [])[0].ventas, 0);
   });
   test('buscar no mezcla notas de proveedor con ventas', () => {
     const documentos = [
@@ -311,7 +332,10 @@ describe(
       assert.equal(mes.documentos.filter((d) => d.tipo === 'Nota de crédito proveedor').length, 1);
       assert.equal(mes.gastos.length, 4);
       assert.equal(mes.gastos.filter((g) => g.revision === 'Por revisar').length, 2);
-      assert.equal(mes.resumen.find((r) => r.moneda === 'CRC').gastos, 133);
+      const resumenCRC = mes.resumen.find((r) => r.moneda === 'CRC');
+      assert.equal(resumenCRC.ventas, 169.5, 'factura electrónica113 más tiquete56,5');
+      assert.equal(resumenCRC.devoluciones, 11.3, 'sólo la nota electrónica');
+      assert.equal(resumenCRC.gastos, 133);
       assert.equal(mes.resumen.find((r) => r.moneda === 'CRC').gasto_deducible, 100);
       assert.equal(mes.resumen.find((r) => r.moneda === 'USD').gastos, 5);
       assert.equal(
@@ -372,6 +396,8 @@ describe(
       assert.equal(totales('Gastos operativos')[0][4], 133);
       assert.equal(totales('Gastos operativos')[1][4], 5);
       assert.equal(totales('Facturas y notas electrónicas')[0][4], 158.2);
+      const resumen = mes.resumen.find(r => r.moneda === 'CRC');
+      assert.equal(totales('Facturas y notas electrónicas')[0][4], resumen.ventas - resumen.devoluciones);
       assert.ok(!JSON.stringify(filas('Gastos operativos')).includes('ZZ almuerzo'));
       assert.ok(!JSON.stringify(filas('Facturas y notas electrónicas')).includes('ZZ-venta'));
       assert.equal(filas('Compras').find(f => f[0] === 'Notas de proveedor por clasificar')[4], -4);

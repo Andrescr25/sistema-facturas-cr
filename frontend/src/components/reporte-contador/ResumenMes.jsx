@@ -15,9 +15,10 @@ export default function ResumenMes({ datos }) {
               tarjetas={[
                 {
                   clave: 'ventas',
-                  titulo: 'Ventas menos notas de crédito',
+                  titulo: 'Ventas electrónicas netas',
                   icono: Wallet,
-                  valor: formatearMoneda(r.ventas - r.devoluciones, r.moneda)
+                  valor: formatearMoneda(r.ventas - r.devoluciones, r.moneda),
+                  pie: 'Facturas y tiquetes menos notas de crédito electrónicas'
                 },
                 {
                   clave: 'compras',

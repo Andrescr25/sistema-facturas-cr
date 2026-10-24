@@ -28,7 +28,7 @@ function mesDeMuestra() {
     empresa: { nombre: 'ZZ Empresa de demostración S.A.', nombre_comercial: 'CATÁLOGO DEMOSTRACIÓN', identificacion: '0031010000' },
     huella: 'muestra-sin-datos-reales',
     resumen: [
-      { moneda: 'CRC', ventas: 163500, devoluciones: 11300, compras: 226000, creditos_proveedores: 9000, gastos: 56300, gasto_deducible: 45000, iva_credito_gastos: 0 },
+      { moneda: 'CRC', ventas: 113000, devoluciones: 11300, compras: 226000, creditos_proveedores: 9000, gastos: 56300, gasto_deducible: 45000, iva_credito_gastos: 0 },
       { moneda: 'USD', ventas: 113, devoluciones: 0, compras: 0, creditos_proveedores: 0, gastos: 22.6, gasto_deducible: 22.6, iva_credito_gastos: 0 }
     ],
     documentos: [documento(1, 'Venta', 113000, 100000, 13000), documento(2, 'Venta', 50500, 50000, 500),

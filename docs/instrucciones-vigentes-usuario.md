@@ -1278,3 +1278,13 @@ El usuario pide centrar los datos debajo de Subtotal, Descuento, Impuestos
 y Total para que las hojas queden alineadas. Las tres tablas centran
 encabezados, datos y totales; los importes mantienen su tipo/formato numérico.
 Se aplica también al adjunto del correo. [Resultado](grafo/modulo/reporte-contador.md).
+
+
+## Reporte Contador: total de ventas sólo electrónico — 2026-10-24
+
+El usuario pide que la suma de ventas de las tarjetas del mes tome sólo
+facturas y tiquetes electrónicos. Se conserva el importe neto: descontar
+sólo notas de crédito electrónicas por su emisión propia, igual que el Excel.
+Compras/gastos y separación por moneda se conservan. Esta decisión sustituye
+mantener el resumen de todas las ventas tras retirar la pestaña no electrónica.
+[Resultado](grafo/modulo/reporte-contador.md).

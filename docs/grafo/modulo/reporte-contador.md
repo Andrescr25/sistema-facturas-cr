@@ -68,7 +68,8 @@ La pestaña inicial es electrónicas. Cada fila/detalle identifica factura,
 tiquete o nota de crédito y agrega electrónica sólo cuando corresponde. Se
 reutiliza la lectura mensual: el tipo de documento se incorpora al SELECT
 existente y alternar pestañas no vuelve a consultar. Búsqueda y paginación
-conservan su comportamiento. Los resúmenes generales no pierden importes.
+conservan su comportamiento. El resumen de ventas usa sólo emisión electrónica,
+igual que la pestaña y la hoja mensual; compras/gastos conservan su alcance.
 
 Cada hoja muestra título, empresa/período y tabla
 corta: concepto/tipo de impuesto, subtotal, descuento, impuestos y total. No
@@ -169,8 +170,9 @@ El usuario retira explícitamente la pestaña y su hoja de Excel. Se elimina
 su opción y la rama de filtrado, sin mover esas ventas al grupo electrónico.
 Descarga y adjunto reutilizan el mismo generador de tres hojas; el modal de
 envío toma dinámicamente sus tres nombres y el correo identifica ventas
-fiscales. La lectura mensual y el resumen general se conservan, igual que
-los documentos, originales y reportes archivados. No hay borrado de datos
+fiscales. En ese retiro se conservó el resumen general. El ajuste posterior limita
+ventas/notas a electrónicas; documentos, originales y reportes archivados
+se conservan. No hay borrado de datos
 ni migración. La corrección anterior de etiqueta de tiquete sigue incluida.
 
 
@@ -184,3 +186,21 @@ La caché de estilos incluye la alineación; formatos numéricos/colores y
 valores se mantienen. Sin la opción, el presentador conserva texto a la
 izquierda y números a la derecha para cualquier otro exportador. Descarga y
 adjunto del correo usan el mismo generador. Sin consultas ni SQL nuevo.
+
+
+## Total de ventas sólo electrónico — 2026-10-24
+
+El usuario pide que la suma de ventas de las tarjetas incluya sólo facturas
+y tiquetes electrónicos. `resumir` selecciona `electronica=true` tanto para
+ventas como para sus devoluciones: resta sólo notas de crédito electrónicas,
+por su propia emisión. Sin emitir/pendientes/rechazadas no entran al total.
+Se conserva separación por moneda y redondeo de cada acumulado a centavos,
+sin cambiar compras, notas de proveedor, gastos ni la lectura de documentos.
+
+La tarjeta dice Ventas electrónicas netas y aclara factura/tiquete menos notas
+electrónicas. La API concentra la regla; el componente sólo presenta. No hay
+consultas ni columnas nuevas. El total coincide con la hoja electrónica y
+se verifica con datos mezclados, monedas distintas y cero ventas fiscales.
+21 pruebas de reporte/Excel (PostgreSQL/ROLLBACK incluido),76comprobaciones
+Chromium390/700/1440 con valores reales de la API local y descarga/correo
+simulado; build/lint correctos. Sin usar producción para probar.

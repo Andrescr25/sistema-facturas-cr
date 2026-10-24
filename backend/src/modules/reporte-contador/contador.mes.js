@@ -48,15 +48,18 @@ function resumir(documentos, gastos) {
   return monedas.map((moneda) => {
     const doc = documentos.filter((d) => d.moneda === moneda),
       gs = gastos.filter((g) => g.moneda === moneda && g.estado !== 'anulada' && g.decision !== 'rechazado');
+    // Mismo alcance que la pestaña y el Excel: la emisión pertenece a cada
+    // documento. Una nota sin emitir no rebaja las ventas electrónicas.
+    const electronicas = doc.filter((d) => d.electronica === true);
     const suma = (lista, campo) => redondear(lista.reduce((s, d) => s + n(d[campo]), 0));
     return {
       moneda,
       ventas: suma(
-        doc.filter((d) => d.tipo === 'Venta'),
+        electronicas.filter((d) => d.tipo === 'Venta'),
         'total'
       ),
       devoluciones: suma(
-        doc.filter((d) => d.tipo === 'Nota de crédito'),
+        electronicas.filter((d) => d.tipo === 'Nota de crédito'),
         'total'
       ),
       compras: suma(
