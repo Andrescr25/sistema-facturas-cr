@@ -176,18 +176,19 @@ test(
         );
       };
       /**
-       * Una factura ZZ de una línea; `cedula` vacía = cliente sin identificar.
+       * Una factura ZZ de una línea; `cedula` vacía = cliente sin identificar y
+       * `correo: null` = cliente sin correo (sale tiquete, ver `tipoDeFactura`).
        * `medio: null` = como nacen hoy las facturas: sin medio de pago.
        * `enBodega`: recién hecha, todavía sin pasar por Bodega.
        */
-      const crear = async ({ cedula = "123456789", descuento = 0, extra = "", medio = pago, credito = false, enBodega = false } = {}) => {
+      const crear = async ({ cedula = "123456789", correo = "zz-cliente@example.invalid", descuento = 0, extra = "", medio = pago, credito = false, enBodega = false } = {}) => {
         const base = 100 - descuento,
           iva = Math.round(base * 13) / 100,
           total = base + iva;
         const f = (
           await db.query(
-            `INSERT INTO factura(numero,estado,fecha,cliente_nombre,cliente_identificacion,cliente_tipo_identificacion,actividad_economica,condicion_venta,plazo_credito_id,metodo_pago_id,subtotal,descuento,impuesto,total${extra ? "," + extra : ""}) VALUES('ZZ-un-clic','emitida',CURRENT_DATE,'ZZ receptor',$2,$3,'123456',$8,$9,$1,$4,$5,$6,$7${extra ? ",'zz-alegra-1'" : ""}) RETURNING id`,
-            [medio, cedula || null, cedula ? "CF" : null, base, descuento, iva, total, credito ? "credito" : "contado", credito ? plazo : null],
+            `INSERT INTO factura(numero,estado,fecha,cliente_nombre,cliente_identificacion,cliente_tipo_identificacion,cliente_correo,actividad_economica,condicion_venta,plazo_credito_id,metodo_pago_id,subtotal,descuento,impuesto,total${extra ? "," + extra : ""}) VALUES('ZZ-un-clic','emitida',CURRENT_DATE,'ZZ receptor',$2,$3,$10,'123456',$8,$9,$1,$4,$5,$6,$7${extra ? ",'zz-alegra-1'" : ""}) RETURNING id`,
+            [medio, cedula || null, cedula ? "CF" : null, base, descuento, iva, total, credito ? "credito" : "contado", credito ? plazo : null, correo],
           )
         ).rows[0].id;
         await db.query(
@@ -260,32 +261,36 @@ test(
         assert.match(await motivo(), /Reporte Clientes/);
       });
 
-      await t.test("factura si el cliente tiene cédula, tiquete si no", async () => {
-        const conCedula = await crear(),
-          sinCedula = await crear({ cedula: "" });
-        assert.equal((await s.estadoDeFactura(conCedula.id)).tipo, "01");
+      await t.test("factura si el cliente tiene correo y cédula, tiquete si no", async () => {
+        const conCorreo = await crear(),
+          sinCedula = await crear({ cedula: "" }),
+          sinCorreo = await crear({ correo: null });
+        assert.equal((await s.estadoDeFactura(conCorreo.id)).tipo, "01");
         assert.equal((await s.estadoDeFactura(sinCedula.id)).tipo, "04");
+        assert.equal((await s.estadoDeFactura(sinCorreo.id)).tipo, "04", "con cédula pero sin correo: tiquete");
         assert.equal((await s.emitirFactura(sinCedula.id)).tipo, "04");
       });
 
-      await t.test("a un cliente CON cédula y sin correo se le emite tiquete cuando se pide: firmado, numerado aparte y aceptado", async () => {
-        // 2026-10-24: «los clientes que no tienen correo, salga la opción emitir
-        // como tiquete e imprimir». La cédula iría a factura; el tiquete es una elección.
-        const f = await crear();
-        assert.equal((await s.estadoDeFactura(f.id)).tipo, "01", "sin pedirlo, sigue la regla de siempre");
-        assert.equal((await s.estadoDeFactura(f.id, [], { tipo: "04" })).tipo, "04");
+      await t.test("sin correo sale tiquete SIN receptor, aunque la cédula sea de relleno: firmado, numerado aparte y aceptado", async () => {
+        // 2026-10-24. El primer tiquete real llevaba la cédula de relleno del
+        // cliente («100000000») y Hacienda lo rechazó: -38, receptor inválido.
+        // «Los que no tienen correo, tiquete sin dirigirlo a nadie, solo tiquete.»
+        const f = await crear({ cedula: "100000000", correo: null });
+        assert.equal((await s.estadoDeFactura(f.id)).tipo, "04");
 
-        const p = await s.emitirFactura(f.id, { tipo: "04" }, usuarioId);
+        // Lo que mande el navegador no elige el tipo: sin correo no hay factura.
+        const p = await s.emitirFactura(f.id, { tipo: "01" }, usuarioId);
         assert.equal(p.tipo, "04");
         assert.equal(p.ambiente, "produccion");
         assert.match(p.consecutivo, /^0010000104\d{10}$/, "serie propia del tiquete: sucursal + terminal + 04");
         const xml = await s.archivo(p.id);
         assert.match(xml, /<TiqueteElectronico /);
-        assert.match(xml, /<Receptor>[\s\S]*<Numero>123456789<\/Numero>/, "el tiquete lleva al cliente identificado");
+        assert.doesNotMatch(xml, /<Receptor>/, "un tiquete no se dirige a nadie");
+        assert.doesNotMatch(xml, /100000000/, "la cédula de relleno no viaja a Hacienda");
+        assert.doesNotMatch(xml, /ZZ receptor/, "ni el nombre del cliente");
 
-        // Ya salió como tiquete: la factura lo recuerda aunque nadie lo vuelva a pedir.
+        // Ya salió como tiquete: la factura lo recuerda y un segundo clic no gasta otro número.
         assert.equal((await s.estadoDeFactura(f.id)).tipo, "04");
-        assert.equal((await s.emitirFactura(f.id, { tipo: "04" })).id, p.id, "un segundo clic no gasta otro número");
         assert.equal((await s.emitirFactura(f.id)).id, p.id);
 
         // Sin correo: la aceptación no falla y queda anotado que no hay a quién mandarle nada.
@@ -298,12 +303,32 @@ test(
         correo = { estado: "enviado", para: "zz-cliente@example.invalid" };
       });
 
-      await t.test("pedir el tiquete no cambia una factura ya emitida como factura", async () => {
+      await t.test("con correo sale factura A SU NOMBRE (con su receptor), y un segundo clic no prepara otra", async () => {
         const f = await crear();
         const p = await s.emitirFactura(f.id, {}, usuarioId);
         assert.equal(p.tipo, "01");
-        assert.equal((await s.emitirFactura(f.id, { tipo: "04" })).id, p.id, "no se prepara otro comprobante");
-        assert.equal((await s.estadoDeFactura(f.id, [], { tipo: "04" })).tipo, "01");
+        const xml = await s.archivo(p.id);
+        assert.match(xml, /<FacturaElectronica /);
+        assert.match(xml, /<Receptor>[\s\S]*<Numero>123456789<\/Numero>/);
+        assert.equal((await s.estadoDeFactura(f.id)).tipo, "01");
+        assert.equal((await s.emitirFactura(f.id)).id, p.id, "no se prepara otro comprobante");
+      });
+
+      await t.test("un tiquete rechazado por Hacienda se vuelve a emitir como tiquete, sin receptor, y referencia al rechazado", async () => {
+        // El caso real: el 1970, rechazado por el receptor inválido. «Volver a emitir».
+        const f = await crear({ cedula: "100000000", correo: null });
+        modo = "rechazada";
+        const malo = await clic(f);
+        modo = "aceptada";
+        assert.equal(malo.estado, "rechazada");
+        assert.equal(malo.tipo, "04");
+        const nuevo = await s.emitirFactura(f.id, { sustituir: true }, usuarioId);
+        assert.notEqual(nuevo.id, malo.id, "se preparó un comprobante nuevo");
+        assert.equal(nuevo.tipo, "04");
+        const xml = await s.archivo(nuevo.id);
+        assert.match(xml, /<TiqueteElectronico /);
+        assert.doesNotMatch(xml, /<Receptor>/);
+        assert.match(xml, new RegExp(`<Numero>${malo.clave}</Numero>`), "referencia al comprobante rechazado");
       });
 
       await t.test("dos clics seguidos no gastan dos números", async () => {

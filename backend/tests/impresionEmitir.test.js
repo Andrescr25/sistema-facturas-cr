@@ -57,11 +57,11 @@ test('«como tiquete» se ofrece solo a las SIN correo, y nunca junto con «Impr
   }
 });
 
-test('la pregunta del tiquete avisa que no sirve para gastos ni créditos de IVA, y que no hay correo', () => {
+test('la pregunta del tiquete avisa que sale sin datos del cliente, que no sirve para gastos ni créditos de IVA y que no hay correo', () => {
   const sinCorreo = fila({ cliente_email: null });
   const q = u.preguntaAlProcesar(sinCorreo, { soloImprimir: false, despues: u.DESPUES.EMITIR_TIQUETE });
   assert.match(q, /^¿Marcar la factura 001000015100 como impresa, emitirla como tiquete electrónico e imprimirla\?/);
-  assert.match(q, /Se le rebajan los faltantes y se le ponen los precios del catálogo\.\n\nDespués de eso se emite ante Hacienda como TIQUETE ELECTRÓNICO y se imprime/);
+  assert.match(q, /Se le rebajan los faltantes y se le ponen los precios del catálogo\.\n\nDespués de eso se emite ante Hacienda como TIQUETE ELECTRÓNICO, sin los datos del cliente \(no queda a nombre de nadie\), y se imprime/);
   assert.match(q, /no tiene correo, se le entrega en papel/);
   assert.match(q, /no le sirve al cliente para respaldar gastos ni créditos de IVA/);
   assert.doesNotMatch(q, /le llega a/, 'no promete un correo que no existe');
@@ -101,7 +101,7 @@ test('el botón sale en la lista, la revisión y la edición, con quien puede em
 
 test('emite con lo mismo que Facturación, sola y una sola vez, y no se cierra a medio camino', () => {
   const modal = leer('components', 'impresion', 'EmitirEImprimir.jsx');
-  assert.match(modal, /const emision = useEmisionFactura\(factura\.factura_id, \{ tipo: comoTiquete \? '04' : null \}\)/);
+  assert.match(modal, /const emision = useEmisionFactura\(factura\.factura_id\)/);
   assert.match(modal, /<PanelEmisionFactura emision=\{emision\} incrustado angosto \/>/);
   assert.match(leer('components', 'facturacion', 'PanelEmisionFactura.jsx'), /angosto \? 'sm:grid-cols-2'/, 'en el modal, dos columnas como mucho');
   assert.match(modal, /<BotonEmitirFactura emision=\{emision\}/);
@@ -113,7 +113,7 @@ test('emite con lo mismo que Facturación, sola y una sola vez, y no se cierra a
   assert.match(modal, /data-imprimir-sin-emitir onClick=\{imprimir\}/);
 });
 
-test('el botón del tiquete sale en la lista, la revisión y la edición, y pide el tipo 04 al servidor', () => {
+test('el botón del tiquete sale en la lista, la revisión y la edición; el tipo lo decide el servidor', () => {
   const pagina = leer('pages', 'Impresion.jsx');
   assert.match(pagina, /puedeEmitir && seEmiteComoTiquete\(facturaEditando\)/);
   assert.equal((pagina.match(/emitibleTiquete=\{emitibleTiquete\}/g) || []).length, 2, 'la revisión y la edición');
@@ -124,10 +124,9 @@ test('el botón del tiquete sale en la lista, la revisión y la edición, y pide
   }
   // Guarda primero y emite después, igual que con correo; el modal recibe la marca.
   assert.match(leer('hooks', 'useImpresion.js'), /if \(despues === DESPUES\.EMITIR_TIQUETE\) setPorEmitir\(\{ \.\.\.factura, comoTiquete: true \}\)/);
-  const hook = leer('hooks', 'useEmisionFactura.js');
-  assert.match(hook, /base\.estado\(id, \{ tipo \}\)/);
-  assert.match(hook, /base\.emitir\(id, \{ \.\.\.datos, tipo \}\)/);
-  assert.match(hook, /useMemo\(/, 'el objeto del servidor no cambia en cada render: si no, la consulta se repite sin parar');
+  // Ya no viaja un tipo desde la pantalla: lo decide el servidor por el correo (emitirComoTiquete.test.js).
+  assert.doesNotMatch(leer('hooks', 'useEmisionFactura.js'), /\{ tipo \}|\btipo: /, 'la pantalla no elige el tipo de comprobante');
+  assert.doesNotMatch(leer('integrations', 'hacienda', 'api.js'), /params: tipo/);
 });
 
 test('un tiquete sin correo no se muestra como aviso: se entrega impreso', async () => {

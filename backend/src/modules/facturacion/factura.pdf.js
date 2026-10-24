@@ -285,11 +285,33 @@ function encabezado(doc, f, ancho, F, emisor, papel) {
 }
 
 /**
- * A quién se le factura, y en qué condiciones.
+ * Lo que el papel dice del cliente: su nombre y los renglones de abajo.
  *
  * Teléfono y dirección salen de la COPIA guardada en la factura, no de la
  * ficha del cliente: el papel se reimprime igual dentro de dos años.
+ *
+ * UN TIQUETE NO NOMBRA A NADIE (2026-10-24): si lo firmado no lleva receptor
+ * (el tiquete, o una nota de crédito sobre uno), el papel dice «Cliente de
+ * contado» y nada más: ni su nombre ni la cédula, que muchas veces es de
+ * relleno («100000000»). Imprimir un nombre que el XML no tiene es dirigir el
+ * comprobante a alguien, justo lo que el usuario no quiere.
  */
+function datosDelCliente(f, papel) {
+  if (papel.fiscal && papel.fiscal.conReceptor === false) return { nombre: 'Cliente de contado', datos: [] };
+  const tipo = f.cliente?.tipoIdentificacion === 'CJ' ? 'Cédula jurídica' : 'Cédula física';
+  return {
+    nombre: f.cliente?.nombre || 'Cliente de contado',
+    datos: [
+      f.cliente?.identificacion ? `${tipo}: ${f.cliente.identificacion}` : null,
+      f.cliente?.telefono ? `Teléfono: ${f.cliente.telefono}` : null,
+      f.cliente?.direccion ? `Dirección: ${f.cliente.direccion}` : null,
+      f.cliente?.correo ? `Email: ${f.cliente.correo}` : null,
+      papel.fiscal?.actividadReceptor ? `Actividad económica: ${papel.fiscal.actividadReceptor}` : null
+    ].filter(Boolean)
+  };
+}
+
+/** A quién se le factura, y en qué condiciones. */
 function bloqueCliente(doc, f, ancho, y, F, papel) {
   const anchoIzq = ancho * 0.62;
   const xDer = M + anchoIzq + 14;
@@ -299,20 +321,12 @@ function bloqueCliente(doc, f, ancho, y, F, papel) {
     .text('SEÑOR(ES)', M, y, { characterSpacing: 1 });
 
   doc.font(F.negrita).fontSize(13).fillColor(MARCA.tinta);
-  const nombre = f.cliente?.nombre || 'Cliente de contado';
+  const { nombre, datos } = datosDelCliente(f, papel);
   const altoNombre = doc.heightOfString(nombre, { width: anchoIzq });
   doc.text(nombre, M, y + 11, { width: anchoIzq });
 
   let yIzq = y + 11 + altoNombre + 1;
   doc.font(F.normal).fontSize(8).fillColor(MARCA.gris);
-  const tipo = f.cliente?.tipoIdentificacion === 'CJ' ? 'Cédula jurídica' : 'Cédula física';
-  const datos = [
-    f.cliente?.identificacion ? `${tipo}: ${f.cliente.identificacion}` : null,
-    f.cliente?.telefono ? `Teléfono: ${f.cliente.telefono}` : null,
-    f.cliente?.direccion ? `Dirección: ${f.cliente.direccion}` : null,
-    f.cliente?.correo ? `Email: ${f.cliente.correo}` : null,
-    papel.fiscal?.actividadReceptor ? `Actividad económica: ${papel.fiscal.actividadReceptor}` : null
-  ].filter(Boolean);
   for (const linea of datos) {
     doc.text(linea, M, yIzq, { width: anchoIzq });
     yIzq += doc.heightOfString(linea, { width: anchoIzq });
@@ -671,7 +685,7 @@ function generarPdfFactura(f, empresa = null, papel = null) {
 }
 
 module.exports = {
-  generarPdfFactura, papelDeFactura, leyenda, datosEmisor, medioDePago, impuestoPorTarifa, importeLinea,
+  generarPdfFactura, papelDeFactura, leyenda, datosEmisor, datosDelCliente, medioDePago, impuestoPorTarifa, importeLinea,
   tarifaTexto, columnas, detalleLinea, subtotalMostrado, subtotalAntesDeDescuento, renglonesDeTotales,
   montoEnLetrasDelTotal
 };

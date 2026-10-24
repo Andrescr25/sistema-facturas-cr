@@ -23,14 +23,15 @@ import PanelEmisionFactura from '../facturacion/PanelEmisionFactura'
  * Mientras se emite no se cierra: cortar a medio camino deja un comprobante
  * firmado sin enviar.
  *
- * `factura.comoTiquete` (2026-10-24): el cliente no tiene correo, así que se
- * emite como TIQUETE electrónico (tipo 04) y se entrega impreso: no hay a
- * dónde mandar nada. Es el mismo camino y el mismo panel; cambia el tipo que
- * se pide y lo que el modal promete (nada de «le llega a …»).
+ * `factura.comoTiquete` (2026-10-24): el cliente no tiene correo, así que sale
+ * TIQUETE electrónico, sin dirigirlo a nadie, y se entrega impreso: no hay a
+ * dónde mandar nada. Es el mismo camino y el mismo panel; el servidor elige el
+ * tipo por el correo (unClic.service.js, `tipoDeFactura`) y acá solo cambia lo
+ * que el modal promete (nada de «le llega a …»).
  */
 export default function EmitirEImprimir({ factura, onImprimir, onCerrar }) {
   const comoTiquete = Boolean(factura.comoTiquete)
-  const emision = useEmisionFactura(factura.factura_id, { tipo: comoTiquete ? '04' : null })
+  const emision = useEmisionFactura(factura.factura_id)
   const arranco = useRef(false)
   useEffect(() => {
     if (arranco.current || !emision.estado) return
@@ -72,7 +73,7 @@ export default function EmitirEImprimir({ factura, onImprimir, onCerrar }) {
             <p className="break-words font-bold text-neutro-900">{factura.cliente_nombre}</p>
             <p className="break-words text-xs text-neutro-600">
               {comoTiquete
-                ? 'Sin correo: se emite como tiquete electrónico y se le entrega impreso'
+                ? 'Sin correo: sale como tiquete electrónico, sin dirigirlo a nadie, y se le entrega impreso'
                 : `Cuando Hacienda la acepte, le llega a ${factura.cliente_email}`}
             </p>
           </div>

@@ -14,6 +14,7 @@ const {
 const { abrir } = require("../src/integrations/hacienda/firma/certificado");
 const {
   generarVenta,
+  llevaReceptor,
   generarMensaje,
   montosDeAceptacion,
   decimal,
@@ -60,14 +61,11 @@ test("FE, TE y NC cumplen los XSD actuales y una firma verificable", async () =>
     await validarXml(x, tipo);
     assert.equal(verificar(x, c.pem), true);
     assert.equal(verificarRespuesta(x), true);
-    assert.equal(
-      verificarRespuesta(x.replace("ZZ receptor", "OTRO receptor")),
-      false,
-    );
-    assert.equal(
-      verificar(x.replace("ZZ receptor", "OTRO receptor"), c.pem),
-      false,
-    );
+    // Un tiquete no lleva receptor (ver el test de abajo): se altera otro dato.
+    const [de, a] = tipo === "04" ? ["ZZ producto", "OTRO producto"] : ["ZZ receptor", "OTRO receptor"];
+    assert.notEqual(x.replace(de, a), x, "la alteración tiene que cambiar algo");
+    assert.equal(verificarRespuesta(x.replace(de, a)), false);
+    assert.equal(verificar(x.replace(de, a), c.pem), false);
     assert.equal(
       verificar(
         x.replace(HASH_POLITICA, HASH_POLITICA.replace("D", "A")),
@@ -76,6 +74,31 @@ test("FE, TE y NC cumplen los XSD actuales y una firma verificable", async () =>
       false,
     );
     assert.equal(verificar(x.replace("113.00000", "114.00000"), c.pem), false);
+  }
+});
+// 2026-10-24. El primer tiquete real se mandó con la cédula del cliente, de
+// relleno («100000000»), y Hacienda lo rechazó: -38 «El número de
+// identificación del receptor no corresponde a un registro válido». Un
+// tiquete no se dirige a nadie, y el esquema oficial deja el receptor opcional
+// en el tiquete y en la nota de crédito (no en la factura).
+test("el tiquete va sin receptor aunque el cliente tenga cédula, y la factura sí lo lleva", async () => {
+  const c = certificado();
+  for (const [tipo, referencias, lleva] of [
+    ["01", [], true],
+    ["04", [], false],
+    ["03", [{ tipo: "01", clave: "5".repeat(50), fecha: "2026-10-05T10:00:00-06:00", codigo: "06", razon: "ZZ" }], true],
+    ["03", [{ tipo: "04", clave: "5".repeat(50), fecha: "2026-10-05T10:00:00-06:00", codigo: "06", razon: "ZZ" }], false],
+  ]) {
+    const d = venta(tipo);
+    d.documento.cliente_identificacion = "100000000"; // la cédula de relleno del caso real
+    d.documento.actividad_economica = "123456";
+    d.opciones = { referencias };
+    const xml = generarVenta(d);
+    assert.equal(llevaReceptor(tipo, referencias), lleva, `${tipo} → llevaReceptor`);
+    assert.equal(/<Receptor>/.test(xml), lleva, `${tipo}: ${lleva ? "lleva" : "no lleva"} <Receptor>`);
+    assert.equal(/CodigoActividadReceptor/.test(xml), lleva, `${tipo}: la actividad del receptor sigue al receptor`);
+    assert.equal(xml.includes("100000000"), lleva, `${tipo}: la cédula solo viaja si hay receptor`);
+    await validarXml(firmar(xml, c.p12, c.pin), tipo);
   }
 });
 test("no firma con PIN incorrecto, p12 corrupto o certificado fuera de vigencia", () => {

@@ -44,10 +44,12 @@ describe('lo que antes se elegía en el modal', () => {
     assert.equal(ambienteDeEmision([fila('produccion', 'true')]), null);
   });
 
-  test('factura si el cliente tiene identificación, tiquete si no', () => {
-    assert.equal(tipoDeFactura({ cliente_identificacion: '3101123456' }), '01');
-    assert.equal(tipoDeFactura({ cliente_identificacion: '' }), '04');
-    assert.equal(tipoDeFactura({ cliente_identificacion: '   ' }), '04');
+  // Desde el 2026-10-24 manda el CORREO, no la cédula (que suele ser de
+  // relleno): el detalle de la regla está en emitirComoTiquete.test.js.
+  test('factura si el cliente tiene correo y cédula, tiquete si no', () => {
+    assert.equal(tipoDeFactura({ cliente_correo: 'zz@ejemplo.com', cliente_identificacion: '3101123456' }), '01');
+    assert.equal(tipoDeFactura({ cliente_correo: null, cliente_identificacion: '3101123456' }), '04');
+    assert.equal(tipoDeFactura({ cliente_correo: 'zz@ejemplo.com', cliente_identificacion: '   ' }), '04');
     assert.equal(tipoDeFactura({ cliente_identificacion: null }), '04');
     assert.equal(tipoDeFactura({}), '04');
   });
@@ -537,8 +539,7 @@ describe('cómo quedó conectada la pantalla', () => {
     assert.match(codigo('components', 'facturacion', 'PanelEmisionFactura.jsx'), /seguimiento: estado\?\.seguimiento/);
     assert.match(rutas, /entregarFacturaElectronica\(facturaId\)/);
     const api = codigo('integrations', 'hacienda', 'api.js');
-    // `?tipo=04` (Impresión, «emitir como tiquete») viaja como parámetro opcional.
-    assert.match(api, /api\.get\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/estado`, \{ params: tipo \? \{ tipo \} : undefined \}\)/);
+    assert.match(api, /api\.get\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/estado`\)/);
     assert.match(api, /api\.post\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/emitir`, datos\)/);
     assert.match(api, /api\.post\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/correo`\)/);
   });

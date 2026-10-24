@@ -265,7 +265,9 @@ mismos. Lo nuevo es quién decide y quién los encadena:
 - **Lo que antes se elegía, ahora lo decide el servidor**
   (`emision.service.js`, `emitirFactura`): va a producción si está
   habilitada y si no a pruebas (`ambienteDeEmision`); factura electrónica si
-  el cliente tiene identificación y si no tiquete (`tipoDeFactura`).
+  el cliente tiene correo y cédula y si no tiquete SIN receptor (`tipoDeFactura`,
+  `llevaReceptor`; antes manda la cédula, cambiado el 2026-10-24 tras el
+  rechazo -38 del primer tiquete: ver [[modulo/faltantes]]).
   `POST /api/facturacion/hacienda/facturas/:id/emitir`.
 - **La pantalla los encadena** (`emisionPasos.js`, sin React y con pruebas):
   firma → envía → consulta cada 3 s hasta un minuto. Con un comprobante a

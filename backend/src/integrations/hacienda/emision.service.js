@@ -5,6 +5,7 @@ const almacen = require("./seguridad/almacen");
 const {
   generarVenta,
   generarMensaje,
+  llevaReceptor,
   fechaCR,
   clave,
   identificacion,
@@ -244,13 +245,13 @@ function crearServicio(pool, transporte = crearCliente(), ganchos = {}) {
           c.emisor.tipo_identificacion,
           c.emisor.identificacion,
         );
-        receptor =
-          tipo !== "04" || documento.cliente_identificacion
-            ? identificacion(
-                documento.cliente_tipo_identificacion,
-                documento.cliente_identificacion,
-              )
-            : undefined;
+        // Un tiquete (y una nota sobre un tiquete) no se dirige a nadie.
+        receptor = llevaReceptor(tipo, datos.referencias)
+          ? identificacion(
+              documento.cliente_tipo_identificacion,
+              documento.cliente_identificacion,
+            )
+          : undefined;
         llave = clave(consecutivo, emisor, fecha);
         xml = generarVenta({
           tipo,

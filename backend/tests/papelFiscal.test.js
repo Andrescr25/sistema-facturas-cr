@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const { generarVenta } = require('../src/integrations/hacienda/xml/v4.4');
 const { contenidoDelXml, conNombres } = require('../src/integrations/hacienda/lectura.service');
 const p = require('../src/modules/facturacion/papelFiscal.pdf');
-const { papelDeFactura, generarPdfFactura } = require('../src/modules/facturacion/factura.pdf');
+const { papelDeFactura, generarPdfFactura, datosDelCliente } = require('../src/modules/facturacion/factura.pdf');
 const { venta } = require('./helpers/hacienda');
 
 /** Dos líneas, dos tarifas, un descuento y crédito a 30 días. */
@@ -125,5 +125,52 @@ describe('el papel', () => {
     const electronica = await generarPdfFactura(factura({ electronica: true, haciendaEstado: 'aceptada', fiscal: fiscal() }));
     for (const b of [deVenta, electronica]) assert.equal(b.subarray(0, 4).toString(), '%PDF');
     assert.ok(electronica.length > deVenta.length);
+  });
+});
+
+// 2026-10-24. El primer tiquete real salió con la cédula de relleno del cliente
+// («100000000») y Hacienda lo rechazó. Un tiquete no se dirige a nadie, y el
+// papel tampoco: no nombra al cliente ni imprime esa cédula.
+describe('un tiquete no nombra a nadie, ni en el XML ni en el papel', () => {
+  const xml = (tipo, referencias = []) => {
+    const d = venta(tipo);
+    d.documento.cliente_nombre = 'ZZ SODA OLGA';
+    d.documento.cliente_identificacion = '100000000';
+    d.opciones = { referencias };
+    return generarVenta(d);
+  };
+  const ref = (tipo) => [{ tipo, clave: '5'.repeat(50), fecha: '2026-10-05T10:00:00-06:00', codigo: '06', razon: 'ZZ' }];
+
+  test('lo que se lee dice si el comprobante va dirigido a alguien', () => {
+    assert.equal(contenidoDelXml(xml('01')).conReceptor, true);
+    assert.equal(contenidoDelXml(xml('04')).conReceptor, false);
+    assert.equal(contenidoDelXml(xml('03', ref('01'))).conReceptor, true);
+    assert.equal(contenidoDelXml(xml('03', ref('04'))).conReceptor, false, 'una nota sobre un tiquete tampoco');
+  });
+
+  test('el papel de un tiquete dice «Cliente de contado» y nada del cliente de la factura', () => {
+    const factura = { cliente: { nombre: 'ZZ SODA OLGA', tipoIdentificacion: 'CF', identificacion: '100000000', telefono: '8888-0000', direccion: 'Palmares', correo: 'zz@ejemplo.com' } };
+    const tiquete = { fiscal: { ...contenidoDelXml(xml('04')), tipo: '04' } };
+    assert.deepEqual(datosDelCliente(factura, tiquete), { nombre: 'Cliente de contado', datos: [] });
+    // La factura electrónica y la de venta siguen diciendo a quién.
+    const electronica = datosDelCliente(factura, { fiscal: { ...contenidoDelXml(xml('01')), tipo: '01' } });
+    assert.equal(electronica.nombre, 'ZZ SODA OLGA');
+    assert.ok(electronica.datos.includes('Cédula física: 100000000'));
+    const deVenta = datosDelCliente(factura, { fiscal: null });
+    assert.equal(deVenta.nombre, 'ZZ SODA OLGA');
+    assert.equal(deVenta.datos.length, 4);
+    assert.deepEqual(datosDelCliente({}, { fiscal: null }), { nombre: 'Cliente de contado', datos: [] });
+  });
+
+  test('el PDF de un tiquete se arma', async () => {
+    const f = {
+      numero: '001000015099', fecha: '2026-10-24', estado: 'emitida', electronica: true, haciendaEstado: 'aceptada',
+      condicionVenta: 'contado', moneda: 'CRC', subtotal: 100, descuento: 0, impuesto: 13, total: 113,
+      cliente: { nombre: 'ZZ SODA OLGA', identificacion: '100000000' },
+      lineas: [{ numeroLinea: 1, nombre: 'ZZ producto', cabys: '1234567890123', cantidad: 1, precioUnitario: 100, tarifa: 13, impuestoMonto: 13, total: 113 }],
+      fiscal: { clave: '5'.repeat(50), consecutivo: '00100001040000001971', tipo: '04', ...contenidoDelXml(xml('04')) }
+    };
+    assert.equal(papelDeFactura(f).titulo, 'TIQUETE ELECTRÓNICO');
+    assert.equal((await generarPdfFactura(f)).subarray(0, 4).toString(), '%PDF');
   });
 });

@@ -469,7 +469,8 @@ Decisiones de Claude para que el clic no pregunte, a revisar por él:
 - va a **producción** si ese ambiente está habilitado, y si no a pruebas (el
   botón lleva la marca "Pruebas" cuando es así);
 - **factura electrónica** si el cliente tiene identificación, **tiquete** si
-  no;
+  no (reemplazado el 2026-10-24: ahora manda el **correo**, y el tiquete sale
+  sin receptor; ver la última entrada de este archivo);
 - el correo sale **solo en producción**, una vez, al correo de la **ficha**
   del cliente; si no tiene, la factura lo dice y se manda después con un
   botón;
@@ -1236,19 +1237,14 @@ Pedidos del mismo día, en orden (los dos primeros ya publicados por Claude):
   por línea); el usuario quitó el recuadro de resumen al verlo y no hay QR
   porque Hacienda lo tiene suspendido. [Detalle](grafo/modulo/correo-facturas.md).
 - «Los clientes que no tienen correo, salga la opción emitir como tiquete e
-  imprimir» (la otra mitad de «Imprimir y emitir»). Decisión de Claude a
-  revisar por él: se pide **a propósito** (`tipo 04`), también a clientes con
-  cédula, porque la regla de siempre los mandaría a factura; la pregunta avisa
-  que el tiquete no sirve para gastos ni créditos de IVA. El primero saldría
-  con el número 1970 y Hacienda nunca ha aceptado un tiquete de este emisor.
-  [Detalle](grafo/modulo/faltantes.md).
-
-
-## Catálogo Clientes con marcas — 2026-10-24
-
-El usuario pide extender a Catálogo Clientes las marcas y subcategorías ya
-configuradas en Gestión/Agente. Presentar categoría → subcategoría → marca,
-portada general y lista de presentaciones con precio con IVA. Reutilizar lo
-existente, conservar tarjetas para productos sin marca y no exigir volver a
-clasificar ni subir imágenes. Mantener paginación rápida, navegación libre y
-el pedido por producto. [Resultado](informes/marcas-clientes-2026-10-24.md).
+  imprimir» (la otra mitad de «Imprimir y emitir»). El primer tiquete real fue
+  rechazado por Hacienda (-38, receptor inválido): llevaba la cédula de
+  relleno del cliente (`100000000`; el sistema anterior exigía una). El usuario
+  corrigió: «hay muchos clientes con cédulas tipo 10000000… no quieren que se
+  les facture a su nombre; nosotros lo tiramos como tiquete sin dirigirlo a
+  nadie… los clientes que tengan correo (tengan factura electrónica), los que
+  no, tiquete sin dirigirlo a nadie, solo tiquete». Vigente: **con correo (y
+  cédula) → factura electrónica; si no → tiquete SIN receptor**, también para
+  la nota de crédito sobre un tiquete; el papel no nombra al cliente
+  («Cliente de contado»); la pregunta avisa que el tiquete no sirve para
+  gastos ni créditos de IVA. [Detalle](grafo/modulo/faltantes.md).

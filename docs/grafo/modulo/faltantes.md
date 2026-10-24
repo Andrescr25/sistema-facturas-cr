@@ -534,28 +534,37 @@ opción emitir como tiquete e imprimir».
 - Mismo orden: guarda (rebaja faltantes, ajusta precios) → emite → imprime. La
   pregunta previa avisa que **un tiquete no le sirve al cliente para respaldar
   gastos ni créditos de IVA**, porque una vez aceptado no se cambia.
-- **El tipo lo pide la pantalla, no se deduce.** La regla de siempre
-  (`unClic.service.js`, `tipoDeFactura`: cédula → factura, sin cédula →
-  tiquete) no cubre a este cliente: de 268 ventas de los últimos 60 días a
-  clientes sin correo, 228 tenían cédula. Así que `emitirFactura` y la ruta
-  `/estado?tipo=04` aceptan `tipo: '04'` como elección expresa
-  (`tipoPedido`; cualquier otro valor se ignora). Facturación no cambia: nunca
-  emite tiquete por omisión. Un comprobante en curso o aceptado conserva su
-  tipo (pedir «04» no convierte una factura ya emitida), y uno rechazado se
-  reintenta del mismo tipo.
-- El tiquete lleva al cliente identificado (`Receptor`), tiene su propia
-  numeración (sucursal + terminal + `04`) y sin correo no se manda nada: el
-  panel dice «Tiquete: se entrega impreso» en vez de un aviso. El papel sale
-  como «TIQUETE ELECTRÓNICO» con sus datos fiscales (ver
-  [[modulo/correo-facturas]]).
-- **Primer tiquete real de este sistema.** En producción solo hay comprobantes
-  tipo 01 (19 aceptados) y no hay numerador del 04: el primero sale con el
-  **1970**, después de los 9 que Alegra emitió en 2024 (1959–1968). El XML se
-  firma y valida contra el esquema oficial en las pruebas, pero Hacienda nunca
-  ha aceptado un tiquete de este emisor: si lo rechaza, «Imprimir sin emitir»
-  sigue disponible.
+- **El tipo lo decide el servidor por el CORREO** (`unClic.service.js`,
+  `tipoDeFactura`), no por la cédula: con correo y cédula, factura
+  electrónica; en cualquier otro caso, tiquete. La pantalla no manda ningún
+  tipo. Es la regla de todo el sistema, también para el botón de Facturación.
+  Un comprobante en curso o aceptado conserva su tipo; uno rechazado se vuelve
+  a emitir con la regla de hoy.
+- **El tiquete sale SIN receptor** (`xml/v4.4.js`, `llevaReceptor`): no se
+  dirige a nadie, aunque el cliente tenga cédula. Lo mismo para una nota de
+  crédito sobre un tiquete (el esquema oficial deja el receptor opcional en
+  ambos, no en la factura). El papel tampoco lo nombra: «Cliente de contado»
+  (`factura.pdf.js`, `datosDelCliente`, según `conReceptor` del XML firmado).
+- **Por qué: el primer tiquete real fue rechazado** (2026-10-24, comprobante
+  00100001040000001970, factura 001000015099 de SODA OLGA): `-38 «El número de
+  identificación del receptor no corresponde a un registro válido»`. Su cédula
+  era `100000000`, de relleno: el sistema anterior exigía una y los clientes
+  que no quieren factura a su nombre la dejaron así. 210 de las 273 ventas de
+  los últimos 60 días a clientes sin correo llevan una. La regla anterior de
+  este mismo día («cédula → factura») la habría mandado a Hacienda igual.
+  El usuario: «los clientes que tengan correo, tengan factura electrónica; los
+  que no, tiquete sin dirigirlo a nadie, solo tiquete». «Volver a emitir» saca
+  el 1971 como tiquete sin receptor, referenciando al rechazado.
+- La numeración es propia (sucursal + terminal + `04`): el primero fue el
+  **1970**, después de los 9 que Alegra emitió en 2024. Sin correo no se manda
+  nada: el panel dice «Tiquete: se entrega impreso».
+- **Pendiente de confirmar:** Hacienda todavía no ha ACEPTADO ningún tiquete de
+  este emisor. Una factura con correo pero con cédula de relleno (5 clientes
+  activos hoy) se rechazaría igual: su cédula tiene que ser real.
 
 Pruebas: `emitirComoTiquete.test.js` (qué tipo sale en cada caso),
-`impresionEmitir.test.js` (el filtro, la pregunta y los botones) y dos casos
-nuevos en `haciendaUnClicPg.test.js` (tiquete a un cliente con cédula: firma,
-numeración, aceptación sin correo). Sin SQL.
+`haciendaFiscal.test.js` (sin receptor, validado contra el esquema),
+`impresionEmitir.test.js` (el filtro, la pregunta y los botones),
+`papelFiscal.test.js` (el papel no nombra a nadie) y tres casos en
+`haciendaUnClicPg.test.js` (firma, numeración, aceptación sin correo y el
+reintento del rechazado). Sin SQL.

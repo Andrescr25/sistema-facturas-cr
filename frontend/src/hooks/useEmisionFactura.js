@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   estadoFactura, emitirFactura, reenviarCorreo, estadoNota, emitirNota, reenviarCorreoNota,
   estadoCompra, aceptarCompra, operar, descargar, mensajeError
@@ -35,17 +35,8 @@ const SERVIDOR = {
   compra: { estado: estadoCompra, emitir: aceptarCompra }
 }
 
-export default function useEmisionFactura(facturaId, { activo = true, onCambio, origen = 'factura', tipo = null } = {}) {
-  // `tipo: '04'`: emitir como tiquete a propósito (Impresión, cliente sin correo).
-  // Solo vale para una factura; el servidor lo ignora si no es '04'. Memorizado:
-  // `leer` depende de este objeto y, si cambiara en cada render, volvería a
-  // preguntarle el estado al servidor sin parar.
-  const servidor = useMemo(() => {
-    const base = SERVIDOR[origen] || SERVIDOR.factura
-    return tipo && origen === 'factura'
-      ? { ...base, estado: (id) => base.estado(id, { tipo }), emitir: (id, datos) => base.emitir(id, { ...datos, tipo }) }
-      : base
-  }, [origen, tipo])
+export default function useEmisionFactura(facturaId, { activo = true, onCambio, origen = 'factura' } = {}) {
+  const servidor = SERVIDOR[origen] || SERVIDOR.factura
   const [estado, setEstado] = useState(null)
   const [fase, setFase] = useState(null)
   const [error, setError] = useState('')

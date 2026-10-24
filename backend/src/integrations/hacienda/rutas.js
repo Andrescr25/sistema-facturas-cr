@@ -142,8 +142,7 @@ ventas.get(
     res.json({
       success: true,
       data: {
-        // `?tipo=04`: «emitir como tiquete», lo pide Impresión (unClic.service.js, `tipoPedido`).
-        ...(await servicio.estadoDeFactura(req.params.id, [], { tipo: req.query.tipo })),
+        ...(await servicio.estadoDeFactura(req.params.id)),
         // ¿Este servidor consulta solo a Hacienda cada minuto? La pantalla
         // solo promete "sigue consultando solo" si es cierto.
         seguimiento: process.env.HACIENDA_TRABAJADOR === "true",

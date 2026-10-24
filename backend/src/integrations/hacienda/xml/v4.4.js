@@ -136,6 +136,22 @@ function persona(e, ubicacion = false) {
     requerido(e.correo, "Correo del emisor", /^[^\s@]+@[^\s@]+\.[^\s@]+$/);
   return s + nodo("CorreoElectronico", e.correo);
 }
+/**
+ * ¿EL COMPROBANTE VA DIRIGIDO A ALGUIEN? (2026-10-24)
+ *
+ * La factura siempre: Hacienda exige su receptor. El TIQUETE nunca, y la nota
+ * de crédito sobre un tiquete tampoco: el esquema oficial deja el receptor
+ * opcional en los dos (minOccurs="0"). El primer tiquete real se mandó con la
+ * cédula del cliente, que en este negocio muchas veces es de relleno
+ * («100000000», porque el sistema anterior exigía una y el cliente no quiere
+ * factura a su nombre), y Hacienda lo rechazó: -38 «El número de
+ * identificación del receptor no corresponde a un registro válido». El usuario:
+ * «lo tiramos como tiquete sin dirigirlo a nadie».
+ */
+function llevaReceptor(tipo, referencias = []) {
+  if (tipo === "01") return true;
+  return tipo === "03" && !(referencias || []).some((r) => r.tipo === "04");
+}
 function generarVenta({
   tipo,
   documento,
@@ -362,7 +378,8 @@ function generarVenta({
       ),
     ) +
     nodo("CodigoActividadEmisor", emisor.actividad_economica);
-  if (actividad && tipo !== "04")
+  const conReceptor = llevaReceptor(tipo, opciones.referencias);
+  if (actividad && conReceptor)
     xml += nodo("CodigoActividadReceptor", actividad);
   xml +=
     nodo("NumeroConsecutivo", consecutivo) +
@@ -370,8 +387,7 @@ function generarVenta({
     "<Emisor>" +
     persona(emisor, true) +
     "</Emisor>";
-  if (tipo !== "04" || documento.cliente_identificacion)
-    xml += "<Receptor>" + persona(receptor) + "</Receptor>";
+  if (conReceptor) xml += "<Receptor>" + persona(receptor) + "</Receptor>";
   xml +=
     nodo("CondicionVenta", credito ? "02" : "01") +
     (credito
@@ -561,6 +577,7 @@ function generarMensaje({ original, emisor, consecutivo, fecha, opciones }) {
 module.exports = {
   ACTIVIDAD,
   generarVenta,
+  llevaReceptor,
   generarMensaje,
   montosDeAceptacion,
   fechaCR,

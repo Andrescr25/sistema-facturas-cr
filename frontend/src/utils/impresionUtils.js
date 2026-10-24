@@ -122,7 +122,8 @@ export function totalDeItems(items) {
  * «IMPRIMIR Y EMITIR COMO TIQUETE» (2026-10-24, el usuario: «los clientes que
  * no tienen correo, salga la opción emitir como tiquete e imprimir»). Es lo
  * mismo para el cliente SIN correo: sin dónde mandarle una factura
- * electrónica, se emite como tiquete y se le entrega impreso.
+ * electrónica, sale tiquete, SIN dirigirlo a nadie (su cédula suele ser de
+ * relleno y Hacienda rechazó el primero), y se le entrega impreso.
  */
 export const DESPUES = { GUARDAR: 'guardar', IMPRIMIR: 'imprimir', EMITIR: 'emitir', EMITIR_TIQUETE: 'tiquete' }
 
@@ -150,8 +151,8 @@ export function preguntaAlProcesar(f, { soloImprimir, despues }) {
   // El tiquete no le sirve al cliente para respaldar gastos ni créditos de IVA:
   // se avisa antes, porque una vez aceptado ya no se cambia.
   const emision = tiquete
-    ? `\n\n${cuando} emite ante Hacienda como TIQUETE ELECTRÓNICO y se imprime: el cliente no tiene correo, se le entrega en papel. ` +
-      'Un tiquete no le sirve al cliente para respaldar gastos ni créditos de IVA.'
+    ? `\n\n${cuando} emite ante Hacienda como TIQUETE ELECTRÓNICO, sin los datos del cliente (no queda a nombre de nadie), y se imprime: ` +
+      'no tiene correo, se le entrega en papel. Un tiquete no le sirve al cliente para respaldar gastos ni créditos de IVA.'
     : despues === DESPUES.EMITIR
       ? `\n\n${cuando} emite ante Hacienda; cuando la acepte, le llega a ${f.cliente_email} y se imprime.`
       : ''

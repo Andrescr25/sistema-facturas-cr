@@ -21,6 +21,8 @@ function contenidoDelXml(xml) {
     fecha: texto(doc, "FechaEmision"),
     proveedorSistemas: texto(doc, "ProveedorSistemas") || null,
     actividadReceptor: texto(doc, "CodigoActividadReceptor") || null,
+    // ¿Va dirigido a alguien? Un tiquete no: el papel tampoco nombra al cliente.
+    conReceptor: Boolean(hijos(doc, "Receptor")[0]),
     condicionVenta: texto(doc, "CondicionVenta") || null,
     plazoCredito: texto(doc, "PlazoCredito") || null,
     empresa: {

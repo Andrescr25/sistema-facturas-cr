@@ -196,3 +196,13 @@ PENDIENTE (no se hizo): una electrónica todavía sin aceptar se imprime como
 «FACTURA DE VENTA». Hoy no le llega al cliente así (se imprime y se envía al
 aceptarse), pero el art. 18 del reglamento pide entregar el papel aunque
 falte la confirmación.
+
+## El papel de un tiquete no nombra a nadie — 2026-10-24
+
+Un comprobante cuyo XML firmado no lleva receptor (el tiquete, o una nota de
+crédito sobre uno) se imprime con «Cliente de contado» y sin cédula, teléfono,
+dirección ni correo del cliente (`datosDelCliente` en `factura.pdf.js`, según
+`conReceptor` que lee `contenidoDelXml`). Imprimir el nombre o la cédula de
+relleno sería dirigir el comprobante a alguien que el XML no nombra. La factura
+electrónica y la de venta siguen mostrando al cliente. Motivo y detalle del
+rechazo de Hacienda que lo originó: [[modulo/faltantes]].
