@@ -10,7 +10,7 @@ import FormularioEdicionFactura from '../components/impresion/FormularioEdicionF
 import EmitirEImprimir from '../components/impresion/EmitirEImprimir'
 import { useAuth } from '../contexts/AuthContext'
 import { puedeVer } from '../utils/modulos'
-import { seEmiteAlImprimir } from '../utils/impresionUtils'
+import { seEmiteAlImprimir, seEmiteComoTiquete } from '../utils/impresionUtils'
 
 export default function Impresion() {
   // Emitir usa las rutas de Facturación: sin ese módulo no se ofrece.
@@ -54,6 +54,7 @@ export default function Impresion() {
     dialogProps
   } = useImpresion()
   const emitible = Boolean(facturaEditando) && puedeEmitir && seEmiteAlImprimir(facturaEditando)
+  const emitibleTiquete = Boolean(facturaEditando) && puedeEmitir && seEmiteComoTiquete(facturaEditando)
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 px-3">
@@ -113,6 +114,7 @@ export default function Impresion() {
               onVerPDF={handleVerPDF}
               onGuardar={handleGuardarFactura}
               emitible={emitible}
+              emitibleTiquete={emitibleTiquete}
             />
           ) : (
             <ListaFacturasPendientes
@@ -143,6 +145,7 @@ export default function Impresion() {
           onSeleccionarProducto={seleccionarProductoBusqueda}
           onGuardar={handleGuardarFactura}
           emitible={emitible}
+          emitibleTiquete={emitibleTiquete}
         />
       )}
 

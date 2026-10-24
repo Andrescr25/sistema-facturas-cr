@@ -1,13 +1,14 @@
-import { CheckCircle, AlertCircle, Edit, Printer, FileText, Mail, ShieldCheck } from 'lucide-react'
+import { CheckCircle, AlertCircle, Edit, Printer, FileText, Mail, ShieldCheck, Receipt } from 'lucide-react'
 import Boton from '../ui/Boton'
-import { formatDate, seEmiteAlImprimir, DESPUES } from '../../utils/impresionUtils'
+import { formatDate, seEmiteAlImprimir, seEmiteComoTiquete, DESPUES } from '../../utils/impresionUtils'
 
 /**
  * Listado de facturas pendientes de impresión (con o sin cambios).
  * Extraído de Impresion.jsx.
  *
  * Las que tienen correo (y quien mira puede emitir) dicen a dónde se van y
- * suman «Imprimir y emitir»; en las que requieren ajustes, ese botón está
+ * suman «Imprimir y emitir»; las que NO tienen correo suman «Imprimir y emitir
+ * como tiquete» (2026-10-24). En las que requieren ajustes, esos botones están
  * en la revisión, después de aplicarlos.
  */
 export default function ListaFacturasPendientes({ facturas, procesando, puedeEmitir = false, onVerPDF, onProcesarSinCambios, onAbrirRevision }) {
@@ -26,6 +27,7 @@ export default function ListaFacturasPendientes({ facturas, procesando, puedeEmi
       {facturas.map((factura) => {
         const esSinPendientes = factura.categoria === 'sin_pendientes'
         const emitible = puedeEmitir && seEmiteAlImprimir(factura)
+        const emitibleTiquete = puedeEmitir && seEmiteComoTiquete(factura)
 
         return (
           <div
@@ -83,13 +85,18 @@ export default function ListaFacturasPendientes({ facturas, procesando, puedeEmi
                   <Boton variante="secundario" onClick={() => onProcesarSinCambios(factura, DESPUES.GUARDAR)} disabled={procesando}>
                     Marcar impresa
                   </Boton>
-                  <Boton variante={emitible ? 'secundario' : 'primario'} icono={Printer} className="col-span-2"
+                  <Boton variante={emitible || emitibleTiquete ? 'secundario' : 'primario'} icono={Printer} className="col-span-2"
                     onClick={() => onProcesarSinCambios(factura, DESPUES.IMPRIMIR)} disabled={procesando}>
                     Imprimir y cerrar
                   </Boton>
                   {emitible && (
                     <Boton icono={ShieldCheck} className="col-span-2" onClick={() => onProcesarSinCambios(factura, DESPUES.EMITIR)} disabled={procesando}>
                       Imprimir y emitir
+                    </Boton>
+                  )}
+                  {emitibleTiquete && (
+                    <Boton icono={Receipt} className="col-span-2" onClick={() => onProcesarSinCambios(factura, DESPUES.EMITIR_TIQUETE)} disabled={procesando}>
+                      Imprimir y emitir como tiquete
                     </Boton>
                   )}
                 </>

@@ -38,6 +38,7 @@ archivos:
   - backend/tests/impresionPropiaLocal.test.js
   - backend/tests/impresionHook.test.js
   - backend/tests/impresionEmitir.test.js
+  - backend/tests/emitirComoTiquete.test.js
   - frontend/src/components/impresion/EmitirEImprimir.jsx
   - frontend/src/components/impresion/ListaFacturasPendientes.jsx
   - backend/tests/ajustesFaltantesImpresion.test.js
@@ -518,3 +519,43 @@ nada, solo que queden ahí».
   total en la pestaña («Historial»).
 - Se quitó también `DELETE /reimpresion/historial`, que vaciaba
   `procesamientos` (el rastro de cada impresión) y ninguna pantalla usaba.
+
+## «Imprimir y emitir como tiquete» para el cliente sin correo — 2026-10-24
+
+El usuario: «antes pusimos un filtro: los clientes que tienen correo, sale la
+opción de emitir e imprimir; ahora, a los que no tienen correo, que salga la
+opción emitir como tiquete e imprimir».
+
+- El filtro es la otra mitad del anterior (`utils/impresionUtils.js`):
+  `seEmiteComoTiquete` = SIN correo válido y todavía no electrónica, sin
+  comprobante en curso y no histórica. Nunca coincide con `seEmiteAlImprimir`:
+  cada factura recibe una opción o la otra. Sale en los mismos tres lugares
+  (lista, revisión de cambios y edición) y respeta quién puede emitir.
+- Mismo orden: guarda (rebaja faltantes, ajusta precios) → emite → imprime. La
+  pregunta previa avisa que **un tiquete no le sirve al cliente para respaldar
+  gastos ni créditos de IVA**, porque una vez aceptado no se cambia.
+- **El tipo lo pide la pantalla, no se deduce.** La regla de siempre
+  (`unClic.service.js`, `tipoDeFactura`: cédula → factura, sin cédula →
+  tiquete) no cubre a este cliente: de 268 ventas de los últimos 60 días a
+  clientes sin correo, 228 tenían cédula. Así que `emitirFactura` y la ruta
+  `/estado?tipo=04` aceptan `tipo: '04'` como elección expresa
+  (`tipoPedido`; cualquier otro valor se ignora). Facturación no cambia: nunca
+  emite tiquete por omisión. Un comprobante en curso o aceptado conserva su
+  tipo (pedir «04» no convierte una factura ya emitida), y uno rechazado se
+  reintenta del mismo tipo.
+- El tiquete lleva al cliente identificado (`Receptor`), tiene su propia
+  numeración (sucursal + terminal + `04`) y sin correo no se manda nada: el
+  panel dice «Tiquete: se entrega impreso» en vez de un aviso. El papel sale
+  como «TIQUETE ELECTRÓNICO» con sus datos fiscales (ver
+  [[modulo/correo-facturas]]).
+- **Primer tiquete real de este sistema.** En producción solo hay comprobantes
+  tipo 01 (19 aceptados) y no hay numerador del 04: el primero sale con el
+  **1970**, después de los 9 que Alegra emitió en 2024 (1959–1968). El XML se
+  firma y valida contra el esquema oficial en las pruebas, pero Hacienda nunca
+  ha aceptado un tiquete de este emisor: si lo rechaza, «Imprimir sin emitir»
+  sigue disponible.
+
+Pruebas: `emitirComoTiquete.test.js` (qué tipo sale en cada caso),
+`impresionEmitir.test.js` (el filtro, la pregunta y los botones) y dos casos
+nuevos en `haciendaUnClicPg.test.js` (tiquete a un cliente con cédula: firma,
+numeración, aceptación sin correo). Sin SQL.

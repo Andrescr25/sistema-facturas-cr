@@ -111,7 +111,10 @@ export function pasosDe({ comprobante: c, correo, fase, ambiente, seguimiento, o
   else if ((c.ambiente || ambiente) !== 'produccion') {
     entrega = { estado: 'omitido', titulo: 'No se le envía al cliente', detalle: 'Es una prueba: este comprobante no tiene validez fiscal.' }
   } else if (correo?.estado === 'enviado') entrega = { estado: 'hecho', titulo: `Enviado al cliente: ${correo.para}`, detalle: 'PDF, comprobante XML y respuesta de Hacienda.' }
-  else if (correo?.estado === 'sin_correo') {
+  else if (correo?.estado === 'sin_correo' && c.tipo === '04') {
+    // Un tiquete sin correo se entrega impreso: no es un aviso ni algo por arreglar.
+    entrega = { estado: 'omitido', titulo: 'Tiquete: se entrega impreso', detalle: 'El cliente no tiene correo; se imprime y se le da en papel.' }
+  } else if (correo?.estado === 'sin_correo') {
     entrega = {
       estado: 'aviso', titulo: 'El cliente no tiene correo',
       // El botón Correo (elegir a mano el destinatario) es de la factura.

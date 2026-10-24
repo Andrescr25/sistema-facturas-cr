@@ -1,4 +1,4 @@
-import { FileText, AlertCircle, Printer, PencilLine, ShieldCheck } from 'lucide-react'
+import { FileText, AlertCircle, Printer, PencilLine, ShieldCheck, Receipt } from 'lucide-react'
 import Boton from '../ui/Boton'
 import { DESPUES } from '../../utils/impresionUtils'
 
@@ -8,7 +8,7 @@ import { DESPUES } from '../../utils/impresionUtils'
  * aplicarán automáticamente. Extraído de Impresion.jsx (era
  * renderCambiosAutomaticos).
  */
-export default function CambiosAutomaticos({ factura, procesando, onEditar, onVerPDF, onGuardar, emitible = false }) {
+export default function CambiosAutomaticos({ factura, procesando, onEditar, onVerPDF, onGuardar, emitible = false, emitibleTiquete = false }) {
   return (
     <div className="bg-neutro-50 border border-neutro-200 rounded-3xl p-6 mb-6 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-5">
@@ -66,16 +66,22 @@ export default function CambiosAutomaticos({ factura, procesando, onEditar, onVe
         ))}
       </div>
 
-      {/* Con correo, «Imprimir y emitir»: primero se aplican estos ajustes,
-          después se emite y al final se imprime (ver EmitirEImprimir). */}
+      {/* Con correo, «Imprimir y emitir»; sin correo, «…como tiquete»: primero se
+          aplican estos ajustes, después se emite y al final se imprime (ver
+          EmitirEImprimir). */}
       <div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
         <Boton variante="secundario" onClick={() => onGuardar(DESPUES.GUARDAR)} cargando={procesando}>Guardar</Boton>
-        <Boton variante={emitible ? 'secundario' : 'primario'} icono={Printer} onClick={() => onGuardar(DESPUES.IMPRIMIR)} cargando={procesando}>
+        <Boton variante={emitible || emitibleTiquete ? 'secundario' : 'primario'} icono={Printer} onClick={() => onGuardar(DESPUES.IMPRIMIR)} cargando={procesando}>
           Guardar e imprimir
         </Boton>
         {emitible && (
           <Boton icono={ShieldCheck} className="col-span-2" onClick={() => onGuardar(DESPUES.EMITIR)} cargando={procesando}>
             Imprimir y emitir
+          </Boton>
+        )}
+        {emitibleTiquete && (
+          <Boton icono={Receipt} className="col-span-2" onClick={() => onGuardar(DESPUES.EMITIR_TIQUETE)} cargando={procesando}>
+            Imprimir y emitir como tiquete
           </Boton>
         )}
       </div>

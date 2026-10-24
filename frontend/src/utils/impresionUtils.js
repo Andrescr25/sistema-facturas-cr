@@ -118,22 +118,42 @@ export function totalDeItems(items) {
  * factura ya con los faltantes rebajados y los precios ajustados (una
  * electrónica ya no se edita), y el papel sale como «Factura electrónica»,
  * con su clave, porque el PDF solo la muestra cuando Hacienda la aceptó.
+ *
+ * «IMPRIMIR Y EMITIR COMO TIQUETE» (2026-10-24, el usuario: «los clientes que
+ * no tienen correo, salga la opción emitir como tiquete e imprimir»). Es lo
+ * mismo para el cliente SIN correo: sin dónde mandarle una factura
+ * electrónica, se emite como tiquete y se le entrega impreso.
  */
-export const DESPUES = { GUARDAR: 'guardar', IMPRIMIR: 'imprimir', EMITIR: 'emitir' }
+export const DESPUES = { GUARDAR: 'guardar', IMPRIMIR: 'imprimir', EMITIR: 'emitir', EMITIR_TIQUETE: 'tiquete' }
+
+const tieneCorreo = (f) => /^\S+@\S+\.\S+$/.test(String(f?.cliente_email || '').trim())
+const sinEmitir = (f) => !f.electronica && !f.con_comprobante && !f.historica
 
 /** ¿Se le ofrece «Imprimir y emitir»? Tiene correo y todavía no es ni va camino a ser electrónica. */
 export function seEmiteAlImprimir(f) {
-  return /^\S+@\S+\.\S+$/.test(String(f?.cliente_email || '').trim()) &&
-    !f.electronica && !f.con_comprobante && !f.historica
+  return tieneCorreo(f) && sinEmitir(f)
+}
+
+/** ¿Se le ofrece «Imprimir y emitir como tiquete»? No tiene correo y todavía no es electrónica. */
+export function seEmiteComoTiquete(f) {
+  return !tieneCorreo(f) && sinEmitir(f)
 }
 
 /** La pregunta antes de marcar impresa una factura desde la lista. */
 export function preguntaAlProcesar(f, { soloImprimir, despues }) {
-  const accion = despues === DESPUES.EMITIR ? ', emitirla electrónicamente e imprimirla'
+  const tiquete = despues === DESPUES.EMITIR_TIQUETE
+  const accion = tiquete ? ', emitirla como tiquete electrónico e imprimirla'
+    : despues === DESPUES.EMITIR ? ', emitirla electrónicamente e imprimirla'
     : despues === DESPUES.IMPRIMIR ? ' e imprimir ahora' : ''
   const ajustes = soloImprimir ? '' : '\n\nSe le rebajan los faltantes y se le ponen los precios del catálogo.'
-  const emision = despues === DESPUES.EMITIR
-    ? `\n\n${soloImprimir ? 'Se' : 'Después de eso se'} emite ante Hacienda; cuando la acepte, le llega a ${f.cliente_email} y se imprime.`
-    : ''
+  const cuando = soloImprimir ? 'Se' : 'Después de eso se'
+  // El tiquete no le sirve al cliente para respaldar gastos ni créditos de IVA:
+  // se avisa antes, porque una vez aceptado ya no se cambia.
+  const emision = tiquete
+    ? `\n\n${cuando} emite ante Hacienda como TIQUETE ELECTRÓNICO y se imprime: el cliente no tiene correo, se le entrega en papel. ` +
+      'Un tiquete no le sirve al cliente para respaldar gastos ni créditos de IVA.'
+    : despues === DESPUES.EMITIR
+      ? `\n\n${cuando} emite ante Hacienda; cuando la acepte, le llega a ${f.cliente_email} y se imprime.`
+      : ''
   return `¿Marcar la factura ${f.numero_factura} como impresa${accion}?${ajustes}${emision}`
 }

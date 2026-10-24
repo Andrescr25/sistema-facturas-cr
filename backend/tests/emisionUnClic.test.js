@@ -537,7 +537,8 @@ describe('cómo quedó conectada la pantalla', () => {
     assert.match(codigo('components', 'facturacion', 'PanelEmisionFactura.jsx'), /seguimiento: estado\?\.seguimiento/);
     assert.match(rutas, /entregarFacturaElectronica\(facturaId\)/);
     const api = codigo('integrations', 'hacienda', 'api.js');
-    assert.match(api, /api\.get\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/estado`\)/);
+    // `?tipo=04` (Impresión, «emitir como tiquete») viaja como parámetro opcional.
+    assert.match(api, /api\.get\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/estado`, \{ params: tipo \? \{ tipo \} : undefined \}\)/);
     assert.match(api, /api\.post\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/emitir`, datos\)/);
     assert.match(api, /api\.post\(`\/facturacion\/hacienda\/facturas\/\$\{id\}\/correo`\)/);
   });

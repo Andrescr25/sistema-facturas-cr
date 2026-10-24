@@ -195,6 +195,7 @@ export function useImpresion() {
     }
     if (despues === DESPUES.IMPRIMIR) await colaImpresionService.abrirPdf(factura.factura_id, ventana)
     if (despues === DESPUES.EMITIR) setPorEmitir(factura)
+    if (despues === DESPUES.EMITIR_TIQUETE) setPorEmitir({ ...factura, comoTiquete: true })
   }
 
   const handleGuardarFactura = async (despues = DESPUES.GUARDAR) => {

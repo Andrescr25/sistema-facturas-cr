@@ -44,6 +44,21 @@ function tipoDeFactura(factura) {
 }
 
 /**
+ * EMITIR COMO TIQUETE POR ELECCIÓN (2026-10-24). Impresión le ofrece «Imprimir
+ * y emitir como tiquete» al cliente SIN correo (el usuario: «los clientes que
+ * no tienen correo, salga la opción emitir como tiquete e imprimir»): sin
+ * correo no hay a dónde mandarle una factura electrónica, y 228 de las 268
+ * ventas recientes a clientes sin correo tenían cédula, así que la regla de
+ * arriba (cédula → factura) no los cubre. Solo se acepta pedir «04»: lo demás
+ * se ignora y manda la regla de siempre. El tiquete no sirve al cliente para
+ * respaldar gastos ni créditos de IVA, por eso es una elección de quien emite
+ * y nunca el valor por omisión de Facturación.
+ */
+function tipoPedido(tipo) {
+  return tipo === "04" ? "04" : null;
+}
+
+/**
  * SE EMITE DESDE IMPRESIÓN (2026-10-22, el usuario: «hagamos que si la
  * factura está en bodega o reporte clientes o cualquier módulo que no sea
  * impresión, esta no pueda emitirse electrónicamente»).
@@ -273,7 +288,7 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
    * ambiente iría un clic, qué comprobante saldría, si le falta algún dato,
    * y cómo va el que ya se preparó (con su correo al cliente).
    */
-  async function estadoDeFactura(n, dadas = []) {
+  async function estadoDeFactura(n, dadas = [], { tipo: tipoElegido } = {}) {
     const f = (
       await pool.query(
         `SELECT f.id, f.numero, f.estado, f.electronica, f.alegra_id, f.cliente_identificacion, f.hacienda_comprobante_id,
@@ -321,9 +336,14 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
     const ambiente = c?.ambiente || a;
     const faltaMedioPago =
       f.condicion_venta !== "credito" && Boolean(ambiente) && !(await medioDePago(pool, f, ambiente));
+    // Un comprobante en curso o aceptado ya tiene su tipo. Si lo rechazaron,
+    // vuelve a salir del mismo tipo salvo que se pida el tiquete a propósito:
+    // reintentar desde otra pantalla no convierte un tiquete en factura.
+    const enCurso = c && c.estado !== "rechazada";
+    const tipo = enCurso ? c.tipo : tipoPedido(tipoElegido) || c?.tipo || tipoDeFactura(f);
     return {
       ambiente,
-      tipo: tipoDeFactura(f),
+      tipo,
       pendientes: datosPendientes(lineas, dadas),
       faltaMedioPago,
       mediosPago: faltaMedioPago ? await mediosDePago(pool) : [],
@@ -340,7 +360,7 @@ function crearUnClic({ pool, ganchos = {}, preparar, vista, id }) {
    */
   async function emitirFactura(n, datos = {}, usuarioId) {
     const lineas = lineasDadas(datos.lineas);
-    const e = await estadoDeFactura(n, lineas);
+    const e = await estadoDeFactura(n, lineas, { tipo: datos.tipo });
     if (e.motivoNoEmitible) throw error("NO_EMITIBLE", e.motivoNoEmitible, 409);
     // Con un comprobante en curso no se pide nada: `preparar` devuelve ese
     // mismo, sin firmar otro ni gastar otro número.
@@ -540,6 +560,7 @@ module.exports = {
   ambienteDeEmision,
   motivoPorModulo,
   tipoDeFactura,
+  tipoPedido,
   datosPendientes,
   lineasDadas,
   REFERENCIAS_DE_NOTA,

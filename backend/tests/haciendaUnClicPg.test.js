@@ -268,6 +268,44 @@ test(
         assert.equal((await s.emitirFactura(sinCedula.id)).tipo, "04");
       });
 
+      await t.test("a un cliente CON cédula y sin correo se le emite tiquete cuando se pide: firmado, numerado aparte y aceptado", async () => {
+        // 2026-10-24: «los clientes que no tienen correo, salga la opción emitir
+        // como tiquete e imprimir». La cédula iría a factura; el tiquete es una elección.
+        const f = await crear();
+        assert.equal((await s.estadoDeFactura(f.id)).tipo, "01", "sin pedirlo, sigue la regla de siempre");
+        assert.equal((await s.estadoDeFactura(f.id, [], { tipo: "04" })).tipo, "04");
+
+        const p = await s.emitirFactura(f.id, { tipo: "04" }, usuarioId);
+        assert.equal(p.tipo, "04");
+        assert.equal(p.ambiente, "produccion");
+        assert.match(p.consecutivo, /^0010000104\d{10}$/, "serie propia del tiquete: sucursal + terminal + 04");
+        const xml = await s.archivo(p.id);
+        assert.match(xml, /<TiqueteElectronico /);
+        assert.match(xml, /<Receptor>[\s\S]*<Numero>123456789<\/Numero>/, "el tiquete lleva al cliente identificado");
+
+        // Ya salió como tiquete: la factura lo recuerda aunque nadie lo vuelva a pedir.
+        assert.equal((await s.estadoDeFactura(f.id)).tipo, "04");
+        assert.equal((await s.emitirFactura(f.id, { tipo: "04" })).id, p.id, "un segundo clic no gasta otro número");
+        assert.equal((await s.emitirFactura(f.id)).id, p.id);
+
+        // Sin correo: la aceptación no falla y queda anotado que no hay a quién mandarle nada.
+        correo = { estado: "sin_correo", motivo: "El cliente no tiene un correo válido en su ficha." };
+        await s.enviar(p.id);
+        const r = await s.consultar(p.id);
+        assert.equal(r.estado, "aceptada");
+        assert.equal(r.tipo, "04");
+        assert.equal((await s.estadoDeFactura(f.id)).correo.estado, "sin_correo");
+        correo = { estado: "enviado", para: "zz-cliente@example.invalid" };
+      });
+
+      await t.test("pedir el tiquete no cambia una factura ya emitida como factura", async () => {
+        const f = await crear();
+        const p = await s.emitirFactura(f.id, {}, usuarioId);
+        assert.equal(p.tipo, "01");
+        assert.equal((await s.emitirFactura(f.id, { tipo: "04" })).id, p.id, "no se prepara otro comprobante");
+        assert.equal((await s.estadoDeFactura(f.id, [], { tipo: "04" })).tipo, "01");
+      });
+
       await t.test("dos clics seguidos no gastan dos números", async () => {
         const f = await crear();
         const a = await s.emitirFactura(f.id),

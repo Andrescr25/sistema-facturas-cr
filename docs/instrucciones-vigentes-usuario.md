@@ -1212,3 +1212,33 @@ pestaña y hoja, aparte de Compras. Se conserva el formato resumido del Excel.
 El usuario autoriza después «perfecto subelo a main». Publicación del cambio
 propio de Codex con suite completa local y sin migración ni otros commits
 pendientes de otro agente.
+
+## 2026-10-24 — Impresión: plazos, historial y tiquete; PDF de la electrónica
+
+Pedidos del mismo día, en orden (los dos primeros ya publicados por Claude):
+
+- «Poner más restricciones para no poder recuperar facturas ya impresas…
+  después de 24 horas no se pueda recuperar… y la que tenga 48 horas en el
+  historial… eliminarla; solo el historial de ambos módulos, lo que está en el
+  módulo normal dejarlo en cola hasta que se procese». Vigente en **Reporte
+  Clientes** (recuperar solo en Activos y con menos de 24 h impresa; su
+  historial muestra cada factura 48 h; se oculta, no se borra).
+  [Detalle](grafo/modulo/reporte-clientes.md).
+- Después, para **Impresión**: «no quiero que se pueda recuperar desde
+  historial, quiero que el historial sea solo para ver el PDF y no se borre
+  nada, solo que queden ahí». Reemplaza los plazos en ese módulo: sin
+  «Recuperar», sin plazo, todas las impresas de a 50. Se quitó también un
+  borrado total de `procesamientos` que nadie usaba.
+  [Detalle](grafo/modulo/faltantes.md).
+- PDF de la factura electrónica: «las facturas de venta mantengan el formato
+  que tenemos y las electrónicas el que exige Hacienda». Se agregó lo que el
+  XML dice (fecha con hora, estado, plazo en días, medio con código, detalle
+  por línea); el usuario quitó el recuadro de resumen al verlo y no hay QR
+  porque Hacienda lo tiene suspendido. [Detalle](grafo/modulo/correo-facturas.md).
+- «Los clientes que no tienen correo, salga la opción emitir como tiquete e
+  imprimir» (la otra mitad de «Imprimir y emitir»). Decisión de Claude a
+  revisar por él: se pide **a propósito** (`tipo 04`), también a clientes con
+  cédula, porque la regla de siempre los mandaría a factura; la pregunta avisa
+  que el tiquete no sirve para gastos ni créditos de IVA. El primero saldría
+  con el número 1970 y Hacienda nunca ha aceptado un tiquete de este emisor.
+  [Detalle](grafo/modulo/faltantes.md).

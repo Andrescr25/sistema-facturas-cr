@@ -1,4 +1,4 @@
-import { Plus, Printer, Trash2, AlertTriangle, Loader2, ShieldCheck } from 'lucide-react'
+import { Plus, Printer, Trash2, AlertTriangle, Loader2, ShieldCheck, Receipt } from 'lucide-react'
 import { formatDate, totalDeItems, subtotalDeItem, DESPUES } from '../../utils/impresionUtils'
 import BuscadorProductoNuevo from './BuscadorProductoNuevo'
 import Modal from '../ui/Modal'
@@ -47,7 +47,8 @@ export default function FormularioEdicionFactura({
   onCambiarTermino,
   onSeleccionarProducto,
   onGuardar,
-  emitible = false
+  emitible = false,
+  emitibleTiquete = false
 }) {
 
   // El total de la factura que se va a imprimir, con el impuesto de cada
@@ -90,7 +91,7 @@ export default function FormularioEdicionFactura({
               cargando={procesando} disabled={cargandoItems}>
               Solo guardar
             </Boton>
-            <Boton variante={emitible ? 'secundario' : 'primario'} icono={Printer} onClick={() => onGuardar(DESPUES.IMPRIMIR)}
+            <Boton variante={emitible || emitibleTiquete ? 'secundario' : 'primario'} icono={Printer} onClick={() => onGuardar(DESPUES.IMPRIMIR)}
               cargando={procesando} disabled={cargandoItems}>
               Guardar e imprimir
             </Boton>
@@ -99,6 +100,13 @@ export default function FormularioEdicionFactura({
               <Boton variante="primario" icono={ShieldCheck} onClick={() => onGuardar(DESPUES.EMITIR)}
                 cargando={procesando} disabled={cargandoItems}>
                 Imprimir y emitir
+              </Boton>
+            )}
+            {/* Sin correo: guarda los ajustes, emite como tiquete y después imprime. */}
+            {emitibleTiquete && (
+              <Boton variante="primario" icono={Receipt} onClick={() => onGuardar(DESPUES.EMITIR_TIQUETE)}
+                cargando={procesando} disabled={cargandoItems}>
+                Imprimir y emitir como tiquete
               </Boton>
             )}
           </div>

@@ -38,6 +38,36 @@ test('se ofrece solo a las que tienen correo y todavía no son ni van camino a s
   assert.equal(u.seEmiteAlImprimir(null), false);
 });
 
+// 2026-10-24: «los clientes que no tienen correo, salga la opción emitir como
+// tiquete e imprimir». Es la otra mitad del mismo filtro.
+test('«como tiquete» se ofrece solo a las SIN correo, y nunca junto con «Imprimir y emitir»', () => {
+  assert.equal(u.seEmiteComoTiquete(fila({ cliente_email: null })), true);
+  assert.equal(u.seEmiteComoTiquete(fila({ cliente_email: '' })), true);
+  assert.equal(u.seEmiteComoTiquete(fila({ cliente_email: '   ' })), true);
+  assert.equal(u.seEmiteComoTiquete(fila({ cliente_email: 'sin arroba' })), true, 'un correo mal escrito no es un correo');
+  assert.equal(u.seEmiteComoTiquete(fila()), false, 'con correo se emite como factura');
+  assert.equal(u.seEmiteComoTiquete(fila({ cliente_email: null, electronica: true })), false, 'ya es electrónica');
+  assert.equal(u.seEmiteComoTiquete(fila({ cliente_email: null, con_comprobante: true })), false, 'ya tiene un comprobante en curso');
+  assert.equal(u.seEmiteComoTiquete(fila({ cliente_email: null, historica: true })), false, 'las de Alegra no se emiten');
+  for (const cliente_email of [null, '', 'zz@ejemplo.com', 'mal']) {
+    for (const extra of [{}, { electronica: true }, { con_comprobante: true }, { historica: true }]) {
+      const f = fila({ cliente_email, ...extra });
+      assert.equal(u.seEmiteAlImprimir(f) && u.seEmiteComoTiquete(f), false, 'una factura no recibe las dos opciones');
+    }
+  }
+});
+
+test('la pregunta del tiquete avisa que no sirve para gastos ni créditos de IVA, y que no hay correo', () => {
+  const sinCorreo = fila({ cliente_email: null });
+  const q = u.preguntaAlProcesar(sinCorreo, { soloImprimir: false, despues: u.DESPUES.EMITIR_TIQUETE });
+  assert.match(q, /^¿Marcar la factura 001000015100 como impresa, emitirla como tiquete electrónico e imprimirla\?/);
+  assert.match(q, /Se le rebajan los faltantes y se le ponen los precios del catálogo\.\n\nDespués de eso se emite ante Hacienda como TIQUETE ELECTRÓNICO y se imprime/);
+  assert.match(q, /no tiene correo, se le entrega en papel/);
+  assert.match(q, /no le sirve al cliente para respaldar gastos ni créditos de IVA/);
+  assert.doesNotMatch(q, /le llega a/, 'no promete un correo que no existe');
+  assert.match(u.preguntaAlProcesar(sinCorreo, { soloImprimir: true, despues: u.DESPUES.EMITIR_TIQUETE }), /\?\n\nSe emite ante Hacienda como TIQUETE/);
+});
+
 test('la pregunta de la lista dice que emite y a qué correo llega', () => {
   const conAjustes = u.preguntaAlProcesar(fila(), { soloImprimir: false, despues: u.DESPUES.EMITIR });
   assert.match(conAjustes, /^¿Marcar la factura 001000015100 como impresa, emitirla electrónicamente e imprimirla\?/);
@@ -71,7 +101,7 @@ test('el botón sale en la lista, la revisión y la edición, con quien puede em
 
 test('emite con lo mismo que Facturación, sola y una sola vez, y no se cierra a medio camino', () => {
   const modal = leer('components', 'impresion', 'EmitirEImprimir.jsx');
-  assert.match(modal, /const emision = useEmisionFactura\(factura\.factura_id\)/);
+  assert.match(modal, /const emision = useEmisionFactura\(factura\.factura_id, \{ tipo: comoTiquete \? '04' : null \}\)/);
   assert.match(modal, /<PanelEmisionFactura emision=\{emision\} incrustado angosto \/>/);
   assert.match(leer('components', 'facturacion', 'PanelEmisionFactura.jsx'), /angosto \? 'sm:grid-cols-2'/, 'en el modal, dos columnas como mucho');
   assert.match(modal, /<BotonEmitirFactura emision=\{emision\}/);
@@ -81,4 +111,31 @@ test('emite con lo mismo que Facturación, sola y una sola vez, y no se cierra a
   // Imprime cuando Hacienda aceptó; si no se pudo, igual se puede imprimir.
   assert.match(modal, /aceptada \? \(\s*<Boton tamano="lg" icono=\{Printer\} data-imprimir-emitida onClick=\{imprimir\}>/);
   assert.match(modal, /data-imprimir-sin-emitir onClick=\{imprimir\}/);
+});
+
+test('el botón del tiquete sale en la lista, la revisión y la edición, y pide el tipo 04 al servidor', () => {
+  const pagina = leer('pages', 'Impresion.jsx');
+  assert.match(pagina, /puedeEmitir && seEmiteComoTiquete\(facturaEditando\)/);
+  assert.equal((pagina.match(/emitibleTiquete=\{emitibleTiquete\}/g) || []).length, 2, 'la revisión y la edición');
+  assert.match(leer('components', 'impresion', 'ListaFacturasPendientes.jsx'), /emitibleTiquete && \(\s*<Boton[^>]*onClick=\{\(\) => onProcesarSinCambios\(factura, DESPUES\.EMITIR_TIQUETE\)\}[\s\S]*?Imprimir y emitir como tiquete/);
+  for (const archivo of ['CambiosAutomaticos.jsx', 'FormularioEdicionFactura.jsx']) {
+    assert.match(leer('components', 'impresion', archivo),
+      /\{emitibleTiquete && \(\s*<Boton[^>]*onClick=\{\(\) => onGuardar\(DESPUES\.EMITIR_TIQUETE\)\}[\s\S]*?Imprimir y emitir como tiquete/, archivo);
+  }
+  // Guarda primero y emite después, igual que con correo; el modal recibe la marca.
+  assert.match(leer('hooks', 'useImpresion.js'), /if \(despues === DESPUES\.EMITIR_TIQUETE\) setPorEmitir\(\{ \.\.\.factura, comoTiquete: true \}\)/);
+  const hook = leer('hooks', 'useEmisionFactura.js');
+  assert.match(hook, /base\.estado\(id, \{ tipo \}\)/);
+  assert.match(hook, /base\.emitir\(id, \{ \.\.\.datos, tipo \}\)/);
+  assert.match(hook, /useMemo\(/, 'el objeto del servidor no cambia en cada render: si no, la consulta se repite sin parar');
+});
+
+test('un tiquete sin correo no se muestra como aviso: se entrega impreso', async () => {
+  const pasos = (await import(pathToFileURL(path.join(FRONT, 'utils', 'emisionPasos.js')))).pasosDe;
+  const entrega = (tipo) => pasos({ comprobante: { estado: 'aceptada', ambiente: 'produccion', tipo, consecutivo: '1' }, correo: { estado: 'sin_correo' }, ambiente: 'produccion' })
+    .find((p) => p.clave === 'correo');
+  assert.equal(entrega('04').estado, 'omitido');
+  assert.match(entrega('04').titulo, /Tiquete: se entrega impreso/);
+  assert.equal(entrega('01').estado, 'aviso', 'una factura sin correo sí es algo por arreglar');
+  assert.match(entrega('01').titulo, /El cliente no tiene correo/);
 });

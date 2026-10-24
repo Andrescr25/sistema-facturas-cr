@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Check, Mail, Printer } from 'lucide-react'
+import { Check, Mail, Printer, Receipt } from 'lucide-react'
 import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
 import useEmisionFactura from '../../hooks/useEmisionFactura'
@@ -22,9 +22,15 @@ import PanelEmisionFactura from '../facturacion/PanelEmisionFactura'
  * dato), igual se puede imprimir y emitirla después desde Facturación.
  * Mientras se emite no se cierra: cortar a medio camino deja un comprobante
  * firmado sin enviar.
+ *
+ * `factura.comoTiquete` (2026-10-24): el cliente no tiene correo, así que se
+ * emite como TIQUETE electrónico (tipo 04) y se entrega impreso: no hay a
+ * dónde mandar nada. Es el mismo camino y el mismo panel; cambia el tipo que
+ * se pide y lo que el modal promete (nada de «le llega a …»).
  */
 export default function EmitirEImprimir({ factura, onImprimir, onCerrar }) {
-  const emision = useEmisionFactura(factura.factura_id)
+  const comoTiquete = Boolean(factura.comoTiquete)
+  const emision = useEmisionFactura(factura.factura_id, { tipo: comoTiquete ? '04' : null })
   const arranco = useRef(false)
   useEffect(() => {
     if (arranco.current || !emision.estado) return
@@ -44,7 +50,7 @@ export default function EmitirEImprimir({ factura, onImprimir, onCerrar }) {
       <Boton variante="secundario" tamano="lg" onClick={onCerrar} disabled={ocupado}>{aceptada ? 'Listo' : 'Cerrar'}</Boton>
       {aceptada ? (
         <Boton tamano="lg" icono={Printer} data-imprimir-emitida onClick={imprimir}>
-          {enProduccion ? 'Imprimir factura electrónica' : 'Imprimir'}
+          {enProduccion ? (comoTiquete ? 'Imprimir tiquete electrónico' : 'Imprimir factura electrónica') : 'Imprimir'}
         </Boton>
       ) : !ocupado && (
         <>
@@ -56,15 +62,19 @@ export default function EmitirEImprimir({ factura, onImprimir, onCerrar }) {
   )
 
   return (
-    <Modal onCerrar={cerrar} titulo={`Imprimir y emitir · ${factura.numero_factura}`} ancho="xl" pie={pie}>
+    <Modal onCerrar={cerrar} titulo={`Imprimir y emitir${comoTiquete ? ' como tiquete' : ''} · ${factura.numero_factura}`} ancho="xl" pie={pie}>
       <div className="flex flex-col gap-4 p-5">
         <div className="flex items-start gap-3 rounded-2xl border border-primario-100 bg-primario-50/60 p-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-primario-600 ring-1 ring-primario-100">
-            <Mail size={18} />
+            {comoTiquete ? <Receipt size={18} /> : <Mail size={18} />}
           </span>
           <div className="min-w-0">
             <p className="break-words font-bold text-neutro-900">{factura.cliente_nombre}</p>
-            <p className="break-words text-xs text-neutro-600">Cuando Hacienda la acepte, le llega a {factura.cliente_email}</p>
+            <p className="break-words text-xs text-neutro-600">
+              {comoTiquete
+                ? 'Sin correo: se emite como tiquete electrónico y se le entrega impreso'
+                : `Cuando Hacienda la acepte, le llega a ${factura.cliente_email}`}
+            </p>
           </div>
         </div>
 

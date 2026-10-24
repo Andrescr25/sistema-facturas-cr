@@ -37,11 +37,14 @@ export async function fijarNumeracion(ambiente, tipo, siguiente) {
   ).data.data;
 }
 // --- Un clic desde la factura (ver emisionPasos.js) ---
-/** Cómo va la emisión de esa factura: ambiente, comprobante y correo al cliente. */
-export async function estadoFactura(id) {
-  return (await api.get(`/facturacion/hacienda/facturas/${id}/estado`)).data.data;
+/**
+ * Cómo va la emisión de esa factura: ambiente, comprobante y correo al cliente.
+ * `tipo: '04'` pide «emitir como tiquete» (Impresión, clientes sin correo).
+ */
+export async function estadoFactura(id, { tipo } = {}) {
+  return (await api.get(`/facturacion/hacienda/facturas/${id}/estado`, { params: tipo ? { tipo } : undefined })).data.data;
 }
-/** Prepara y firma sin preguntar: el servidor elige ambiente y tipo. */
+/** Prepara y firma sin preguntar: el servidor elige ambiente y tipo (salvo `datos.tipo: '04'`). */
 export async function emitirFactura(id, datos = {}) {
   return (await api.post(`/facturacion/hacienda/facturas/${id}/emitir`, datos)).data.data;
 }
