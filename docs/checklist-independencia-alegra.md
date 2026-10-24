@@ -1224,3 +1224,14 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   Chromium390/700/1440 correctas, build/lint aprobados.
 
 [Detalle](grafo/modulo/reporte-contador.md). Sin SQL nuevo, entrega en developer.
+
+
+### Tablas centradas en Excel del contador — 2026-10-24
+
+- [x] Centrar las cinco columnas de las tablas en las tres hojas: encabezados,
+  filas y totales, vertical/horizontalmente y sin sangría; números sumables.
+- [x] Mismo formato en descarga/adjunto; opción sólo para Contador y estilo
+  por omisión del presentador conservado. Verificación del XLSX y16 pruebas
+  existentes de Excel correctas; sin base de datos ni migración.
+
+[Detalle](grafo/modulo/reporte-contador.md). Entrega inicial en developer.

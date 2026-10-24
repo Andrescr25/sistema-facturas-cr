@@ -172,3 +172,15 @@ envío toma dinámicamente sus tres nombres y el correo identifica ventas
 fiscales. La lectura mensual y el resumen general se conservan, igual que
 los documentos, originales y reportes archivados. No hay borrado de datos
 ni migración. La corrección anterior de etiqueta de tiquete sigue incluida.
+
+
+## Centrado de tablas Excel — 2026-10-24
+
+El usuario pide centrar los datos bajo Subtotal, Descuento, Impuestos y Total.
+Las tres tablas activan `centrarTabla` en el presentador existente: encabezados,
+conceptos, importes y totales quedan centrados horizontal/verticalmente, sin
+sangría, desde la fila6. Título, empresa y período conservan la cabecera.
+La caché de estilos incluye la alineación; formatos numéricos/colores y
+valores se mantienen. Sin la opción, el presentador conserva texto a la
+izquierda y números a la derecha para cualquier otro exportador. Descarga y
+adjunto del correo usan el mismo generador. Sin consultas ni SQL nuevo.

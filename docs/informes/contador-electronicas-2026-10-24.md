@@ -93,3 +93,20 @@ comprobaciones Chromium390/700/1440 con tres pestañas, insignia/modal de
 Tiquete electrónico, descarga XLSX y adjunto de correo con exactamente tres
 hojas, sin erroresJS o desborde. Build, lint del helper y diff --check
 correctos. Cambios propios de Codex en developer, pendientes de main.
+
+
+## Centrado posterior del Excel — 2026-10-24
+
+A pedido del usuario, las tres hojas centran las cinco columnas de sus tablas
+(encabezados, conceptos, importes y totales), horizontal y verticalmente, sin
+sangría. La cabecera general conserva título/empresa/período. Se habilita la
+opción centrada en el presentador existente sólo para Contador; sin ella el
+resto conserva texto a la izquierda y números a la derecha. La clave de caché
+incluye la alineación; números/formato/colores sin cambios. Mismo generador
+para descarga y adjunto, sin base de datos ni migración.
+
+16 pruebas existentes de Excel aprobadas. Se generó/reabrió el XLSX de las
+tres hojas y se comprobaron estilos reales OOXML, centrado sin sangría,
+números tipados y comportamiento por omisión en otra hoja. Validación directa de117celdas centradas y45valores numéricos. Evidencia
+privada y muestra ficticia en
+`/private/tmp/codex-contador-centrado-20261024/`. Entrega inicial en developer.

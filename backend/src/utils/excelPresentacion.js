@@ -42,13 +42,13 @@ function estilos(xml) {
     seccion: [f + 1, fondo + 2, 0], total: [f + 4, fondo + 3, borde],
     alerta: [f + 5, fondo + 4, borde], exito: [f + 6, fondo + 5, borde], peligro: [f + 7, fondo + 6, borde]
   };
-  function id(original, rol, numero) {
-    const clave = `${original}/${rol}/${numero}`;
+  function id(original, rol, alineacion) {
+    const clave = `${original}/${rol}/${alineacion}`;
     if (cache.has(clave)) return cache.get(clave);
     const [font, fill, border] = roles[rol] || roles.cuerpo;
     const formato = (originales[original || 0].match(/numFmtId="(\d+)"/) || [null, 0])[1];
     const indice = originales.length + nuevos.length;
-    nuevos.push(`<xf numFmtId="${formato}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${numero ? 'right' : 'left'}" vertical="center" wrapText="1" indent="1"/></xf>`);
+    nuevos.push(`<xf numFmtId="${formato}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${alineacion}" vertical="center" wrapText="1" indent="${alineacion === 'center' ? 0 : 1}"/></xf>`);
     cache.set(clave, indice);
     return indice;
   }
@@ -70,8 +70,11 @@ function presentarExcel(buffer, hojas) {
       const rol = celdas[direccion] || filas[fila + 1] || (fila === 0 ? 'titulo' : fila === 1 ? 'subtitulo' : fila < encabezado - 1 ? 'ayuda' : fila === encabezado - 1 ? 'cabecera' : fila % 2 ? 'cuerpo' : 'alterna');
       const original = Number((atributos.match(/\bs="(\d+)"/) || [null, 0])[1]);
       const numero = !/\bt="(s|str|inlineStr)"/.test(atributos);
+      // La tabla del contador centra encabezados e importes con el mismo
+      // estilo, sin sangría. Otros reportes conservan su alineación habitual.
+      const alineacion = opciones.centrarTabla && fila >= encabezado - 1 ? 'center' : numero ? 'right' : 'left';
       const limpio = atributos.replace(/\s+s="\d+"/, '');
-      return `<c${limpio} s="${estilo.id(original, rol, numero)}">`;
+      return `<c${limpio} s="${estilo.id(original, rol, alineacion)}">`;
     });
     xml = xml.replace(/<row\b([^>]*\br="(\d+)"[^>]*)>/g, (_, atributos, numero) => {
       const alto = opciones.alturas?.[numero] || (Number(numero) === 1 ? 40 : Number(numero) === encabezado ? 36 : Number(numero) < encabezado ? 26 : 34);

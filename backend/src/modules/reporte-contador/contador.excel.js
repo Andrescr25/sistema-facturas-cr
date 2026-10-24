@@ -46,7 +46,7 @@ function excelMensual(mes) {
     hoja['!merges'] = merges;
     for (const [direccion, celda] of Object.entries(hoja)) if (!direccion.startsWith('!') && celda.t === 'n') celda.z = FORMATO;
     XLSX.utils.book_append_sheet(libro, hoja, nombre);
-    presentacion.push({ nombre, encabezado: 6, columnasFijas: 0, filas: roles, color: 'primario', paginasAlto: 1 });
+    presentacion.push({ nombre, encabezado: 6, columnasFijas: 0, filas: roles, color: 'primario', paginasAlto: 1, centrarTabla: true });
   }
   return escribirExcel(libro, { prefijo: `contador-${mes.anio}-${String(mes.mes).padStart(2, '0')}`, presentacion });
 }

@@ -1270,3 +1270,11 @@ quedan «Facturas y notas electrónicas», «Compras» y «Gastos operativos».
 Descarga y adjunto del correo tienen esas mismas tres hojas. No se pide borrar
 facturas de la base ni alterar la emisión o los reportes guardados antiguos.
 [Resultado](grafo/modulo/reporte-contador.md).
+
+
+## Reporte Contador: centrar el contenido del Excel — 2026-10-24
+
+El usuario pide centrar los datos debajo de Subtotal, Descuento, Impuestos
+y Total para que las hojas queden alineadas. Las tres tablas centran
+encabezados, datos y totales; los importes mantienen su tipo/formato numérico.
+Se aplica también al adjunto del correo. [Resultado](grafo/modulo/reporte-contador.md).
