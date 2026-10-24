@@ -33,6 +33,8 @@ const { editarFacturaEn } = require('../facturacion/facturaPropia.service');
 const { obtenerFactura } = require('../facturacion/facturaConsulta.service');
 const { generarPdfFactura } = require('../facturacion/factura.pdf');
 const { registrarCambio } = require('../../utils/bitacora');
+const { noSeRecupera } = require('./colaImpresion');
+const { impresaFueraDePlazo } = require('../reports/historialClientes.sql');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -321,6 +323,9 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
  * Queda en la bitácora quién la recuperó (2026-10-22): facturas ya impresas
  * volvían a Impresión una y otra vez (la 15009 se procesó tres veces) y no
  * había forma de saber quién tocaba el botón.
+ *
+ * Solo durante 24 h desde que se imprimió (2026-10-24): después se corrige
+ * con nota de crédito o factura nueva, nunca devolviéndola a la cola.
  */
 async function recuperarProcesada(facturaIdCrudo, usuario = {}) {
   const facturaId = idDeFactura(facturaIdCrudo);
@@ -328,6 +333,13 @@ async function recuperarProcesada(facturaIdCrudo, usuario = {}) {
     // Mismo bloqueo que procesar: recuperar espera a que la factura termine
     // de guardarse y devuelve faltantes/cola juntos a pendiente.
     await c.query('SELECT id FROM factura WHERE id = $1 FOR UPDATE', [facturaId]);
+    const { rows: [impresa] } = await c.query(`
+      SELECT f.numero, ${impresaFueraDePlazo('fr')} AS vencida
+        FROM facturas_reimpresion fr JOIN factura f ON f.id = fr.factura_propia_id
+       WHERE fr.factura_propia_id = $1 AND fr.estado = 'procesada'
+       ORDER BY fr.fecha_procesamiento DESC NULLS LAST, fr.id DESC LIMIT 1
+    `, [facturaId]);
+    if (impresa?.vencida) throw noSeRecupera(impresa.numero);
     const faltantes = await c.query(`
       UPDATE faltantes SET estado = 'pendiente', updated_at = ${AHORA_CR_SQL}
        WHERE factura_propia_id = $1 AND estado = 'procesado'

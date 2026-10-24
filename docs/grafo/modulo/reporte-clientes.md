@@ -138,3 +138,29 @@ conserva el registro y las fechas de gestión disponibles en las tablas propias.
 
 Sin SQL nuevo ni acceso a producción para probar.
 [Verificación](../../informes/reporte-clientes-historial-2026-10-15.md).
+
+## Plazos: 24 h para recuperar, 48 h en el historial — 2026-10-24
+
+Pedido del usuario: «que después de 24 horas no se pueda recuperar la factura
+… y la que tenga 48 horas en el historial, eliminarla; solo el historial, lo
+que está en el módulo normal dejarlo en cola hasta que se procese». Reemplaza
+lo de arriba sobre recuperar desde el historial.
+
+- Los plazos viven en un solo lugar, `historialClientes.sql.js`
+  (`PLAZO_RECUPERAR`, `PLAZO_EN_HISTORIAL`, `impresaFueraDePlazo`), y los usa
+  también Impresión.
+- **Recuperar**, solo mientras la factura está en Activos y no lleva 24 h
+  impresa: `devolverAlReporte` responde 409 si está en el historial o si su
+  última fila de cola se imprimió hace 24 h o más (aunque una gestión reciente
+  la haya traído a Activos). La pantalla lo sabe por `puede_recuperar` y deja
+  de ofrecer el botón. Después se corrige con nota de crédito o factura nueva
+  (ver la regla de Bodega en [[modulo/facturas-bodega]]).
+- **48 h en el historial** (desde `historial_desde`): sale de la vista y del
+  Excel. Se OCULTA, no se borra: factura, faltantes, respuestas y fila de la
+  cola siguen; si todavía está pendiente en Impresión, ahí sigue esperando.
+  Borrar faltantes los devolvería a «por pedir».
+- La fila más reciente de la cola es `ULTIMA_COLA`, compartida por el reporte
+  y por la revisión del recuperar.
+
+Pruebas en `historialReporteClientes.test.js` (bordes exactos de 24 h y 48 h,
+contra la base local). Sin SQL nuevo.

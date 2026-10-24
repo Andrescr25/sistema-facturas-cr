@@ -6,6 +6,7 @@ import { fechaCorta, fechaHoraEnCostaRica } from '../../utils/fechaCR'
 
 /** La ficha conserva productos y respuestas; archivo no significa impresa:
  * una factura enviada hace 24 h puede seguir pendiente en la cola de Impresión.
+ * En el historial ya no se recupera, y a las 48 h sale de él (2026-10-24).
  */
 export default function FacturaEnviadaCard({ factura, estado, onRecuperar }) {
   const [verProductos, setVerProductos] = useState(false)
@@ -22,15 +23,20 @@ export default function FacturaEnviadaCard({ factura, estado, onRecuperar }) {
           {factura.enviada_a_impresion_en && <div>Enviada a Impresión: <span className="font-medium text-neutro-700">{fechaHoraEnCostaRica(factura.enviada_a_impresion_en)}</span></div>}
           <div>Última gestión: <span className="font-medium text-neutro-700">{fechaHoraEnCostaRica(factura.ultima_gestion_en)}</span></div>
           {factura.historial_desde && <div>En historial desde: <span className="font-medium text-neutro-700">{fechaHoraEnCostaRica(factura.historial_desde)}</span></div>}
+          {factura.sale_del_historial_en && <div>Sale del historial: <span className="font-medium text-neutro-700">{fechaHoraEnCostaRica(factura.sale_del_historial_en)}</span></div>}
         </div>
         {factura.observaciones_adicionales && <p className="break-words text-sm text-neutro-600">{factura.observaciones_adicionales}</p>}
         <div className="flex flex-wrap justify-between gap-2">
           <Boton type="button" variante="fantasma" tamano="sm" className="min-h-11" aria-expanded={verProductos} onClick={() => setVerProductos(v => !v)}>
             <ChevronDown size={15} /> {verProductos ? 'Ocultar' : 'Ver'} {factura.productos_faltantes.length} producto{factura.productos_faltantes.length !== 1 ? 's' : ''}
           </Boton>
-          <Boton type="button" variante="secundario" tamano="sm" className="min-h-11" onClick={() => onRecuperar(factura)}>
-            <RotateCcw size={14} /> Recuperar
-          </Boton>
+          {factura.puede_recuperar
+            ? (
+              <Boton type="button" variante="secundario" tamano="sm" className="min-h-11" onClick={() => onRecuperar(factura)}>
+                <RotateCcw size={14} /> Recuperar
+              </Boton>
+            )
+            : <p className="self-center text-xs text-neutro-500">Pasaron 24 horas: ya no se recupera.</p>}
         </div>
       </div>
       {verProductos && (

@@ -208,13 +208,13 @@ export function useReporteClientes() {
       await colaImpresionService.recuperarDesdeReporte(factura.factura_id)
       if (!esActual()) return
       setFacturasEstado(prev => { const nuevosEstados = new Map(prev); nuevosEstados.delete(facturaKey); return nuevosEstados })
-      if (vista === 'historial') cambiarVista('activos')
-      else await loadReporte()
+      // Solo se recupera desde Activos: el historial ya pasó las 24 h (2026-10-24).
+      await loadReporte()
       showToast(`Factura #${factura.numero_factura} recuperada.`, 'success')
     } catch (error) {
       showToast(`Error recuperando factura: ${error.message}`, 'error')
     }
-  }, [confirm, showToast, esActual, setFacturasEstado, vista, loadReporte])
+  }, [confirm, showToast, esActual, setFacturasEstado, loadReporte])
 
   // ==================== AJUSTES DE ENTREGA POR PRODUCTO ====================
 

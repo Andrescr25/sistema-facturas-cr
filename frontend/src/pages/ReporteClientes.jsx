@@ -67,8 +67,8 @@ export default function ReporteClientes() {
       ]} />
       <p className="mb-4 text-sm text-neutro-500">
         {vista === 'historial'
-          ? 'Facturas enviadas a Impresión con 24 horas sin movimientos. Podés consultarlas o recuperarlas.'
-          : 'Las facturas enviadas a Impresión pasan al historial tras 24 horas sin movimientos.'}
+          ? 'Facturas enviadas a Impresión con 24 horas sin movimientos. Se pueden consultar durante 48 horas; ya no se recuperan.'
+          : 'Las facturas enviadas a Impresión se pueden recuperar durante 24 horas; sin movimientos, pasan al historial.'}
       </p>
       <FiltroRuta filtro={filtroRuta} historial={vista === 'historial'} />
       {loading && <p role="status" className="mb-4 text-neutro-500">Consultando faltantes de la ruta…</p>}

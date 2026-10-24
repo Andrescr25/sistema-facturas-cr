@@ -24,8 +24,20 @@ const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { validarEntrega } = require('../missing-items/ajusteEntrega');
+const {
+  PLAZO_RECUPERAR, PLAZO_EN_HISTORIAL, impresaFueraDePlazo, MOVIMIENTOS_REPORTE, ULTIMA_COLA, JOIN_HISTORIAL_REPORTE
+} = require('../reports/historialClientes.sql');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
+
+/**
+ * Una factura impresa hace 24 h o más ya no se recupera (2026-10-24, pedido
+ * del usuario), ni desde Impresión ni desde Reporte Clientes.
+ */
+function noSeRecupera(numero) {
+  return httpError(409, `La factura ${numero} ya no se recupera: pasaron más de 24 horas. ` +
+    'Si hay que quitar algo, se hace una nota de crédito; si hay que agregar algo, una factura nueva.');
+}
 
 function httpError(status, message) {
   const e = new Error(message);
@@ -157,6 +169,10 @@ async function encolarDesdeReporte(facturaIdCrudo) {
  * Impresión la habría procesado con los ajustes de antes). Si ya se procesó,
  * sus faltantes vuelven a pendientes y la fila procesada queda como
  * historial de Impresión.
+ *
+ * Pasadas 24 h ya no (2026-10-24): ni la que está en el historial del
+ * reporte, ni la que Impresión imprimió hace 24 h o más aunque una gestión
+ * reciente la haya devuelto a los activos.
  */
 async function devolverAlReporte(facturaIdCrudo) {
   const facturaId = idDeFactura(facturaIdCrudo);
@@ -164,6 +180,14 @@ async function devolverAlReporte(facturaIdCrudo) {
     // Impresión toma primero este bloqueo. Recuperar espera a que termine
     // de guardar para no dejar faltantes procesados fuera de su cola.
     await c.query('SELECT id FROM factura WHERE id = $1 FOR UPDATE', [facturaId]);
+    const { rows: [f] } = await c.query(`
+      SELECT fa.numero, ${impresaFueraDePlazo('fr')} AS vencida FROM factura fa ${ULTIMA_COLA} WHERE fa.id = $1
+    `, [facturaId]);
+    const { rows: [h] } = await c.query(`
+      ${MOVIMIENTOS_REPORTE}
+      SELECT archivo.en_historial FROM factura fa ${ULTIMA_COLA} ${JOIN_HISTORIAL_REPORTE} WHERE fa.id = $1
+    `, [facturaId]);
+    if (f && (f.vencida || h?.en_historial)) throw noSeRecupera(f.numero);
     const faltantes = await c.query(`
       UPDATE faltantes SET estado = 'pendiente', updated_at = ${AHORA_CR_SQL}
        WHERE factura_propia_id = $1 AND estado = 'procesado'
@@ -247,26 +271,32 @@ async function listarPendientes() {
   };
 }
 
-/** Las procesadas de los últimos 7 días: se pueden recuperar mientras tanto. */
+/**
+ * El historial de Impresión: lo impreso en las últimas 48 h (2026-10-24; antes
+ * 7 días). Se puede recuperar solo durante las primeras 24 h. Lo que sale de
+ * la lista no se borra: la factura sigue en Facturación.
+ */
 async function listarProcesadas() {
   const { rows } = await query(`
     SELECT ${COLUMNAS},
-           EXTRACT(DAY FROM (${AHORA_CR_SQL} - fr.fecha_procesamiento)) AS dias_desde_procesamiento
+           NOT ${impresaFueraDePlazo('fr')} AS puede_recuperar,
+           (fr.fecha_procesamiento + ${PLAZO_RECUPERAR}) AT TIME ZONE 'America/Costa_Rica' AS recuperable_hasta,
+           (fr.fecha_procesamiento + ${PLAZO_EN_HISTORIAL}) AT TIME ZONE 'America/Costa_Rica' AS sale_del_historial_en
       FROM facturas_reimpresion fr
       JOIN factura f ON f.id = fr.factura_propia_id
      WHERE fr.estado = 'procesada'
-       AND fr.fecha_procesamiento >= ${AHORA_CR_SQL} - INTERVAL '7 days'
+       AND fr.fecha_procesamiento + ${PLAZO_EN_HISTORIAL} > ${AHORA_CR_SQL}
      ORDER BY fr.fecha_procesamiento DESC
   `);
 
   const facturas = rows.map((r) => {
     const fila = aFilaDeCola(r);
-    const dias = Number(r.dias_desde_procesamiento) || 0;
     return {
       ...fila,
       estado_reimpresion: fila.estado,
-      dias_restantes_recuperacion: Math.ceil(7 - dias),
-      puede_recuperar: dias <= 7,
+      puede_recuperar: r.puede_recuperar === true,
+      recuperable_hasta: r.recuperable_hasta,
+      sale_del_historial_en: r.sale_del_historial_en,
       tiene_variacion_precio: fila.ajustes_realizados.some((aj) => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa)
     };
   });
@@ -280,5 +310,5 @@ async function listarProcesadas() {
 
 module.exports = {
   encolarSinPendientes, encolarDesdeReporte, devolverAlReporte,
-  listarPendientes, listarProcesadas, aFilaDeCola, ajustesDeFactura
+  listarPendientes, listarProcesadas, aFilaDeCola, ajustesDeFactura, noSeRecupera
 };

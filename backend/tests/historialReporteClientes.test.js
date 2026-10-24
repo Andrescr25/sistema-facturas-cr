@@ -107,15 +107,54 @@ describe('historial de Reporte Clientes tras 24 h sin gestión — PostgreSQL y 
     assert.deepEqual(ids(await leer('historial')), [vieja.id]);
     assert.equal((await leer()).resumen.total_facturas_afectadas, 1);
   });
-  test('recuperar la pendiente la retira del historial y de la cola, sin borrar faltantes', async () => {
+  const vencida = (e) => e.status === 409 && /24 horas/.test(e.message) && /nota de crédito/.test(e.message) && /factura nueva/.test(e.message);
+  const enCola = async (id) => (await db.query(
+    "SELECT count(*)::int n FROM facturas_reimpresion WHERE factura_propia_id=$1 AND estado='pendiente'", [id])).rows[0].n;
+
+  test('en el historial ya no se recupera: 409, y la cola y los faltantes quedan como estaban', async () => {
     const f = await factura();
-    await cola.devolverAlReporte(f.id);
+    assert.equal(ficha(await leer('historial')).puede_recuperar, false);
+    await assert.rejects(cola.devolverAlReporte(f.id), vencida);
+    assert.deepEqual(ids(await leer('historial')), [f.id]);
+    assert.equal(await enCola(f.id), 1);
+    assert.equal((await db.query("SELECT estado FROM faltantes WHERE id=$1", [f.falta])).rows[0].estado, 'pendiente');
+  });
+  test('en activos se recupera: la pendiente sale de la cola, sin borrar faltantes', async () => {
+    const f = await factura({ envio: 2 });
+    assert.equal(ficha(await leer()).puede_recuperar, true);
+    const r = await cola.devolverAlReporte(f.id);
+    assert.equal(r.sacada_de_la_cola, true);
+    assert.equal(await enCola(f.id), 0);
     assert.deepEqual(ids(await leer()), [f.id]);
-    assert.deepEqual(ids(await leer('historial')), []);
     assert.equal((await db.query('SELECT count(*)::int n FROM faltantes WHERE id=$1', [f.falta])).rows[0].n, 1);
   });
-  test('recuperar procesada conserva cola histórica, pero no la archiva de nuevo sin reenviarla', async () => {
-    const f = await factura({ procesada: true });
+  test('impresa hace 24 h o más no se recupera, aunque una gestión reciente la tenga en activos', async () => {
+    const f = await factura({ envio: 70, procesada: true, procesadaHace: 24, gestion: 2 });
+    assert.deepEqual(ids(await leer()), [f.id]);
+    assert.equal(ficha(await leer()).puede_recuperar, false);
+    await assert.rejects(cola.devolverAlReporte(f.id), vencida);
+    assert.equal((await db.query("SELECT estado FROM faltantes WHERE id=$1", [f.falta])).rows[0].estado, 'procesado');
+  });
+  test('a las 48 h en el historial sale de él (y del Excel), sin borrar nada', async () => {
+    const f = await factura({ envio: 72 - 1 / 3600, gestion: 80 });
+    // Toda gestión anterior al envío: el plazo lo marca el envío de hace 72 h.
+    await db.query(`UPDATE faltantes SET created_at=${AHORA}-INTERVAL '80 hours' WHERE id=$1`, [f.falta]);
+    await db.query(`UPDATE faltantes_ajustes SET created_at=${AHORA}-INTERVAL '80 hours',updated_at=${AHORA}-INTERVAL '80 hours' WHERE faltante_id=$1`, [f.falta]);
+    const enHistorial = ficha(await leer('historial'));
+    assert.equal(enHistorial.factura_id, f.id, 'a 1 s de cumplir 48 h sigue en el historial');
+    assert.equal(enHistorial.sale_del_historial_en.getTime() - enHistorial.historial_desde.getTime(), 48 * 3600 * 1000);
+
+    await db.query(`UPDATE facturas_reimpresion SET fecha_creacion=${AHORA}-INTERVAL '72 hours' WHERE factura_propia_id=$1`, [f.id]);
+    assert.deepEqual(ids(await leer('historial')), []);
+    assert.deepEqual(ids(await leer()), [], 'tampoco vuelve a activos');
+    const archivo = await excel.exportarClientes({ vista: 'historial', clienteId: cliente, rutaId: ruta });
+    assert.equal(XLSX.utils.sheet_to_json(XLSX.read(archivo.buffer).Sheets.Faltantes).length, 0);
+    assert.equal(await enCola(f.id), 1, 'la cola de Impresión la sigue esperando');
+    assert.equal((await db.query('SELECT count(*)::int n FROM faltantes WHERE id=$1', [f.falta])).rows[0].n, 1);
+    assert.equal((await db.query('SELECT count(*)::int n FROM factura WHERE id=$1', [f.id])).rows[0].n, 1);
+  });
+  test('recuperar procesada de hace menos de 24 h conserva cola histórica, pero no la archiva sin reenviarla', async () => {
+    const f = await factura({ envio: 70, procesada: true, procesadaHace: 2, gestion: 2 });
     await cola.devolverAlReporte(f.id);
     await db.query(`UPDATE faltantes SET updated_at=${AHORA}-INTERVAL '48 hours' WHERE id=$1`, [f.falta]);
     assert.deepEqual(ids(await leer()), [f.id]);
@@ -174,5 +213,26 @@ describe('historial de Reporte Clientes tras 24 h sin gestión — PostgreSQL y 
     assert.equal(r.data[0].id, cliente); assert.equal(r.data[0].ruta.id, ruta);
     assert.deepEqual(ids(await leer('historial', { rutaId: 2147483647 })), []);
     assert.equal(ficha(r).factura_id, f.id);
+  });
+  test('Impresión: su historial es de 48 h y recuperar solo vale durante las primeras 24', async () => {
+    const impresion = require('../src/modules/reprinting/procesarImpresion');
+    const casi = await factura({ envio: 70, procesada: true, procesadaHace: 24 - 1 / 3600 });
+    const vencida24 = await factura({ envio: 70, procesada: true, procesadaHace: 24 });
+    const casiFuera = await factura({ envio: 70, procesada: true, procesadaHace: 48 - 1 / 3600 });
+    const fuera = await factura({ envio: 70, procesada: true, procesadaHace: 48 });
+    const lista = (await cola.listarProcesadas()).data;
+    const de = (id) => lista.find((x) => x.factura_id === id);
+    assert.equal(de(casi.id).puede_recuperar, true);
+    assert.equal(de(vencida24.id).puede_recuperar, false);
+    assert.equal(de(casiFuera.id).puede_recuperar, false, 'sigue en la lista, sin Recuperar');
+    assert.equal(de(fuera.id), undefined, 'a las 48 h sale de la lista');
+    assert.equal(de(casi.id).sale_del_historial_en.getTime() - de(casi.id).recuperable_hasta.getTime(), 24 * 3600 * 1000);
+
+    await assert.rejects(impresion.recuperarProcesada(vencida24.id), vencida);
+    await assert.rejects(impresion.recuperarProcesada(fuera.id), vencida);
+    assert.equal(await enCola(vencida24.id), 0, 'el rechazo no la devolvió a la cola');
+    const r = await impresion.recuperarProcesada(casi.id);
+    assert.equal(r.faltantes_restaurados, 1);
+    assert.equal(await enCola(casi.id), 1);
   });
 });

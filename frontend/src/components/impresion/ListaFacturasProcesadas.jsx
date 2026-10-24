@@ -1,9 +1,11 @@
 import { FileText, CheckCircle, RotateCcw } from 'lucide-react'
 import { formatDate } from '../../utils/impresionUtils'
+import { fechaHoraEnCostaRica } from '../../utils/fechaCR'
 
 /**
- * Historial de facturas procesadas (últimos 7 días), con opción de
- * recuperar si aún está dentro del plazo. Extraído de Impresion.jsx.
+ * Historial de facturas procesadas: las de las últimas 48 horas. Se pueden
+ * recuperar solo durante las primeras 24 (2026-10-24; antes eran 7 días).
+ * Extraído de Impresion.jsx.
  */
 export default function ListaFacturasProcesadas({ facturas, onVerPDF, onRecuperar }) {
   if (facturas.length === 0) {
@@ -11,7 +13,7 @@ export default function ListaFacturasProcesadas({ facturas, onVerPDF, onRecupera
       <div className="text-center py-12 bg-white border border-dashed rounded-3xl p-6 text-neutro-400">
         <FileText className="mx-auto text-neutro-400 mb-2" size={36} />
         <h3 className="font-semibold text-neutro-700">No hay facturas procesadas</h3>
-        <p className="text-xs text-neutro-400">Las facturas procesadas aparecerán aquí por 7 días.</p>
+        <p className="text-xs text-neutro-400">Las facturas procesadas aparecen aquí durante 48 horas.</p>
       </div>
     )
   }
@@ -19,7 +21,8 @@ export default function ListaFacturasProcesadas({ facturas, onVerPDF, onRecupera
   return (
     <div className="space-y-4">
       <div className="mb-4 p-4 bg-primario-50/50 rounded-2xl border border-primario-100 text-primario-900 text-sm">
-        <strong>Recuperación:</strong> Puedes recuperar facturas procesadas en los últimos 7 días. Para facturas más antiguas, edítalas desde la sección de Facturación.
+        <strong>Recuperación:</strong> una factura impresa se puede recuperar durante 24 horas, y a las 48 horas sale de esta lista.
+        Después, si hay que quitar algo se hace una nota de crédito; si hay que agregar algo, una factura nueva.
       </div>
 
       <div className="space-y-3">
@@ -42,14 +45,15 @@ export default function ListaFacturasProcesadas({ facturas, onVerPDF, onRecupera
                   <p>
                     {factura.puede_recuperar ? (
                       <span className="text-exito-600 font-medium">
-                        {factura.dias_restantes_recuperacion} días restantes para recuperar
+                        Se puede recuperar hasta: {fechaHoraEnCostaRica(factura.recuperable_hasta)}
                       </span>
                     ) : (
                       <span className="text-peligro-600 font-medium">
-                        Período de recuperación expirado
+                        Pasaron 24 horas: ya no se recupera
                       </span>
                     )}
                   </p>
+                  <p>Sale de la lista: {fechaHoraEnCostaRica(factura.sale_del_historial_en)}</p>
                 </div>
               </div>
               <div className="text-left md:text-right shrink-0">

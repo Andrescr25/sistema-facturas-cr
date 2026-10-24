@@ -5,7 +5,9 @@
 const { query } = require('../../../config/database');
 const { ULTIMA_ATENCION_SQL, rotacionDe, ordenPorProximaVisita } = require('../clientes/rotacion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
-const { vistaReporteClientes, MOVIMIENTOS_REPORTE, JOIN_HISTORIAL_REPORTE } = require('./historialClientes.sql');
+const {
+  vistaReporteClientes, condicionVista, impresaFueraDePlazo, MOVIMIENTOS_REPORTE, ULTIMA_COLA, JOIN_HISTORIAL_REPORTE
+} = require('./historialClientes.sql');
 const { filtroRutaActual, listarRutasActuales: listarRutas } = require('../rutas/rutaActual.service');
 
 async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
@@ -47,7 +49,10 @@ async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
         actividad.ultima_gestion AT TIME ZONE 'America/Costa_Rica' AS ultima_gestion_en,
         archivo.historial_desde AT TIME ZONE 'America/Costa_Rica' AS historial_programado_en,
         CASE WHEN archivo.en_historial THEN archivo.historial_desde AT TIME ZONE 'America/Costa_Rica' END AS historial_desde,
+        CASE WHEN archivo.en_historial THEN archivo.sale_del_historial AT TIME ZONE 'America/Costa_Rica' END AS sale_del_historial_en,
         archivo.en_historial,
+        -- Lo mismo que exige devolverAlReporte (colaImpresion.js) al recuperar.
+        NOT (archivo.en_historial OR ${impresaFueraDePlazo('fr')}) AS puede_recuperar,
         aj.cantidad_entregada,
         aj.estado as ajuste_estado,
         aj.requiere_actualizacion,
@@ -61,16 +66,7 @@ async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
       LEFT JOIN cliente c ON c.id = fa.cliente_id
       LEFT JOIN ruta_cliente r ON r.id = c.ruta_id
       LEFT JOIN faltantes_ajustes aj ON aj.faltante_id = f.id
-      -- La fila más reciente de la cola: hay facturas con dos (de antes de
-      -- que la cola reusara la suya), y un JOIN directo duplicaba cada
-      -- producto de esas facturas en el reporte y no decía de cuál era la hora.
-      LEFT JOIN LATERAL (
-        SELECT r.id, r.estado, r.fecha_creacion, r.fecha_procesamiento
-          FROM facturas_reimpresion r
-         WHERE r.factura_propia_id = fa.id
-         ORDER BY r.fecha_creacion DESC NULLS LAST, r.id DESC
-         LIMIT 1
-      ) fr ON true
+      ${ULTIMA_COLA}
       ${JOIN_HISTORIAL_REPORTE}
       WHERE f.estado IN ('pendiente', 'procesado')
         AND f.tipo_faltante != 'completo'
@@ -80,7 +76,7 @@ async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
         -- Palmares: anulada y todavía en el reporte, parecía un duplicado).
         -- Se excluye por el estado, no se borran los faltantes.
         AND fa.estado <> 'anulada'
-        AND ${vista === 'historial' ? 'archivo.en_historial' : 'NOT archivo.en_historial'}
+        AND ${condicionVista(vista)}
         ${whereRuta}
       ORDER BY c.id NULLS LAST, fa.cliente_nombre, fa.fecha DESC, fa.id
     `, params);
@@ -127,7 +123,9 @@ async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
           ultima_gestion_en: row.ultima_gestion_en || null,
           historial_programado_en: row.historial_programado_en || null,
           historial_desde: row.historial_desde || null,
+          sale_del_historial_en: row.sale_del_historial_en || null,
           en_historial: row.en_historial === true,
+          puede_recuperar: row.puede_recuperar === true,
           observaciones_adicionales: row.observaciones_adicionales,
           en_cola_impresion: Boolean(row.reimpresion_id) && row.reimpresion_estado === 'pendiente',
           total_items_factura: parseInt(row.total_items_factura) || 0,

@@ -69,12 +69,13 @@
 
 5. **Verificar en frontend**:
    - La factura YA NO debe aparecer en "Facturas Pendientes"
-   - Cambiar a la pestaña "Facturas Procesadas (7 días)"
+   - Cambiar a la pestaña "Historial 48 h"
    - La factura DEBE aparecer aquí con:
      - Badge "✅ Procesada" en verde
      - Fecha de procesamiento
-     - "X días restantes para recuperar"
-     - Botón "Ver PDF" y "Recuperar" (si está dentro de 7 días)
+     - "Se puede recuperar hasta: …" (24 h después de imprimirla)
+     - "Sale de la lista: …" (48 h después)
+     - Botón "Ver PDF" y "Recuperar" (solo durante las primeras 24 h)
 
 6. **Verificar en backend (consola del servidor)**:
    ```
@@ -86,7 +87,7 @@
 ✓ Factura desaparece de pendientes
 ✓ Factura aparece en procesadas con estado correcto
 ✓ Fecha de procesamiento registrada
-✓ Días restantes calculados correctamente
+✓ Horas de «recuperar hasta» y «sale de la lista» correctas
 ✓ Botones de acción disponibles (Ver PDF, Recuperar)
 ```
 
@@ -97,7 +98,7 @@
 **Objetivo**: Verificar que se puede recuperar una factura procesada y vuelve a pendientes
 
 **Pasos**:
-1. En "Facturas Procesadas (7 días)", seleccionar una factura procesada recientemente
+1. En "Historial 48 h", seleccionar una factura impresa hace menos de 24 h
 2. Hacer clic en "Recuperar"
 3. Confirmar la acción
 4. **Resultado esperado**:
@@ -116,22 +117,23 @@
 
 ---
 
-### Test 5: Facturas procesadas hace más de 7 días no se pueden recuperar ⚠️
+### Test 5: Impresas hace 24 h o más no se recuperan; a las 48 h salen de la lista ⚠️
 
-**Objetivo**: Verificar que el período de recuperación de 7 días se respeta
+**Objetivo**: Verificar los plazos del 2026-10-24 (antes eran 7 días)
 
 **Pasos**:
-1. Buscar en la base de datos una factura procesada hace más de 7 días (si existe)
+1. Buscar una factura impresa hace entre 24 y 48 h
 2. **Resultado esperado**:
-   - NO debe aparecer en "Facturas Procesadas (7 días)"
-   - O si aparece, el botón "Recuperar" NO debe estar disponible
-   - Debe mostrar: "❌ Período de recuperación expirado"
+   - Aparece en "Historial 48 h" SIN botón "Recuperar"
+   - Muestra: "Pasaron 24 horas: ya no se recupera"
+   - Si se fuerza el pedido al servidor, responde 409: nota de crédito o factura nueva
+3. Una impresa hace 48 h o más NO aparece en la lista (sigue en Facturación)
 
 **Validación**:
 ```
-✓ Facturas antiguas no recuperables están ocultas o sin botón
-✓ Mensaje de expiración visible
-✓ Solo se muestran facturas de últimos 7 días
+✓ Sin botón después de 24 h, y el servidor también lo rechaza
+✓ Solo se muestran facturas de las últimas 48 h
+✓ Nada se borra: la factura sigue en Facturación
 ```
 
 ---
@@ -196,7 +198,7 @@
 - [ ] Test 2: Facturas con cambios SÍ aparecen ✅  
 - [ ] Test 3: Al reimprimir, va a historial ✅
 - [ ] Test 4: Se puede recuperar del historial ✅
-- [ ] Test 5: No se puede recuperar después de 7 días ⚠️
+- [ ] Test 5: No se recupera después de 24 h; sale de la lista a las 48 h ⚠️
 - [ ] Flujo completo funciona correctamente ✅
 
 ---

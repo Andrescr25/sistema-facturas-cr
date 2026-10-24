@@ -27,7 +27,7 @@ async function getPendingInvoices(req, res) {
 
 /**
  * GET /facturas/procesadas
- * Obtiene facturas procesadas (últimos 7 días)
+ * Obtiene facturas procesadas (últimas 48 h; se recuperan durante 24 h)
  */
 async function getProcessedInvoices(req, res) {
   try {

@@ -492,3 +492,12 @@ procesadas: un toque, sin pregunta ni rastro. Ahora pregunta (y recuerda
 «Ver PDF» para otra copia) y queda en la bitácora (`accion` «recuperar»).
 Las 15023/15056 (N-1) no se habían procesado nunca: llegaron por primera
 vez desde Reporte Clientes, «sin cambios».
+
+## Impresión: historial de 48 h, recuperar solo 24 h — 2026-10-24
+
+La pestaña de procesadas («Historial 48 h», antes 7 días) lista lo impreso en
+las últimas 48 h; `recuperarProcesada` responde 409 pasadas 24 h desde
+`fecha_procesamiento` (sin hora cuenta como vencida; en producción no hay
+ninguna así). Lo que sale de la lista no se borra. La cola pendiente no tiene
+plazo. Mismos plazos y helper que Reporte Clientes: ver
+[[modulo/reporte-clientes]].

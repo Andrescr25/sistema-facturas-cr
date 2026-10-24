@@ -120,8 +120,9 @@ describe('Reporte Proveedores: compras pendientes e identidad de cada factura', 
   test('recuperar una factura procesada conserva su cola histórica y permite reabrir la revisión', async () => {
     await guardar([[0, 6]]); await revisar('no_llego', 0);
     await c.query("UPDATE faltantes SET estado='procesado' WHERE id=$1", [await faltanteId()]);
-    await c.query(`INSERT INTO facturas_reimpresion(factura_propia_id,estado,ajustes_realizados,categoria,total_ajustes,fecha_creacion)
-      VALUES($1,'procesada','[]'::jsonb,'requiere_cambios',1,NOW())`, [f.facturas[0]]);
+    // Impresa recién (dentro de las 24 h en que todavía se recupera).
+    await c.query(`INSERT INTO facturas_reimpresion(factura_propia_id,estado,ajustes_realizados,categoria,total_ajustes,fecha_creacion,fecha_procesamiento)
+      VALUES($1,'procesada','[]'::jsonb,'requiere_cambios',1,NOW(),(now() AT TIME ZONE 'America/Costa_Rica'))`, [f.facturas[0]]);
     assert.equal(await proveedor(), undefined);
     await cola.devolverAlReporte(f.facturas[0]);
     assert.equal(await proveedor(), undefined, 'recuperar conserva la decisión hasta reabrirla');
