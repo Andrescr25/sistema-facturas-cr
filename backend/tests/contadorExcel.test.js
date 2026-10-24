@@ -8,12 +8,15 @@ const { mesDeMuestra } = require('./fixtures/contadorMes');
 const libro = mes => XLSX.read(excelMensual(mes).buffer, { type: 'buffer' });
 const filas = (b, nombre) => XLSX.utils.sheet_to_json(b.Sheets[nombre], { header: 1, defval: null });
 const total = (b, nombre) => filas(b, nombre).filter(f => f[0] === 'TOTAL');
+const ELECTRONICAS = 'Facturas y notas electrónicas';
+const VENTAS = 'Facturas y notas';
 
-test('sólo tres hojas resumidas, con cinco columnas y sin documentos individuales', () => {
+test('cuatro hojas separadas, con cinco columnas y sin documentos individuales', () => {
   const mes = mesDeMuestra(), antes = JSON.stringify(mes), b = libro(mes);
-  assert.deepEqual(b.SheetNames, ['Ventas', 'Compras', 'Gastos operativos']);
-  assert.deepEqual(filas(b, 'Ventas')[5], ['Tipo de impuesto', 'Subtotal', 'Descuento', 'Impuestos', 'Total']);
-  assert.deepEqual(total(b, 'Ventas')[0], ['TOTAL', 140000, 0, 12200, 152200]);
+  assert.deepEqual(b.SheetNames, [ELECTRONICAS, 'Compras', VENTAS, 'Gastos operativos']);
+  assert.deepEqual(filas(b, ELECTRONICAS)[5], ['Tipo de impuesto', 'Subtotal', 'Descuento', 'Impuestos', 'Total']);
+  assert.deepEqual(total(b, ELECTRONICAS)[0], ['TOTAL', 90000, 0, 11700, 101700]);
+  assert.deepEqual(total(b, VENTAS)[0], ['TOTAL', 50000, 0, 500, 50500]);
   assert.deepEqual(total(b, 'Compras')[0], ['TOTAL', 200000, 0, 26000, 226000]);
   assert.deepEqual(total(b, 'Gastos operativos')[0], ['TOTAL', 56300, 0, 0, 56300]);
   for (const nombre of b.SheetNames) {
@@ -28,24 +31,25 @@ test('sólo tres hojas resumidas, con cinco columnas y sin documentos individual
 
 test('subtotal antes del descuento y notas restadas una sola vez por tarifa', () => {
   const mes = { ...mesDeMuestra(), gastos: [], documentos: [
-    { tipo: 'Venta', moneda: 'CRC', base: 170, descuento: 30, impuestos: 13, total: 183, lineas: [
+    { tipo: 'Venta', electronica: true, moneda: 'CRC', base: 170, descuento: 30, impuestos: 13, total: 183, lineas: [
       { base: 100, descuento: 20, impuestos: 13, total: 113, tarifa: 13 },
       { base: 70, descuento: 10, impuestos: 0, total: 70, tarifa: 0 }
     ] },
-    { tipo: 'Nota de crédito', moneda: 'CRC', base: 10, descuento: 2, impuestos: 1.3, total: 11.3,
+    { tipo: 'Nota de crédito', electronica: true, moneda: 'CRC', base: 10, descuento: 2, impuestos: 1.3, total: 11.3,
       lineas: [{ base: 10, descuento: 2, impuestos: 1.3, total: 11.3, tarifa: 13 }] }
   ] };
   const r = resumenExcel(mes)[0].filas;
   assert.deepEqual(r.find(f => f.concepto === 'IVA 13%'), { moneda: 'CRC', concepto: 'IVA 13%', subtotal: 108, descuento: 18, impuestos: 11.7, total: 101.7 });
-  const t = total(libro(mes), 'Ventas')[0];
+  const t = total(libro(mes), ELECTRONICAS)[0];
   assert.deepEqual(t, ['TOTAL', 188, 28, 11.7, 171.7]);
 });
 
 test('no mezcla monedas ni muestra un total combinado de colones y dólares', () => {
   const b = libro(mesDeMuestra());
-  assert.deepEqual(total(b, 'Ventas').map(f => f[4]), [152200, 113]);
+  assert.deepEqual(total(b, ELECTRONICAS).map(f => f[4]), [101700, 113]);
+  assert.deepEqual(total(b, VENTAS).map(f => f[4]), [50500]);
   assert.deepEqual(total(b, 'Gastos operativos').map(f => f[4]), [56300, 22.6]);
-  assert.ok(filas(b, 'Ventas').some(f => f[0] === 'Moneda: USD'));
+  assert.ok(filas(b, ELECTRONICAS).some(f => f[0] === 'Moneda: USD'));
 });
 
 test('sin tarifa no inventa IVA; combustible conserva su impuesto como impuesto, no crédito', () => {
@@ -63,9 +67,9 @@ test('el total del comprobante se conserva aunque difiera del detalle, sin perde
   const mes = mesDeMuestra();
   mes.documentos = [mes.documentos[0]];
   mes.documentos[0].total = 113000.12345;
-  const b = libro(mes), ajuste = filas(b, 'Ventas').find(f => f[0] === 'Ajustes del comprobante');
+  const b = libro(mes), ajuste = filas(b, ELECTRONICAS).find(f => f[0] === 'Ajustes del comprobante');
   assert.ok(Math.abs(ajuste[4] - 0.12345) < 1e-8);
-  assert.equal(total(b, 'Ventas')[0][4], 113000.12345);
+  assert.equal(total(b, ELECTRONICAS)[0][4], 113000.12345);
 });
 
 test('notas de proveedor sin destino quedan informadas aparte, sin descontar mercadería al azar', () => {
@@ -97,7 +101,7 @@ test('estilos OOXML reales, números formateados y cada resumen listo para impri
   for (const [i, ruta] of zip.FullPaths.entries()) if (/\.(xml|rels)$/.test(ruta)) await parsear(zip.FileIndex[i].content.toString('utf8'));
   const styles = (await parsear(xml('xl/styles.xml'))).styleSheet;
   assert.ok(styles.fills[0].fill.some(f => f.patternFill?.[0].fgColor?.[0].$.rgb === 'FF12263F'));
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 4; i++) {
     const h = (await parsear(xml(`xl/worksheets/sheet${i}.xml`))).worksheet;
     assert.equal(h.autoFilter, undefined);
     assert.deepEqual(h.sheetViews[0].sheetView[0].pane[0].$, { ySplit: '6', topLeftCell: 'A7', activePane: 'bottomLeft', state: 'frozen' });
@@ -108,6 +112,27 @@ test('estilos OOXML reales, números formateados y cada resumen listo para impri
   }
   assert.match(xml('xl/workbook.xml'), /_xlnm.Print_Titles/);
   const b = XLSX.read(excelMensual(mesDeMuestra()).buffer, { type: 'buffer', cellNF: true });
-  assert.equal(b.Sheets.Ventas.B7.t, 'n');
-  assert.match(b.Sheets.Ventas.B7.z, /#,##0.00/);
+  assert.equal(b.Sheets[ELECTRONICAS].B7.t, 'n');
+  assert.match(b.Sheets[ELECTRONICAS].B7.z, /#,##0.00/);
+});
+
+test('facturas, tiquetes y notas se separan por su propia emisión, sin duplicar importes', () => {
+  const doc = (tipo, importe, electronica, extra = {}) => ({ tipo, electronica, ...extra,
+    moneda: 'CRC', base: importe, descuento: 0, impuestos: 0, total: importe,
+    lineas: [{ base: importe, descuento: 0, impuestos: 0, total: importe, tarifa: 0 }] });
+  const mes = { ...mesDeMuestra(), gastos: [], documentos: [
+    doc('Venta', 113, true, { tipo_documento: 'factura', numero: 'N-1' }),
+    doc('Venta', 57, true, { tipo_documento: 'tiquete' }),
+    doc('Nota de crédito', 10, true),
+    doc('Venta', 80, false, { clave: '1'.repeat(50), hacienda_estado: 'pendiente' }),
+    doc('Nota de crédito', 5, false, { documento_asociado: 'factura electrónica' }),
+    doc('Venta', 12, undefined, { hacienda_estado: 'rechazada' }),
+    doc('Compra', 99, true),
+    doc('Compra', 1, false)
+  ] };
+  const b = libro(mes);
+  assert.equal(total(b, ELECTRONICAS)[0][4], 160);
+  assert.equal(total(b, VENTAS)[0][4], 87);
+  assert.equal(total(b, 'Compras')[0][4], 100, 'las compras no se separan por emisión');
+  assert.equal(total(b, ELECTRONICAS)[0][4] + total(b, VENTAS)[0][4], 247);
 });

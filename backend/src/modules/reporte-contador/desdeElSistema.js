@@ -9,6 +9,7 @@ async function ventas(db, desde, hasta, nota = false) {
     d.fecha::text AS fecha, d.cliente_nombre AS contraparte, d.cliente_identificacion AS cedula,
     ${nota ? "(SELECT string_agg(factura_numero, ', ' ORDER BY id) FROM nota_credito_factura WHERE nota_credito_id=d.id)" : 'NULL::text'} AS documento_asociado,
     d.clave_hacienda AS clave, ${nota ? "'CRC'" : 'd.moneda'} AS moneda, d.electronica,
+    ${nota ? "'nota_credito'::text" : 'd.tipo_documento'} AS tipo_documento,
     d.subtotal AS base, d.descuento, d.impuesto AS impuestos, d.total,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('descripcion', l.nombre, 'cantidad', l.cantidad,
       'precio', l.precio_unitario, 'descuento', l.descuento_monto, 'base', l.cantidad*l.precio_unitario-l.descuento_monto,

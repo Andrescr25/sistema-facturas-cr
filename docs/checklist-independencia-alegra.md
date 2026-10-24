@@ -1115,6 +1115,15 @@ nueva migración ni modifica los conteos del corte. Ver
   Publicación a main autorizada después de la entrega 0a4e7ed, sin SQL nuevo.
   [Verificación y publicación](informes/contador-resumen-2026-10-21.md).
 
+- [x] GO-16: Reporte Contador separa Facturas y notas electrónicas (incluye
+  tiquetes), Compras, Facturas y notas, Gastos operativos, en pantalla y las
+  cuatro hojas de descarga/correo. Gastos se conserva aparte por aclaración
+  expresa del usuario. Bandera electrónica propia de cada documento, notas
+  descontadas una vez y monedas separadas.19 pruebas con PostgreSQL/ROLLBACK,
+  68 comprobaciones en navegador, build/lint/grafo/estructura correctos.
+  Sin migración ni cambios de datos; entrega sólo developer.
+  [Verificación](informes/contador-electronicas-2026-10-24.md).
+
 
 [Alcance y pruebas de aprobación](informes/gastos-aprobacion-2026-10-21.md).
 

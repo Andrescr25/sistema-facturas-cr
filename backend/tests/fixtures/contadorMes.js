@@ -5,6 +5,7 @@ function mesDeMuestra() {
     id, identidad: `${tipo}-${id}`, tipo, numero: `00000000${id}`, fecha: '2026-09-15',
     contraparte: tipo === 'Venta' ? 'ZZ Cliente de demostración' : 'ZZ Proveedor de demostración',
     cedula: '0012345678', clave, moneda, total, base, impuestos,
+    electronica: [1, 3, 4].includes(id), tipo_documento: id === 4 ? 'tiquete' : 'factura',
     documento_asociado: tipo.includes('Nota') ? '000000001' : null,
     lineas: base == null ? [] : [{ descripcion: 'ZZ Producto de muestra', cantidad: 10, precio: base / 10,
       descuento: 0, base, impuestos, total, tarifa: moneda === 'USD' ? 13 : impuestos / base * 100 }]

@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
 import Vacio from '../ui/Vacio'
-import { filtrarMovimientos } from '../../utils/reporteContadorUtils'
+import { SECCIONES_CONTADOR, etiquetaMovimiento, filtrarMovimientos } from '../../utils/reporteContadorUtils'
 import { fechaCorta } from '../../utils/fechaCR'
 import { formatearMoneda } from '../../utils/moneda'
 export default function MovimientosMes({ estado: e }) {
@@ -14,16 +14,16 @@ export default function MovimientosMes({ estado: e }) {
     <section className="rounded-2xl border border-neutro-200 bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Movimientos del mes">
-          {['ventas', 'compras', 'gastos'].map((t) => (
+          {SECCIONES_CONTADOR.map(({ id, titulo }) => (
             <button
-              key={t}
+              key={id}
               role="tab"
-              aria-selected={e.tab === t}
+              aria-selected={e.tab === id}
               type="button"
-              onClick={() => e.setTab(t)}
-              className={`min-h-11 rounded-xl px-4 text-sm font-bold ${e.tab === t ? 'bg-primario-800 text-white' : 'bg-neutro-100 text-neutro-600'}`}
+              onClick={() => e.setTab(id)}
+              className={`min-h-11 rounded-xl px-4 text-sm font-bold ${e.tab === id ? 'bg-primario-800 text-white' : 'bg-neutro-100 text-neutro-600'}`}
             >
-              {t === 'gastos' ? 'Gastos operativos' : t === 'ventas' ? 'Ventas y notas' : 'Compras'}
+              {titulo}
             </button>
           ))}
         </div>
@@ -59,7 +59,7 @@ export default function MovimientosMes({ estado: e }) {
                   {fechaCorta(d.fecha)} · {d.numero}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Insignia tono="neutro">{d.categoria_texto || d.tipo}</Insignia>
+                  <Insignia tono="neutro">{etiquetaMovimiento(d)}</Insignia>
                   {d.revision && (
                     <Insignia tono={d.revision === 'Por revisar' ? 'alerta' : 'neutro'}>
                       {d.revision}

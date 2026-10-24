@@ -23,14 +23,33 @@ export function periodoActual(ahora = new Date()) {
   return { anio, mes }
 }
 export const periodoMesAnterior = (ahora) => moverMes(periodoActual(ahora), -1)
+export const SECCIONES_CONTADOR = [
+  { id: 'electronicas', titulo: 'Facturas y notas electrónicas' },
+  { id: 'compras', titulo: 'Compras' },
+  { id: 'ventas', titulo: 'Facturas y notas' },
+  { id: 'gastos', titulo: 'Gastos operativos' }
+]
+
+export function etiquetaMovimiento(d) {
+  if (d.categoria_texto) return d.categoria_texto
+  const sufijo = d.electronica === true ? ' electrónica' : ''
+  if (d.tipo === 'Nota de crédito') return `Nota de crédito${sufijo}`
+  if (d.tipo === 'Venta') return d.tipo_documento === 'tiquete'
+    ? `Tiquete${d.electronica === true ? ' electrónico' : ''}`
+    : `Factura${sufijo}`
+  return d.tipo
+}
+
 export function filtrarMovimientos(datos, tab, buscar) {
   const lista =
     tab === 'gastos'
       ? datos?.gastos || []
       : (datos?.documentos || []).filter((d) =>
-          tab === 'ventas'
-            ? ['Venta', 'Nota de crédito'].includes(d.tipo)
-            : ['Compra', 'Nota de crédito proveedor'].includes(d.tipo)
+          // La misma bandera que usa Facturación: una nota se clasifica por
+          // su propia emisión, aunque acredite una factura de la otra clase.
+          ['electronicas', 'ventas'].includes(tab)
+            ? ['Venta', 'Nota de crédito'].includes(d.tipo) && (d.electronica === true) === (tab === 'electronicas')
+            : tab === 'compras' && ['Compra', 'Nota de crédito proveedor'].includes(d.tipo)
         )
   const texto = buscar.trim().toLocaleLowerCase('es')
   return lista.filter((d) =>

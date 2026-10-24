@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Reporte Contador — ventas, compras y gastos del mes con sus comprobantes
 estado: vigente
 archivos:
+  - docs/informes/contador-electronicas-2026-10-24.md
   - backend/src/modules/reporte-contador/desdeElSistema.js
   - backend/src/modules/reporte-contador/contador.mes.js
   - backend/src/modules/reporte-contador/contador.excel.js
@@ -22,11 +23,12 @@ archivos:
   - frontend/src/components/reporte-contador/MovimientosMes.jsx
   - frontend/src/components/reporte-contador/DetalleMovimiento.jsx
   - frontend/src/components/reporte-contador/ModalEnviarContador.jsx
+  - backend/tests/fixtures/contadorMes.js
   - backend/tests/reporteContadorPropio.test.js
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   relacionado: [modulo/compras, modulo/facturacion, modulo/gastos-operativos, modulo/exportaciones-reportes, decision/la-ruta-no-el-contenido, bloqueo/impuestos-historicos-en-alegra]
-medido: 2026-10-21
+medido: 2026-10-24
 ---
 
 ## El mes del sistema actual
@@ -51,15 +53,29 @@ etiqueta Rechazado y fuera de totales/deducciones/créditos. Aprobación y pago
 de contado no convierten proporcionalidad pendiente en crédito aprobado.
 Notas de proveedor aparte, sin compensar automáticamente el IVA de gastos.
 
-## Excel simplificado según la imagen — 2026-10-21
+## Pantalla y Excel resumido — 2026-10-24
 
-El usuario reemplaza el formato ampliado por exactamente tres hojas: Ventas,
-Compras y Gastos operativos. Cada una muestra título, empresa/período y tabla
+El usuario separa la venta electrónica y aclara conservar Gastos operativos.
+Pantalla y Excel muestran cuatro clases, en este orden: Facturas y notas
+electrónicas, Compras, Facturas y notas, Gastos operativos. La primera incluye
+tiquetes electrónicos. Las dos clases de ventas se separan por `electronica`,
+la misma bandera persistida que usa Facturación; una nota se clasifica por su
+propia emisión, nunca por la factura acreditada, el número o una clave.
+Compras incluye todas sus emisiones y mantiene las notas de proveedor.
+
+La pestaña inicial es electrónicas. Cada fila/detalle identifica factura,
+tiquete o nota de crédito y agrega electrónica sólo cuando corresponde. Se
+reutiliza la lectura mensual: el tipo de documento se incorpora al SELECT
+existente y alternar pestañas no vuelve a consultar. Búsqueda y paginación
+conservan su comportamiento. Los resúmenes generales no pierden importes.
+
+Cada hoja muestra título, empresa/período y tabla
 corta: concepto/tipo de impuesto, subtotal, descuento, impuestos y total. No
 portada, guías, pendientes, soporte, detalle de facturas ni hoja de impuestos
 adicional. Los originales siguen disponibles por el ZIP y en la interfaz.
 
-Ventas agrupa por tarifa guardada, neteando sus notas. Compras conserva las
+Cada clase de ventas agrupa por tarifa guardada, neteando sólo sus propias
+notas, una vez. Compras conserva las
 líneas gravadas/sin impuesto sin deducir una tarifa de un cociente; si falta
 la tarifa, se identifica en un único grupo. Gastos agrupa combustible y
 alimentación/viáticos. La columna dice Impuestos porque no todo impuesto
@@ -70,14 +86,14 @@ reconstruye con su descuento, sin rebajarlo dos veces. Total del comprobante
 manda: las diferencias quedan como un ajuste resumido, no se borran ni se
 reparten inventando tarifas. Una columna desconocida queda vacía, inclusive
 su total, no como un cero aprobado. Anulados/rechazados se excluyen de gastos.
-Monedas en bloques separados dentro de las mismas tres hojas. Notas de
+Monedas en bloques separados dentro de las mismas cuatro hojas. Notas de
 proveedor sin destino compra/gasto guardado se informan aparte del TOTAL de
 Compras, sin compensarlas al azar. No se cambia esa clasificación al exportar.
 
 Descarga y adjunto del correo usan el mismo generador. Se reutilizan SheetJS,
 exportarExcel y excelPresentacion: números tipados, paleta, filas legibles,
 encabezado/total destacados e impresión de un resumen por página. La opción
-paginasAlto sólo modifica estas tres hojas; los otros exportadores conservan
+paginasAlto sólo modifica estas cuatro hojas; los otros exportadores conservan
 su comportamiento. La fecha del período no pasa por la zona horaria local.
 
 ZIP reutiliza CFB de SheetJS instalado; XML/PDF originales,
@@ -107,9 +123,14 @@ Depende de SQL061/062 de Gastos, ambas aplicadas en producción por Codex el
 [Formato contable y verificación](../../informes/contador-excel-2026-10-21.md).
 
 El formato ampliado de [la entrega inicial](../../informes/contador-excel-2026-10-21.md)
-queda reemplazado por [el resumen solicitado](../../informes/contador-resumen-2026-10-21.md).
+quedó reemplazado por [el resumen solicitado](../../informes/contador-resumen-2026-10-21.md),
+ampliado después a las cuatro clases de esta entrega.
 
 Publicación del resumen autorizada después por «subelo al main»: 0a4e7ed de
-Codex y su registro, sin SQL nuevo. Descarga/adjunto del mes usan sólo las tres
-hojas; los reportes históricos mantienen su formato. Evidencia en el informe
+Codex y su registro, sin SQL nuevo. En esa publicación descarga/adjunto usaban
+tres hojas; los reportes históricos mantienen su formato. Evidencia en el informe
 anterior y estado Render en el relevo compartido de publicaciones.
+
+La separación del24/10 se entrega sólo en developer:19 pruebas dirigidas con
+PostgreSQL/ROLLBACK,68 comprobaciones en navegador, build/lint/grafo/estructura
+correctos. [Alcance y verificación](../../informes/contador-electronicas-2026-10-24.md).

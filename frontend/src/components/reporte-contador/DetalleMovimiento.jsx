@@ -1,11 +1,12 @@
 import Modal from '../ui/Modal'
 import { formatearMoneda } from '../../utils/moneda'
 import { fechaCorta } from '../../utils/fechaCR'
+import { etiquetaMovimiento } from '../../utils/reporteContadorUtils'
 export default function DetalleMovimiento({ documento: d, onCerrar }) {
   if (!d) return null
   const dinero = (n) => (n == null ? 'Por revisar' : formatearMoneda(n, d.moneda))
   return (
-    <Modal titulo={d.categoria_texto || d.tipo} onCerrar={onCerrar} ancho="xl">
+    <Modal titulo={etiquetaMovimiento(d)} onCerrar={onCerrar} ancho="xl">
       <div className="space-y-4 p-5">
         <div>
           <h3 className="text-xl font-bold text-neutro-900">{d.contraparte}</h3>

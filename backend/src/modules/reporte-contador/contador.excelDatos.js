@@ -62,7 +62,9 @@ function agrupar(filas) {
 
 function resumenExcel(mes) {
   return [
-    { nombre: 'Ventas', filas: agrupar(comerciales(mes.documentos, 'Venta')), notas: [] },
+    // Separar por la emisión propia del documento, igual que Facturación y
+    // la pantalla. No deducirla del número, la clave o la factura acreditada.
+    { nombre: 'Facturas y notas electrónicas', filas: agrupar(comerciales(mes.documentos.filter(d => d.electronica === true), 'Venta')), notas: [] },
     { nombre: 'Compras', filas: agrupar(comerciales(mes.documentos, 'Compra')),
       // El vínculo de estas notas a mercadería/gasto no está resuelto. Se
       // informa el ajuste aparte, sin descontarlo de una clase al azar.
@@ -70,6 +72,7 @@ function resumenExcel(mes) {
         moneda: d.moneda, concepto: 'Notas de proveedor por clasificar',
         subtotal: null, descuento: null, impuestos: null, total: -Number(d.total)
       }))) },
+    { nombre: 'Facturas y notas', filas: agrupar(comerciales(mes.documentos.filter(d => d.electronica !== true), 'Venta')), notas: [] },
     { nombre: 'Gastos operativos', filas: agrupar(gastos(mes.gastos)), notas: [] }
   ];
 }

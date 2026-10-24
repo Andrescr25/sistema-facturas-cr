@@ -17,7 +17,7 @@ const frente = new Function(
   fuente('fechaCR.js') +
     '\n' +
     fuente('reporteContadorUtils.js') +
-    '\nreturn {periodoMesAnterior,periodoActual,moverMes,filtrarMovimientos};'
+    '\nreturn {periodoMesAnterior,periodoActual,moverMes,filtrarMovimientos,etiquetaMovimiento,SECCIONES_CONTADOR};'
 )();
 
 describe('el cierre mensual conserva las decisiones y las monedas', () => {
@@ -80,6 +80,23 @@ describe('el cierre mensual conserva las decisiones y las monedas', () => {
     ];
     assert.equal(frente.filtrarMovimientos({ documentos }, 'ventas', '').length, 1);
     assert.equal(frente.filtrarMovimientos({ documentos }, 'compras', 'proveedor').length, 1);
+  });
+  test('las cuatro vistas separan emisión propia e incluyen tiquetes sin mezclar gastos', () => {
+    const d = (id, tipo, electronica, extra = {}) => ({ id, tipo, electronica, contraparte: 'ZZ', numero: 'igual', ...extra });
+    const datos = { documentos: [d(1, 'Venta', true), d(2, 'Venta', true, { tipo_documento: 'tiquete' }),
+      d(3, 'Nota de crédito', true), d(4, 'Venta', false, { clave: '1'.repeat(50) }),
+      d(5, 'Nota de crédito', false, { documento_asociado: 'electrónica' }), d(6, 'Venta', undefined),
+      d(7, 'Compra', true), d(8, 'Compra', false), d(9, 'Nota de crédito proveedor', true)],
+    gastos: [d(1, undefined, undefined, { categoria_texto: 'Combustible' })] };
+    assert.deepEqual(frente.SECCIONES_CONTADOR.map(s => s.titulo), ['Facturas y notas electrónicas', 'Compras', 'Facturas y notas', 'Gastos operativos']);
+    for (const [tab, ids] of [['electronicas', [1, 2, 3]], ['ventas', [4, 5, 6]], ['compras', [7, 8, 9]], ['gastos', [1]]]) {
+      assert.deepEqual(frente.filtrarMovimientos(datos, tab, '').map(x => x.id), ids);
+    }
+    assert.deepEqual(frente.filtrarMovimientos(datos, 'electronicas', 'sin coincidencias'), []);
+    assert.deepEqual(frente.filtrarMovimientos(datos, 'otra', ''), []);
+    assert.equal(frente.etiquetaMovimiento(datos.documentos[1]), 'Tiquete electrónico');
+    assert.equal(frente.etiquetaMovimiento(datos.documentos[4]), 'Nota de crédito');
+    assert.equal(frente.etiquetaMovimiento(datos.gastos[0]), 'Combustible');
   });
   test('el ZIP conserva los bytes originales y enumera los faltantes', async () => {
     const original = Buffer.from([0, 1, 255, 12]);
@@ -187,6 +204,12 @@ describe(
       await db.query(
         "INSERT INTO nota_credito(numero,fecha,cliente_nombre,total) VALUES('ZZ-nota','2031-03-31','ZZ Cliente',10)"
       );
+      for (const [numero, tipo, total] of [['ZZ-electronica', 'factura', 113], ['ZZ-tiquete', 'tiquete', 56.5]]) {
+        await db.query(`INSERT INTO factura(numero,estado,fecha,cliente_nombre,subtotal,impuesto,total,electronica,hacienda_estado,tipo_documento)
+          VALUES($1,'emitida','2031-03-31','ZZ Cliente',0,0,$2,true,'aceptada',$3)`, [numero, total, tipo]);
+      }
+      await db.query(`INSERT INTO nota_credito(numero,fecha,cliente_nombre,total,electronica,hacienda_estado)
+        VALUES('ZZ-nota-electronica','2031-03-31','ZZ Cliente',11.3,true,'aceptada')`);
       const comprar = async (numero, total, estado = 'registrada', facturaId = null) => {
         const c = (
           await db.query(
@@ -276,10 +299,14 @@ describe(
     test('mes completo: emitidas, compras exentas, notas y gastos una sola vez; conserva originales', async () => {
       const resultado = await servicio.obtenerMes({ anio: 2031, mes: 3 });
       mes = resultado;
-      assert.equal(mes.documentos.filter((d) => d.tipo === 'Venta').length, 1);
-      assert.equal(mes.documentos.find((d) => d.tipo === 'Venta').total, 113.37);
-      assert.equal(mes.documentos.find((d) => d.tipo === 'Venta').base, 90);
-      assert.equal(mes.documentos.find((d) => d.tipo === 'Venta').lineas.length, 1);
+      assert.equal(mes.documentos.filter((d) => d.tipo === 'Venta').length, 3);
+      assert.equal(mes.documentos.find((d) => d.numero === 'ZZ-venta').total, 113.37);
+      assert.equal(mes.documentos.find((d) => d.numero === 'ZZ-venta').base, 90);
+      assert.equal(mes.documentos.find((d) => d.numero === 'ZZ-venta').lineas.length, 1);
+      assert.equal(mes.documentos.find((d) => d.numero === 'ZZ-tiquete').tipo_documento, 'tiquete');
+      assert.equal(mes.documentos.find((d) => d.numero === 'ZZ-nota-electronica').electronica, true);
+      assert.equal(frente.filtrarMovimientos(mes, 'electronicas', '').length, 3);
+      assert.equal(frente.filtrarMovimientos(mes, 'ventas', '').length, 2);
       assert.equal(mes.documentos.filter((d) => d.tipo === 'Compra').length, 1);
       assert.equal(mes.documentos.filter((d) => d.tipo === 'Nota de crédito proveedor').length, 1);
       assert.equal(mes.gastos.length, 4);
@@ -299,16 +326,17 @@ describe(
       const publico = require('../src/modules/reporte-contador/contador.mes').vistaPublica(mes);
       assert.ok(publico.gastos.every((g) => !('xml_ruta' in g) && !('pdf_ruta' in g)));
     });
-    test('Excel contiene sólo los tres resúmenes y conserva los totales reales', () => {
+    test('Excel separa los cuatro resúmenes y conserva los totales reales', () => {
       const b = XLSX.read(excelMensual(mes).buffer, { type: 'buffer' });
-      assert.deepEqual(b.SheetNames, ['Ventas', 'Compras', 'Gastos operativos']);
+      assert.deepEqual(b.SheetNames, ['Facturas y notas electrónicas', 'Compras', 'Facturas y notas', 'Gastos operativos']);
       const filas = nombre => XLSX.utils.sheet_to_json(b.Sheets[nombre], { header: 1, defval: null });
       const totales = nombre => filas(nombre).filter(f => f[0] === 'TOTAL');
       assert.equal(totales('Gastos operativos')[0][4], 133);
       assert.equal(totales('Gastos operativos')[1][4], 5);
-      assert.equal(totales('Ventas')[0][4], 103.37, 'la nota de crédito de 10 ya está restada');
+      assert.equal(totales('Facturas y notas')[0][4], 103.37, 'la nota de crédito de 10 ya está restada');
+      assert.equal(totales('Facturas y notas electrónicas')[0][4], 158.2);
       assert.ok(!JSON.stringify(filas('Gastos operativos')).includes('ZZ almuerzo'));
-      assert.ok(!JSON.stringify(filas('Ventas')).includes('ZZ-venta'));
+      assert.ok(!JSON.stringify(filas('Facturas y notas')).includes('ZZ-venta'));
       assert.equal(filas('Compras').find(f => f[0] === 'Notas de proveedor por clasificar')[4], -4);
     });
     test('el pago real y su método se reflejan sin otro registro ni otra compra', async () => {
@@ -344,6 +372,8 @@ describe(
       });
       assert.equal(envios.length, 1);
       assert.equal(envios[0].para, 'zz-contador@example.invalid');
+      assert.deepEqual(XLSX.read(envios[0].adjuntos[0].content, { type: 'buffer' }).SheetNames,
+        ['Facturas y notas electrónicas', 'Compras', 'Facturas y notas', 'Gastos operativos']);
       assert.equal(r.adjuntos.length, 2);
       assert.match(r.adjuntos[1], /\.zip$/);
       assert.equal(r.pendientes, 2);

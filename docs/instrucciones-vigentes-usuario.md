@@ -1199,3 +1199,12 @@ aplicando SQL065 antes del push, con respaldo comprobado y ensayo local.
 mal». Se acomodaron las fechas del modal de cobro (la del abono y la del
 vencimiento ya no se parten) y, de paso, se corrigió que salieran un día
 antes. [Detalle](grafo/leccion/fecha-utc-costa-rica.md).
+
+## 2026-10-24 — Separar ventas electrónicas en Reporte Contador
+
+El usuario pide botones y hojas de Excel: «facturas y notas electronicas»,
+«compras (aca si van todas)» y «facturas y notas»; sin aclaración adicional
+para las que no son electrónicas. Incluye los tiquetes electrónicos en la
+primera clase. Aclara después conservar Gastos operativos como una cuarta
+pestaña y hoja, aparte de Compras. Se conserva el formato resumido del Excel.
+[Alcance y verificación](informes/contador-electronicas-2026-10-24.md).

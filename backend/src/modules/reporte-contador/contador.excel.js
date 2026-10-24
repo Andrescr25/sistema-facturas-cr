@@ -9,7 +9,7 @@ const fecha = dia => {
   return new Date(Date.UTC(a, m - 1, d)).toLocaleDateString('es-CR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' });
 };
 
-/** Tres hojas de resumen, como el ejemplo del usuario: nada por documento. */
+/** Resúmenes por clase, con ventas electrónicas aparte y gastos conservados. */
 function excelMensual(mes) {
   const libro = XLSX.utils.book_new(), presentacion = [];
   const empresa = [...new Set([mes.empresa?.nombre_comercial, mes.empresa?.nombre].filter(Boolean))].join(' · ');

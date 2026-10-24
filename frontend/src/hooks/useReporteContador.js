@@ -13,7 +13,7 @@ export function useReporteContador() {
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
   const [ocupado, setOcupado] = useState('')
-  const [tab, setTab] = useState('gastos')
+  const [tab, setTab] = useState('electronicas')
   const [buscar, setBuscar] = useState('')
   const [seleccionado, setSeleccionado] = useState(null)
   const [modal, setModal] = useState(false)
