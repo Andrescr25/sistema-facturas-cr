@@ -543,8 +543,9 @@ opción emitir como tiquete e imprimir».
 - **El tiquete sale SIN receptor** (`xml/v4.4.js`, `llevaReceptor`): no se
   dirige a nadie, aunque el cliente tenga cédula. Lo mismo para una nota de
   crédito sobre un tiquete (el esquema oficial deja el receptor opcional en
-  ambos, no en la factura). El papel tampoco lo nombra: «Cliente de contado»
-  (`factura.pdf.js`, `datosDelCliente`, según `conReceptor` del XML firmado).
+  ambos, no en la factura). El papel sí dice a quién se le factura (nombre,
+  teléfono, dirección, correo) pero no imprime su cédula (`factura.pdf.js`,
+  `datosDelCliente`, según `conReceptor` del XML firmado).
 - **Por qué: el primer tiquete real fue rechazado** (2026-10-24, comprobante
   00100001040000001970, factura 001000015099 de SODA OLGA): `-38 «El número de
   identificación del receptor no corresponde a un registro válido»`. Su cédula
@@ -565,6 +566,6 @@ opción emitir como tiquete e imprimir».
 Pruebas: `emitirComoTiquete.test.js` (qué tipo sale en cada caso),
 `haciendaFiscal.test.js` (sin receptor, validado contra el esquema),
 `impresionEmitir.test.js` (el filtro, la pregunta y los botones),
-`papelFiscal.test.js` (el papel no nombra a nadie) y tres casos en
+`papelFiscal.test.js` (el papel muestra al cliente sin su cédula) y tres casos en
 `haciendaUnClicPg.test.js` (firma, numeración, aceptación sin correo y el
 reintento del rechazado). Sin SQL.

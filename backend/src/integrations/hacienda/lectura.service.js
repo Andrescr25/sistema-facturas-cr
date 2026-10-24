@@ -36,14 +36,6 @@ function contenidoDelXml(xml) {
       distrito: texto(e, "Distrito"),
       actividad_economica: texto(doc, "CodigoActividadEmisor"),
     },
-    lineas: hijos(doc, "LineaDetalle").map((l) => ({
-      numeroLinea: Number(texto(l, "NumeroLinea")),
-      unidad: texto(l, "UnidadMedida") || null,
-      codigoDescuento: texto(l, "CodigoDescuento") || null,
-      naturalezaDescuento: texto(l, "NaturalezaDescuento") || null,
-      subTotal: monto(l, "SubTotal"),
-      montoTotalLinea: monto(l, "MontoTotalLinea"),
-    })),
     mediosPago: hijos(doc, "MedioPago").map((m) => ({
       tipo: texto(m, "TipoMedioPago"),
       monto: monto(m, "TotalMedioPago"),

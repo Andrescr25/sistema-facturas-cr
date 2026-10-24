@@ -578,7 +578,7 @@ Hacienda. Ver [[modulo/gastos-operativos]]; SQL061/062 aplicadas en producción;
 ## Representación gráfica — 2026-10-24
 
 `lectura.service.js` ya no lee solo el emisor y el número: `contenidoDelXml`
-devuelve también las líneas, la condición y el medio de pago del XML aceptado, porque el papel
+devuelve también la fecha, la condición, el plazo, el medio de pago y si lleva receptor del XML aceptado, porque el papel
 «deberá mostrar el contenido de los comprobantes electrónicos, de forma
 legible» (MH-DGT-RES-0027-2024, art. 5; el QR sigue suspendido por su
 Transitorio III). Cómo se dibuja, en [[modulo/correo-facturas]].

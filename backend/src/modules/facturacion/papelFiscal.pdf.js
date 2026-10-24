@@ -6,9 +6,8 @@
  * contenido de los comprobantes electrónicos, de forma legible»
  * (MH-DGT-RES-0027-2024, art. 5; Decreto 44739-H, art. 2 inciso 24). No hay
  * una lista de campos: la regla es que el papel diga lo mismo que el XML
- * firmado. El de antes dejaba afuera la unidad de cada línea, su total con
- * IVA, el motivo del descuento, el proveedor de sistemas y el plazo en días,
- * y mostraba la fecha fiscal cruda.
+ * firmado. El de antes dejaba afuera el proveedor de sistemas y el plazo en
+ * días, y mostraba la fecha fiscal cruda.
  *
  * DE DÓNDE SALE. Todo, del XML aceptado (`lectura.service.js`,
  * `contenidoDelXml`), no de la base: si la factura cambiara después, el papel
@@ -20,11 +19,14 @@
  *  - Un recuadro «Resumen del comprobante electrónico» (gravado, exento,
  *    venta neta, IVA por código): se probó y el usuario lo quitó al verlo
  *    (2026-10-24). Los totales de siempre quedan.
+ *  - Debajo de cada línea, «Unid · Subtotal ₡… · Total con IVA ₡…» (y el motivo
+ *    del descuento): el usuario lo quitó por «ruido» (2026-10-24). La unidad y
+ *    el motivo siguen en el XML; el papel deja la línea como la de venta.
  *
  * La factura de venta no pasa por acá: todo depende de `papel.fiscal`.
  */
 
-const { colonesExacto, fechaLarga } = require('../../utils/marcaPdf');
+const { fechaLarga } = require('../../utils/marcaPdf');
 
 /** «2026-10-23T14:05:11-06:00» → «23 de octubre de 2026, 2:05 p. m.», con la hora que se firmó. */
 function fechaFiscalLegible(fecha) {
@@ -57,20 +59,6 @@ function medioFiscal(fiscal, textoPropio) {
   return `${textoPropio || 'Medio de pago'} (${codigos.join(', ')})`;
 }
 
-const lineaFiscalDe = (fiscal, numeroLinea) =>
-  (fiscal?.lineas || []).find(l => l.numeroLinea === Number(numeroLinea)) || null;
-
-/** Debajo de cada línea: unidad, subtotal, total con IVA y de qué es el descuento. */
-function textoLineaFiscal(lx) {
-  if (!lx) return null;
-  return [
-    lx.unidad,
-    lx.subTotal !== null ? `Subtotal ${colonesExacto(lx.subTotal)}` : null,
-    lx.montoTotalLinea !== null ? `Total con IVA ${colonesExacto(lx.montoTotalLinea)}` : null,
-    lx.naturalezaDescuento ? `Descuento: ${lx.naturalezaDescuento}${lx.codigoDescuento ? ` (${lx.codigoDescuento})` : ''}` : null
-  ].filter(Boolean).join('  ·  ') || null;
-}
-
 module.exports = {
-  fechaFiscalLegible, datosFiscalesEncabezado, condicionFiscal, medioFiscal, lineaFiscalDe, textoLineaFiscal
+  fechaFiscalLegible, datosFiscalesEncabezado, condicionFiscal, medioFiscal
 };

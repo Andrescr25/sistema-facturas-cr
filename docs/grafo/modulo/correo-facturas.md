@@ -173,7 +173,9 @@ QUÉ FALTABA y ahora va, SOLO cuando el comprobante está aceptado
   Hacienda» y el proveedor de sistemas;
 - cliente: «Crédito a N días» (plazo firmado), medio de pago con su código y
   la actividad del receptor si va en el XML;
-- cada línea: unidad, subtotal, total con IVA y motivo del descuento.
+- las líneas quedan como las de la factura de venta: se probó una línea chica
+  bajo cada producto («Unid · Subtotal · Total con IVA», más el motivo del
+  descuento) y el usuario la quitó por «ruido» (2026-10-24).
 
 NO VA el recuadro «Resumen del comprobante electrónico» (gravado, exento,
 venta neta, IVA por código de tarifa): se armó, el usuario lo vio en un PDF
@@ -197,12 +199,14 @@ PENDIENTE (no se hizo): una electrónica todavía sin aceptar se imprime como
 aceptarse), pero el art. 18 del reglamento pide entregar el papel aunque
 falte la confirmación.
 
-## El papel de un tiquete no nombra a nadie — 2026-10-24
+## El papel de un tiquete dice a quién se factura, sin su cédula — 2026-10-24
 
 Un comprobante cuyo XML firmado no lleva receptor (el tiquete, o una nota de
-crédito sobre uno) se imprime con «Cliente de contado» y sin cédula, teléfono,
-dirección ni correo del cliente (`datosDelCliente` en `factura.pdf.js`, según
-`conReceptor` que lee `contenidoDelXml`). Imprimir el nombre o la cédula de
-relleno sería dirigir el comprobante a alguien que el XML no nombra. La factura
-electrónica y la de venta siguen mostrando al cliente. Motivo y detalle del
-rechazo de Hacienda que lo originó: [[modulo/faltantes]].
+crédito sobre uno) se imprime con el nombre, teléfono, dirección y correo del
+cliente de la venta, pero SIN su cédula (`datosDelCliente` en `factura.pdf.js`,
+según `conReceptor` que lee `contenidoDelXml`): la cédula suele ser de relleno
+(«100000000») y el XML no la tiene. Primero se había puesto «Cliente de
+contado» sin nada más, y el usuario lo pidió de vuelta: «ocupo que muestre el
+cliente del cual estoy facturando». La factura electrónica y la de venta
+siguen mostrando al cliente con su cédula. Motivo y detalle del rechazo de
+Hacienda que lo originó: [[modulo/faltantes]].

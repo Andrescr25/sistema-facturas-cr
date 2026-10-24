@@ -1233,8 +1233,9 @@ Pedidos del mismo día, en orden (los dos primeros ya publicados por Claude):
   [Detalle](grafo/modulo/faltantes.md).
 - PDF de la factura electrónica: «las facturas de venta mantengan el formato
   que tenemos y las electrónicas el que exige Hacienda». Se agregó lo que el
-  XML dice (fecha con hora, estado, plazo en días, medio con código, detalle
-  por línea); el usuario quitó el recuadro de resumen al verlo y no hay QR
+  XML dice (fecha con hora, estado, plazo en días, medio con código); el
+  usuario quitó el recuadro de resumen al verlo, después la línea chica bajo
+  cada producto («Unid · Subtotal · Total con IVA», por «ruido»), y no hay QR
   porque Hacienda lo tiene suspendido. [Detalle](grafo/modulo/correo-facturas.md).
 - «Los clientes que no tienen correo, salga la opción emitir como tiquete e
   imprimir» (la otra mitad de «Imprimir y emitir»). El primer tiquete real fue
@@ -1245,6 +1246,7 @@ Pedidos del mismo día, en orden (los dos primeros ya publicados por Claude):
   nadie… los clientes que tengan correo (tengan factura electrónica), los que
   no, tiquete sin dirigirlo a nadie, solo tiquete». Vigente: **con correo (y
   cédula) → factura electrónica; si no → tiquete SIN receptor**, también para
-  la nota de crédito sobre un tiquete; el papel no nombra al cliente
-  («Cliente de contado»); la pregunta avisa que el tiquete no sirve para
-  gastos ni créditos de IVA. [Detalle](grafo/modulo/faltantes.md).
+  la nota de crédito sobre un tiquete; el papel SÍ muestra al cliente de la
+  venta (nombre, teléfono, dirección, correo) pero no su cédula; la pregunta
+  avisa que el tiquete no sirve para gastos ni créditos de IVA.
+  [Detalle](grafo/modulo/faltantes.md).

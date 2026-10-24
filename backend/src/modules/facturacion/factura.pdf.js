@@ -290,19 +290,21 @@ function encabezado(doc, f, ancho, F, emisor, papel) {
  * Teléfono y dirección salen de la COPIA guardada en la factura, no de la
  * ficha del cliente: el papel se reimprime igual dentro de dos años.
  *
- * UN TIQUETE NO NOMBRA A NADIE (2026-10-24): si lo firmado no lleva receptor
- * (el tiquete, o una nota de crédito sobre uno), el papel dice «Cliente de
- * contado» y nada más: ni su nombre ni la cédula, que muchas veces es de
- * relleno («100000000»). Imprimir un nombre que el XML no tiene es dirigir el
- * comprobante a alguien, justo lo que el usuario no quiere.
+ * UN TIQUETE NO LLEVA LA CÉDULA (2026-10-24). Si lo firmado no lleva receptor
+ * (el tiquete, o una nota de crédito sobre uno), el papel igual dice a quién se
+ * le está facturando —nombre, teléfono, dirección y correo, para que se sepa de
+ * quién es el pedido—, pero NO imprime su cédula: muchas veces es de relleno
+ * («100000000») y el XML no la tiene. Se había quitado también el nombre
+ * («Cliente de contado») y el usuario lo pidió de vuelta: «ocupo que muestre el
+ * cliente del cual estoy facturando».
  */
 function datosDelCliente(f, papel) {
-  if (papel.fiscal && papel.fiscal.conReceptor === false) return { nombre: 'Cliente de contado', datos: [] };
+  const sinReceptor = Boolean(papel.fiscal) && papel.fiscal.conReceptor === false;
   const tipo = f.cliente?.tipoIdentificacion === 'CJ' ? 'Cédula jurídica' : 'Cédula física';
   return {
     nombre: f.cliente?.nombre || 'Cliente de contado',
     datos: [
-      f.cliente?.identificacion ? `${tipo}: ${f.cliente.identificacion}` : null,
+      !sinReceptor && f.cliente?.identificacion ? `${tipo}: ${f.cliente.identificacion}` : null,
       f.cliente?.telefono ? `Teléfono: ${f.cliente.telefono}` : null,
       f.cliente?.direccion ? `Dirección: ${f.cliente.direccion}` : null,
       f.cliente?.correo ? `Email: ${f.cliente.correo}` : null,
@@ -378,7 +380,7 @@ function cabeceraTabla(doc, col, ancho, y, F) {
  * EL CAByS VA EN EL PAPEL porque identifica el bien ante Hacienda; sin él, la
  * línea no se puede clasificar.
  */
-function filas(doc, f, col, ancho, yInicio, F, fiscal = null) {
+function filas(doc, f, col, ancho, yInicio, F) {
   let y = yInicio;
   const anchoNombre = col.desc.w - 8;
 
@@ -391,12 +393,8 @@ function filas(doc, f, col, ancho, yInicio, F, fiscal = null) {
     const detalle = detalleLinea(l);
     doc.font(F.normal).fontSize(7.5);
     const altoDetalle = detalle ? doc.heightOfString(detalle, { width: anchoNombre }) + 2 : 0;
-    // Electrónica: lo que el XML firmado dice de la línea (unidad, total con IVA…).
-    const extra = fiscal ? fiscalPdf.textoLineaFiscal(fiscalPdf.lineaFiscalDe(fiscal, l.numeroLinea)) : null;
-    doc.font(F.normal).fontSize(6.3);
-    const altoExtra = extra ? doc.heightOfString(extra, { width: anchoNombre }) + 2 : 0;
     doc.font(F.negrita).fontSize(8.5);
-    const alto = Math.max(26, altoNombre + (alPie ? 14 : 6) + altoDetalle + altoExtra + 6);
+    const alto = Math.max(26, altoNombre + (alPie ? 14 : 6) + altoDetalle + 6);
 
     if (y + alto > doc.page.height - M - PIE_RESERVADO) {
       doc.addPage();
@@ -417,10 +415,6 @@ function filas(doc, f, col, ancho, yInicio, F, fiscal = null) {
     if (detalle) {
       doc.font(F.normal).fontSize(7.5).fillColor(MARCA.gris)
         .text(detalle, col.desc.x + 4, y + 5 + altoNombre + (alPie ? 10 : 2), { width: anchoNombre });
-    }
-    if (extra) {
-      doc.font(F.normal).fontSize(6.3).fillColor(MARCA.grisSuave)
-        .text(extra, col.desc.x + 4, y + 5 + altoNombre + (alPie ? 10 : 2) + altoDetalle, { width: anchoNombre });
     }
 
     const yNum = y + 6;
@@ -656,7 +650,7 @@ function generarPdfFactura(f, empresa = null, papel = null) {
   let y = encabezado(doc, f, ancho, F, emisor, papel);
   y = bloqueCliente(doc, f, ancho, y, F, papel);
   y = cabeceraTabla(doc, col, ancho, y, F);
-  const yTrasFilas = filas(doc, f, col, ancho, y, F, papel.fiscal);
+  const yTrasFilas = filas(doc, f, col, ancho, y, F);
 
   // La observación va a la IZQUIERDA de los totales, bajo el monto en letras:
   // son las cosas que se leen al final y comparten ese espacio.

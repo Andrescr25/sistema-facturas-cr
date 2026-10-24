@@ -42,12 +42,9 @@ describe('lo que se lee del XML firmado', () => {
     assert.equal(f.plazoCredito, '30');
     assert.equal(f.empresa.provincia, '1', 'la ubicación firmada viene en códigos');
   });
-  test('cada línea con su unidad, subtotal, total con IVA y motivo del descuento', () => {
-    const [a, b] = fiscal().lineas;
-    assert.deepEqual(a, { numeroLinea: 1, unidad: 'Unid', codigoDescuento: '07', naturalezaDescuento: 'Descuento comercial',
-      subTotal: 180, montoTotalLinea: 203.4 });
-    assert.equal(b.codigoDescuento, null);
-    assert.equal(b.montoTotalLinea, 50.5);
+  test('no se lee el detalle por línea: el papel deja cada línea como la de venta', () => {
+    // «Unid · Subtotal · Total con IVA» se quitó por ruido (2026-10-24).
+    assert.equal(fiscal().lineas, undefined);
   });
   test('el medio de pago firmado, con su código y monto', () => {
     assert.deepEqual(fiscal().mediosPago, [{ tipo: '04', monto: 253.9 }]);
@@ -72,10 +69,8 @@ describe('cómo lo escribe el papel', () => {
     assert.equal(p.medioFiscal(f, 'Transferencia'), 'Transferencia (04)');
     assert.equal(p.medioFiscal({ mediosPago: [] }, 'Efectivo'), 'Efectivo');
   });
-  test('la línea dice unidad, subtotal, total con IVA y de qué es el descuento', () => {
-    const t = p.textoLineaFiscal(p.lineaFiscalDe(fiscal(), 1));
-    assert.match(t, /^Unid {2}· {2}Subtotal ₡180,00 {2}· {2}Total con IVA ₡203,40 {2}· {2}Descuento: Descuento comercial \(07\)$/);
-    assert.equal(p.textoLineaFiscal(null), null);
+  test('ya no hay texto fiscal por línea', () => {
+    assert.deepEqual(Object.keys(p).sort(), ['condicionFiscal', 'datosFiscalesEncabezado', 'fechaFiscalLegible', 'medioFiscal']);
   });
 });
 
@@ -129,9 +124,10 @@ describe('el papel', () => {
 });
 
 // 2026-10-24. El primer tiquete real salió con la cédula de relleno del cliente
-// («100000000») y Hacienda lo rechazó. Un tiquete no se dirige a nadie, y el
-// papel tampoco: no nombra al cliente ni imprime esa cédula.
-describe('un tiquete no nombra a nadie, ni en el XML ni en el papel', () => {
+// («100000000») y Hacienda lo rechazó: el XML de un tiquete no lleva receptor.
+// El papel sí dice a quién se le está facturando (el usuario: «ocupo que muestre
+// el cliente del cual estoy facturando»), pero sin esa cédula.
+describe('un tiquete va sin receptor en el XML; el papel nombra al cliente sin su cédula', () => {
   const xml = (tipo, referencias = []) => {
     const d = venta(tipo);
     d.documento.cliente_nombre = 'ZZ SODA OLGA';
@@ -148,11 +144,16 @@ describe('un tiquete no nombra a nadie, ni en el XML ni en el papel', () => {
     assert.equal(contenidoDelXml(xml('03', ref('04'))).conReceptor, false, 'una nota sobre un tiquete tampoco');
   });
 
-  test('el papel de un tiquete dice «Cliente de contado» y nada del cliente de la factura', () => {
+  test('el papel de un tiquete dice a quién se le factura, pero no imprime su cédula', () => {
     const factura = { cliente: { nombre: 'ZZ SODA OLGA', tipoIdentificacion: 'CF', identificacion: '100000000', telefono: '8888-0000', direccion: 'Palmares', correo: 'zz@ejemplo.com' } };
     const tiquete = { fiscal: { ...contenidoDelXml(xml('04')), tipo: '04' } };
-    assert.deepEqual(datosDelCliente(factura, tiquete), { nombre: 'Cliente de contado', datos: [] });
-    // La factura electrónica y la de venta siguen diciendo a quién.
+    assert.deepEqual(datosDelCliente(factura, tiquete), {
+      nombre: 'ZZ SODA OLGA', datos: ['Teléfono: 8888-0000', 'Dirección: Palmares', 'Email: zz@ejemplo.com']
+    });
+    assert.ok(!datosDelCliente(factura, tiquete).datos.some((d) => /Cédula|100000000/.test(d)), 'la cédula de relleno no sale en el papel');
+    // Sin nombre guardado, el de siempre.
+    assert.equal(datosDelCliente({ cliente: { identificacion: '100000000' } }, tiquete).nombre, 'Cliente de contado');
+    // La factura electrónica y la de venta siguen diciendo a quién, con su cédula.
     const electronica = datosDelCliente(factura, { fiscal: { ...contenidoDelXml(xml('01')), tipo: '01' } });
     assert.equal(electronica.nombre, 'ZZ SODA OLGA');
     assert.ok(electronica.datos.includes('Cédula física: 100000000'));
