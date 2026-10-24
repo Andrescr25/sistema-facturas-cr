@@ -173,10 +173,13 @@ QUÉ FALTABA y ahora va, SOLO cuando el comprobante está aceptado
   Hacienda» y el proveedor de sistemas;
 - cliente: «Crédito a N días» (plazo firmado), medio de pago con su código y
   la actividad del receptor si va en el XML;
-- cada línea: unidad, subtotal, total con IVA y motivo del descuento;
-- debajo de los totales, el recuadro «Resumen del comprobante electrónico»:
-  gravado, exento, venta, descuentos, venta neta, IVA por código de tarifa,
-  impuesto y comprobante (servicios/mercancías y otros, solo si no dan cero).
+- cada línea: unidad, subtotal, total con IVA y motivo del descuento.
+
+NO VA el recuadro «Resumen del comprobante electrónico» (gravado, exento,
+venta neta, IVA por código de tarifa): se armó, el usuario lo vio en un PDF
+de ejemplo y pidió quitarlo (2026-10-24). Los totales de siempre (subtotal,
+descuento, impuesto por tarifa y TOTAL) quedan. No volver a agregarlo sin
+que lo pida.
 
 DE DÓNDE SALE: del XML aceptado (`lectura.service.js`, `contenidoDelXml`), no
 de la base. El XML trae la ubicación del emisor en códigos: `conNombres` pone

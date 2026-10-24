@@ -646,11 +646,7 @@ function generarPdfFactura(f, empresa = null, papel = null) {
 
   // La observación va a la IZQUIERDA de los totales, bajo el monto en letras:
   // son las cosas que se leen al final y comparten ese espacio.
-  let yFinal = totales(doc, f, ancho, yTrasFilas, F, papel.observacion);
-  if (papel.fiscal) {
-    yFinal = fiscalPdf.dibujarResumenFiscal(doc, papel.fiscal,
-      { x: M, ancho, y: yFinal + 14, F, limite: doc.page.height - M - PIE_RESERVADO });
-  }
+  const yFinal = totales(doc, f, ancho, yTrasFilas, F, papel.observacion);
 
   // POR DÓNDE PAGA EL CLIENTE. Sin esto el papel no sirve para cobrar: son
   // las cuentas de SINPE y de banco, y viven en la configuración porque un

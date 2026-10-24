@@ -16,7 +16,6 @@ const hijos = (el, n) => Array.from(el?.getElementsByTagNameNS("*", n) || []);
 function contenidoDelXml(xml) {
   const doc = parsear(xml),
     e = hijos(doc, "Emisor")[0],
-    r = hijos(doc, "ResumenFactura")[0],
     ref = hijos(doc, "InformacionReferencia")[0];
   return {
     fecha: texto(doc, "FechaEmision"),
@@ -41,40 +40,12 @@ function contenidoDelXml(xml) {
       codigoDescuento: texto(l, "CodigoDescuento") || null,
       naturalezaDescuento: texto(l, "NaturalezaDescuento") || null,
       subTotal: monto(l, "SubTotal"),
-      codigoTarifa: texto(l, "CodigoTarifaIVA") || null,
-      tarifa: monto(l, "Tarifa"),
       montoTotalLinea: monto(l, "MontoTotalLinea"),
     })),
-    resumen: r
-      ? {
-          servGravados: monto(r, "TotalServGravados"),
-          servExentos: monto(r, "TotalServExentos"),
-          servExonerados: monto(r, "TotalServExonerado"),
-          servNoSujetos: monto(r, "TotalServNoSujeto"),
-          mercGravadas: monto(r, "TotalMercanciasGravadas"),
-          mercExentas: monto(r, "TotalMercanciasExentas"),
-          mercExoneradas: monto(r, "TotalMercExonerada"),
-          mercNoSujetas: monto(r, "TotalMercNoSujeta"),
-          gravado: monto(r, "TotalGravado"),
-          exento: monto(r, "TotalExento"),
-          exonerado: monto(r, "TotalExonerado"),
-          noSujeto: monto(r, "TotalNoSujeto"),
-          venta: monto(r, "TotalVenta"),
-          descuentos: monto(r, "TotalDescuentos"),
-          ventaNeta: monto(r, "TotalVentaNeta"),
-          desglose: hijos(r, "TotalDesgloseImpuesto").map((d) => ({
-            codigoTarifa: texto(d, "CodigoTarifaIVA"),
-            monto: monto(d, "TotalMontoImpuesto"),
-          })),
-          impuesto: monto(r, "TotalImpuesto"),
-          otrosCargos: monto(r, "TotalOtrosCargos"),
-          comprobante: monto(r, "TotalComprobante"),
-          mediosPago: hijos(r, "MedioPago").map((m) => ({
-            tipo: texto(m, "TipoMedioPago"),
-            monto: monto(m, "TotalMedioPago"),
-          })),
-        }
-      : null,
+    mediosPago: hijos(doc, "MedioPago").map((m) => ({
+      tipo: texto(m, "TipoMedioPago"),
+      monto: monto(m, "TotalMedioPago"),
+    })),
     // Una nota de crédito declara sobre qué documento actúa: el papel lo dice
     // con lo que se firmó, no con lo que hoy diga la base.
     ...(ref

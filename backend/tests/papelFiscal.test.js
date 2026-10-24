@@ -45,18 +45,12 @@ describe('lo que se lee del XML firmado', () => {
   test('cada línea con su unidad, subtotal, total con IVA y motivo del descuento', () => {
     const [a, b] = fiscal().lineas;
     assert.deepEqual(a, { numeroLinea: 1, unidad: 'Unid', codigoDescuento: '07', naturalezaDescuento: 'Descuento comercial',
-      subTotal: 180, codigoTarifa: '08', tarifa: 13, montoTotalLinea: 203.4 });
+      subTotal: 180, montoTotalLinea: 203.4 });
     assert.equal(b.codigoDescuento, null);
     assert.equal(b.montoTotalLinea, 50.5);
   });
-  test('el resumen cuadra: venta − descuentos = neta; neta + impuesto = comprobante', () => {
-    const r = fiscal().resumen;
-    assert.equal(r.venta, 250); assert.equal(r.descuentos, 20); assert.equal(r.ventaNeta, 230);
-    assert.equal(r.impuesto, 23.9); assert.equal(r.comprobante, 253.9);
-    assert.equal(Math.round((r.venta - r.descuentos) * 100), Math.round(r.ventaNeta * 100));
-    assert.equal(Math.round((r.ventaNeta + r.impuesto) * 100), Math.round(r.comprobante * 100));
-    assert.deepEqual(r.desglose.map(d => d.codigoTarifa).sort(), ['02', '08']);
-    assert.deepEqual(r.mediosPago, [{ tipo: '04', monto: 253.9 }]);
+  test('el medio de pago firmado, con su código y monto', () => {
+    assert.deepEqual(fiscal().mediosPago, [{ tipo: '04', monto: 253.9 }]);
   });
 });
 
@@ -76,24 +70,12 @@ describe('cómo lo escribe el papel', () => {
     assert.equal(p.condicionFiscal(f, '30 días'), 'Crédito a 30 días');
     assert.equal(p.condicionFiscal({ condicionVenta: '01' }, 'x'), 'Contado');
     assert.equal(p.medioFiscal(f, 'Transferencia'), 'Transferencia (04)');
-    assert.equal(p.medioFiscal({ resumen: { mediosPago: [] } }, 'Efectivo'), 'Efectivo');
+    assert.equal(p.medioFiscal({ mediosPago: [] }, 'Efectivo'), 'Efectivo');
   });
   test('la línea dice unidad, subtotal, total con IVA y de qué es el descuento', () => {
     const t = p.textoLineaFiscal(p.lineaFiscalDe(fiscal(), 1));
     assert.match(t, /^Unid {2}· {2}Subtotal ₡180,00 {2}· {2}Total con IVA ₡203,40 {2}· {2}Descuento: Descuento comercial \(07\)$/);
     assert.equal(p.textoLineaFiscal(null), null);
-  });
-  test('el resumen trae lo que siempre va y omite lo que da cero', () => {
-    const r = Object.fromEntries(p.renglonesResumenFiscal(fiscal()));
-    for (const k of ['Total gravado', 'Total exento', 'Total venta', 'Total descuentos', 'Total venta neta', 'Total impuesto', 'Total comprobante']) {
-      assert.ok(k in r, `falta ${k}`);
-    }
-    assert.match(r['Total venta neta'], /₡230,00/);
-    assert.match(r['IVA 13 % (código 08)'], /₡23,40/);
-    assert.match(r['IVA 1 % (código 02)'], /₡0,50/);
-    assert.ok('Mercancías gravadas' in r);
-    assert.equal('Servicios gravados' in r, false, 'cero no se imprime');
-    assert.deepEqual(p.renglonesResumenFiscal(null), []);
   });
 });
 
