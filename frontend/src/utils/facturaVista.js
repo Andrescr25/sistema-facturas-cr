@@ -135,6 +135,7 @@ export function porQueNoSeEdita(f, { reservaFiscal = null, emitiendo = false } =
     : (f.electronica || reservaFiscal?.estado === 'aceptada') ? 'Ya se emitió electrónicamente: se corrige con una nota de crédito.'
     : emitiendo ? 'Se está emitiendo electrónicamente.'
     : (['pendiente', 'enviada'].includes(f.haciendaEstado) || reservaFiscal) ? 'Está reservada ante Hacienda. Consultá el resultado antes de editar.'
+    : f.tomadaEnBodega ? 'Bodega ya la tomó: para quitar algo se hace una nota de crédito, y para agregar algo, una factura nueva.'
     : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que anularlo, abajo en «Cobros».'
     : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada.'
     : null

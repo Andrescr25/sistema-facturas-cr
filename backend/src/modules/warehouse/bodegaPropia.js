@@ -29,6 +29,7 @@ const { encolarSinPendientes } = require('../reprinting/colaImpresion');
 const { filtroRutaActual } = require('../rutas/rutaActual.service');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { SIN_CREDITO_TOTAL, asegurarFacturaVigente } = require('./vigenciaFactura');
+const { tomarEn } = require('./tomadaEnBodega');
 
 const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -185,6 +186,8 @@ async function registrarFaltantes(facturaIdCrudo, faltantes, registradoPor = 'Bo
     // Mismo orden de bloqueos que compras: primero la reserva, luego factura/faltantes.
     await c.query('SELECT pg_advisory_xact_lock(46005,1)');
     await asegurarFacturaVigente(facturaId, c, { bloquear: true });
+    // Registrar lo que faltó es haberla tomado, aunque el aviso de «abrió» no llegara.
+    await tomarEn(c, facturaId, usuarioId);
     const detectados = [];
     const cantidad = await guardarFaltantes(facturaId, faltantes, registradoPor, c, detectados);
     const { micros } = require('../orders-whatsapp/ordenesCiclo.service').interno;
@@ -211,7 +214,7 @@ async function registrarFaltantes(facturaIdCrudo, faltantes, registradoPor = 'Bo
  * Sin faltantes, a la cola de impresión, en la misma transacción: una factura
  * despachada que no llegó a la cola no la vería nadie.
  */
-async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, enviarAImpresion = false } = {}) {
+async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, enviarAImpresion = false, usuarioId = null } = {}) {
   const facturaId = idDeFactura(facturaIdCrudo);
   if (!['pendiente', 'procesado'].includes(estado)) throw httpError(400, 'Estado inválido. Usa "pendiente" o "procesado".');
   const procesado = estado === 'procesado';
@@ -227,6 +230,8 @@ async function actualizarEstado(facturaIdCrudo, { estado, observaciones = null, 
        RETURNING id, numero, estado_bodega, bodega_procesado_en, bodega_observaciones
     `, [estado, procesado, observaciones, facturaId]);
     if (!f) throw httpError(404, 'Esa factura no existe o no está emitida.');
+    // Despachar y reabrir pasan por Bodega: en ambos casos la factura ya no se edita.
+    await tomarEn(c, facturaId, usuarioId);
 
     if (procesado && enviarAImpresion) await encolarSinPendientes(facturaId, c);
     return { factura: f };

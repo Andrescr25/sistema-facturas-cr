@@ -9,6 +9,7 @@
 // 2026-09-30, al terminar la sección 11: ninguna pantalla las llamaba.
 
 const bodegaPropia = require('./bodegaPropia');
+const tomadaEnBodega = require('./tomadaEnBodega');
 
 function responderPropia(res, promesa, contexto) {
   return promesa
@@ -38,8 +39,13 @@ const updateEstadoFacturaPropia = (req, res) =>
   responderPropia(res, bodegaPropia.actualizarEstado(req.params.facturaId, {
     estado: req.body?.estado,
     observaciones: req.body?.observaciones ?? null,
-    enviarAImpresion: Boolean(req.body?.enviar_a_impresion)
+    enviarAImpresion: Boolean(req.body?.enviar_a_impresion),
+    usuarioId: req.usuario?.id
   }), 'Error actualizando el estado de la factura:');
+
+/** POST /bodega/facturas-propias/:facturaId/tomar — alguien abrió la factura: desde ya no se edita. */
+const tomarFacturaPropia = (req, res) =>
+  responderPropia(res, tomadaEnBodega.tomar(req.params.facturaId, req.usuario?.id), 'Error marcando la factura como tomada por Bodega:');
 
 /** GET /bodega/rutas — las rutas para filtrar (la de la ficha de cada cliente). */
 const getRutas = (req, res) => responderPropia(res, require('../rutas/rutaActual.service').listarRutasActuales(), 'Error leyendo rutas de bodega:');
@@ -49,5 +55,6 @@ module.exports = {
   getFacturasPropias,
   getEstadosFacturaPropia,
   registrarFaltantesFacturaPropia,
-  updateEstadoFacturaPropia
+  updateEstadoFacturaPropia,
+  tomarFacturaPropia
 };

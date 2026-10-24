@@ -130,8 +130,14 @@ describe('cuándo no se puede editar, y por qué', () => {
     assert.match(u.porQueNoSeEdita(factura({ estado: 'borrador' })), /borrador/);
     assert.match(u.porQueNoSeEdita(factura({ electronica: true, cobrado: 100 })), /nota de crédito/);
     assert.match(u.porQueNoSeEdita(factura({ haciendaEstado: 'enviada' })), /reservada ante Hacienda/);
+    assert.match(u.porQueNoSeEdita(factura({ tomadaEnBodega: true })), /Bodega ya la tomó.*nota de crédito.*factura nueva/);
     assert.match(u.porQueNoSeEdita(factura({ cobrado: 100 })), /cobro aplicado/);
     assert.match(u.porQueNoSeEdita(factura({ acreditado: 100 })), /nota de crédito aplicada/);
+  });
+
+  test('lo electrónico y lo reservado ante Hacienda se dicen antes que lo de Bodega', () => {
+    assert.match(u.porQueNoSeEdita(factura({ electronica: true, tomadaEnBodega: true })), /Ya se emitió electrónicamente/);
+    assert.match(u.porQueNoSeEdita(factura({ haciendaEstado: 'enviada', tomadaEnBodega: true })), /reservada ante Hacienda/);
   });
 
   test('mientras se emite, y desde que Hacienda la tiene, tampoco: aunque la factura no se haya releído', () => {

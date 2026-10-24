@@ -56,6 +56,9 @@ export function useFacturaBodegaAbierta({ seleccionadaRef, claves, leer, escribi
       try { enProgreso = JSON.parse(leer(claves.draft(factura.factura_id)) || 'null') } catch { /* borrador ilegible */ }
     }
     setFaltantesDraft(enProgreso && Object.keys(base).every(k => enProgreso[k]) ? enProgreso : base)
+    // Abrirla es tomarla: el servidor la deja de ofrecer para editar. Sin
+    // señal no se frena a Bodega; despachar la marca igual.
+    bodegaPropiaService.tomar(factura.factura_id).catch(() => { /* sin conexión: lo marca el despacho */ })
     // También las pendientes cacheadas: una factura pudo anularse mientras
     // esta pestaña estaba cerrada. La validación nunca pisa su borrador.
     await consultar(factura, !esPendiente)

@@ -17,6 +17,12 @@ export const bodegaPropiaService = {
     return data.data
   },
 
+  /** Alguien abrió la factura: desde ahora Facturación ya no la edita. */
+  async tomar(facturaId) {
+    const { data } = await api.post(`/bodega/facturas-propias/${facturaId}/tomar`)
+    return data
+  },
+
   async registrarFaltantes(facturaId, faltantes, registradoPor = 'Bodega') {
     const { data } = await api.post(`/bodega/facturas-propias/${facturaId}/faltantes`, { faltantes, registrado_por: registradoPor })
     return data

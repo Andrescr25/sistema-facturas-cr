@@ -439,3 +439,12 @@ desordenado».
 Medido a 320, 390, 768 y 1280 px sin desbordes ni controles chicos. Prueba:
 `backend/tests/notaCreditoDiseno.test.js`.
 
+
+## Editar una factura ya no es posible si Bodega la tomó — 2026-10-23
+
+`editarFactura` responde 409 cuando la factura está tomada en Bodega (abierta,
+despachada o con faltantes) y la consulta trae `tomadaEnBodega` para que la
+pantalla no ofrezca Editar: se corrige con una nota de crédito (quitar) o con
+una factura nueva (agregar). Impresión sigue ajustando por `editarFacturaEn`.
+Las reglas y la tabla `factura_en_bodega` (066) están en
+[[modulo/facturas-bodega]].

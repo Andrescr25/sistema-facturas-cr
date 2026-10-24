@@ -12,6 +12,7 @@ const warehouseController = require('./warehouse.controller');
 router.get('/rutas', warehouseController.getRutas);
 router.get('/facturas-propias', warehouseController.getFacturasPropias);
 router.get('/facturas-propias/:facturaId/estados', warehouseController.getEstadosFacturaPropia);
+router.post('/facturas-propias/:facturaId/tomar', warehouseController.tomarFacturaPropia);
 router.post('/facturas-propias/:facturaId/faltantes', warehouseController.registrarFaltantesFacturaPropia);
 router.post('/facturas-propias/:facturaId/estado', warehouseController.updateEstadoFacturaPropia);
 

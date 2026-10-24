@@ -54,6 +54,7 @@ const CAMPOS_FACTURA = {
 
 const { armarLineas, exigirClienteMostrado, recortar, dinero } = require('./facturaLineas');
 const { aplicarDescuentoEn } = require('./descuentoCliente.service');
+const { estaTomadaEn, mensajeDeFacturaTomada } = require('../warehouse/tomadaEnBodega');
 
 /** "₡45.145,80", para los mensajes. `toLocaleString('es-CR')` daba "₡45 145,8". */
 const enColones = (v) => `₡${dinero(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
@@ -516,7 +517,15 @@ async function anularFactura(id, { motivo } = {}, usuarioId) {
  * las sobrantes.
  */
 async function editarFactura(id, datos, usuarioId) {
-  return enTransaccion((cliente) => editarFacturaEn(cliente, id, datos, usuarioId));
+  return enTransaccion(async (cliente) => {
+    // Una factura que Bodega ya tomó no se edita (2026-10-23): nota de crédito
+    // para quitar, factura nueva para agregar. Se bloquea la fila antes de
+    // mirar, así «Bodega la abre» y «Facturación la edita» no se cruzan.
+    // Impresión NO pasa por acá: llama a `editarFacturaEn` directo.
+    const { rows: [fila] } = await cliente.query('SELECT id, numero FROM factura WHERE id = $1 FOR UPDATE', [idValido(id)]);
+    if (fila && await estaTomadaEn(cliente, fila.id)) throw httpError(409, mensajeDeFacturaTomada(fila.numero));
+    return editarFacturaEn(cliente, id, datos, usuarioId);
+  });
 }
 
 /**

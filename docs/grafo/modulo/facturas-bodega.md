@@ -27,6 +27,9 @@ archivos:
   - frontend/src/services/bodegaPropiaService.js
   - backend/tests/bodegaPropia.test.js
   - backend/src/modules/reprinting/colaImpresion.js
+  - backend/src/modules/warehouse/tomadaEnBodega.js
+  - backend/migrations/independencia/066_factura_en_bodega.sql
+  - backend/tests/facturaTomadaEnBodega.test.js
 aristas:
   relacionado: [modulo/carga-entregas-por-ruta, modulo/contexto-visible-operacion, modulo/carga-entregas-por-ciclo, modulo/faltantes, modulo/permisos, decision/permisos-por-prefijo-mas-especifico, leccion/fecha-utc-costa-rica, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan]
 medido: 2026-10-20
@@ -175,3 +178,32 @@ pendientes sin semana, conserva historia y exige revisión de Bodega antes
 de carga física. 057 local; pendiente de aplicar en producción antes de main.
 Historial físico de entregas es distinto del historial de impresos ROT-06/07,
 que aún falta. Permiso entregas y acción admin corregir-entrega conservados.
+
+## Una factura que Bodega tomó no se edita — 2026-10-23
+
+Pedido del usuario: «si hay que quitar algo, nota de crédito; si hay que
+agregar algo, factura nueva; la única forma de editarla es que no la haya
+tomado nadie en bodega». El caso que lo motivó: la 001000015075 pasó de
+₡41.130 a ₡34.361 en cinco ediciones mientras estaba en el almacén, y el
+papel impreso no decía lo que el sistema.
+
+«TOMADA» es cualquiera de tres cosas (`warehouse/tomadaEnBodega.js`):
+alguien la abrió en Bodega (tabla `factura_en_bodega`, migración 066: lo
+marcado antes de despachar vive solo en el teléfono, así que el servidor no
+lo sabía), Bodega la despachó (`estado_bodega = 'procesado'`) o ya tiene
+faltantes. Reabrir un despacho NO la libera: la marca no se borra.
+
+- Abrirla en la pantalla manda `POST /bodega/facturas-propias/:id/tomar`
+  (sin esperar respuesta: sin señal no se frena a Bodega); registrar
+  faltantes y cambiar el estado la marcan también, por si ese aviso no llegó.
+- `editarFactura` bloquea la fila y, si está tomada, responde 409 con el
+  mensaje que manda a la nota de crédito o a la factura nueva. Facturación
+  la lee como `tomadaEnBodega` y `porQueNoSeEdita` (frontend) deja de
+  ofrecer Editar; la anulación no cambia.
+- EXCEPCIÓN: Impresión sigue ajustando (rebajar lo que no llegó, precios de
+  catálogo) porque llama a `editarFacturaEn` directo. Decisión del usuario.
+- Tabla aparte y no columna de `factura`: el disparador `documento_en_hacienda`
+  (043) impide tocar la fila de una factura ya aceptada ante Hacienda.
+
+Las facturas que ya estaban despachadas quedan tomadas por su estado, sin
+migrar datos. Pruebas: `facturaTomadaEnBodega.test.js` (contra la base local).

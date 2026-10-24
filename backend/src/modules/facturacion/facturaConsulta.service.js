@@ -23,6 +23,7 @@
 const { pool } = require('../../../config/database');
 const { httpError, idValido } = require('../../utils/validacion');
 const { COBRADO, ACREDITADO } = require('./saldo.sql');
+const { tomadaEnBodegaSql } = require('../warehouse/tomadaEnBodega');
 
 const LIMITE_MAXIMO = 100;
 
@@ -81,6 +82,8 @@ function aVista(f) {
     // manda. Entre las dos cosas hay un rato y puede haber un rechazo.
     haciendaEstado: f.hacienda_estado,
     fiscal: f.fiscal || null,
+    // Bodega ya la tomó: ya no se edita (nota de crédito / factura nueva).
+    tomadaEnBodega: Boolean(f.tomada_en_bodega),
     estado: f.estado,
     fecha: f.fecha,
     fechaVencimiento: f.fecha_vencimiento,
@@ -178,6 +181,7 @@ async function listarFacturas({ buscar = '', estado = 'emitidas', desde = '', ha
     SELECT f.*, COUNT(*) OVER() AS total_filas,
            ${COBRADO} AS cobrado,
            ${ACREDITADO} AS acreditado,
+           ${tomadaEnBodegaSql('f')} AS tomada_en_bodega,
            (SELECT COUNT(*) FROM factura_linea l WHERE l.factura_id = f.id)::int AS lineas
       FROM factura f
       ${filtro}
@@ -197,6 +201,7 @@ async function obtenerFactura(id) {
   const n = idValido(id);
   const { rows } = await pool.query(`
     SELECT f.*, ${COBRADO} AS cobrado, ${ACREDITADO} AS acreditado,
+           ${tomadaEnBodegaSql('f')} AS tomada_en_bodega,
            (SELECT COUNT(*) FROM factura_linea l WHERE l.factura_id = f.id)::int AS lineas
       FROM factura f WHERE f.id = $1
   `, [n]);

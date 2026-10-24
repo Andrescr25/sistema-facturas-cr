@@ -30,7 +30,7 @@ async function montar(api, guardado = {}) {
   const nombres = ['useState', 'useRef', 'useEffect', 'useCallback', 'useMemo', 'useContextoConsulta',
     'useFiltroRutaReporteCliente', 'bodegaPropiaService', 'alegraService', 'localStorage', ...Object.keys(utils)];
   const valores = [useState, useRef, () => {}, f => f, f => f(), () => lectura,
-    () => ({ params: {} }), api, {}, localStorage, ...Object.values(utils)];
+    () => ({ params: {} }), { tomar: async () => ({}), ...api }, {}, localStorage, ...Object.values(utils)];
   const hook = new Function(...nombres, `${fuentes}\nreturn useFacturasBodega;`)(...valores);
   return { render: () => { indice = 0; return hook(); }, almacen };
 }
@@ -54,6 +54,14 @@ test('abrir una pendiente cacheada anulada la quita de pantalla y caché, conser
   assert.equal(almacen.get('facturasBodegaPropia:draft:101'), borrador);
   assert.equal(almacen.has('facturasBodegaPropia:selectedId'), false);
   assert.match(render().aviso, /anulada/);
+});
+
+test('abrir una factura avisa al servidor que Bodega la tomó, y si el aviso falla igual se abre', async () => {
+  const tomadas = [];
+  const { render } = await montar({ estados: async () => [], tomar: async (id) => { tomadas.push(id); throw new Error('sin señal'); } });
+  await render().abrirFactura(factura(101));
+  assert.deepEqual(tomadas, [101]);
+  assert.equal(render().facturaSeleccionada.factura_id, 101);
 });
 
 test('una validación tardía de A no cierra B ni borra lo que se está preparando', async () => {
