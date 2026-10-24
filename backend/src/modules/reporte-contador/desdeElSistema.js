@@ -2,6 +2,9 @@
 // por el largo del número ni se filtran compras exentas o líneas sin impuesto.
 // En factura/nota propias subtotal YA descuenta la rebaja: no restarla otra vez.
 async function ventas(db, desde, hasta, nota = false) {
+  // El tipo comercial puede seguir siendo factura aunque Hacienda aceptó
+  // un tiquete. La etiqueta toma el comprobante propio aceptado de producción;
+  // los documentos históricos sin ese vínculo conservan su tipo guardado.
   const tabla = nota ? 'nota_credito' : 'factura';
   const tipo = nota ? 'Nota de crédito' : 'Venta';
   const { rows } = await db.query(
@@ -9,13 +12,17 @@ async function ventas(db, desde, hasta, nota = false) {
     d.fecha::text AS fecha, d.cliente_nombre AS contraparte, d.cliente_identificacion AS cedula,
     ${nota ? "(SELECT string_agg(factura_numero, ', ' ORDER BY id) FROM nota_credito_factura WHERE nota_credito_id=d.id)" : 'NULL::text'} AS documento_asociado,
     d.clave_hacienda AS clave, ${nota ? "'CRC'" : 'd.moneda'} AS moneda, d.electronica,
-    ${nota ? "'nota_credito'::text" : 'd.tipo_documento'} AS tipo_documento,
+    ${nota ? "'nota_credito'::text" : `CASE WHEN d.electronica AND h.tipo='04' THEN 'tiquete'
+      WHEN d.electronica AND h.tipo='01' THEN 'factura' ELSE d.tipo_documento END`} AS tipo_documento,
     d.subtotal AS base, d.descuento, d.impuesto AS impuestos, d.total,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('descripcion', l.nombre, 'cantidad', l.cantidad,
       'precio', l.precio_unitario, 'descuento', l.descuento_monto, 'base', l.cantidad*l.precio_unitario-l.descuento_monto,
       'impuestos', l.impuesto_monto, 'tarifa', l.tarifa, 'total', l.total) ORDER BY l.numero_linea)
       FROM ${tabla}_linea l WHERE l.${tabla}_id=d.id), '[]'::jsonb) AS lineas
-    FROM ${tabla} d WHERE d.estado='emitida' AND d.fecha BETWEEN $1 AND $2 ORDER BY d.fecha,d.id`,
+    FROM ${tabla} d
+    ${nota ? '' : `LEFT JOIN hacienda_comprobante h ON h.id=d.hacienda_comprobante_id
+      AND h.origen='factura' AND h.origen_id=d.id AND h.ambiente='produccion' AND h.estado='aceptada'`}
+    WHERE d.estado='emitida' AND d.fecha BETWEEN $1 AND $2 ORDER BY d.fecha,d.id`,
     [desde, hasta]
   );
   return rows.map((r) => ({ ...r, identidad: `${tabla}-${r.id}` }));

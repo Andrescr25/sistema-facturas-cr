@@ -1200,3 +1200,14 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   Builds separados y lint correctos; móvil/tablet/escritorio sin desborde.
 
 [Evidencia y estado](informes/marcas-clientes-2026-10-24.md). Sin SQL nuevo.
+
+
+### Etiquetas de tiquete en Reporte Contador — 2026-10-24
+
+- [x] Usar tipo04/01 del comprobante propio aceptado de producción aunque la
+  factura comercial conserve otro tipo; históricos sin vínculo conservados.
+- [x] Lista y detalle muestran Tiquete electrónico; notas, totales y Excel
+  sin cambios.20 pruebas dirigidas,8 escenarios fiscales en base local y71
+  comprobaciones Chromium390/700/1440. Sin migración nueva.
+
+[Detalle](grafo/modulo/reporte-contador.md). Entrega inicial en developer.

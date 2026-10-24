@@ -326,6 +326,44 @@ describe(
       const publico = require('../src/modules/reporte-contador/contador.mes').vistaPublica(mes);
       assert.ok(publico.gastos.every((g) => !('xml_ruta' in g) && !('pdf_ruta' in g)));
     });
+    test('la etiqueta usa el comprobante aceptado, sin cambiar la factura comercial ni inferir por correo', async () => {
+      await db.query('SAVEPOINT etiquetas_contador');
+      try {
+        const casos = [
+          ['tiquete-aceptado', 'factura', true, '04', 'produccion', 'aceptada', 'tiquete'],
+          ['factura-aceptada', 'tiquete', true, '01', 'produccion', 'aceptada', 'factura'],
+          ['rechazado', 'factura', true, '04', 'produccion', 'rechazada', 'factura'],
+          ['preparado', 'factura', true, '04', 'produccion', 'preparada', 'factura'],
+          ['ambiente-pruebas', 'factura', true, '04', 'pruebas', 'aceptada', 'factura'],
+          ['sin-bandera-electronica', 'factura', false, '04', 'produccion', 'aceptada', 'factura'],
+          ['historico-tiquete', 'tiquete', true, null, null, null, 'tiquete'],
+          ['historica-factura', 'factura', true, null, null, null, 'factura']
+        ];
+        for (const [nombre, comercial, electronica, tipo, ambiente, estado] of casos) {
+          const { rows: [f] } = await db.query(`INSERT INTO factura(numero,estado,fecha,cliente_nombre,
+            tipo_documento,electronica,hacienda_estado,total) VALUES($1,'emitida','2032-04-05','ZZ Cliente',$2,$3,$4,100) RETURNING id`,
+          ['ZZ-etiqueta-' + nombre, comercial, electronica, electronica ? 'aceptada' : 'pendiente']);
+          if (tipo) {
+            const { rows: [h] } = await db.query(`INSERT INTO hacienda_comprobante(ambiente,origen,origen_id,tipo,
+              clave,consecutivo,fecha,estado,xml_ruta,xml_sha256,sobre)
+              VALUES($1,'factura',$2,$3,$4,$5,'2032-04-05',$6,'zz-no-se-lee.xml',$7,'{}') RETURNING id`,
+            [ambiente, f.id, tipo, '9'.repeat(42) + String(f.id).padStart(8, '0'), '9'.repeat(10) + String(f.id).padStart(10, '0'), estado, 'a'.repeat(64)]);
+            await db.query('UPDATE factura SET hacienda_comprobante_id=$2 WHERE id=$1', [f.id, h.id]);
+          }
+        }
+        const reporte = await servicio.obtenerMes({ anio: 2032, mes: 4 });
+        for (const [nombre, comercial, electronica, , , , esperado] of casos) {
+          const d = reporte.documentos.find(d => d.numero === 'ZZ-etiqueta-' + nombre);
+          assert.equal(d.tipo_documento, esperado, nombre);
+          assert.equal(frente.etiquetaMovimiento(d), `${esperado === 'tiquete' ? 'Tiquete' : 'Factura'}${electronica ? esperado === 'tiquete' ? ' electrónico' : ' electrónica' : ''}`, nombre);
+          assert.equal((await db.query('SELECT tipo_documento FROM factura WHERE id=$1', [d.id])).rows[0].tipo_documento, comercial);
+        }
+        assert.equal(frente.etiquetaMovimiento(mes.documentos.find(d => d.numero === 'ZZ-nota-electronica')), 'Nota de crédito electrónica');
+      } finally {
+        await db.query('ROLLBACK TO SAVEPOINT etiquetas_contador');
+        await db.query('RELEASE SAVEPOINT etiquetas_contador');
+      }
+    });
     test('Excel separa los cuatro resúmenes y conserva los totales reales', () => {
       const b = XLSX.read(excelMensual(mes).buffer, { type: 'buffer' });
       assert.deepEqual(b.SheetNames, ['Facturas y notas electrónicas', 'Compras', 'Facturas y notas', 'Gastos operativos']);

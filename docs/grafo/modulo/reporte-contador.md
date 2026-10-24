@@ -140,3 +140,23 @@ registro de verificación, ambos propios y sin otros commits pendientes.
 Suite completa local242archivos/2987correctas/0fallos/3omisiones históricas,
 sin alterar el inventario del clon. No requiere migración ni acceso a la
 base de producción para probar. Las cuatro hojas son comunes a descarga y correo.
+
+
+## Etiqueta de tiquetes aceptados — 2026-10-24
+
+El tipo comercial puede seguir siendo `factura` después de emitir un tiquete
+con los ajustes de Hacienda/Impresión. La lectura mensual ahora resuelve el
+tipo desde `factura.hacienda_comprobante_id`: comprobante propio, de producción
+y aceptado. Para electrónicas,04 devuelve tiquete y01 factura. No consulta el
+correo actual, no interpreta la clave ni lee XML por cada documento.
+
+Un LEFT JOIN por clave primaria en la consulta existente evita peticiones
+adicionales o duplicados. Documentos históricos sin ese vínculo conservan el
+tipo persistido; preparados, rechazados y ambiente de pruebas no deciden la
+etiqueta. `etiquetaMovimiento`, ya compartido por lista y detalle, presenta
+«Tiquete electrónico». Notas, pestañas, cifras y cuatro resúmenes Excel se
+conservan. Sin modificar facturas, archivos fiscales o esquema.
+
+Verificado:20 pruebas de reporte/Excel (regresión con8 combinaciones de tipo
+comercial y fiscal sobre PostgreSQL con ROLLBACK),71 comprobaciones Chromium
+390/700/1440 y build correcto. Correo simulado; sin base de producción.

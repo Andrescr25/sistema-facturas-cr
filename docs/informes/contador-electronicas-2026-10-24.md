@@ -49,3 +49,23 @@ Evidencia de la suite: `/private/tmp/codex-contador-electronicas-main-20261024/`
 El clon se retira al cerrar; no se cambian los procesos de la vista local.
 Estado público de Render y autoría de la publicación en el relevo compartido
 `permiso-subir-a-main.md`, sin afirmar una sesión autenticada remota.
+
+
+## Corrección posterior: la factura comercial se emitió como tiquete
+
+Tras los ajustes de Claude en Hacienda, el usuario detecta que algunos
+comprobantes tipo04 seguían con la etiqueta Factura electrónica. La lectura
+mensual sólo seleccionaba el tipo comercial, que no cambia al emitir.
+Se incorpora el tipo del comprobante vinculado, propio y aceptado en
+producción en el mismo SELECT. Para electrónicas prevalece04/01; sin vínculo
+se mantiene el tipo histórico. No se infiere por correo ni por clave y no
+se consulta XML por fila. El helper existente corrige tanto lista como modal.
+
+20 pruebas de reporte/Excel correctas:8 escenarios nuevos de tipo comercial
+frente a fiscal, con estados/ambientes e históricos. Se conserva la columna
+del documento original, las notas electrónicas y los totales del Excel.
+71 comprobaciones Chromium390/700/1440 con una factura comercial emitida como
+04: insignia y modal Tiquete electrónico, cuatro pestañas/hojas, paginación y
+correo simulado. Build correcto. Clon local desechable, fixtures en ROLLBACK;
+sin SQL nuevo ni cambios en producción. Entrega inicial en developer por Codex.
+Evidencia privada:`/private/tmp/codex-contador-tiquete-20261024/`.

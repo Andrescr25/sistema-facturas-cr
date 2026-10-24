@@ -1250,3 +1250,13 @@ Pedidos del mismo día, en orden (los dos primeros ya publicados por Claude):
   venta (nombre, teléfono, dirección, correo) pero no su cédula; la pregunta
   avisa que el tiquete no sirve para gastos ni créditos de IVA.
   [Detalle](grafo/modulo/faltantes.md).
+
+
+## Reporte Contador: tiquetes identificados — 2026-10-24
+
+El usuario pide que, en Facturas y notas electrónicas, la etiqueta de los
+tiquetes diga «Tiquete electrónico», conservando las etiquetas correctas de
+facturas y notas de crédito. Se toma el comprobante fiscal propio aceptado,
+pues la venta comercial puede seguir registrada como factura. No cambiar
+los importes, la emisión ni el formato del Excel por este ajuste visual.
+[Resultado](grafo/modulo/reporte-contador.md).
