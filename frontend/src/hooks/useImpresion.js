@@ -5,8 +5,7 @@ import {
   lineasParaProcesar,
   validarItemsParaProcesar,
   DESPUES,
-  preguntaAlProcesar,
-  preguntaAlRecuperar
+  preguntaAlProcesar
 } from '../utils/impresionUtils'
 import { useDialog } from './useDialog'
 
@@ -17,8 +16,9 @@ const BUSQUEDA_VACIA = { index: null, termino: '', resultados: [], cargando: fal
  * Estado y lógica del centro de impresión, sobre la factura PROPIA (rama
  * independencia-alegra, sección 11, paso 3): listado de pendientes y
  * procesadas, edición de una factura antes de reimprimirla (con el buscador
- * de productos del catálogo propio) y las acciones de guardar, procesar y
- * recuperar.
+ * de productos del catálogo propio) y las acciones de guardar y procesar. Las
+ * procesadas ya no se recuperan: el historial es solo para ver el PDF
+ * (2026-10-24).
  *
  * Todo va por `factura_id`, el id propio. Hasta el 2026-09-30 las líneas se
  * leían de Alegra, el precio de cada una se le volvía a preguntar a Alegra
@@ -35,6 +35,7 @@ export function useImpresion() {
   const [facturasPendientes, setFacturasPendientes] = useState([])
   const [cargandoItems, setCargandoItems] = useState(false)
   const [facturasProcesadas, setFacturasProcesadas] = useState([])
+  const [historial, setHistorial] = useState({ total: 0, pagina: 1, hayMas: false, cargandoMas: false })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -65,18 +66,25 @@ export function useImpresion() {
     }
   }
 
-  const loadFacturasProcesadas = async () => {
+  // El historial no tiene plazo: son todas las impresas, de a 50. «Ver más»
+  // agrega la página siguiente sin vaciar lo que ya se ve.
+  const loadFacturasProcesadas = async (pagina = 1) => {
+    const primera = pagina === 1
     try {
-      setLoading(true)
+      if (primera) setLoading(true)
+      else setHistorial(h => ({ ...h, cargandoMas: true }))
       setError(null)
-      const result = await colaImpresionService.procesadas()
-      setFacturasProcesadas(result.data || [])
+      const result = await colaImpresionService.procesadas({ pagina })
+      setFacturasProcesadas(prev => (primera ? (result.data || []) : [...prev, ...(result.data || [])]))
+      setHistorial({ total: result.total || 0, pagina, hayMas: Boolean(result.paginacion?.hayMas), cargandoMas: false })
     } catch (err) {
       setError(err.message)
+      setHistorial(h => ({ ...h, cargandoMas: false }))
     } finally {
-      setLoading(false)
+      if (primera) setLoading(false)
     }
   }
+  const verMasProcesadas = () => loadFacturasProcesadas(historial.pagina + 1)
 
   useEffect(() => {
     if (activeTab === 'procesadas') {
@@ -248,18 +256,6 @@ export function useImpresion() {
     }
   }
 
-  const handleRecuperarFactura = async (factura) => {
-    if (!(await confirm(preguntaAlRecuperar(factura)))) return
-    try {
-      setLoading(true)
-      await colaImpresionService.recuperarProcesada(factura.factura_id)
-      loadFacturasProcesadas()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const cerrarBusquedaProducto = () => setProductoBusqueda(BUSQUEDA_VACIA)
 
@@ -431,6 +427,8 @@ export function useImpresion() {
     setActiveTab: handleSetActiveTab,
     facturasPendientes,
     facturasProcesadas,
+    historial,
+    verMasProcesadas,
     loading,
     error,
 
@@ -450,7 +448,6 @@ export function useImpresion() {
     handleAgregarItem,
     handleGuardarFactura,
     handleProcesarSinCambios,
-    handleRecuperarFactura,
     iniciarBusquedaProducto,
     manejarCambioTerminoBusqueda,
     seleccionarProductoBusqueda,

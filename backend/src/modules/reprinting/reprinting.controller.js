@@ -26,13 +26,13 @@ async function getPendingInvoices(req, res) {
 }
 
 /**
- * GET /facturas/procesadas
- * Obtiene facturas procesadas (últimas 48 h; se recuperan durante 24 h)
+ * GET /facturas/procesadas?pagina=&limite=
+ * El historial: todas las impresas, lo más nuevo primero, de a 50. Solo para ver.
  */
 async function getProcessedInvoices(req, res) {
   try {
     console.log('📋 Obteniendo facturas procesadas de reimpresión...');
-    const result = await reprintingService.getProcessedInvoices();
+    const result = await reprintingService.getProcessedInvoices({ pagina: req.query.pagina, limite: req.query.limite });
     res.json(result);
   } catch (error) {
     console.error('❌ Error obteniendo facturas procesadas:', error);
@@ -70,25 +70,6 @@ async function getHistory(req, res) {
   }
 }
 
-/**
- * DELETE /historial
- * Limpia el historial de procesamientos
- */
-async function clearHistory(req, res) {
-  try {
-    console.log('🗑️ Limpiando historial de procesamientos...');
-    const result = await reprintingService.clearHistory();
-    res.json(result);
-  } catch (error) {
-    console.error('❌ Error limpiando historial:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'Error limpiando historial'
-    });
-  }
-}
-
 // ─── Sobre la factura PROPIA (sección 11, paso 3): todo por `facturaId`, el
 // id de `factura`, nunca el de Alegra. Ver procesarImpresion.js.
 
@@ -112,12 +93,6 @@ async function procesarFacturaPropia(req, res) {
   } catch (error) { responderError(res, error, 'procesar'); }
 }
 
-async function recuperarFacturaPropia(req, res) {
-  try {
-    res.json({ success: true, data: await procesarImpresion.recuperarProcesada(req.params.facturaId, quien(req)) });
-  } catch (error) { responderError(res, error, 'recuperar'); }
-}
-
 async function pdfFacturaPropia(req, res) {
   try {
     const { numero, archivo } = await procesarImpresion.pdf(req.params.facturaId);
@@ -137,10 +112,8 @@ module.exports = {
   getPendingInvoices,
   getProcessedInvoices,
   getHistory,
-  clearHistory,
   detalleFacturaPropia,
   procesarFacturaPropia,
-  recuperarFacturaPropia,
   pdfFacturaPropia,
   buscarProductos
 };

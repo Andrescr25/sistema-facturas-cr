@@ -16,11 +16,11 @@ router.get('/facturas/procesadas', reprintingController.getProcessedInvoices);
 router.get('/facturas/:facturaId', reprintingController.detalleFacturaPropia);
 router.get('/facturas/:facturaId/pdf', reprintingController.pdfFacturaPropia);
 router.post('/facturas/:facturaId/procesar', reprintingController.procesarFacturaPropia);
-router.post('/facturas/:facturaId/recuperar', reprintingController.recuperarFacturaPropia);
 router.get('/productos', reprintingController.buscarProductos);
 
-// Historial
+// Historial. Solo se lee (2026-10-24, «que no se borre nada»): se quitaron
+// «recuperar» una impresa y el DELETE que vaciaba `procesamientos`, que
+// ninguna pantalla usaba y borraba el rastro de cada impresión.
 router.get('/historial', reprintingController.getHistory);
-router.delete('/historial', reprintingController.clearHistory);
 
 module.exports = router;

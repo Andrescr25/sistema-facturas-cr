@@ -170,7 +170,9 @@ describe('Reporte de Clientes e Impresión: decisiones persistidas y bloqueo de 
     await cola.encolarDesdeReporte(datos.facturaId);
     await impresion.procesar(datos.facturaId);
     assert.equal(await cantidad(), 6);
-    await impresion.recuperarProcesada(datos.facturaId);
+    // Reprocesarla (desde Reporte Clientes: Impresión ya no recupera) no la vuelve a tocar.
+    await cola.devolverAlReporte(datos.facturaId);
+    await cola.encolarDesdeReporte(datos.facturaId);
     await impresion.procesar(datos.facturaId);
     assert.equal(await cantidad(), 6);
   });

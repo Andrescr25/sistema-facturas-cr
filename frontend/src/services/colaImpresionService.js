@@ -36,8 +36,9 @@ export const colaImpresionService = {
     return pedir(api.get('/reimpresion/facturas/pendientes'))
   },
 
-  procesadas() {
-    return pedir(api.get('/reimpresion/facturas/procesadas'))
+  /** El historial: todas las impresas, lo más nuevo primero, de a 50. */
+  procesadas({ pagina = 1 } = {}) {
+    return pedir(api.get('/reimpresion/facturas/procesadas', { params: { pagina } }))
   },
 
   /** La factura con las líneas ya propuestas: faltantes rebajados y precios del catálogo. */
@@ -48,10 +49,6 @@ export const colaImpresionService = {
   /** Sin `lineas` aplica la propuesta tal cual; con `lineas`, las que dejó la persona. */
   procesar(facturaId, { lineas = null, actualizarPrecios = true } = {}) {
     return pedir(api.post(`/reimpresion/facturas/${facturaId}/procesar`, { lineas, actualizarPrecios }))
-  },
-
-  recuperarProcesada(facturaId) {
-    return pedir(api.post(`/reimpresion/facturas/${facturaId}/recuperar`))
   },
 
   async buscarProductos(texto) {

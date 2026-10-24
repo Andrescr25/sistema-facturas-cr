@@ -147,8 +147,9 @@ que está en el módulo normal dejarlo en cola hasta que se procese». Reemplaza
 lo de arriba sobre recuperar desde el historial.
 
 - Los plazos viven en un solo lugar, `historialClientes.sql.js`
-  (`PLAZO_RECUPERAR`, `PLAZO_EN_HISTORIAL`, `impresaFueraDePlazo`), y los usa
-  también Impresión.
+  (`PLAZO_RECUPERAR`, `PLAZO_EN_HISTORIAL`, `impresaFueraDePlazo`). Impresión
+  ya no los usa: desde el mismo día su historial no tiene plazo ni recuperar
+  (ver [[modulo/faltantes]]), y este «Recuperar» es el único que queda.
 - **Recuperar**, solo mientras la factura está en Activos y no lleva 24 h
   impresa: `devolverAlReporte` responde 409 si está en el historial o si su
   última fila de cola se imprimió hace 24 h o más (aunque una gestión reciente

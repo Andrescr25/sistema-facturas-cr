@@ -13,7 +13,7 @@ export default function TabsImpresion({ activeTab, setActiveTab, countPendientes
       className="max-w-md"
       pestanas={[
         { clave: 'pendientes', texto: 'Por Impresión', icono: Inbox, contador: countPendientes },
-        { clave: 'procesadas', texto: 'Historial 48 h', icono: CheckCircle, contador: countProcesadas }
+        { clave: 'procesadas', texto: 'Historial', icono: CheckCircle, contador: countProcesadas }
       ]}
     />
   )

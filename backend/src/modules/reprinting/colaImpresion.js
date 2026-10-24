@@ -25,14 +25,14 @@ const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { validarEntrega } = require('../missing-items/ajusteEntrega');
 const {
-  PLAZO_RECUPERAR, PLAZO_EN_HISTORIAL, impresaFueraDePlazo, MOVIMIENTOS_REPORTE, ULTIMA_COLA, JOIN_HISTORIAL_REPORTE
+  impresaFueraDePlazo, MOVIMIENTOS_REPORTE, ULTIMA_COLA, JOIN_HISTORIAL_REPORTE
 } = require('../reports/historialClientes.sql');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
 /**
- * Una factura impresa hace 24 h o más ya no se recupera (2026-10-24, pedido
- * del usuario), ni desde Impresión ni desde Reporte Clientes.
+ * Una factura impresa hace 24 h o más ya no se recupera desde Reporte Clientes
+ * (2026-10-24, pedido del usuario). Desde Impresión no se recupera nunca.
  */
 function noSeRecupera(numero) {
   return httpError(409, `La factura ${numero} ya no se recupera: pasaron más de 24 horas. ` +
@@ -271,44 +271,53 @@ async function listarPendientes() {
   };
 }
 
-/**
- * El historial de Impresión: lo impreso en las últimas 48 h (2026-10-24; antes
- * 7 días). Se puede recuperar solo durante las primeras 24 h. Lo que sale de
- * la lista no se borra: la factura sigue en Facturación.
- */
-async function listarProcesadas() {
-  const { rows } = await query(`
-    SELECT ${COLUMNAS},
-           NOT ${impresaFueraDePlazo('fr')} AS puede_recuperar,
-           (fr.fecha_procesamiento + ${PLAZO_RECUPERAR}) AT TIME ZONE 'America/Costa_Rica' AS recuperable_hasta,
-           (fr.fecha_procesamiento + ${PLAZO_EN_HISTORIAL}) AT TIME ZONE 'America/Costa_Rica' AS sale_del_historial_en
-      FROM facturas_reimpresion fr
-      JOIN factura f ON f.id = fr.factura_propia_id
-     WHERE fr.estado = 'procesada'
-       AND fr.fecha_procesamiento + ${PLAZO_EN_HISTORIAL} > ${AHORA_CR_SQL}
-     ORDER BY fr.fecha_procesamiento DESC
-  `);
+const POR_PAGINA = 50;
 
+/**
+ * El historial de Impresión: TODO lo impreso, lo más nuevo primero, de a 50
+ * (2026-10-24, pedido del usuario: «que el historial sea solo para ver el PDF
+ * y no se borre nada, solo que queden ahí»). Desde ahí ya no se recupera
+ * nada: una factura impresa se corrige con nota de crédito o factura nueva.
+ * Antes eran 7 días y, por un rato ese mismo día, 48 h.
+ *
+ * Una fila por factura: hay facturas con dos filas procesadas de antes de que
+ * la cola reusara la suya, y se veían repetidas.
+ */
+async function listarProcesadas({ pagina = 1, limite = POR_PAGINA } = {}) {
+  const lim = Math.min(Math.max(parseInt(limite, 10) || POR_PAGINA, 1), 200);
+  const pag = Math.max(parseInt(pagina, 10) || 1, 1);
+  const { rows } = await query(`
+    SELECT ${COLUMNAS}, COUNT(*) OVER() AS total_filas
+      FROM (
+        SELECT DISTINCT ON (r.factura_propia_id) r.*
+          FROM facturas_reimpresion r
+         WHERE r.estado = 'procesada'
+         ORDER BY r.factura_propia_id, r.fecha_procesamiento DESC NULLS LAST, r.id DESC
+      ) fr
+      JOIN factura f ON f.id = fr.factura_propia_id
+     ORDER BY fr.fecha_procesamiento DESC NULLS LAST, fr.id DESC
+     LIMIT $1 OFFSET $2
+  `, [lim, (pag - 1) * lim]);
+
+  const total = rows[0] ? Number(rows[0].total_filas) : 0;
   const facturas = rows.map((r) => {
     const fila = aFilaDeCola(r);
     return {
       ...fila,
       estado_reimpresion: fila.estado,
-      puede_recuperar: r.puede_recuperar === true,
-      recuperable_hasta: r.recuperable_hasta,
-      sale_del_historial_en: r.sale_del_historial_en,
       tiene_variacion_precio: fila.ajustes_realizados.some((aj) => aj.diferencia_precio_absoluta || aj.diferencia_precio_relativa)
     };
   });
   return {
     success: true,
     data: facturas,
-    total: facturas.length,
-    resumen: { facturas_procesadas: facturas.length, recuperables: facturas.filter((f) => f.puede_recuperar).length }
+    total,
+    paginacion: { pagina: pag, limite: lim, total, hayMas: pag * lim < total },
+    resumen: { facturas_procesadas: total }
   };
 }
 
 module.exports = {
   encolarSinPendientes, encolarDesdeReporte, devolverAlReporte,
-  listarPendientes, listarProcesadas, aFilaDeCola, ajustesDeFactura, noSeRecupera
+  listarPendientes, listarProcesadas, aFilaDeCola, ajustesDeFactura
 };

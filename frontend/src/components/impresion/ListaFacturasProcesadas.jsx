@@ -1,19 +1,20 @@
-import { FileText, CheckCircle, RotateCcw } from 'lucide-react'
+import { FileText, CheckCircle } from 'lucide-react'
+import Boton from '../ui/Boton'
 import { formatDate } from '../../utils/impresionUtils'
-import { fechaHoraEnCostaRica } from '../../utils/fechaCR'
 
 /**
- * Historial de facturas procesadas: las de las últimas 48 horas. Se pueden
- * recuperar solo durante las primeras 24 (2026-10-24; antes eran 7 días).
- * Extraído de Impresion.jsx.
+ * El historial de Impresión: TODAS las facturas impresas, lo más nuevo
+ * primero, de a 50. Solo para ver su PDF: no se recupera ni se borra nada
+ * (2026-10-24, pedido del usuario). Antes eran 7 días y, por un rato ese mismo
+ * día, 48 h con 24 para recuperar. Extraído de Impresion.jsx.
  */
-export default function ListaFacturasProcesadas({ facturas, onVerPDF, onRecuperar }) {
+export default function ListaFacturasProcesadas({ facturas, historial, onVerPDF, onVerMas }) {
   if (facturas.length === 0) {
     return (
       <div className="text-center py-12 bg-white border border-dashed rounded-3xl p-6 text-neutro-400">
         <FileText className="mx-auto text-neutro-400 mb-2" size={36} />
         <h3 className="font-semibold text-neutro-700">No hay facturas procesadas</h3>
-        <p className="text-xs text-neutro-400">Las facturas procesadas aparecen aquí durante 48 horas.</p>
+        <p className="text-xs text-neutro-400">Las facturas impresas quedan aquí para ver su PDF.</p>
       </div>
     )
   }
@@ -21,8 +22,8 @@ export default function ListaFacturasProcesadas({ facturas, onVerPDF, onRecupera
   return (
     <div className="space-y-4">
       <div className="mb-4 p-4 bg-primario-50/50 rounded-2xl border border-primario-100 text-primario-900 text-sm">
-        <strong>Recuperación:</strong> una factura impresa se puede recuperar durante 24 horas, y a las 48 horas sale de esta lista.
-        Después, si hay que quitar algo se hace una nota de crédito; si hay que agregar algo, una factura nueva.
+        Aquí quedan todas las facturas impresas, para ver su PDF. Una factura impresa no se recupera:
+        si hay que quitar algo se hace una nota de crédito; si hay que agregar algo, una factura nueva.
       </div>
 
       <div className="space-y-3">
@@ -40,21 +41,7 @@ export default function ListaFacturasProcesadas({ facturas, onVerPDF, onRecupera
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-neutro-900">{factura.cliente_nombre}</h3>
-                <div className="text-xs text-neutro-500 space-y-0.5">
-                  <p>Procesamiento: {formatDate(factura.fecha_procesamiento)}</p>
-                  <p>
-                    {factura.puede_recuperar ? (
-                      <span className="text-exito-600 font-medium">
-                        Se puede recuperar hasta: {fechaHoraEnCostaRica(factura.recuperable_hasta)}
-                      </span>
-                    ) : (
-                      <span className="text-peligro-600 font-medium">
-                        Pasaron 24 horas: ya no se recupera
-                      </span>
-                    )}
-                  </p>
-                  <p>Sale de la lista: {fechaHoraEnCostaRica(factura.sale_del_historial_en)}</p>
-                </div>
+                <p className="text-xs text-neutro-500">Procesamiento: {formatDate(factura.fecha_procesamiento)}</p>
               </div>
               <div className="text-left md:text-right shrink-0">
                 <p className="text-2xl font-black text-neutro-800">
@@ -70,18 +57,18 @@ export default function ListaFacturasProcesadas({ facturas, onVerPDF, onRecupera
               >
                 Ver PDF
               </button>
-              {factura.puede_recuperar && (
-                <button
-                  onClick={() => onRecuperar(factura)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-primario-600 hover:bg-primario-700 text-white shadow-md transition active:scale-[0.98] flex items-center gap-1"
-                >
-                  <RotateCcw size={14} />
-                  Recuperar
-                </button>
-              )}
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="flex flex-col items-center gap-2 pt-2">
+        <p className="text-xs text-neutro-400">Mostrando {facturas.length} de {historial.total}</p>
+        {historial.hayMas && (
+          <Boton variante="secundario" className="min-h-11" onClick={onVerMas} cargando={historial.cargandoMas}>
+            {historial.cargandoMas ? 'Cargando…' : 'Ver más'}
+          </Boton>
+        )}
       </div>
     </div>
   )

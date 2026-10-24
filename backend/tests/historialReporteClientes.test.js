@@ -214,25 +214,27 @@ describe('historial de Reporte Clientes tras 24 h sin gestión — PostgreSQL y 
     assert.deepEqual(ids(await leer('historial', { rutaId: 2147483647 })), []);
     assert.equal(ficha(r).factura_id, f.id);
   });
-  test('Impresión: su historial es de 48 h y recuperar solo vale durante las primeras 24', async () => {
+  test('Impresión: el historial guarda TODAS las impresas, solo para ver; no se recupera ni se borra', async () => {
+    // 2026-10-24: «que el historial sea solo para ver el PDF y no se borre nada».
     const impresion = require('../src/modules/reprinting/procesarImpresion');
-    const casi = await factura({ envio: 70, procesada: true, procesadaHace: 24 - 1 / 3600 });
-    const vencida24 = await factura({ envio: 70, procesada: true, procesadaHace: 24 });
-    const casiFuera = await factura({ envio: 70, procesada: true, procesadaHace: 48 - 1 / 3600 });
-    const fuera = await factura({ envio: 70, procesada: true, procesadaHace: 48 });
-    const lista = (await cola.listarProcesadas()).data;
-    const de = (id) => lista.find((x) => x.factura_id === id);
-    assert.equal(de(casi.id).puede_recuperar, true);
-    assert.equal(de(vencida24.id).puede_recuperar, false);
-    assert.equal(de(casiFuera.id).puede_recuperar, false, 'sigue en la lista, sin Recuperar');
-    assert.equal(de(fuera.id), undefined, 'a las 48 h sale de la lista');
-    assert.equal(de(casi.id).sale_del_historial_en.getTime() - de(casi.id).recuperable_hasta.getTime(), 24 * 3600 * 1000);
+    assert.equal(impresion.recuperarProcesada, undefined, 'Impresión ya no recupera');
+    const nueva = await factura({ envio: 70, procesada: true, procesadaHace: 1 });
+    const pasada48 = await factura({ envio: 70, procesada: true, procesadaHace: 49 });
+    const pasada7d = await factura({ envio: 300, procesada: true, procesadaHace: 200 });
+    // Una fila procesada vieja y repetida de la misma factura no la duplica.
+    await db.query(`INSERT INTO facturas_reimpresion(factura_propia_id,estado,ajustes_realizados,fecha_creacion,fecha_procesamiento)
+      VALUES ($1,'procesada','[]'::jsonb,${AHORA}-INTERVAL '400 hours',${AHORA}-INTERVAL '399 hours')`, [nueva.id]);
 
-    await assert.rejects(impresion.recuperarProcesada(vencida24.id), vencida);
-    await assert.rejects(impresion.recuperarProcesada(fuera.id), vencida);
-    assert.equal(await enCola(vencida24.id), 0, 'el rechazo no la devolvió a la cola');
-    const r = await impresion.recuperarProcesada(casi.id);
-    assert.equal(r.faltantes_restaurados, 1);
-    assert.equal(await enCola(casi.id), 1);
+    const primera = await cola.listarProcesadas({ pagina: 1, limite: 200 });
+    const todas = [...primera.data];
+    for (let p = 2; p <= Math.ceil(primera.total / 200); p++) todas.push(...(await cola.listarProcesadas({ pagina: p, limite: 200 })).data);
+    const nuestras = todas.filter((x) => [nueva.id, pasada48.id, pasada7d.id].includes(x.factura_id)).map((x) => x.factura_id);
+    assert.deepEqual(nuestras, [nueva.id, pasada48.id, pasada7d.id], 'todas, una vez cada una, la más nueva primero');
+    assert.equal(todas.length, primera.total);
+    assert.equal(todas.some((x) => 'puede_recuperar' in x), false);
+
+    const chica = await cola.listarProcesadas({ pagina: 1, limite: 1 });
+    assert.equal(chica.data.length, 1);
+    assert.equal(chica.paginacion.hayMas, primera.total > 1);
   });
 });

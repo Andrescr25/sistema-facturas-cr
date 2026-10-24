@@ -90,11 +90,10 @@ describe('impresión exacta con factura e inventario propios — PostgreSQL loca
     assert.equal(Number(guardada.cantidad_rebajada), 3);
     assert.equal(guardada.descripcion, 'ZZ nota del cliente');
     await assert.rejects(impresion.procesar(datos.facturaId), e => e.status === 409);
-    await impresion.recuperarProcesada(datos.facturaId);
-    // 2026-10-22: queda quién la devolvió a la cola (antes no había rastro).
-    const { rows: [rastro] } = await c.query(
-      "SELECT count(*)::int n FROM bitacora_cambio WHERE entidad='factura' AND entidad_id=$1 AND accion='recuperar'", [String(datos.facturaId)]);
-    assert.equal(rastro.n, 1);
+    // Impresión ya no recupera (2026-10-24): volver a la cola es desde Reporte Clientes.
+    assert.equal(impresion.recuperarProcesada, undefined);
+    await cola.devolverAlReporte(datos.facturaId);
+    await cola.encolarDesdeReporte(datos.facturaId);
     await impresion.procesar(datos.facturaId);
     assert.deepEqual(await estado(datos), guardada);
   });

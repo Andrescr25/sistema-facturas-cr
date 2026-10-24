@@ -501,3 +501,20 @@ las últimas 48 h; `recuperarProcesada` responde 409 pasadas 24 h desde
 ninguna así). Lo que sale de la lista no se borra. La cola pendiente no tiene
 plazo. Mismos plazos y helper que Reporte Clientes: ver
 [[modulo/reporte-clientes]].
+
+## Impresión: el historial es solo para ver — 2026-10-24 (reemplaza la de arriba)
+
+Pedido del usuario el mismo día: «no quiero que se pueda recuperar desde
+historial, quiero que el historial sea solo para ver el PDF y no se borre
+nada, solo que queden ahí».
+
+- `recuperarProcesada` y `POST /reimpresion/facturas/:id/recuperar` ya no
+  existen: una impresa no vuelve a la cola desde Impresión. Se corrige con nota
+  de crédito o factura nueva. El único camino de vuelta es «Recuperar» de
+  Reporte Clientes, mientras la factura está en Activos y lleva menos de 24 h
+  impresa (ver [[modulo/reporte-clientes]]).
+- `listarProcesadas` no tiene plazo: TODAS las impresas, una por factura, lo
+  más nuevo primero, de a 50 (`?pagina=`), con «Ver más» en la pantalla y el
+  total en la pestaña («Historial»).
+- Se quitó también `DELETE /reimpresion/historial`, que vaciaba
+  `procesamientos` (el rastro de cada impresión) y ninguna pantalla usaba.

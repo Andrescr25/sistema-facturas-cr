@@ -11,7 +11,7 @@ const colaImpresion = require('./colaImpresion');
 // (migración independencia/032). Las columnas `categoria` y `total_ajustes` que
 // esto creaba al vuelo ya existen en todas las bases.
 const getPendingInvoices = () => colaImpresion.listarPendientes();
-const getProcessedInvoices = () => colaImpresion.listarProcesadas();
+const getProcessedInvoices = (pagina) => colaImpresion.listarProcesadas(pagina);
 
 /**
  * Obtiene el historial de procesamientos
@@ -62,27 +62,8 @@ async function getHistory({ fechaDesde, fechaHasta, procesadoPor }) {
   };
 }
 
-/**
- * Limpia el historial de procesamientos
- */
-async function clearHistory() {
-  const countResult = await query('SELECT COUNT(*) FROM procesamientos');
-  const totalRegistros = parseInt(countResult.rows[0].count);
-
-  await query('DELETE FROM procesamientos');
-
-  console.log(`✅ Historial limpiado: ${totalRegistros} registros eliminados`);
-
-  return {
-    success: true,
-    message: 'Historial limpiado correctamente',
-    registros_eliminados: totalRegistros
-  };
-}
-
 module.exports = {
   getPendingInvoices,
   getProcessedInvoices,
-  getHistory,
-  clearHistory
+  getHistory
 };

@@ -21,6 +21,8 @@ export default function Impresion() {
     setActiveTab,
     facturasPendientes,
     facturasProcesadas,
+    historial,
+    verMasProcesadas,
     loading,
     error,
 
@@ -40,7 +42,6 @@ export default function Impresion() {
     handleAgregarItem,
     handleGuardarFactura,
     handleProcesarSinCambios,
-    handleRecuperarFactura,
     iniciarBusquedaProducto,
     manejarCambioTerminoBusqueda,
     seleccionarProductoBusqueda,
@@ -84,7 +85,7 @@ export default function Impresion() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         countPendientes={facturasPendientes.length}
-        countProcesadas={facturasProcesadas.length}
+        countProcesadas={historial.total}
       />
 
       {/* Loading */}
@@ -152,8 +153,9 @@ export default function Impresion() {
       {activeTab === 'procesadas' && !loading && (
         <ListaFacturasProcesadas
           facturas={facturasProcesadas}
+          historial={historial}
           onVerPDF={handleVerPDF}
-          onRecuperar={handleRecuperarFactura}
+          onVerMas={verMasProcesadas}
         />
       )}
 

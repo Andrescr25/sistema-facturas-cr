@@ -206,9 +206,11 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
     assert.equal(enCola.categoria, 'sin_pendientes');
   });
 
-  test('las procesadas se listan', async () => {
+  test('las procesadas se listan, de a una página, sin nada para recuperar', async () => {
     const r = await m.cola.listarProcesadas();
     assert.equal(r.success, true);
+    assert.equal(r.paginacion.pagina, 1);
+    assert.equal(r.data.some((f) => 'puede_recuperar' in f), false);
   });
 
   test('Reporte de Clientes → Impresión: los ajustes salen de lo guardado, por el id propio', async () => {
@@ -297,9 +299,12 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
     assert.equal(bitacora.accion, 'editar', 'la edición queda en la bitácora como cualquier otra');
   });
 
-  test('recuperada en Impresión y vuelta a procesar: NO se rebaja dos veces', async () => {
-    const rec = await m.impresion.recuperarProcesada(A);
-    assert.ok(rec.faltantes_restaurados >= 1);
+  test('recuperada (desde Reporte Clientes) y vuelta a procesar: NO se rebaja dos veces', async () => {
+    // Impresión ya no recupera (2026-10-24); el camino que queda es el del reporte.
+    assert.equal(m.impresion.recuperarProcesada, undefined);
+    const rec = await m.cola.devolverAlReporte(A);
+    assert.ok(rec.faltantes_reabiertos >= 1);
+    await m.cola.encolarDesdeReporte(A);
     const r = await m.impresion.procesar(A, {}, yo);
     assert.equal(r.editada, false, 'no había nada nuevo que aplicar');
     assert.equal(await cantidadEnFactura(lineasA[0]), antes - 2);
@@ -318,7 +323,8 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
   });
 
   test('desde la pantalla de edición se guarda lo que dejó la persona', async () => {
-    await m.impresion.recuperarProcesada(A);
+    await m.cola.devolverAlReporte(A);
+    await m.cola.encolarDesdeReporte(A);
     const { lineas } = await m.impresion.detalle(A);
     const editadas = lineas.map((l) => ({ ...l, cantidad: l.productoId === lineasA[0] ? 1 : l.cantidad }));
     const r = await m.impresion.procesar(A, { lineas: editadas }, yo);
