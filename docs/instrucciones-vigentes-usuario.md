@@ -1208,3 +1208,7 @@ para las que no son electrónicas. Incluye los tiquetes electrónicos en la
 primera clase. Aclara después conservar Gastos operativos como una cuarta
 pestaña y hoja, aparte de Compras. Se conserva el formato resumido del Excel.
 [Alcance y verificación](informes/contador-electronicas-2026-10-24.md).
+
+El usuario autoriza después «perfecto subelo a main». Publicación del cambio
+propio de Codex con suite completa local y sin migración ni otros commits
+pendientes de otro agente.

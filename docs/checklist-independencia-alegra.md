@@ -1121,7 +1121,10 @@ nueva migración ni modifica los conteos del corte. Ver
   expresa del usuario. Bandera electrónica propia de cada documento, notas
   descontadas una vez y monedas separadas.19 pruebas con PostgreSQL/ROLLBACK,
   68 comprobaciones en navegador, build/lint/grafo/estructura correctos.
-  Sin migración ni cambios de datos; entrega sólo developer.
+  Sin migración ni cambios de datos; entrega inicial developer. Publicación
+  posterior a main autorizada: suite242/2987correctas/0fallos/3omisiones
+  históricas, mismo código ya recorrido en navegador. Codex publica sólo
+  cambios propios, sin commits nuevos de otro agente.
   [Verificación](informes/contador-electronicas-2026-10-24.md).
 
 

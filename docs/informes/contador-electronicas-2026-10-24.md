@@ -31,4 +31,21 @@ descuentos, notas, monedas, OOXML, formato numérico y preparación para imprimi
 en las cuatro hojas. Build, lint estricto del cambio, grafo y estructura
 correctos. Evidencia privada: `/private/tmp/codex-contador-electronicas-20261024/`.
 
-Entrega de Codex en developer; no se publica a main en esta entrega.
+## Publicación autorizada a main
+
+Entrega inicial de Codex en developer, commit `c9f41e2`. El usuario autoriza
+después «perfecto subelo a main». Codex publica ese cambio y su registro de
+verificación, ambos propios; no viajan commits adicionales de otro agente.
+
+Antes de publicar: suite completa sobre copia local desechable, **242 archivos,
+2987 pruebas correctas,0fallos y3omisiones históricas** por los requisitos de
+cero provisional. Se conserva el inventario de la copia. La configuración
+cifrada de Hacienda del clon se reserva para credenciales simuladas de las
+pruebas; no se toma ni modifica una llave de producción. Se conservan las68
+comprobaciones de navegador del mismo código, build y lint estricto correctos.
+No se requiere migración ni conexión a la base de producción.
+
+Evidencia de la suite: `/private/tmp/codex-contador-electronicas-main-20261024/`.
+El clon se retira al cerrar; no se cambian los procesos de la vista local.
+Estado público de Render y autoría de la publicación en el relevo compartido
+`permiso-subir-a-main.md`, sin afirmar una sesión autenticada remota.

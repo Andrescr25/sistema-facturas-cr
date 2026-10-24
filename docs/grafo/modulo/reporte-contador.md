@@ -131,6 +131,12 @@ Codex y su registro, sin SQL nuevo. En esa publicación descarga/adjunto usaban
 tres hojas; los reportes históricos mantienen su formato. Evidencia en el informe
 anterior y estado Render en el relevo compartido de publicaciones.
 
-La separación del24/10 se entrega sólo en developer:19 pruebas dirigidas con
+La separación del24/10 se entrega inicialmente en developer:19 pruebas dirigidas con
 PostgreSQL/ROLLBACK,68 comprobaciones en navegador, build/lint/grafo/estructura
 correctos. [Alcance y verificación](../../informes/contador-electronicas-2026-10-24.md).
+
+El usuario autoriza después publicar a main. Codex publica c9f41e2 y el
+registro de verificación, ambos propios y sin otros commits pendientes.
+Suite completa local242archivos/2987correctas/0fallos/3omisiones históricas,
+sin alterar el inventario del clon. No requiere migración ni acceso a la
+base de producción para probar. Las cuatro hojas son comunes a descarga y correo.
