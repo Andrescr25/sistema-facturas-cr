@@ -224,6 +224,14 @@
     position: absolute;
     right: 8px;
   }
+  /* En iPhone (WebKit) la parte que muestra la fecha se centra y queda sin
+     alto —el campo se ve «colapsado»— cuando el campo está vacío o con
+     relleno propio. Alto mínimo y alineación a la izquierda, como en los
+     demás navegadores (2026-10-23). */
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.2em;
+  }
 }
 
 /* Scrollbar personalizado */

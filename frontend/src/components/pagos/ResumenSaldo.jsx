@@ -25,9 +25,10 @@ export default function ResumenSaldo({ saldo, etiqueta = 'Saldo pendiente', fech
 
       {fechaVencimiento && (
         <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${tono.fondo}`}>
-          <Clock size={18} className={tono.texto} />
-          <div>
-            <p className="text-sm font-semibold text-neutro-800">Vence: {formatDate(fechaVencimiento)}</p>
+          {/* shrink-0: sin él el ícono se achicaba cuando el texto apretaba. */}
+          <Clock size={18} className={`shrink-0 ${tono.texto}`} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-neutro-800">Vence: <span className="whitespace-nowrap">{formatDate(fechaVencimiento)}</span></p>
             <p className={`text-xs font-medium ${tono.texto}`}>{diasLabel(dias)}</p>
           </div>
         </div>

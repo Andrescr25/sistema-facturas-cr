@@ -242,10 +242,14 @@ export default function ModalAbono({
                 <p className={`text-base font-bold ${abono.anulado ? 'text-neutro-400 line-through' : 'text-neutro-800'}`}>
                   {formatCurrency(abono.monto)}
                 </p>
+                {/* La fecha no se parte: en pantalla angosta la línea bajaba
+                    por donde cayera y dejaba «10 oct» arriba y «2026» abajo.
+                    El método puede bajar solo, y la referencia va aparte y
+                    se corta si es una cadena larga. */}
                 <p className="text-sm text-neutro-500">
-                  {formatDate(abono.fecha)} · {nombreMetodo(abono.metodo)}
-                  {abono.referencia ? ` · Ref. ${abono.referencia}` : ''}
+                  <span className="whitespace-nowrap">{formatDate(abono.fecha)}</span> · {nombreMetodo(abono.metodo)}
                 </p>
+                {abono.referencia && <p className="break-all text-sm text-neutro-500">Ref. {abono.referencia}</p>}
                 {abono.anulado && (
                   <p className="text-sm text-peligro-600">Anulado{abono.motivoAnulacion ? `: ${abono.motivoAnulacion}` : ''}</p>
                 )}

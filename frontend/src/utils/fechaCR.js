@@ -34,9 +34,22 @@ export function fechaCorta(f, vacio = '—') {
  * UTC ("2026-10-10T00:00:00.000Z"), y `new Date(f).toLocaleDateString()` en
  * Costa Rica la mostraba como el 9 (visto en el portal el 2026-10-20). Se toma
  * el día del texto y se formatea en UTC, donde no se corre.
+ *
+ * Solo lo que es de calendario se lee del texto: «AAAA-MM-DD» o esa fecha a
+ * medianoche UTC. Cualquier otra cosa trae una hora (un instante): se muestra
+ * el día que era en Costa Rica, no el del texto, que de noche ya es mañana.
  */
+const DIA_DE_CALENDARIO = /^(\d{4})-(\d{2})-(\d{2})(?:T00:00:00(?:\.0+)?Z?)?$/
+
 export function fechaEnPalabras(f, opciones = { day: 'numeric', month: 'long', year: 'numeric' }, vacio = '—') {
-  const [a, m, d] = String(f || '').slice(0, 10).split('-').map(Number)
+  const texto = String(f ?? '').trim()
+  let dia = DIA_DE_CALENDARIO.exec(texto)?.slice(1, 4)
+  if (!dia) {
+    const instante = new Date(f)
+    if (!texto || Number.isNaN(instante.getTime())) return vacio
+    dia = hoyEnCostaRica(instante).split('-')
+  }
+  const [a, m, d] = dia.map(Number)
   if (!a || !m || !d) return vacio
   return new Date(Date.UTC(a, m - 1, d)).toLocaleDateString('es-CR', { ...opciones, timeZone: 'UTC' })
 }

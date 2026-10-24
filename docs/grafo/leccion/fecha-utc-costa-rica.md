@@ -9,9 +9,14 @@ archivos:
   - backend/tests/horaEnvioImpresion.test.js
   - frontend/src/utils/fechaCR.js
   - backend/tests/portalAparte.test.js
+  - backend/tests/fechaCalendarioReportes.test.js
+  - frontend/src/utils/pagosProveedoresUtils.js
+  - frontend/src/components/cuentas-por-cobrar/ModalAbono.jsx
+  - frontend/src/components/pagos/ResumenSaldo.jsx
+  - frontend/src/index.css
 aristas:
   relacionado: [leccion/la-db-local-es-produccion, decision/rotacion-por-cliente-sin-ciclos]
-medido: 2026-10-20
+medido: 2026-10-23
 ---
 
 `new Date().toISOString().slice(0, 10)` da el día en UTC. Costa Rica es
@@ -61,3 +66,14 @@ veían los clientes sus compras y facturas en el portal. Para mostrar una fecha
 de calendario: `fechaCorta` (dd/mm/aaaa) o `fechaEnPalabras` («10 de octubre
 de 2026») de `frontend/src/utils/fechaCR.js`, que toman el día del texto y no
 lo pasan por la zona del dispositivo.
+
+**Cuentas por Cobrar, Pagos a Proveedores y Caja General (2026-10-23).** El
+formateador `formatDate` que comparten (`pagosProveedoresUtils.js`) también
+usaba `new Date(valor)`: en el modal de cobro el vencimiento del 4 de
+noviembre decía «3 nov» y los abonos del 10 y 12 de octubre, 9 y 11 (probado
+con datos de muestra). Ahora usa `fechaEnPalabras`, que además muestra el día
+de Costa Rica cuando le llega un instante con hora. En ese modal la fecha del
+abono y el vencimiento no se parten en dos renglones, la referencia va en el
+suyo, el reloj del vencimiento no se achica (`shrink-0`) y los campos de fecha
+en móvil llevan la corrección de WebKit para su valor
+(`::-webkit-date-and-time-value`).

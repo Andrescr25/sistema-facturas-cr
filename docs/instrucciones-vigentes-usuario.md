@@ -1191,3 +1191,11 @@ El usuario autoriza después «dale a main y haz la migración pendiente»:
 publicar portadas y el cambio previo de Claude sobre retiro de compras,
 aplicando SQL065 antes del push, con respaldo comprobado y ensayo local.
 [Entrega](informes/despliegue-portadas-065-2026-10-22.md).
+
+
+## 2026-10-23 — Modal de Cuentas por Cobrar en móvil
+
+«correge el modal de cuentas por cobrar en móvil, la fecha colapsa y se ve
+mal». Se acomodaron las fechas del modal de cobro (la del abono y la del
+vencimiento ya no se parten) y, de paso, se corrigió que salieran un día
+antes. [Detalle](grafo/leccion/fecha-utc-costa-rica.md).
