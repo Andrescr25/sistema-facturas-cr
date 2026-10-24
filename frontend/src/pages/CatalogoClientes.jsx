@@ -9,7 +9,7 @@ import { formatearColones } from '../utils/catalogoClientesUtils'
 import { notaHabitual, notaPerdido } from '../utils/notasCatalogo'
 import ModalPedido from '../components/catalogo-clientes/ModalPedido'
 import FichaProducto from '../components/catalogo-clientes/FichaProducto'
-import TarjetaProducto from '../components/catalogo-clientes/TarjetaProducto'
+import GruposProductos from '../components/catalogo-clientes/GruposProductos'
 import SeccionProductos from '../components/catalogo-clientes/SeccionProductos'
 import VolverAPedir from '../components/catalogo-clientes/VolverAPedir'
 import ModalCompraAnterior from '../components/catalogo-clientes/ModalCompraAnterior'
@@ -48,7 +48,7 @@ export default function CatalogoClientes() {
   })), [rebajados])
 
   const [pedidoAbierto, setPedidoAbierto] = useState(false)
-  // Solo con sesión: sin cuenta no hay historial que mostrar en la ficha.
+  // La vista pública usa la ficha cargada; el historial sigue requiriendo sesión.
   const [fichaAbierta, setFichaAbierta] = useState(null)
 
   useEffect(() => {
@@ -59,27 +59,15 @@ export default function CatalogoClientes() {
   // Compra anterior abierta para revisarla antes de repetirla.
   const [compraAbierta, setCompraAbierta] = useState(null)
 
-  const abrirFicha = cliente ? setFichaAbierta : undefined
+  const abrirFicha = (id, producto) => setFichaAbierta({
+    id,
+    producto
+  })
   // Sin cuenta el catálogo es de consulta: se ven productos y precios, pero
   // no hay forma de armar un pedido. No se pasa onCambiar hacia abajo, así
   // que ninguna ficha dibuja controles que no llevarían a ningún lado.
   const cambiar = puedePedir ? cambiarCantidad : undefined
   const filtrando = Boolean(busqueda.trim() || categoria)
-
-  // Agrupa la lista ya ordenada por categoría desde el servidor. Se hace
-  // sobre el arreglo tal cual llega —sin reordenar— para que el scroll
-  // infinito siga sumando al final del último grupo en vez de reacomodar
-  // todo cada vez que entra una página.
-  const agrupados = useMemo(() => {
-    const grupos = []
-    for (const p of productos) {
-      const nombre = p.categoria || 'Otros'
-      const ultimo = grupos[grupos.length - 1]
-      if (ultimo && ultimo.categoria === nombre) ultimo.items.push(p)
-      else grupos.push({ categoria: nombre, items: [p] })
-    }
-    return grupos
-  }, [productos])
 
   return (
     <div className="min-h-screen bg-neutro-50 pb-28">
@@ -127,7 +115,7 @@ export default function CatalogoClientes() {
               inputMode="search"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar producto..."
+              placeholder="Buscar producto, marca o subcategoría..."
               className="w-full pl-9 pr-9 py-2.5 bg-neutro-100 focus:bg-white border border-transparent focus:border-cliente-500 rounded-xl text-[13px] font-medium focus:outline-none transition-colors"
             />
             {busqueda && (
@@ -164,7 +152,7 @@ export default function CatalogoClientes() {
                     categoria === c.nombre ? 'bg-neutro-900 text-white' : 'bg-neutro-100 text-neutro-600 hover:bg-neutro-200'
                   }`}
                 >
-                  {c.nombre}
+                  {c.nombreVisible || c.nombre}
                 </button>
               ))}
             </div>
@@ -267,28 +255,7 @@ export default function CatalogoClientes() {
           </p>
         ) : (
           <>
-            {agrupados.map(({ categoria: nombre, items }) => (
-              <div key={nombre} className="mb-5">
-                {/* El encabezado solo aparece en "Todo": con una categoría
-                    ya elegida sería repetir el filtro en cada bloque. */}
-                {!filtrando && (
-                  <h3 className="text-[12px] font-bold text-neutro-500 uppercase tracking-wide mb-2 pt-1">
-                    {nombre}
-                  </h3>
-                )}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                  {items.map((p) => (
-                    <TarjetaProducto
-                      key={p.id}
-                      producto={p}
-                      cantidad={porId[p.id]?.cantidad || 0}
-                      onCambiar={cambiar}
-                      onAbrir={abrirFicha ? () => abrirFicha(p.id) : undefined}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+            <GruposProductos productos={productos} carrito={porId} onCambiar={cambiar} onAbrir={abrirFicha} />
 
             {/* Carga automática al acercarse al final. El centinela va aquí
                 y no dentro de la lista para que no se lo lleve un re-render
@@ -354,8 +321,10 @@ export default function CatalogoClientes() {
 
       {fichaAbierta && (
         <FichaProducto
-          itemId={fichaAbierta}
-          cantidadEnCarrito={porId[fichaAbierta]?.cantidad || 0}
+          key={`${fichaAbierta.id}-${puedePedir}`}
+          itemId={fichaAbierta.id}
+          inicial={fichaAbierta.producto}
+          cantidadEnCarrito={porId[fichaAbierta.id]?.cantidad || 0}
           onCambiar={cambiar}
           onCerrar={() => setFichaAbierta(null)}
         />

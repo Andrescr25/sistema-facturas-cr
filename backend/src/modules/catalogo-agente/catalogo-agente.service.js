@@ -23,6 +23,7 @@ const { query } = require('../../../config/database');
 const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const taxonomia = require('../productos/taxonomiaTablas');
+const { marcaPublica } = require('../../utils/marcaPublica');
 const rotacion = require('../ventas/rotacion');
 
 // La tablet pide de a 30 y guarda el catálogo sin conexión; se conserva el
@@ -94,9 +95,9 @@ async function conSubcategoria(productos) {
       if (!sub) return p;
       // Lista explícita también dentro de la foto: JSON no es permiso para
       // publicar cualquier dato que se haya guardado en él.
-      const imagen = sub.marca_imagen?.url ? { url:sub.marca_imagen.url,ancho:sub.marca_imagen.ancho,alto:sub.marca_imagen.alto } : null;
+      const marca = marcaPublica(sub.marca_id, sub.marca_nombre, sub.marca_imagen);
       return { ...p,subcategoria:{ id:sub.sub_id,nombre:sub.sub_nombre },
-        ...(sub.marca_id ? { marca:{ id:sub.marca_id,nombre:sub.marca_nombre,imagen } } : {}) };
+        ...(marca ? { marca } : {}) };
     });
   } catch (error) {
     console.error('⚠️ No se pudo adjuntar la clasificación al catálogo:', error.message);

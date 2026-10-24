@@ -22,10 +22,14 @@
 
 const { precioConImpuesto } = require('./precio');
 const { aplicarDescuento } = require('../../utils/descuentosExceso');
+const { marcaPublica } = require('../../utils/marcaPublica');
 
 const COLUMNAS = `
   p.id AS producto_id, p.nombre, p.referencia,
-  cat.nombre AS categoria, p.precio_sin_iva, imp.tarifa, p.imagen_url`;
+  cat.nombre AS categoria, cfg.nombre_visible AS categoria_visible,
+  sub.id AS sub_id, sub.nombre AS sub_nombre,
+  marca.id AS marca_id, marca.nombre AS marca_nombre, marca.imagen AS marca_imagen,
+  p.precio_sin_iva, imp.tarifa, p.imagen_url`;
 
 /**
  * El impuesto va con LEFT JOIN, no con JOIN: hay un producto activo sin
@@ -35,6 +39,9 @@ const COLUMNAS = `
 const DESDE = `
   FROM producto p
   LEFT JOIN categoria_producto cat ON cat.id = p.categoria_id
+  LEFT JOIN categoria_config cfg ON cfg.categoria = cat.nombre
+  LEFT JOIN subcategoria sub ON sub.id = p.subcategoria_id AND sub.activo = TRUE AND sub.categoria = cat.nombre
+  LEFT JOIN marca_catalogo marca ON marca.id = p.marca_catalogo_id AND marca.subcategoria_id = sub.id
   LEFT JOIN impuesto imp ON imp.id = p.impuesto_id`;
 
 const VISIBLE = `p.activo = TRUE AND p.oculto = FALSE AND p.precio_sin_iva > 0`;
@@ -63,6 +70,9 @@ function mapProducto(row, descuentos, extra = {}) {
     nombre: row.nombre,
     referencia: row.referencia || null,
     categoria: row.categoria || 'Sin categoría',
+    categoriaVisible: row.categoria_visible || row.categoria || 'Sin categoría',
+    subcategoria: row.sub_id ? { id: row.sub_id, nombre: row.sub_nombre } : null,
+    marca: marcaPublica(row.marca_id, row.marca_nombre, row.marca_imagen),
     precio: aplicarDescuento(precioLista, descuento),
     precioLista: descuento > 0 ? precioLista : null,
     descuento: descuento > 0 ? descuento : null,

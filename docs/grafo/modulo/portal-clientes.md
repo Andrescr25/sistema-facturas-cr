@@ -4,6 +4,16 @@ tipo: modulo
 titulo: Portal — carrito, cuenta y pedidos con ids propios; facturar crea una factura propia
 estado: vigente
 archivos:
+  - docs/informes/marcas-clientes-2026-10-24.md
+  - backend/src/utils/marcaPublica.js
+  - backend/tests/catalogoClientesMarcas.test.js
+  - backend/tests/catalogoClientesMarcasLocal.test.js
+  - frontend/src/hooks/useFichaProductoCliente.js
+  - frontend/src/components/catalogo-clientes/GruposProductos.jsx
+  - frontend/src/components/catalogo-clientes/MarcaProductos.jsx
+  - frontend/src/components/catalogo-clientes/FichaProducto.jsx
+  - frontend/src/components/catalogo/PortadaMarca.jsx
+  - frontend/src/utils/gruposCatalogoClientes.js
   - backend/tests/operacionSinSemanas.test.js
   - backend/migrations/independencia/035_portal_con_ids_propios.sql
   - backend/src/modules/catalogo-clientes/consultaProducto.js
@@ -37,8 +47,8 @@ archivos:
   - backend/tests/facturarPedidoConImpuesto.test.js
 aristas:
   depende_de: [tabla/venta-linea, modulo/facturacion]
-  relacionado: [decision/portal-en-su-propio-sitio, leccion/fecha-utc-costa-rica, modulo/rutas-clientes, modulo/catalogo-agente, modulo/facturas-bodega, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
-medido: 2026-10-20
+  relacionado: [modulo/marcas-catalogo, decision/portal-en-su-propio-sitio, leccion/fecha-utc-costa-rica, modulo/rutas-clientes, modulo/catalogo-agente, modulo/facturas-bodega, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/dos-clases-de-oferta, leccion/precio-sin-iva-costo-con-iva]
+medido: 2026-10-24
 ---
 
 ## 2026-10-20 — el pedido se edita adentro; el portal, en su propio sitio
@@ -141,3 +151,37 @@ mantiene área propia, filtros y contador de revisión de la selección cargada.
 Sin cambiar permisos, ids ni servicios del portal. Navegador1440/390 y build
 aprobados; las acciones de escritura no se ejecutan en la base habitual.
 Ver `docs/informes/clientes-redisenados-2026-10-07.md`; CLI-10 sigue al usuario.
+
+
+## 2026-10-24 — marcas y subcategorías también en Catálogo Clientes
+
+El catálogo público presenta categoría → subcategoría → marca con portada y
+lista de presentaciones/precios con IVA. Reutiliza `agruparMarcasCatalogo` y
+`PortadaMarca` con el agente; el wrapper del portal conserva los controles de
+pedido por producto. Los productos sin marca conservan su tarjeta; los que
+no tienen subcategoría quedan en Otros cuando hay familias, sin encabezado
+vacío en categorías aún sin clasificar. Categorías conservan nombre real
+para filtrar y nombre visible para presentar.
+
+La clasificación sale de la misma lectura de `producto`, con LEFT JOIN a las
+filas activas y compatibles; no hay consulta por ficha ni columna nueva.
+`marcaPublica` limita campos y tipos incluso dentro del JSON de imagen.
+Carrito, portada personal e historial reutilizan la proyección; costo,
+inventario y márgenes siguen fuera del DTO. Búsqueda incluye marca y familia,
+sin acentos. El orden SQL reúne cada clasificación y desempata por id, usando
+las posiciones manuales existentes de Gestión. La paginación sigue en60
+productos; agrupar lo ya recibido permite continuar una marca sin duplicar
+su portada ni omitir variantes. No descarga todo para agrupar.
+
+La vista previa abre también para visitantes con el producto ya recibido,
+sin petición privada. Solo con sesión consulta historial propio y ofrece
+agregar al pedido. Tocar una presentación muestra su foto individual y
+conserva su id, precio y cantidad. Modal compartido, Escape, retorno de foco
+y scroll; salir de la cuenta retira controles e historial. Ofertas y
+recomendaciones conservan su selección y orden, con tarjetas individuales.
+
+Fotos lazy/asíncronas con proporción reservada, encuadre de portada sin
+franjas ni duplicado desenfocado. No hay animaciones que retengan scroll ni
+dependencias nuevas. Ambos builds siguen separados. Sin migración nueva;
+SQL064 ya está aplicada, no repetirla. Pruebas y alcance en
+[el informe](../../informes/marcas-clientes-2026-10-24.md).

@@ -34,7 +34,7 @@ function montar(filas = [FILA]) {
       query: async (sql, params) => {
         // La subcategoría de cada producto se pega aparte (conSubcategoria,
         // que vino de developer). No es "la" consulta del catálogo.
-        if (/JOIN subcategoria s/.test(sql)) {
+        if (/JOIN subcategoria s ON/.test(sql)) {
           visto.subcategorias = { sql, params };
           return { rows: [{ producto_id: 77, sub_id: 5, sub_nombre: 'Extensiones' }] };
         }

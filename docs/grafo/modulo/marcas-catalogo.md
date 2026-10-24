@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Marcas del catálogo — foto general y presentaciones con vista previa
 estado: vigente
 archivos:
+  - frontend/src/components/catalogo/PortadaMarca.jsx
+  - backend/src/utils/marcaPublica.js
+  - docs/informes/marcas-clientes-2026-10-24.md
   - docs/informes/despliegue-portadas-065-2026-10-22.md
   - docs/informes/despliegue-marcas-2026-10-22.md
   - docs/informes/marcas-catalogo-2026-10-22.md
@@ -29,8 +32,8 @@ archivos:
   - backend/tests/filasCatalogo.test.js
 aristas:
   depende_de: [tabla/subcategoria]
-  relacionado: [modulo/gestion-catalogo, modulo/catalogo-agente, decision/orden-canonico-compartido, leccion/fotos-del-catalogo-en-la-tablet, leccion/precio-sin-iva-costo-con-iva, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-22
+  relacionado: [modulo/portal-clientes, modulo/gestion-catalogo, modulo/catalogo-agente, decision/orden-canonico-compartido, leccion/fotos-del-catalogo-en-la-tablet, leccion/precio-sin-iva-costo-con-iva, leccion/lo-publico-no-lleva-costo-ni-margen]
+medido: 2026-10-24
 ---
 
 ## La foto de marca es una portada — 2026-10-22
@@ -138,3 +141,12 @@ mayúsculas/minúsculas guardadas, sin transformación forzada ni fuentes nuevas
 El pedido posterior del mismo día reutiliza VistaPreviaProducto también al
 pulsar la foto de una tarjeta normal del catálogo. No se duplica el modal ni
 se cambia la presentación de marcas; ver [[modulo/catalogo-agente]].
+
+
+2026-10-24: Catálogo Clientes incorpora marcas y familias. Ambos catálogos
+comparten `PortadaMarca` (foto sin franjas, título, cantidad y pie) y el
+agrupador natural, que acepta el nombre de ambos DTO. Cada pantalla conserva
+su precio y sus acciones: el agente solo muestra; el portal ofrece carrito
+por presentación a cuentas autenticadas y vista previa pública. Los dos
+servicios usan `marcaPublica` para proyectar la imagen sin metadatos privados.
+No cambia Gestión ni requiere SQL nuevo; ver [[modulo/portal-clientes]].

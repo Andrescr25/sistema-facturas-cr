@@ -42,10 +42,10 @@ async function listarProductos({ busqueda = '', categoria = '', pagina = 1, porP
 
   if (String(busqueda).trim()) {
     params.push(`%${normalizar(busqueda).trim()}%`);
-    // Nombre y referencia, que es lo que busca un cliente. Antes esto salía de
+    // Nombre, referencia, familia y marca. Antes esto salía de
     // `search_text`, una columna que llenaba la sincronización; ahora se
     // normaliza en la consulta y no depende de que nadie la haya refrescado.
-    condiciones.push(`${NORMALIZAR_SQL("p.nombre || ' ' || COALESCE(p.referencia, '')")} LIKE $${params.length}`);
+    condiciones.push(`${NORMALIZAR_SQL("p.nombre || ' ' || COALESCE(p.referencia, '') || ' ' || COALESCE(sub.nombre, '') || ' ' || COALESCE(marca.nombre, '')")} LIKE $${params.length}`);
   }
 
   if (String(categoria).trim()) {
@@ -65,14 +65,12 @@ async function listarProductos({ busqueda = '', categoria = '', pagina = 1, porP
     SELECT ${COLUMNAS}
     ${DESDE}
     WHERE ${where}
-    -- Agrupado por categoría y alfabético dentro de cada una. Antes era
-    -- alfabético a secas sobre los 2.000 productos, y "Todo" mezclaba
-    -- tornillos con champú en la misma pantalla. Con una categoría elegida
-    -- el primer criterio se vuelve constante y queda el orden por nombre.
-    --
-    -- NULLS LAST manda los productos sin categoría al final: son la excepción
-    -- y no deben encabezar el catálogo.
-    ORDER BY cat.nombre ASC NULLS LAST, p.nombre ASC
+    -- Clasificación contigua y desempate por id: una marca puede continuar
+    -- en la página siguiente sin repetir portada ni perder presentaciones.
+    -- Las posiciones manuales son las mismas que guarda Gestión de Catálogo.
+    ORDER BY cfg.orden ASC NULLS LAST, cat.nombre ASC NULLS LAST,
+             (sub.id IS NULL), sub.orden ASC NULLS LAST, sub.nombre ASC, sub.id,
+             (marca.id IS NULL), marca.nombre ASC, marca.id, p.nombre ASC, p.id
     LIMIT $${params.length - 1} OFFSET $${params.length};
   `, params);
 
@@ -110,13 +108,13 @@ async function listarOfertas() {
 
 async function listarCategorias() {
   const result = await query(`
-    SELECT cat.nombre AS categoria, COUNT(*)::int AS n
+    SELECT cat.nombre AS categoria, cfg.nombre_visible, cfg.orden, COUNT(*)::int AS n
     ${DESDE}
     WHERE ${FILTRO_VISIBLE} AND cat.nombre IS NOT NULL AND cat.nombre <> ''
-    GROUP BY cat.nombre
-    ORDER BY cat.nombre ASC;
+    GROUP BY cat.nombre, cfg.nombre_visible, cfg.orden
+    ORDER BY cfg.orden ASC NULLS LAST, cat.nombre ASC;
   `);
-  return result.rows.map(row => ({ nombre: row.categoria, productos: row.n }));
+  return result.rows.map(row => ({ nombre: row.categoria, nombreVisible: row.nombre_visible || row.categoria, productos: row.n }));
 }
 
 /**

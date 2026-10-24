@@ -47,7 +47,7 @@ export default function SeccionProductos({
       cantidad={carrito[p.id]?.cantidad || 0}
       onCambiar={onCambiar}
       nota={nota?.(p)}
-      onAbrir={onAbrir ? () => onAbrir(p.id) : undefined}
+      onAbrir={onAbrir ? () => onAbrir(p.id, p) : undefined}
     />
   )
 

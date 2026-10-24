@@ -1185,3 +1185,18 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   vacía. Publica portadas propias y retirada de compras de Claude, revisada.
   Suite240/2955correctas/0fallos/3omitidas,38navegador con PostgreSQL y171de
   portadas correctas. [Entrega](informes/despliegue-portadas-065-2026-10-22.md).
+
+
+### Marcas y subcategorías en Catálogo Clientes — 2026-10-24
+
+- [x] Mismos datos de Gestión: categoría, subcategoría y marca con portada,
+  presentaciones y precios con IVA; sin duplicar portada al paginar.
+- [x] Reutilizar agrupador y portada del agente; productos sueltos conservados,
+  búsqueda por marca/familia, imágenes lazy y vista previa individual.
+- [x] Visitante de solo consulta; con sesión, cantidades por producto e historial
+  propio. Proyección pública explícita también para la imagen de marca.
+- [x] Suite245 archivos:3007 aprobadas,0fallos,3omisiones históricas;55
+  dirigidas (14 PostgreSQL) y255 comprobaciones Chromium (84 portal,171 agente).
+  Builds separados y lint correctos; móvil/tablet/escritorio sin desborde.
+
+[Evidencia y estado](informes/marcas-clientes-2026-10-24.md). Sin SQL nuevo.

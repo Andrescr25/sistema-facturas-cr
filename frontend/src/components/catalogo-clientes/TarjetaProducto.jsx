@@ -37,6 +37,7 @@ export default function TarjetaProducto({ producto, cantidad, onCambiar, nota, o
             src={urlArchivo(producto.imagen)}
             alt={producto.nombre}
             loading="lazy"
+            decoding="async"
             className="w-full h-full object-contain p-2"
             onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
           />
@@ -66,6 +67,9 @@ export default function TarjetaProducto({ producto, cantidad, onCambiar, nota, o
           <p className="text-[12px] font-semibold text-neutro-900 leading-tight line-clamp-2 min-h-[30px]">
             {producto.nombre}
           </p>
+          {(producto.marca?.nombre || producto.subcategoria?.nombre) && (
+            <p className="mt-1 text-[10px] font-medium text-neutro-500">{producto.marca?.nombre || producto.subcategoria.nombre}</p>
+          )}
           {nota && <p className="text-[10px] text-neutro-400 leading-tight mt-0.5">{nota}</p>}
         </button>
 

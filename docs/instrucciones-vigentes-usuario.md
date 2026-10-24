@@ -1242,3 +1242,13 @@ Pedidos del mismo día, en orden (los dos primeros ya publicados por Claude):
   que el tiquete no sirve para gastos ni créditos de IVA. El primero saldría
   con el número 1970 y Hacienda nunca ha aceptado un tiquete de este emisor.
   [Detalle](grafo/modulo/faltantes.md).
+
+
+## Catálogo Clientes con marcas — 2026-10-24
+
+El usuario pide extender a Catálogo Clientes las marcas y subcategorías ya
+configuradas en Gestión/Agente. Presentar categoría → subcategoría → marca,
+portada general y lista de presentaciones con precio con IVA. Reutilizar lo
+existente, conservar tarjetas para productos sin marca y no exigir volver a
+clasificar ni subir imágenes. Mantener paginación rápida, navegación libre y
+el pedido por producto. [Resultado](informes/marcas-clientes-2026-10-24.md).

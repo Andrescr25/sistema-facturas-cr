@@ -47,7 +47,7 @@ function montar(filas) {
   require.cache[rutaDb] = {
     id: rutaDb, filename: rutaDb, loaded: true,
     exports: {
-      query: async (sql) => (/JOIN subcategoria/.test(sql)
+      query: async (sql) => (/JOIN subcategoria s ON/.test(sql)
         ? { rows: [{ producto_id: 621, sub_id: 9, sub_nombre: 'PVC 1/2' }] }
         : { rows: filas })
     }

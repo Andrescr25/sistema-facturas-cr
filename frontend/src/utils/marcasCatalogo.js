@@ -14,7 +14,7 @@ export function agruparMarcasCatalogo(productos) {
     grupos.get(clave).presentaciones.push(p)
   }
   for (const grupo of grupos.values()) {
-    grupo.presentaciones.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es', { numeric: true }) || String(a.id).localeCompare(String(b.id)))
+    grupo.presentaciones.sort((a, b) => String(a.name || a.nombre || '').localeCompare(String(b.name || b.nombre || ''), 'es', { numeric: true }) || String(a.id).localeCompare(String(b.id)))
   }
   return resultado
 }
