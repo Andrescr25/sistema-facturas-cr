@@ -26,7 +26,6 @@ export const periodoMesAnterior = (ahora) => moverMes(periodoActual(ahora), -1)
 export const SECCIONES_CONTADOR = [
   { id: 'electronicas', titulo: 'Facturas y notas electrónicas' },
   { id: 'compras', titulo: 'Compras' },
-  { id: 'ventas', titulo: 'Facturas y notas' },
   { id: 'gastos', titulo: 'Gastos operativos' }
 ]
 
@@ -47,8 +46,8 @@ export function filtrarMovimientos(datos, tab, buscar) {
       : (datos?.documentos || []).filter((d) =>
           // La misma bandera que usa Facturación: una nota se clasifica por
           // su propia emisión, aunque acredite una factura de la otra clase.
-          ['electronicas', 'ventas'].includes(tab)
-            ? ['Venta', 'Nota de crédito'].includes(d.tipo) && (d.electronica === true) === (tab === 'electronicas')
+          tab === 'electronicas'
+            ? ['Venta', 'Nota de crédito'].includes(d.tipo) && d.electronica === true
             : tab === 'compras' && ['Compra', 'Nota de crédito proveedor'].includes(d.tipo)
         )
   const texto = buscar.trim().toLocaleLowerCase('es')

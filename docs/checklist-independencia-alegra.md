@@ -1211,3 +1211,16 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   comprobaciones Chromium390/700/1440. Sin migración nueva.
 
 [Detalle](grafo/modulo/reporte-contador.md). Entrega inicial en developer.
+
+
+### Reporte Contador con tres pestañas/hojas — 2026-10-24
+
+- [x] Retirar Facturas y notas de la interfaz y del Excel mensual; sólo quedan
+  Facturas y notas electrónicas, Compras y Gastos operativos, en ese orden.
+- [x] Mismo Excel en descarga y correo, modal de envío con tres resúmenes;
+  sin mover ventas no electrónicas al bloque fiscal ni borrar documentos.
+- [x] Conservar etiqueta Tiquete electrónico, notas y totales de las clases
+  restantes;20 pruebas de reporte/Excel con PostgreSQL y59 comprobaciones
+  Chromium390/700/1440 correctas, build/lint aprobados.
+
+[Detalle](grafo/modulo/reporte-contador.md). Sin SQL nuevo, entrega en developer.

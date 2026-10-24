@@ -100,7 +100,7 @@ async function enviarAlContador({ anio, mes, contactoId, huella }) {
     para: contacto.email,
     asunto: `Reporte mensual ${reporte.etiqueta} — Distribuidora Tachi`,
     texto:
-      `Adjunto el reporte de ventas, notas de crédito, compras y gastos de ${reporte.etiqueta}.\n` +
+      `Adjunto el reporte de facturas y notas electrónicas, compras y gastos de ${reporte.etiqueta}.\n` +
       `${reporte.gastos.length} gastos operativos; ${pendientes} pendientes de revisión.\n` +
       `Los importes por revisar quedan vacíos; recibir o pagar no concede deducción ni crédito.\n` +
       `${faltantes} archivos de respaldo faltantes, detallados en el ZIP.\nDistribuidora Tachi`,

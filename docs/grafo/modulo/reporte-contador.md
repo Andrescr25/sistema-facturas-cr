@@ -56,11 +56,12 @@ Notas de proveedor aparte, sin compensar automáticamente el IVA de gastos.
 ## Pantalla y Excel resumido — 2026-10-24
 
 El usuario separa la venta electrónica y aclara conservar Gastos operativos.
-Pantalla y Excel muestran cuatro clases, en este orden: Facturas y notas
-electrónicas, Compras, Facturas y notas, Gastos operativos. La primera incluye
-tiquetes electrónicos. Las dos clases de ventas se separan por `electronica`,
-la misma bandera persistida que usa Facturación; una nota se clasifica por su
-propia emisión, nunca por la factura acreditada, el número o una clave.
+El ajuste posterior del mismo día retira Facturas y notas (sin electrónica)
+de pantalla y Excel. Quedan tres clases, en este orden: Facturas y notas
+electrónicas, Compras y Gastos operativos. La primera incluye tiquetes y
+selecciona sólo `electronica=true`, la misma bandera que usa Facturación;
+una nota se clasifica por su propia emisión, nunca por la factura acreditada,
+el número o una clave.
 Compras incluye todas sus emisiones y mantiene las notas de proveedor.
 
 La pestaña inicial es electrónicas. Cada fila/detalle identifica factura,
@@ -74,8 +75,8 @@ corta: concepto/tipo de impuesto, subtotal, descuento, impuestos y total. No
 portada, guías, pendientes, soporte, detalle de facturas ni hoja de impuestos
 adicional. Los originales siguen disponibles por el ZIP y en la interfaz.
 
-Cada clase de ventas agrupa por tarifa guardada, neteando sólo sus propias
-notas, una vez. Compras conserva las
+Ventas electrónicas agrupa por tarifa guardada, neteando sólo sus notas
+electrónicas, una vez. Compras conserva las
 líneas gravadas/sin impuesto sin deducir una tarifa de un cociente; si falta
 la tarifa, se identifica en un único grupo. Gastos agrupa combustible y
 alimentación/viáticos. La columna dice Impuestos porque no todo impuesto
@@ -86,14 +87,14 @@ reconstruye con su descuento, sin rebajarlo dos veces. Total del comprobante
 manda: las diferencias quedan como un ajuste resumido, no se borran ni se
 reparten inventando tarifas. Una columna desconocida queda vacía, inclusive
 su total, no como un cero aprobado. Anulados/rechazados se excluyen de gastos.
-Monedas en bloques separados dentro de las mismas cuatro hojas. Notas de
+Monedas en bloques separados dentro de las mismas tres hojas. Notas de
 proveedor sin destino compra/gasto guardado se informan aparte del TOTAL de
 Compras, sin compensarlas al azar. No se cambia esa clasificación al exportar.
 
 Descarga y adjunto del correo usan el mismo generador. Se reutilizan SheetJS,
 exportarExcel y excelPresentacion: números tipados, paleta, filas legibles,
 encabezado/total destacados e impresión de un resumen por página. La opción
-paginasAlto sólo modifica estas cuatro hojas; los otros exportadores conservan
+paginasAlto sólo modifica estas tres hojas; los otros exportadores conservan
 su comportamiento. La fecha del período no pasa por la zona horaria local.
 
 ZIP reutiliza CFB de SheetJS instalado; XML/PDF originales,
@@ -154,9 +155,20 @@ Un LEFT JOIN por clave primaria en la consulta existente evita peticiones
 adicionales o duplicados. Documentos históricos sin ese vínculo conservan el
 tipo persistido; preparados, rechazados y ambiente de pruebas no deciden la
 etiqueta. `etiquetaMovimiento`, ya compartido por lista y detalle, presenta
-«Tiquete electrónico». Notas, pestañas, cifras y cuatro resúmenes Excel se
-conservan. Sin modificar facturas, archivos fiscales o esquema.
+«Tiquete electrónico». Ese ajuste de etiqueta conservaba las pestañas e importes; el retiro
+posterior deja tres resúmenes Excel, como se describe arriba. Sin modificar facturas, archivos fiscales o esquema.
 
 Verificado:20 pruebas de reporte/Excel (regresión con8 combinaciones de tipo
 comercial y fiscal sobre PostgreSQL con ROLLBACK),71 comprobaciones Chromium
 390/700/1440 y build correcto. Correo simulado; sin base de producción.
+
+
+## Retiro de Facturas y notas — 2026-10-24
+
+El usuario retira explícitamente la pestaña y su hoja de Excel. Se elimina
+su opción y la rama de filtrado, sin mover esas ventas al grupo electrónico.
+Descarga y adjunto reutilizan el mismo generador de tres hojas; el modal de
+envío toma dinámicamente sus tres nombres y el correo identifica ventas
+fiscales. La lectura mensual y el resumen general se conservan, igual que
+los documentos, originales y reportes archivados. No hay borrado de datos
+ni migración. La corrección anterior de etiqueta de tiquete sigue incluida.

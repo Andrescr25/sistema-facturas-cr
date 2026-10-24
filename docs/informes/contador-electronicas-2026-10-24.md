@@ -69,3 +69,27 @@ del documento original, las notas electrónicas y los totales del Excel.
 correo simulado. Build correcto. Clon local desechable, fixtures en ROLLBACK;
 sin SQL nuevo ni cambios en producción. Entrega inicial en developer por Codex.
 Evidencia privada:`/private/tmp/codex-contador-tiquete-20261024/`.
+
+
+## Retiro posterior de Facturas y notas — 2026-10-24
+
+El usuario pide quitar la pestaña sin electrónica y la hoja del mismo nombre.
+Se retiran su opción, filtro y resumen Excel; las ventas no electrónicas no
+se trasladan a la hoja fiscal. Pantalla, descarga, adjunto y texto del modal
+de envío quedan con tres clases: Facturas y notas electrónicas, Compras y
+Gastos operativos. La lectura mensual/resumen general y los archivos antiguos
+se conservan. Sin borrar registros, migración ni emisión fiscal nueva.
+
+Se actualizan las pruebas existentes de filtros, resúmenes y OOXML para las
+tres hojas, incluidos datos mixtos con ventas no electrónicas, pendientes y
+rechazadas. La misma prueba de correo simulado valida el adjunto. Se conserva
+la regresión de etiqueta de tiquete aceptado. Evidencia privada en
+`/private/tmp/codex-contador-tres-hojas-20261024/`; pruebas sobre clon local
+con ROLLBACK, sin conexión a la base de producción ni correos reales.
+
+
+Verificación de este retiro:20 pruebas de reporte/Excel aprobadas;59
+comprobaciones Chromium390/700/1440 con tres pestañas, insignia/modal de
+Tiquete electrónico, descarga XLSX y adjunto de correo con exactamente tres
+hojas, sin erroresJS o desborde. Build, lint del helper y diff --check
+correctos. Cambios propios de Codex en developer, pendientes de main.

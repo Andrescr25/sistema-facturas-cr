@@ -1260,3 +1260,13 @@ facturas y notas de crédito. Se toma el comprobante fiscal propio aceptado,
 pues la venta comercial puede seguir registrada como factura. No cambiar
 los importes, la emisión ni el formato del Excel por este ajuste visual.
 [Resultado](grafo/modulo/reporte-contador.md).
+
+
+## Reporte Contador: quitar Facturas y notas — 2026-10-24
+
+El usuario pide borrar la pestaña «Facturas y notas» y su hoja de Excel.
+Sustituye para la entrega mensual la decisión anterior de cuatro secciones:
+quedan «Facturas y notas electrónicas», «Compras» y «Gastos operativos».
+Descarga y adjunto del correo tienen esas mismas tres hojas. No se pide borrar
+facturas de la base ni alterar la emisión o los reportes guardados antiguos.
+[Resultado](grafo/modulo/reporte-contador.md).

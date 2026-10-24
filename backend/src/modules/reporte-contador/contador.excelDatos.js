@@ -72,7 +72,6 @@ function resumenExcel(mes) {
         moneda: d.moneda, concepto: 'Notas de proveedor por clasificar',
         subtotal: null, descuento: null, impuestos: null, total: -Number(d.total)
       }))) },
-    { nombre: 'Facturas y notas', filas: agrupar(comerciales(mes.documentos.filter(d => d.electronica !== true), 'Venta')), notas: [] },
     { nombre: 'Gastos operativos', filas: agrupar(gastos(mes.gastos)), notas: [] }
   ];
 }

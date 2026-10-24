@@ -9,14 +9,12 @@ const libro = mes => XLSX.read(excelMensual(mes).buffer, { type: 'buffer' });
 const filas = (b, nombre) => XLSX.utils.sheet_to_json(b.Sheets[nombre], { header: 1, defval: null });
 const total = (b, nombre) => filas(b, nombre).filter(f => f[0] === 'TOTAL');
 const ELECTRONICAS = 'Facturas y notas electrónicas';
-const VENTAS = 'Facturas y notas';
 
-test('cuatro hojas separadas, con cinco columnas y sin documentos individuales', () => {
+test('tres hojas separadas, con cinco columnas y sin documentos individuales', () => {
   const mes = mesDeMuestra(), antes = JSON.stringify(mes), b = libro(mes);
-  assert.deepEqual(b.SheetNames, [ELECTRONICAS, 'Compras', VENTAS, 'Gastos operativos']);
+  assert.deepEqual(b.SheetNames, [ELECTRONICAS, 'Compras', 'Gastos operativos']);
   assert.deepEqual(filas(b, ELECTRONICAS)[5], ['Tipo de impuesto', 'Subtotal', 'Descuento', 'Impuestos', 'Total']);
   assert.deepEqual(total(b, ELECTRONICAS)[0], ['TOTAL', 90000, 0, 11700, 101700]);
-  assert.deepEqual(total(b, VENTAS)[0], ['TOTAL', 50000, 0, 500, 50500]);
   assert.deepEqual(total(b, 'Compras')[0], ['TOTAL', 200000, 0, 26000, 226000]);
   assert.deepEqual(total(b, 'Gastos operativos')[0], ['TOTAL', 56300, 0, 0, 56300]);
   for (const nombre of b.SheetNames) {
@@ -47,7 +45,6 @@ test('subtotal antes del descuento y notas restadas una sola vez por tarifa', ()
 test('no mezcla monedas ni muestra un total combinado de colones y dólares', () => {
   const b = libro(mesDeMuestra());
   assert.deepEqual(total(b, ELECTRONICAS).map(f => f[4]), [101700, 113]);
-  assert.deepEqual(total(b, VENTAS).map(f => f[4]), [50500]);
   assert.deepEqual(total(b, 'Gastos operativos').map(f => f[4]), [56300, 22.6]);
   assert.ok(filas(b, ELECTRONICAS).some(f => f[0] === 'Moneda: USD'));
 });
@@ -101,7 +98,7 @@ test('estilos OOXML reales, números formateados y cada resumen listo para impri
   for (const [i, ruta] of zip.FullPaths.entries()) if (/\.(xml|rels)$/.test(ruta)) await parsear(zip.FileIndex[i].content.toString('utf8'));
   const styles = (await parsear(xml('xl/styles.xml'))).styleSheet;
   assert.ok(styles.fills[0].fill.some(f => f.patternFill?.[0].fgColor?.[0].$.rgb === 'FF12263F'));
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 3; i++) {
     const h = (await parsear(xml(`xl/worksheets/sheet${i}.xml`))).worksheet;
     assert.equal(h.autoFilter, undefined);
     assert.deepEqual(h.sheetViews[0].sheetView[0].pane[0].$, { ySplit: '6', topLeftCell: 'A7', activePane: 'bottomLeft', state: 'frozen' });
@@ -116,7 +113,7 @@ test('estilos OOXML reales, números formateados y cada resumen listo para impri
   assert.match(b.Sheets[ELECTRONICAS].B7.z, /#,##0.00/);
 });
 
-test('facturas, tiquetes y notas se separan por su propia emisión, sin duplicar importes', () => {
+test('sólo exporta ventas electrónicas y sus notas; compras conserva todas', () => {
   const doc = (tipo, importe, electronica, extra = {}) => ({ tipo, electronica, ...extra,
     moneda: 'CRC', base: importe, descuento: 0, impuestos: 0, total: importe,
     lineas: [{ base: importe, descuento: 0, impuestos: 0, total: importe, tarifa: 0 }] });
@@ -132,7 +129,5 @@ test('facturas, tiquetes y notas se separan por su propia emisión, sin duplicar
   ] };
   const b = libro(mes);
   assert.equal(total(b, ELECTRONICAS)[0][4], 160);
-  assert.equal(total(b, VENTAS)[0][4], 87);
   assert.equal(total(b, 'Compras')[0][4], 100, 'las compras no se separan por emisión');
-  assert.equal(total(b, ELECTRONICAS)[0][4] + total(b, VENTAS)[0][4], 247);
 });
