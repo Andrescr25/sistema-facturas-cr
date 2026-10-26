@@ -1277,6 +1277,8 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   Ensayo completo local correcto; proforma no registra compra ni stock.
 - [x] Suite250 archivos:3053correctas/0fallos/0canceladas/3omisiones históricas;
   30comprobaciones Chromium390/700/1440, ambos builds y Excel25filas correctos.
-- [ ] Registrar aplicación respaldada y verificación del resultado real.
+- [x] Codex aplica el lote autorizado y respalda/verifica las 25 medidas reales:
+  8 actualizadas, 17 nuevas y 2 retiradas con historia; precios con margen del
+  28 %, foto, existencias y documentos previos conservados. Sin SQL nuevo.
 
 [Detalle](informes/corofijas-proforma-2026-10-25.md).
