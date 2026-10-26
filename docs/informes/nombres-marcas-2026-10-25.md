@@ -68,4 +68,16 @@ comprobación del orden general y verifica el cliente atrasado por id, con su
 estado y diferencia de días. Sólo cambia la prueba, sin modificar el módulo.
 La revalidación de sus9 casos pasó. Suite completa249 archivos:3047correctas,
 0fallos y3omisiones históricas del corte.37 dirigidas finales correctas.
-Aplicación del lote pendiente de registrar.
+Aplicado y verificado en producción por Codex el2026-10-25 21:32:41 CR, conforme al
+permiso explícito del usuario de corregir los nombres. Primer lote296+3;
+durante la verificación el usuario añadió Cinta métrica Pretul con tres
+productos: segundo lote3+1, también con respaldo. Resultado:299 productos en
+60 marcas y4 títulos corregidos. Todos los otros campos de esos productos
+coinciden con sus respaldos inmediatos; no quedan marcados fuera de los lotes.
+
+La foto de la marca76 se actualizó concurrentemente desde otra operación:
+se conservó esa edición. El corrector sólo hizo UPDATE de nombre/fecha; no
+restaura fotos ni asignaciones de la captura inicial. Los planes, respaldos
+y planes inversos para deshacer están en el directorio privado
+`~/.local/share/sistema-facturas-cr/respaldos/20261025-nombres-marcas-codex/`.
+No se corrieron pruebas contra producción ni se enviaron mensajes reales.

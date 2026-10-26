@@ -1260,6 +1260,8 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   seguridad del lote con PostgreSQL local/ROLLBACK; ensayo296+3 correcto.
 - [x] Suite249 archivos:3047correctas/0fallos/3omisiones históricas;37
   dirigidas finales y48 comprobaciones Chromium390/700/1440. Builds/lint correctos.
-- [ ] Registrar aplicación del lote con respaldo y verificación de campos.
+- [x] Codex aplica en producción299 nombres y4 títulos (incluye la nueva marca
+  de cintas métricas):60 marcas. Respaldos/planes inversos conservados, campos
+  restantes de los productos iguales; edición concurrente de foto respetada.
 
 [Detalle](informes/nombres-marcas-2026-10-25.md).
