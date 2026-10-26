@@ -28,6 +28,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const { compraIngresada } = require('./dobles/compraIngresada');
 
 require('dotenv').config();
 
@@ -216,7 +217,8 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
   test('Reporte de Clientes → Impresión: los ajustes salen de lo guardado, por el id propio', async () => {
     const { rows: [f] } = await cliente.query(
       `SELECT id FROM faltantes WHERE factura_propia_id = $1 AND producto_propio_id = $2`, [A, lineasA[0]]);
-    // Lo que la pantalla guarda al tocar "Parte": llegó 1 de 3.
+    // Lo que la pantalla guarda al tocar "Parte": llegó 1 de 3, que ingresó por una compra.
+    await compraIngresada(cliente, lineasA[0], 1);
     await require('../src/modules/missing-items/missing-items.service').saveAdjustment({
       faltanteId: f.id, cantidadEntregada: 1, estado: 'parcial', requiereActualizacion: true, revisado: true
     });
@@ -313,6 +315,7 @@ describe('faltantes y cola con ids propios — contra la base local', { skip: ha
   test('si después llegó todo, al volver a procesar se le devuelve a la factura', async () => {
     await m.cola.devolverAlReporte(A);
     const { id } = await faltanteDeA();
+    await compraIngresada(cliente, lineasA[0], 2); // el resto, en otra compra
     await require('../src/modules/missing-items/missing-items.service').saveAdjustment({
       faltanteId: id, cantidadEntregada: 3, estado: 'completo', requiereActualizacion: false, revisado: true
     });

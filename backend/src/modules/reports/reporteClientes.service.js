@@ -9,6 +9,7 @@ const {
   vistaReporteClientes, condicionVista, impresaFueraDePlazo, MOVIMIENTOS_REPORTE, ULTIMA_COLA, JOIN_HISTORIAL_REPORTE
 } = require('./historialClientes.sql');
 const { filtroRutaActual, listarRutasActuales: listarRutas } = require('../rutas/rutaActual.service');
+const { ingresoDisponibleSql } = require('../missing-items/ingresoFaltante');
 
 async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
   try {
@@ -57,6 +58,9 @@ async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
         aj.estado as ajuste_estado,
         aj.requiere_actualizacion,
         aj.revisado as ajuste_revisado,
+        -- Cuánto ingresó por Revisión de precios que este faltante puede usar:
+        -- sin eso no se marca que llegó (missing-items/ingresoFaltante.js).
+        CASE WHEN f.estado = 'pendiente' THEN ${ingresoDisponibleSql('f')} END AS ingreso_disponible,
         fr.id as reimpresion_id,
         fr.estado as reimpresion_estado,
         (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_propia_id = fa.id) as total_items_factura
@@ -149,7 +153,8 @@ async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
         cantidad_entregada: row.cantidad_entregada || 0,
         ajuste_estado: row.ajuste_estado || 'pendiente',
         requiere_actualizacion: row.requiere_actualizacion || false,
-        ajuste_revisado: row.ajuste_revisado === true
+        ajuste_revisado: row.ajuste_revisado === true,
+        ingreso_disponible: row.ingreso_disponible == null ? null : Number(row.ingreso_disponible)
       });
 
       if (row.faltante_estado === 'pendiente' || vista === 'historial') {

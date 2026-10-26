@@ -7,6 +7,7 @@
 const { describe, test, before, after, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
+const { compraIngresada, quitarCompraIngresada } = require('./dobles/compraIngresada');
 const habilitadas = process.env.PROBAR_BASE_LOCAL === '1';
 let pool, ajustes, cola, impresion, datos;
 
@@ -35,11 +36,14 @@ describe('Reporte de Clientes e Impresión: decisiones persistidas y bloqueo de 
     const { rows: [faltante] } = await pool.query(`INSERT INTO faltantes(factura_propia_id,producto_propio_id,
       cantidad_faltante,tipo_faltante,proveedor_asignado) VALUES($1,$2,3,'parcial',$3) RETURNING id`, [f.id, p.id, nombre]);
     datos.faltanteId = faltante.id;
+    // Lo que faltó ya ingresó por Revisión de precios: sin eso no se marca que llegó.
+    datos.compra = await compraIngresada(pool, p.id, 3);
   });
   afterEach(async () => {
     await pool.query('DELETE FROM faltantes_ajustes WHERE faltante_id=$1', [datos.faltanteId]);
     await pool.query('DELETE FROM facturas_reimpresion WHERE factura_propia_id=$1', [datos.facturaId]);
     await pool.query('DELETE FROM faltantes WHERE id=$1', [datos.faltanteId]);
+    await quitarCompraIngresada(pool, datos.compra);
     await pool.query('DELETE FROM procesamientos WHERE detalles::jsonb->\'factura_procesada\'->>\'factura_id\'=$1', [String(datos.facturaId)]);
     await pool.query('DELETE FROM bitacora_cambio WHERE entidad=\'factura\' AND entidad_id=$1', [datos.facturaId]);
     await pool.query('DELETE FROM factura_linea WHERE factura_id=$1', [datos.facturaId]);

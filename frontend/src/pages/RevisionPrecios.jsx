@@ -9,6 +9,8 @@ import { useProcesarFacturaGasto } from '../hooks/useProcesarFacturaGasto'
 import { useAprobarGasto } from '../hooks/useAprobarGasto'
 import GastosPorAprobar from '../components/revision-precios/GastosPorAprobar'
 import ModalAprobarGasto from '../components/revision-precios/ModalAprobarGasto'
+import ModalFacturaManual from '../components/revision-precios/ModalFacturaManual'
+import { useFacturaManual } from '../hooks/useFacturaManual'
 
 export default function RevisionPrecios() {
   const {
@@ -45,10 +47,12 @@ export default function RevisionPrecios() {
 
     toasts,
     removeToast,
+    showToast,
     dialogProps, recargar
   } = useRevisionPrecios()
   const aprobacion = useAprobarGasto()
   const gasto = useProcesarFacturaGasto(() => { volverALista(); recargar(); aprobacion.cargar() })
+  const manual = useFacturaManual((mensaje) => showToast(`✅ ${mensaje}`, 'success'))
 
   return (
     <>
@@ -64,6 +68,7 @@ export default function RevisionPrecios() {
           onAbrirRevision={abrirRevision}
           onProcesarGasto={gasto.abrir}
           gastosPendientes={<GastosPorAprobar estado={aprobacion} />}
+          onCargarManual={manual.abrir}
         />
       ) : (
         <RevisionFactura
@@ -100,6 +105,7 @@ export default function RevisionPrecios() {
 
       <ConfirmModal {...dialogProps} />
       {gasto.factura && <ModalProcesarGasto key={gasto.factura.id} estado={gasto} />}
+      {manual.abierta && <ModalFacturaManual estado={manual} />}
       {aprobacion.seleccion && <ModalAprobarGasto key={`${aprobacion.seleccion.gasto.id}-${aprobacion.seleccion.accion}`} estado={aprobacion} />}
     </>
   )

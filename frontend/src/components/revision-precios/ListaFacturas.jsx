@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { DollarSign, AlertCircle, PackageOpen, ArrowRight } from 'lucide-react'
+import { DollarSign, AlertCircle, PackageOpen, ArrowRight, FilePlus2 } from 'lucide-react'
+import Boton from '../ui/Boton'
 import Pestanas from '../ui/Pestanas'
 import EncabezadoPagina from '../ui/EncabezadoPagina'
 import Vacio from '../ui/Vacio'
@@ -30,7 +31,7 @@ const VACIOS = {
  */
 export default function ListaFacturas({
   facturas, loading, error, tabActiva, setTabActiva,
-  onAbrirRevision, onProcesarGasto, gastosPendientes
+  onAbrirRevision, onProcesarGasto, gastosPendientes, onCargarManual
 }) {
   const navigate = useNavigate()
 
@@ -60,6 +61,7 @@ export default function ListaFacturas({
         titulo="Revisión de Precios"
         descripcion="Mirá cómo cambió el costo y ajustá el precio antes de registrar la compra."
         icono={DollarSign}
+        acciones={<Boton variante="activo" icono={FilePlus2} onClick={onCargarManual}>Cargar factura a mano</Boton>}
       />
 
       {gastosPendientes}

@@ -94,7 +94,9 @@ describe('contra la base, sin escribir', { skip: hayBase ? false : 'sin DATABASE
   test('la consulta del reporte es SQL válido para Postgres', async () => {
     const servicio = leer('src', 'modules', 'reports', 'reporteClientes.service.js');
     const i = servicio.indexOf("fr.fecha_creacion AT TIME ZONE");
-    const piezas = require('../src/modules/reports/historialClientes.sql');
+    // Las piezas del historial y lo que ingresó por Revisión de precios (067).
+    const piezas = { ...require('../src/modules/reports/historialClientes.sql'),
+      ingresoDisponibleSql: require('../src/modules/missing-items/ingresoFaltante').ingresoDisponibleSql };
     const plantilla = servicio.slice(servicio.lastIndexOf('`', i) + 1, servicio.indexOf('`', i));
     // Las dos vistas, con las mismas piezas que usa el servicio.
     const armar = (vista) => new Function(...Object.keys(piezas), 'vista', 'whereRuta', `return \`${plantilla}\`;`)(

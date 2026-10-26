@@ -8,6 +8,7 @@ const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { enTransaccion } = require('../../utils/transaccion');
 const { httpError, idValido } = require('../../utils/validacion');
 const { validarEntrega } = require('./ajusteEntrega');
+const { asignarIngreso, soltarIngreso } = require('./ingresoFaltante');
 
 /**
  * Guardar/borrar comparte el bloqueo de factura con encolar/procesar.
@@ -24,7 +25,7 @@ async function conFaltanteEditable(idCrudo, trabajo) {
     const { rows: [factura] } = await c.query('SELECT id,estado FROM factura WHERE id=$1 FOR UPDATE', [facturaId]);
     if (!factura) throw httpError(404, 'La factura del faltante no existe.');
     if (factura.estado === 'anulada') throw httpError(409, 'Una factura anulada no admite ajustes de entrega.');
-    const { rows: [faltante] } = await c.query(`SELECT id,cantidad_faltante,tipo_faltante,estado FROM faltantes
+    const { rows: [faltante] } = await c.query(`SELECT id,cantidad_faltante,tipo_faltante,estado,producto_propio_id FROM faltantes
       WHERE id=$1 AND factura_propia_id=$2 FOR UPDATE`, [id, facturaId]);
     if (!faltante) throw httpError(409, 'El faltante cambió; recargue el reporte.');
     if (faltante.estado !== 'pendiente') throw httpError(409, 'Recupere la factura en Reporte de Clientes antes de cambiar la entrega.');
@@ -41,9 +42,12 @@ async function conFaltanteEditable(idCrudo, trabajo) {
 /**
  * Guarda o actualiza un ajuste de faltante
  */
-async function saveAdjustment({ faltanteId, cantidadEntregada, estado, revisado }) {
+async function saveAdjustment({ faltanteId, cantidadEntregada, estado, revisado }, usuarioId = null) {
   return conFaltanteEditable(faltanteId, async (c, faltante) => {
     const entrega = validarEntrega(faltante.cantidad_faltante, { cantidadEntregada, estado, revisado });
+    // Solo se entrega lo que ingresó por Revisión de precios (2026-10-25):
+    // sin compra que lo respalde, el 409 dice cuánto hay.
+    await asignarIngreso(c, faltante, entrega.cantidad, usuarioId);
     // La bandera del cliente puede quedar vieja: deriva de la entrega real.
     await c.query(`
     INSERT INTO faltantes_ajustes (faltante_id, cantidad_entregada, estado, requiere_actualizacion, revisado)
@@ -68,6 +72,7 @@ async function saveAdjustment({ faltanteId, cantidadEntregada, estado, revisado 
  */
 async function deleteAdjustment(faltanteId) {
   return conFaltanteEditable(faltanteId, async (c, faltante) => {
+    await soltarIngreso(c, faltante.id);
     await c.query('DELETE FROM faltantes_ajustes WHERE faltante_id = $1', [faltante.id]);
 
     return { success: true, message: 'Ajuste eliminado' };

@@ -10,6 +10,7 @@
  */
 
 const servicio = require('./compras.service');
+const manual = require('./compraManual.service');
 
 function fallo(res, error, contexto) {
   const s = error.status || 500;
@@ -37,6 +38,32 @@ module.exports = {
       });
     } catch (error) {
       fallo(res, error, 'registrar');
+    }
+  },
+
+  /**
+   * POST /compras/manual — la factura de un proveedor que no manda factura
+   * electrónica. Sin clave no hay nada que aceptar ante Hacienda.
+   */
+  registrarManual: async (req, res) => {
+    try {
+      const resultado = await manual.registrarCompraManual(req.body, req.usuario?.id);
+      res.status(201).json({
+        success: true,
+        data: resultado,
+        message: `Factura ${resultado.compra.numero} de ${resultado.compra.proveedor} cargada: ${resultado.lineas} líneas.`
+      });
+    } catch (error) {
+      fallo(res, error, 'registrar a mano');
+    }
+  },
+
+  /** GET /compras/proveedores — para elegir de quién es la factura cargada a mano. */
+  proveedores: async (_req, res) => {
+    try {
+      res.json({ success: true, data: await manual.proveedoresActivos() });
+    } catch (error) {
+      fallo(res, error, 'proveedores');
     }
   }
 };

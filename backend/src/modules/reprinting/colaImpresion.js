@@ -24,6 +24,7 @@ const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { validarEntrega } = require('../missing-items/ajusteEntrega');
+const { ingresoRespaldado } = require('../missing-items/ingresoFaltante');
 const {
   impresaFueraDePlazo, MOVIMIENTOS_REPORTE, ULTIMA_COLA, JOIN_HISTORIAL_REPORTE
 } = require('../reports/historialClientes.sql');
@@ -153,6 +154,14 @@ async function encolarDesdeReporte(facturaIdCrudo) {
       } catch (error) {
         throw httpError(409, 'Hay una entrega incoherente. Recupere y revise la factura antes de enviarla a Impresión.');
       }
+    }
+    // Lo entregado tiene que seguir respaldado por lo que ingresó: una compra
+    // pudo anularse después de marcar (missing-items/ingresoFaltante.js).
+    const respaldado = await ingresoRespaldado(c, ajustes.map((aj) => aj.faltante_id));
+    const sinRespaldo = ajustes.find((aj) => aj.cantidad_entregada > (respaldado.get(aj.faltante_id) || 0));
+    if (sinRespaldo) {
+      throw httpError(409, `${sinRespaldo.producto_nombre}: la compra que respaldaba lo entregado ya no está registrada. ` +
+        'Vuelva a marcar qué llegó antes de enviarla a Impresión.');
     }
     const requiereCambios = ajustes.some((aj) => aj.requiere_actualizacion);
     await ponerEnCola(c, facturaId, { ajustes, categoria: requiereCambios ? 'requiere_cambios' : 'sin_cambios' });

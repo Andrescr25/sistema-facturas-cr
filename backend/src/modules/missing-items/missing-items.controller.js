@@ -19,12 +19,12 @@ async function saveAdjustment(req, res) {
       estado,
       requiereActualizacion: requiere_actualizacion,
       revisado
-    });
+    }, req.usuario?.id);
 
     res.json(result);
   } catch (error) {
     if (!error.status) console.error('❌ Error guardando ajuste:', error);
-    res.status(error.status || 500).json({ success: false, error: error.message });
+    res.status(error.status || 500).json({ success: false, message: error.message, error: error.message });
   }
 }
 
@@ -39,7 +39,7 @@ async function deleteAdjustment(req, res) {
     res.json(result);
   } catch (error) {
     if (!error.status) console.error('❌ Error eliminando ajuste:', error);
-    res.status(error.status || 500).json({ success: false, error: error.message });
+    res.status(error.status || 500).json({ success: false, message: error.message, error: error.message });
   }
 }
 

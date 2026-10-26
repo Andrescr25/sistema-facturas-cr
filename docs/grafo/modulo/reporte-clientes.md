@@ -28,9 +28,11 @@ archivos:
   - frontend/src/hooks/useActualizacionReporteClientes.js
   - frontend/src/components/reporte-clientes/FacturaEnviadaCard.jsx
   - docs/informes/reporte-clientes-historial-2026-10-15.md
+  - backend/src/modules/missing-items/ingresoFaltante.js
+  - frontend/src/components/reporte-clientes/FilaProducto.jsx
 aristas:
-  relacionado: [modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica]
-medido: 2026-10-20
+  relacionado: [modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica, decision/solo-llega-lo-que-ingreso]
+medido: 2026-10-25
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -165,3 +167,12 @@ lo de arriba sobre recuperar desde el historial.
 
 Pruebas en `historialReporteClientes.test.js` (bordes exactos de 24 h y 48 h,
 contra la base local). Sin SQL nuevo.
+
+## Solo «llega» lo que ingresó por Revisión de precios — 2026-10-25
+
+«Llegó todo» y «Parte» exigen que el producto haya entrado por una compra
+registrada después de la venta, y lo que entró se reparte entre clientes.
+Cada faltante pendiente trae `ingreso_disponible`; la fila apaga lo que no
+alcanza y dice «Todavía no ingresa por Revisión de precios» o «Ingresaron N
+de M». «No llegó» siempre se puede. El detalle, en
+[[decision/solo-llega-lo-que-ingreso]].

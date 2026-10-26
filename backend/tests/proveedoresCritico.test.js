@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const { sembrar } = require('./dobles/ordenesAutomaticas');
 const { baseEnTransaccion } = require('./dobles/buzonEnTransaccion');
+const { compraIngresada } = require('./dobles/compraIngresada');
 const activo = process.env.PROBAR_BASE_LOCAL === '1';
 
 describe('Reporte Proveedores: compras pendientes e identidad de cada factura', { skip: !activo }, () => {
@@ -15,8 +16,11 @@ describe('Reporte Proveedores: compras pendientes e identidad de cada factura', 
     lineas.map(([i, cantidad]) => ({ producto_id: f.productos[i], cantidad_faltante: cantidad, tipo_faltante: 'parcial' })));
   const faltanteId = async (i = 0, facturaId = f.facturas[0]) =>
     (await c.query('SELECT id FROM faltantes WHERE factura_propia_id=$1 AND producto_propio_id=$2', [facturaId, f.productos[i]])).rows[0].id;
-  const revisar = async (estado, cantidadEntregada, revisado = true, i = 0) =>
-    ajustes.saveAdjustment({ faltanteId: await faltanteId(i), estado, cantidadEntregada, revisado });
+  // Marcar lo que llegó exige que haya ingresado por Revisión de precios (067).
+  const revisar = async (estado, cantidadEntregada, revisado = true, i = 0) => {
+    if (cantidadEntregada > 0) await compraIngresada(c, f.productos[i], cantidadEntregada);
+    return ajustes.saveAdjustment({ faltanteId: await faltanteId(i), estado, cantidadEntregada, revisado });
+  };
   const proveedor = async () => {
     const r = await reporte.getMissingItemsBySupplier(null, { incluirEnviadas: false });
     assert.equal(r.success, true, r.error);

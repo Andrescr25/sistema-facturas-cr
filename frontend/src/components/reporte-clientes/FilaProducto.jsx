@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Check, X, Undo2, CircleDot } from 'lucide-react'
+import { Check, X, Undo2, CircleDot, PackageX } from 'lucide-react'
+import { respuestasPorIngreso } from '../../utils/reporteClientesUtils'
 
 /**
  * Las dos caras de un producto dentro del checklist de bodega:
@@ -39,10 +40,14 @@ export function FilaPorRevisar({
   const [cantidad, setCantidad] = useState('')
 
   const faltante = Number(producto.cantidad_faltante)
+  // Solo se marca que llegó lo que ingresó por Revisión de precios.
+  const permitidas = respuestasPorIngreso(producto)
   const cantidadNum = Number.parseInt(cantidad, 10)
-  const parcialValido = !Number.isNaN(cantidadNum) && cantidadNum > 0 && cantidadNum < faltante
+  const parcialValido = !Number.isNaN(cantidadNum) && cantidadNum > 0 && cantidadNum <= permitidas.maximoParcial
 
   const estadoSeleccionado = entrega?.tieneAjuste ? entrega.estado : null
+  // La respuesta ya elegida se puede quitar aunque hoy no alcance lo ingresado.
+  const habilitado = (key) => key === estadoSeleccionado || key === 'no_llego' || permitidas[key]
 
   const handleToggleEstado = (keyEstado) => {
     if (estadoSeleccionado === keyEstado) {
@@ -97,6 +102,12 @@ export function FilaPorRevisar({
           {producto.observaciones && (
             <p className="text-xs text-neutro-600 mt-0.5 truncate">📝 {producto.observaciones}</p>
           )}
+          {permitidas.aviso && (
+            <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-alerta-700">
+              <PackageX size={13} className="shrink-0" />
+              {permitidas.aviso}
+            </p>
+          )}
         </div>
 
         {/* Tres botones de respuesta */}
@@ -111,7 +122,9 @@ export function FilaPorRevisar({
                 key={item.key}
                 type="button"
                 onClick={() => handleToggleEstado(item.key)}
-                className={`flex items-center justify-center gap-1.5 h-10 px-3 border rounded-lg text-xs md:text-sm whitespace-nowrap ${btnClass}`}
+                disabled={!habilitado(item.key)}
+                title={habilitado(item.key) ? undefined : permitidas.aviso || undefined}
+                className={`flex items-center justify-center gap-1.5 h-10 px-3 border rounded-lg text-xs md:text-sm whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${btnClass}`}
               >
                 <IconComponent size={15} />
                 <span>{item.btnLabel}</span>
@@ -128,7 +141,7 @@ export function FilaPorRevisar({
           <input
             type="number"
             min="1"
-            max={faltante - 1}
+            max={permitidas.maximoParcial}
             value={cantidad}
             autoFocus
             onChange={(e) => setCantidad(e.target.value)}

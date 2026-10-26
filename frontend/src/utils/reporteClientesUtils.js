@@ -36,6 +36,25 @@ export function getEntregaInfo(key, producto, entregasAjustadas) {
   return { ...ajuste, tieneAjuste: true }
 }
 
+/**
+ * Qué respuestas deja dar lo que ya ingresó por Revisión de precios
+ * (2026-10-25). `ingreso_disponible` lo calcula el servidor: lo que entró de
+ * ese producto después de la venta y no se le entregó a otro cliente. «No
+ * llegó» siempre se puede. Sin el dato (historial) no se limita nada.
+ */
+export function respuestasPorIngreso(producto) {
+  const faltante = Number(producto?.cantidad_faltante) || 0
+  const ingreso = producto?.ingreso_disponible
+  if (ingreso === null || ingreso === undefined) {
+    return { completo: true, parcial: faltante > 1, maximoParcial: faltante - 1, aviso: null }
+  }
+  const hay = Math.max(Math.floor(Number(ingreso) || 0), 0)
+  let aviso = null
+  if (hay === 0) aviso = 'Todavía no ingresa por Revisión de precios'
+  else if (hay < faltante) aviso = `Ingresaron ${hay} de ${faltante} por Revisión de precios`
+  return { completo: hay >= faltante, parcial: hay >= 1 && faltante > 1, maximoParcial: Math.min(faltante - 1, hay), aviso }
+}
+
 export function getFacturaEstado(factura, facturasEstado) {
   return facturasEstado.get(getFacturaKey(factura)) || { estado: 'pendiente', origen: 'default' }
 }

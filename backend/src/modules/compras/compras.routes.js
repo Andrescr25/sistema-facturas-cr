@@ -9,5 +9,8 @@ const router = express.Router();
 const controlador = require('./compras.controller');
 
 router.post('/registrar', controlador.registrar);
+// La factura que llega en papel, sin XML (2026-10-25).
+router.post('/manual', controlador.registrarManual);
+router.get('/proveedores', controlador.proveedores);
 
 module.exports = router;

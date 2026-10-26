@@ -25,6 +25,9 @@ const { httpError } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { liberarCuentaPorPagar, crearCuentaDeContado } = require('./liberarCuentaPorPagar');
+// La hora de registro decide si una compra respalda un faltante, que se
+// anota en hora de Costa Rica (missing-items/ingresoFaltante.js).
+const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -171,8 +174,8 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
       `INSERT INTO compra (
          proveedor_id, clave, numero_consecutivo, fecha_emision, fecha_vencimiento, moneda, total,
          estado, factura_proveedor_id, xml_ruta, total_otros_cargos, total_descuentos,
-         total_iva_devuelto, otros_cargos, registrada_por
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,'registrada',$8,$9,$10,$11,$12,$13::jsonb,$14)
+         total_iva_devuelto, otros_cargos, registrada_por, creado_en
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,'registrada',$8,$9,$10,$11,$12,$13::jsonb,$14,${AHORA_CR_SQL})
        RETURNING *`,
       [
         proveedor.id, factura.clave, factura.numero_consecutivo, factura.fecha_emision,

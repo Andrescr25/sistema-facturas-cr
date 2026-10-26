@@ -1288,3 +1288,15 @@ sólo notas de crédito electrónicas por su emisión propia, igual que el Excel
 Compras/gastos y separación por moneda se conservan. Esta decisión sustituye
 mantener el resumen de todas las ventas tras retirar la pestaña no electrónica.
 [Resultado](grafo/modulo/reporte-contador.md).
+
+
+## 2026-10-25 — Solo «llega» lo que ingresó por Revisión de precios
+
+El usuario: «pensar en crear algo para que el sistema sepa cuando el producto
+del proveedor entra y así no dejar al usuario marcar algo como que sí llegó
+desde reporte clientes si el sistema no ha detectado que el producto ingresara
+a través de revisión de precios». Para lo que llega sin factura electrónica:
+«hay que crear algo en revisión de precios para meter una factura de compra a
+mano». Sobre la cantidad eligió «repartir lo que ingresó»: lo que se usó para
+un cliente no sirve para otro. «No llegó» sigue siempre disponible.
+[Resultado](grafo/decision/solo-llega-lo-que-ingreso.md).

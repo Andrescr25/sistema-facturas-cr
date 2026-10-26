@@ -22,10 +22,12 @@ archivos:
   - frontend/src/components/revision-precios/RevisionFactura.jsx
   - frontend/src/components/revision-precios/TarjetaFactura.jsx
   - frontend/src/utils/revisionPreciosUtils.js
+  - backend/src/modules/compras/compraManual.service.js
+  - frontend/src/components/revision-precios/ModalFacturaManual.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping, tabla/facturas-proveedores]
-  relacionado: [modulo/relacionar-productos, modulo/compras, modulo/facturas-ordenes-compra, decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/gastos-operativos]
-medido: 2026-10-21
+  relacionado: [modulo/relacionar-productos, modulo/compras, modulo/facturas-ordenes-compra, decision/la-regalia-no-es-costo, leccion/factura-enviada-no-se-repite, leccion/el-impuesto-es-de-cada-linea, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/gastos-operativos, decision/solo-llega-lo-que-ingreso]
+medido: 2026-10-25
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -178,3 +180,11 @@ el saldo completo y envía aceptación. Rechazar no paga. Decisiones y pagos
 atómicos, reintentos sin duplicados, condición fiscal ya configurada.
 No usa el registro comercial ni expone pagos/listas de otro permiso.
 Ver [[modulo/gastos-operativos]]; SQL061/062 aplicadas en producción; ver despliegue del 21/10.
+
+## Factura de compra cargada a mano — 2026-10-25
+
+«Cargar factura a mano», en el encabezado, es para lo que llega sin factura
+electrónica. Registra una compra sin clave ni buzón: entra al inventario,
+actualiza el costo y deja su cuenta por pagar. No hay aceptación ante
+Hacienda. Desde ese día Reporte Clientes solo deja marcar que llegó lo que
+ingresó por una compra; ver [[decision/solo-llega-lo-que-ingreso]].

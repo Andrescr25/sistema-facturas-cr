@@ -20,6 +20,8 @@ archivos:
   - backend/src/modules/missing-items/missing-items.service.js
   - backend/src/modules/missing-items/ajusteEntrega.js
   - backend/src/modules/missing-items/missing-items.controller.js
+  - backend/src/modules/missing-items/ingresoFaltante.js
+  - backend/migrations/independencia/067_faltante_ingreso.sql
   - backend/services/proveedorAsignacionService.js
   - backend/src/modules/proveedores/proveedores.asignacion.service.js
   - backend/src/modules/orders-whatsapp/orders-whatsapp.service.js
@@ -54,8 +56,8 @@ archivos:
   - frontend/src/pages/ReporteProveedores.jsx
 aristas:
   depende_de: [tabla/supplier-product-mapping]
-  relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores, modulo/hacienda]
-medido: 2026-10-22
+  relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores, modulo/hacienda, decision/solo-llega-lo-que-ingreso]
+medido: 2026-10-25
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -569,3 +571,11 @@ Pruebas: `emitirComoTiquete.test.js` (qué tipo sale en cada caso),
 `papelFiscal.test.js` (el papel muestra al cliente sin su cédula) y tres casos en
 `haciendaUnClicPg.test.js` (firma, numeración, aceptación sin correo y el
 reintento del rechazado). Sin SQL.
+
+## La entrega se respalda con lo que ingresó — 2026-10-25
+
+`saveAdjustment` reparte lo entregado entre las líneas de compra del
+producto (`faltante_ingreso`, migración 067) y responde 409 si no alcanza.
+«No llegó» y `deleteAdjustment` sueltan lo asignado.
+`encolarDesdeReporte` vuelve a revisar que la compra siga registrada. Ver
+[[decision/solo-llega-lo-que-ingreso]].

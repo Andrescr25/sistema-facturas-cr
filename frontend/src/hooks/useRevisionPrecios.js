@@ -357,6 +357,7 @@ export function useRevisionPrecios() {
 
     toasts,
     removeToast,
+    showToast,
     dialogProps,
     recargar: loadFacturas
   }

@@ -111,7 +111,9 @@ export const alegraService = {
       return response.data
     } catch (error) {
       console.error('❌ Frontend: Error guardando ajuste:', error)
-      throw new Error(`Error guardando ajuste: ${error.message}`)
+      // El motivo del servidor, no el «status code 409» de Axios: es el que
+      // dice, por ejemplo, que el producto todavía no ingresó por Revisión de precios.
+      throw new Error(error.response?.data?.message || error.message)
     }
   },
 
@@ -121,7 +123,7 @@ export const alegraService = {
       return response.data
     } catch (error) {
       console.error('❌ Frontend: Error eliminando ajuste:', error)
-      throw new Error(`Error eliminando ajuste: ${error.message}`)
+      throw new Error(error.response?.data?.message || error.message)
     }
   },
 

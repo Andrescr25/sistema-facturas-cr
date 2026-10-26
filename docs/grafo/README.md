@@ -136,6 +136,7 @@ su estado indica el retiro. [Alcance y pruebas](../informes/simplificacion-sin-s
 - [Cambiar la categoría de muchos productos es un trabajo de fondo que se sondea](decision/cambio-de-categoria-en-segundo-plano.md) · *lado Alegra; acá es inmediato*
 - [A quién pertenece una ruta — gana el prefijo más largo](decision/permisos-por-prefijo-mas-especifico.md)
 - [Una línea de regalía (100 % de descuento) nunca toca el costo del producto](decision/la-regalia-no-es-costo.md)
+- [En Reporte Clientes solo «llega» lo que ingresó por Revisión de precios, y se reparte](decision/solo-llega-lo-que-ingreso.md)
 
 ## Lecciones
 
