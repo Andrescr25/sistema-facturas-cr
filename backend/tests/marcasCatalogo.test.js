@@ -24,6 +24,20 @@ test('misma marca en distintas subcategorías no se mezcla ni recupera productos
   assert.deepEqual(grupos.flatMap(g=>g.presentaciones.map(p=>p.id)),[1,2]);
 });
 
+test('presentaciones: fracciones, medidas mixtas, decimales y alfabeto español', async () => {
+  const { compararPresentaciones, agruparMarcasCatalogo } = await cargar('marcasCatalogo.js');
+  const medidas = ['2 1/2', '1 1/2', '1/2', '2', '3/4', '1 1/4', '1'];
+  const lista = medidas.map((m, id) => ({ id, nombre: `Brocha ${m} · Pretul`, marca: { id: 1 } }));
+  const copia = JSON.stringify(lista);
+  assert.deepEqual(agruparMarcasCatalogo(lista)[0].presentaciones.map(p => p.nombre),
+    ['1/2', '3/4', '1', '1 1/4', '1 1/2', '2', '2 1/2'].map(m => `Brocha ${m} · Pretul`));
+  assert.equal(JSON.stringify(lista), copia);
+  assert.ok(compararPresentaciones({ name: 'Nylon 0.70 mm' }, { nombre: 'Nylon 1.00 mm' }) < 0);
+  assert.ok(compararPresentaciones({ nombre: 'Nylon 0,70 mm' }, { nombre: 'Nylon 0,80 mm' }) < 0);
+  assert.ok(compararPresentaciones({ nombre: 'Ánzuelo 100' }, { nombre: 'Brocha 1' }) < 0);
+  assert.ok(compararPresentaciones({ id: 2, nombre: 'Tornillo 3' }, { id: 10, nombre: 'Tornillo 3' }) < 0);
+});
+
 test('IVA real y ofertas: no se descuenta dos veces una baja de precio', async () => {
   const { precioCatalogoAgente } = await cargar('precioCatalogoAgente.js');
   for (const tarifa of [0,1,2,4,8,13]) {
@@ -32,6 +46,16 @@ test('IVA real y ofertas: no se descuenta dos veces una baja de precio', async (
     assert.equal(precioCatalogoAgente({...p,precioAntes:200}).final,precioCatalogoAgente(p).final);
     assert.equal(precioCatalogoAgente({...p,descuentoPorcentaje:10,precioAntes:200}).final,100*(1+tarifa/100)*.9);
   }
+});
+
+test('Gestión ordena dentro de cada marca conservando los lugares de otras marcas y sueltos', async () => {
+  const { ordenarPresentacionesMarcadas } = await cargar('marcasCatalogo.js');
+  const lista = [{ id: 1, name: 'Brocha 1 1/2', marca: { id: 1 } }, { id: 2, name: 'Suelto' },
+    { id: 3, name: 'Candado 50', marca: { id: 2 } }, { id: 4, name: 'Brocha 1/2', marca: { id: 1 } },
+    { id: 5, name: 'Candado 25', marca: { id: 2 } }];
+  const copia = JSON.stringify(lista);
+  assert.deepEqual(ordenarPresentacionesMarcadas(lista).map(p => p.id), [4, 2, 5, 1, 3]);
+  assert.equal(JSON.stringify(lista), copia);
 });
 
 test('buscar por marca encuentra productos que no la dicen en el nombre', async () => {

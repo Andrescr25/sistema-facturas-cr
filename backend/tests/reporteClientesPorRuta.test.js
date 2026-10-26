@@ -52,8 +52,11 @@ describe('Reporte clientes por ficha actual — PostgreSQL local y ROLLBACK', { 
     const clientes = await reporte(f.a.id);
     assert.deepEqual(clientes.map(c => c.rotacion.proximaVisita).filter(Boolean), clientes.map(c => c.rotacion.proximaVisita).filter(Boolean).sort());
     assert.equal(clientes.find(c => c.id === f.ahora.id).rotacion.estado, 'hoy');
-    assert.equal(clientes[0].id, f.atrasado.id);
-    assert.equal(clientes[0].rotacion.faltan, -7);
+    // El gemelo tiene una fecha fija (17/10); el atrasado, hoy menos7.
+    // Al avanzar el calendario puede dejar de ser el primero de la ruta.
+    const atrasado = clientes.find(c => c.id === f.atrasado.id);
+    assert.equal(atrasado.rotacion.estado, 'atrasado');
+    assert.equal(atrasado.rotacion.faltan, -7);
 
   });
   test('sin ruta incluye la ficha sin asignación y el documento sin ficha, sin mezclar por nombre', async () => {

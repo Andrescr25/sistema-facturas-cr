@@ -1309,3 +1309,13 @@ catálogo agente, ahora está recortando mucho la imagen que pongo». La foto de
 una línea se sube sin recortar y el banner del catálogo toma su proporción, con
 topes de alto por tamaño de pantalla. Las fotos que ya subió no hay que
 volver a subirlas. [Resultado](grafo/modulo/catalogo-agente.md).
+
+
+## 2026-10-25 — Nombres coherentes dentro de marcas
+
+El usuario autoriza normalizar los nombres de todos los productos que ya
+pertenecen a marcas, revisando lo agrupado por Claude. Mismo orden de producto,
+medida, características y empaque, buena ortografía y legibilidad; presentaciones
+en orden alfabético español con tamaños numéricos/fraccionarios coherentes.
+Se conservan medidas ausentes y artículos que comparten nombre.
+[Resultado](grafo/modulo/marcas-catalogo.md).

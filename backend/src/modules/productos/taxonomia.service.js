@@ -113,7 +113,7 @@ async function arbol() {
  */
 const SELECT_FILA = `
   SELECT p.id, p.nombre, p.referencia, p.imagen_url, p.precio_sin_iva, p.costo_con_iva,
-         p.activo, p.oculto, p.categoria_id,
+         p.activo, p.oculto, p.categoria_id, p.marca_catalogo_id,
          c.nombre AS categoria, i.tarifa,
          s.id AS sub_id, s.nombre AS sub_nombre,
          COALESCE(r.unidades_mes, 0) AS unidades_mes,
@@ -143,6 +143,7 @@ function aFila(r) {
     referencia: r.referencia,
     imagen_url: r.imagen_url,
     categoria_id: r.categoria_id,
+    marca_catalogo_id: r.marca_catalogo_id,
     categoria: r.categoria,
     activo: r.activo,
     oculto: r.oculto,

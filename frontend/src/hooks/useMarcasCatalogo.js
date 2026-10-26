@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import api from '../services/api'
 import { normalizarTexto } from '../utils/catalogoAgentePersonalizacion'
+import { compararPresentaciones } from '../utils/marcasCatalogo'
 
 const mensajeDe = e => e.response?.data?.message || 'No se pudo guardar la marca.'
 
@@ -76,7 +77,7 @@ export function useMarcasCatalogo(subcategoriaId) {
 
   const visibles = useMemo(() => {
     const t = normalizarTexto(busqueda)
-    return datos.productos.filter(p => !t || normalizarTexto(`${p.nombre} ${p.referencia || ''}`).includes(t))
+    return datos.productos.filter(p => !t || normalizarTexto(`${p.nombre} ${p.referencia || ''}`).includes(t)).sort(compararPresentaciones)
   }, [datos.productos, busqueda])
 
   const alternar = id => setSeleccionados(prev => {

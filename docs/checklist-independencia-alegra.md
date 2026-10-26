@@ -1247,3 +1247,19 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   Build/lint correctos. Sin SQL nuevo; entrega inicial en developer.
 
 [Detalle](grafo/modulo/reporte-contador.md).
+
+
+### Nombres uniformes y orden de las presentaciones — 2026-10-25
+
+- [x] Revisar agrupaciones de Claude y preparar nombres legibles para los296
+  productos de59 marcas; mantener medidas, empaque y referencias.
+- [x] Corrección por plan revisado, con respaldo, bitácora y transacción;
+  no sobrescribir ediciones/reasignaciones posteriores. Sin SQL nuevo.
+- [x] Orden alfabético español y medidas fraccionarias reales compartido por
+  agente, clientes, lista y selección de Gestión → Marcas.14 pruebas de la regla y
+  seguridad del lote con PostgreSQL local/ROLLBACK; ensayo296+3 correcto.
+- [x] Suite249 archivos:3047correctas/0fallos/3omisiones históricas;37
+  dirigidas finales y48 comprobaciones Chromium390/700/1440. Builds/lint correctos.
+- [ ] Registrar aplicación del lote con respaldo y verificación de campos.
+
+[Detalle](informes/nombres-marcas-2026-10-25.md).

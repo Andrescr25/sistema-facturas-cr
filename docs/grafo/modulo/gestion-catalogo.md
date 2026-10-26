@@ -230,3 +230,11 @@ abre su fotografía individual sin consultar al servidor. Ver
 [[modulo/marcas-catalogo]]. SQL064 aplicada en producción el2026-10-22 antes de publicar a main, con
 respaldo restaurado y verificación de conservación de los datos. Ver
 [publicación](../../informes/despliegue-marcas-2026-10-22.md).
+
+
+2026-10-25: los nombres de productos en marcas se corrigen con plan revisado,
+respaldo y bitácora. Gestión mantiene su diseño; su consulta trae el id de
+marca en la misma lectura y las filas ordenan medidas (incluidas fracciones)
+entre productos de esa marca, conservando los lugares de sueltos/otras marcas.
+El selector de presentaciones usa el mismo comparador que agente y clientes.
+Ver [[modulo/marcas-catalogo]].

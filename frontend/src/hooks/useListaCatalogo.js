@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api from '../services/api'
 import { compararSubcategorias, normalizarTexto } from '../utils/catalogoAgentePersonalizacion'
 import { urlArchivo } from '../utils/urlArchivo'
+import { ordenarPresentacionesMarcadas } from '../utils/marcasCatalogo'
 
 // Solo se demora la búsqueda global (para no mandar una petición por tecla):
 // entrar a una categoría dispara al toque, no hay nada que esperar.
@@ -31,6 +32,7 @@ function aFila(p) {
     unidadesMes: p.unidades_mes,
     proveedor: p.proveedor,
     subcategoria: p.subcategoria,
+    marca: p.marca_catalogo_id ? { id: p.marca_catalogo_id } : null,
     activo: p.activo,
     oculto: p.oculto,
     original: p
@@ -155,7 +157,7 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
     }
 
     const lista = subsOrdenadas.map((s) => ({
-      clave: `s${s.id}`, sub: s, nombre: s.nombre, productos: porSub.get(s.id) || []
+      clave: `s${s.id}`, sub: s, nombre: s.nombre, productos: ordenarPresentacionesMarcadas(porSub.get(s.id) || [])
     }))
 
     // Productos colgados de una subcategoría que el árbol no trae (una
@@ -164,7 +166,7 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
     for (const [id, lista2] of porSub) {
       if (conocidas.has(id)) continue
       const nombre = lista2[0].subcategoria.nombre
-      lista.push({ clave: `s${id}`, sub: { id, nombre, productos: lista2.length, inactiva: true }, nombre: `${nombre} (desactivada)`, productos: lista2 })
+      lista.push({ clave: `s${id}`, sub: { id, nombre, productos: lista2.length, inactiva: true }, nombre: `${nombre} (desactivada)`, productos: ordenarPresentacionesMarcadas(lista2) })
     }
 
     lista.push({ clave: 'sin', sub: null, nombre: 'Sin clasificar', sinClasificar: true, productos: sueltos })

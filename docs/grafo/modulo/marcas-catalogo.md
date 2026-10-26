@@ -4,6 +4,12 @@ tipo: modulo
 titulo: Marcas del catálogo — foto general y presentaciones con vista previa
 estado: vigente
 archivos:
+  - frontend/src/hooks/useListaCatalogo.js
+  - backend/src/modules/productos/taxonomia.service.js
+  - backend/src/modules/productos/nombresCatalogo.service.js
+  - backend/scripts/catalogo/corregir-nombres.js
+  - backend/tests/nombresCatalogoLocal.test.js
+  - docs/informes/nombres-marcas-2026-10-25.md
   - frontend/src/components/catalogo/PortadaMarca.jsx
   - backend/src/utils/marcaPublica.js
   - docs/informes/marcas-clientes-2026-10-24.md
@@ -33,7 +39,7 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria]
   relacionado: [modulo/portal-clientes, modulo/gestion-catalogo, modulo/catalogo-agente, decision/orden-canonico-compartido, leccion/fotos-del-catalogo-en-la-tablet, leccion/precio-sin-iva-costo-con-iva, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-24
+medido: 2026-10-25
 ---
 
 ## La foto de marca es una portada — 2026-10-22
@@ -150,3 +156,23 @@ su precio y sus acciones: el agente solo muestra; el portal ofrece carrito
 por presentación a cuentas autenticadas y vista previa pública. Los dos
 servicios usan `marcaPublica` para proyectar la imagen sin metadatos privados.
 No cambia Gestión ni requiere SQL nuevo; ver [[modulo/portal-clientes]].
+
+
+2026-10-25: el usuario pide un patrón legible para todos los productos en
+marcas, conservando medidas y empaque. La corrección es un plan revisado de
+nombres del maestro, no una transformación automática de lo que escriba cada
+proveedor. El servicio permite previsualizar, aplica en una transacción con
+respaldo previo y bitácora, comprueba el nombre y marca esperados y es
+idempotente. Sólo actualiza nombre/fecha; referencias, precios, asociaciones,
+fotos y líneas históricas se conservan. No tiene una ruta pública ni requiere
+migración. Alcance y comprobaciones en el informe enlazado.
+
+`compararPresentaciones` comparte el alfabeto español y el orden de medidas
+entre agrupación de ambos catálogos, lista de Gestión y selección de Marcas. Interpreta
+fracciones y números mixtos: 1/2, 3/4, 1, 1 1/4, 1 1/2, 2; `numeric: true`
+por sí solo ordenaba mal esas medidas. No cambia el orden manual de categorías,
+subcategorías o productos sueltos, ni modifica los objetos recibidos.
+
+La consulta de Gestión incluye marca_catalogo_id en su proyección existente,
+sin JOIN ni petición adicional. Sus filas sólo intercambian posiciones entre
+presentaciones de la misma marca: los productos sueltos conservan su lugar.
