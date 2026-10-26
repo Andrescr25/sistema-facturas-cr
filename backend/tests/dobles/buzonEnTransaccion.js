@@ -20,25 +20,7 @@
  * (docs/grafo/leccion/el-doble-de-prisma-no-valida-tipos.md).
  */
 
-function baseEnTransaccion(conexion, prefijo = 'sp') {
-  let nivel = 0;
-  const ejecutar = (sql, params) => conexion.query(sql, params);
-  return {
-    query: ejecutar,
-    pool: {
-      query: ejecutar,
-      connect: async () => ({
-        query: async (sql, params) => {
-          if (sql === 'BEGIN') return conexion.query(`SAVEPOINT ${prefijo}_${++nivel}`);
-          if (sql === 'COMMIT') return conexion.query(`RELEASE SAVEPOINT ${prefijo}_${nivel--}`);
-          if (sql === 'ROLLBACK') return conexion.query(`ROLLBACK TO SAVEPOINT ${prefijo}_${nivel--}`);
-          return ejecutar(sql, params);
-        },
-        release() {}
-      })
-    }
-  };
-}
+const { baseEnTransaccion } = require('../../src/utils/baseEnTransaccion');
 
 function prismaDelBuzon(conexion) {
   const mapeoDeLinea = (f) => {

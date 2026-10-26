@@ -4,6 +4,11 @@ tipo: modulo
 titulo: Gestión de Catálogo — el rediseño de main, sobre el maestro propio
 estado: vigente
 archivos:
+  - backend/src/modules/productos/proformaCatalogo.service.js
+  - backend/src/utils/baseEnTransaccion.js
+  - backend/scripts/catalogo/aplicar-proforma.js
+  - backend/tests/proformaCatalogoLocal.test.js
+  - docs/informes/corofijas-proforma-2026-10-25.md
   - docs/informes/despliegue-main-2026-10-13.md
   - backend/migrations/independencia/030_subcategoria_en_producto.sql
   - backend/src/modules/productos/taxonomia.service.js
@@ -238,3 +243,28 @@ marca en la misma lectura y las filas ordenan medidas (incluidas fracciones)
 entre productos de esa marca, conservando los lugares de sueltos/otras marcas.
 El selector de presentaciones usa el mismo comparador que agente y clientes.
 Ver [[modulo/marcas-catalogo]].
+
+
+## Proforma de llaves corofijas — 2026-10-25
+
+El usuario pide nombres EXACTOS del documento y margen28% sobre sus costos,
+y confirma completar las25 medidas y retirar/recrear las fichas ambiguas.
+Se conservan8 ids identificados; las fichas13(1107, compra relacionada como17)
+y15 duplicada(1115) se desactivan y salen de la marca, conservando documentos,
+relaciones y existencias. Se crean17 medidas, dentro de la misma agrupación.
+La Stanley9/16 de otro proveedor no pertenece a esta proforma.
+
+El plan usa el precio con descuento10% SIN IVA, precio=neto/(1−0,28),
+y costo con la tarifa propia; no hay redondeo comercial que altere la meta.
+C/M del nombre son empaque informativo: la cotización tiene cantidad1 y el
+factor de relación es1. La proforma no registra compra, CxP, pagos, mensajes
+fiscales ni movimiento de inventario. La reducción de algunos precios está
+solicitada por el margen explícito del usuario, sobre el nuevo costo.
+
+El corrector compone los servicios existentes de producto, estado,
+subcategoría, marca y relación. El adaptador de conexión (extraído del doble
+que ya se utilizaba) convierte sus transacciones en SAVEPOINT para confirmar
+el lote completo, con respaldo previo y control de datos cambiados desde la
+revisión. Un reintento con el estado previo se rechaza antes de duplicar.
+Historial de precios y bitácora siguen siendo los de Gestión.
+[Fuente, cálculos y verificación](../../informes/corofijas-proforma-2026-10-25.md).

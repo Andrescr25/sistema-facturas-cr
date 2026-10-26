@@ -176,3 +176,11 @@ subcategorías o productos sueltos, ni modifica los objetos recibidos.
 La consulta de Gestión incluye marca_catalogo_id en su proyección existente,
 sin JOIN ni petición adicional. Sus filas sólo intercambian posiciones entre
 presentaciones de la misma marca: los productos sueltos conservan su lugar.
+
+
+La proforma de corofijas del25/10 sustituye el formato de nombre normalizado
+por el nombre literal FERRAWY del documento para estas25 presentaciones.
+Ocho ids identificados se conservan,17 son nuevos y2 ambiguos se desactivan
+sin borrar historia ni inventario. La agrupación conserva foto y subcategoría;
+el orden numérico de medidas sigue siendo compartido. Ver
+[[modulo/gestion-catalogo]] y su informe de proforma.

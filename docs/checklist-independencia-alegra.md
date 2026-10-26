@@ -1265,3 +1265,18 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   restantes de los productos iguales; edición concurrente de foto respetada.
 
 [Detalle](informes/nombres-marcas-2026-10-25.md).
+
+
+### Corofijas: proforma y margen28% — 2026-10-25
+
+- [x] Revisar PDF00397028,25 medidas, descuento10% e IVA13% separados.
+- [x] Usuario confirma completar25 y retirar/recrear las fichas ambiguas:
+  conservar8, crear17 y desactivar2 sin borrar historia ni existencias.
+- [x] Componer servicios existentes, respaldo y transacción; guardar costo
+  neto con IVA propio, precio neto con margen28%, relación por unidad y trazas.
+  Ensayo completo local correcto; proforma no registra compra ni stock.
+- [x] Suite250 archivos:3053correctas/0fallos/0canceladas/3omisiones históricas;
+  30comprobaciones Chromium390/700/1440, ambos builds y Excel25filas correctos.
+- [ ] Registrar aplicación respaldada y verificación del resultado real.
+
+[Detalle](informes/corofijas-proforma-2026-10-25.md).

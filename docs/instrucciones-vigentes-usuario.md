@@ -1319,3 +1319,14 @@ medida, características y empaque, buena ortografía y legibilidad; presentacio
 en orden alfabético español con tamaños numéricos/fraccionarios coherentes.
 Se conservan medidas ausentes y artículos que comparten nombre.
 [Resultado](grafo/modulo/marcas-catalogo.md).
+
+
+## 2026-10-25 — Corofijas según proforma, margen28%
+
+El usuario entrega la proforma00397028 de IMPAFESA y pide nombres tal cual
+aparecen y margen28% sobre sus costos. Confirma completar las25 medidas y
+permite retirar/recrear las fichas confusas (13 con compra vinculada como17
+y dos15). Se conservan los ids inequívocos, se retiran las dos ambiguas sin
+borrar documentos y se crean las medidas faltantes. El nombre literal de
+esta proforma sustituye para ellas la normalización general previa.
+[Resultado](grafo/modulo/gestion-catalogo.md).
