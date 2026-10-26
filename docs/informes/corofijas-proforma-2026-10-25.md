@@ -90,3 +90,13 @@ La reversión exige revisar cambios posteriores y usar servicios con bitácora:
 desactivar las 17 nuevas, restaurar los campos anteriores de las 10 fichas,
 la selección/nombre de marca y las relaciones correspondientes, conservando
 fotos, existencias y documentos. No se ejecuta automáticamente.
+
+
+## Ajuste solicitado después de aplicar la proforma
+
+El usuario pide quitar del nombre del maestro los datos de empaque C/M.
+Las 25 presentaciones conservan marca, medida, costo y precio con margen del
+28 %; por ejemplo, `FERRAWY LLAVE COROFIJA 10MM`. El nombre literal original
+permanece en la proforma y en la relación del proveedor. La corrección usa
+el mismo corrector de nombres con respaldo; ver
+[nombres del catálogo](nombres-marcas-2026-10-25.md).

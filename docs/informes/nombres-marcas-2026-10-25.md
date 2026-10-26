@@ -8,8 +8,9 @@ tres del usuario, conservando nombres. La lectura de planificación encuentra
 ## Criterio
 
 Producto → medida/capacidad/número → marca y características → empaque.
-Mayúscula inicial, tildes, abreviaturas legibles y separadores uniformes.
-Por ejemplo: `Tornillo para gypsum 1 1/2 · punta fina · 1 × 100`, también
+Nombre completo en MAYÚSCULAS, con tildes, abreviaturas legibles y separadores
+uniformes (ajuste posterior confirmado por el usuario el mismo día).
+Por ejemplo: `TORNILLO PARA GYPSUM 1 1/2 · PUNTA FINA · 1 × 100`, también
 para el producto que antes intercalaba `1X100` antes de `PTA FINA`.
 El término comercial [gypsum](https://mcprod.epaenlinea.com/tornillos-gypsum.html)
 se escribe igual en ambos grupos de tornillos. `Masquintaype` pasa a `Cinta
@@ -81,3 +82,32 @@ restaura fotos ni asignaciones de la captura inicial. Los planes, respaldos
 y planes inversos para deshacer están en el directorio privado
 `~/.local/share/sistema-facturas-cr/respaldos/20261025-nombres-marcas-codex/`.
 No se corrieron pruebas contra producción ni se enviaron mensajes reales.
+
+
+## Ajuste posterior: mayúsculas y empaque de corofijas
+
+El usuario confirma que su formato de producto es todo en mayúsculas. Se
+conservan las correcciones de ortografía, tildes, medidas y orden; los títulos
+de las marcas mantienen su formato actual. Para las 25 corofijas solicita
+quitar únicamente los sufijos de caja/master del documento, como
+`(C 10)(M 300)`: queda `FERRAWY LLAVE COROFIJA 10MM`. El empaque comercial
+de otros productos, como `1 × 100` en tornillos, se conserva.
+
+Se prepara un plan de 314 productos vigentes en las agrupaciones revisadas:
+289 del lote anterior y las 25 corofijas actuales. Se reutiliza el corrector
+existente con nombre/marca esperados, respaldo previo y bitácora. El plan no
+incluye las dos fichas corofijas retiradas ni modifica sus documentos.
+El ensayo completo sobre copia local y ROLLBACK confirmó los 314 nombres,
+25 corofijas sin C/M, todos los demás campos de producto intactos, las huellas
+de documentos/mapeos/movimientos iguales y repetición sin escrituras. Las
+7 pruebas PostgreSQL existentes del corrector volvieron a pasar. No cambia
+código de ejecución ni pantallas; sigue vigente la suite completa del mismo
+código (3053 correctas, 0 fallos/cancelaciones y 3 omisiones históricas).
+La aplicación real se confirmó con el corrector existente y respaldo previo;
+la lectura posterior confirmó los 314 nombres, las 25 corofijas sin C/M y
+todos los demás campos de producto idénticos al respaldo inmediato. Las
+marcas completas, incluidas sus fotos, quedaron iguales. Aplicado por Codex
+el 25/10/2026. Plan, filas previas/posteriores, verificación y plan inverso
+están en `~/.local/share/sistema-facturas-cr/respaldos/20261025-nombres-mayusculas-codex/`.
+Para deshacer se usa `deshacer.json` con el mismo corrector y un respaldo
+nuevo; valida que no haya ediciones/reasignaciones posteriores.

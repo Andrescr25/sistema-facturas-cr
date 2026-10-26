@@ -1330,3 +1330,13 @@ y dos15). Se conservan los ids inequívocos, se retiran las dos ambiguas sin
 borrar documentos y se crean las medidas faltantes. El nombre literal de
 esta proforma sustituye para ellas la normalización general previa.
 [Resultado](grafo/modulo/gestion-catalogo.md).
+
+
+## 2026-10-25 — Productos en mayúsculas; corofijas sin C/M
+
+El usuario aclara: «uso el formato del nombre del producto todo en mayúscula».
+Se ajustan los nombres normalizados anteriormente conservando orden,
+ortografía y medidas. Pide quitar de las corofijas la información de empaque
+como `(C 10)(M 300)`, conservando el resto del nombre y el margen del 28 %.
+La preferencia se refiere a los productos; no pide cambiar los títulos de
+las marcas ni las descripciones originales de sus proveedores.

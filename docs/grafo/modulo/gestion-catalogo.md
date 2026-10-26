@@ -268,3 +268,10 @@ el lote completo, con respaldo previo y control de datos cambiados desde la
 revisión. Un reintento con el estado previo se rechaza antes de duplicar.
 Historial de precios y bitácora siguen siendo los de Gestión.
 [Fuente, cálculos y verificación](../../informes/corofijas-proforma-2026-10-25.md).
+
+
+Ajuste posterior del 25/10: el usuario usa nombres de producto en MAYÚSCULAS.
+El lote ya normalizado conserva su ortografía y medidas con ese formato;
+las corofijas además eliminan del nombre los datos de empaque C/M. El cambio
+usa `corregir-nombres.js` con plan y respaldo, sin tocar costos, precios,
+referencias, imágenes ni líneas de documentos. Ver [[modulo/marcas-catalogo]].

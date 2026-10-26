@@ -1282,3 +1282,16 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   28 %, foto, existencias y documentos previos conservados. Sin SQL nuevo.
 
 [Detalle](informes/corofijas-proforma-2026-10-25.md).
+
+
+### Nombres en mayúsculas y corofijas sin C/M — 2026-10-25
+
+- [x] Preparar 314 nombres: mayúsculas con tildes y medidas conservadas; las
+  25 corofijas sin sufijos C/M. Títulos de marca y demás empaques conservados.
+- [x] Ensayo local 314 + ROLLBACK, huellas de documentos/mapeos/movimientos
+  iguales y repetición sin escrituras; 7 pruebas PostgreSQL correctas.
+- [x] Codex aplica con el corrector existente, respaldo y bitácora. Lectura
+  real confirma 314 nombres y 25 sin C/M; todos los demás campos de producto
+  y las marcas completas iguales. Plan inverso conservado, sin SQL nuevo.
+
+[Detalle](informes/nombres-marcas-2026-10-25.md).

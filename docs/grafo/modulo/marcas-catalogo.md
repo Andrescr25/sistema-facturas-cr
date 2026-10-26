@@ -184,3 +184,10 @@ Ocho ids identificados se conservan,17 son nuevos y2 ambiguos se desactivan
 sin borrar historia ni inventario. La agrupación conserva foto y subcategoría;
 el orden numérico de medidas sigue siendo compartido. Ver
 [[modulo/gestion-catalogo]] y su informe de proforma.
+
+
+Ajuste posterior del 25/10: los nombres de producto normalizados se guardan
+en MAYÚSCULAS, conservando tildes, medidas y orden. Las 25 corofijas omiten
+los sufijos de empaque C/M; conservan su margen del 28 %. Los títulos de
+marca mantienen su presentación. Se reutiliza el corrector revisado con
+respaldo; no cambia el código de las pantallas ni los documentos guardados.
