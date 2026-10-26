@@ -1300,3 +1300,12 @@ a través de revisión de precios». Para lo que llega sin factura electrónica:
 mano». Sobre la cantidad eligió «repartir lo que ingresó»: lo que se usó para
 un cliente no sirve para otro. «No llegó» sigue siempre disponible.
 [Resultado](grafo/decision/solo-llega-lo-que-ingreso.md).
+
+
+## 2026-10-25 — La imagen de las líneas no se recorta
+
+El usuario: «quiero que hagas un ajuste en las imágenes de las líneas en el
+catálogo agente, ahora está recortando mucho la imagen que pongo». La foto de
+una línea se sube sin recortar y el banner del catálogo toma su proporción, con
+topes de alto por tamaño de pantalla. Las fotos que ya subió no hay que
+volver a subirlas. [Resultado](grafo/modulo/catalogo-agente.md).

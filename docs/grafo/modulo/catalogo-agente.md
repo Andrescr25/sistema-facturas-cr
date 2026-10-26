@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar
 estado: vigente
 archivos:
+  - frontend/src/utils/proporcionImagenCategoria.js
+  - backend/tests/proporcionImagenCategoria.test.js
+  - backend/src/modules/productos/categorias.imagen.optimizar.js
   - frontend/src/components/catalogo-agente/VistaPreviaProducto.jsx
   - frontend/src/pages/CatalogoAgente.jsx
   - frontend/src/utils/catalogoAgentePersonalizacion.js
@@ -44,7 +47,7 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/marcas-catalogo, modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-22
+medido: 2026-10-25
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -139,9 +142,23 @@ colección, desmontar, preferir movimiento reducido o fallar la observación
 retiran el velo y dejan la versión compacta. La preferencia también se escucha
 si cambia durante una escena.
 
-`<picture>` elige la WebP vertical en móvil y horizontal en escritorio. La
-compresión ya prepara resolución para la escena grande (hasta 1920×1080 y
-960×1280), en vez de las miniaturas de la cabecera original. Lazy/async/prioridad baja, altura reservada y
+`<picture>` elige la WebP liviana (hasta 960×720) en móvil y la grande (hasta
+1920×1080) en escritorio. La compresión ya prepara resolución para la escena
+grande, en vez de las miniaturas de la cabecera original.
+
+**La foto se ve completa, con su proporción (2026-10-25).** El usuario: «ahora
+está recortando mucho la imagen que pongo». El banner era una franja fija de
+168/200/216 px y de la foto de Línea Eléctrica se veía el 52 % del alto en el
+teléfono (con la copia recortada), el 56 % en tablet y el 38 % en escritorio.
+Ahora, con las medidas guardadas, el banner toma la forma de la foto
+(`--relacion`, clase `introduccion-categoria--foto`) con topes de alto de
+260/340/420 px; se ve el 100 %, 95 % y 74 %. `width: 100%` es obligatorio: sin
+él el tope de alto angosta el banner. Sin medidas (foto de respaldo de un
+producto, copias sin metadatos) conserva la franja. La copia móvil solo se
+usa si tiene la misma proporción que la grande (`urlMovilUsable`,
+`proporcionImagenCategoria.js`): las anteriores al cambio quedaron recortadas
+y se ignoran. El degradado oscuro de la izquierda (donde va el nombre) no
+cambió. Lazy/async/prioridad baja, altura reservada y
 respaldo si falla, sin bloquear el recorrido. Las dos variantes se descargan
 al actualizar el catálogo y viajan en su caché existente:
 [[leccion/fotos-del-catalogo-en-la-tablet]].

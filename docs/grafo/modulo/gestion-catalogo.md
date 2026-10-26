@@ -46,7 +46,7 @@ aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
   relacionado: [modulo/marcas-catalogo, modulo/rentabilidad, tabla/venta-linea, modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, tabla/alegra-products-cache]
-medido: 2026-10-22
+medido: 2026-10-25
 ---
 
 QUÉ ES
@@ -96,12 +96,20 @@ y lápiz. Abre vista previa, elegir/reemplazar, guardar o quitar. JPG/PNG/WebP,
 máximo 8 MiB; el servidor valida los bytes y limita la decodificación a 24
 megapíxeles, corrige orientación y elimina metadatos. Para la transición de
 pantalla completa guarda dos WebP estáticos: escritorio hasta 1920×1080/800
-KiB y móvil vertical hasta 960×1280/400 KiB. Calidad 84, luego 80/76 si hace
+KiB y móvil hasta 960×720/400 KiB. Calidad 84, luego 80/76 si hace
 falta; solo después reduce a 1600/1440 o 800/720 de ancho. Si ni eso cumple,
 rechaza la foto en lugar de guardarla como una miniatura borrosa. Nunca
-agranda una fuente pequeña. El motivo central se conserva en ambos recortes.
-Las fotos ya comprimidas con la versión anterior requieren volver a subir su
-original. Selección, vista previa y envío viven en `useImagenCategoria.js`.
+agranda una fuente pequeña.
+
+**No recorta (2026-10-25).** Hasta ese día forzaba 16:9 en escritorio y una
+columna vertical 3:4 en el teléfono con `fit: 'cover'`: la de Línea Eléctrica
+(1870×841, el bombillo a la derecha) llegaba al teléfono con el bombillo
+partido por la mitad. Ahora usa `fit: 'inside'`: solo reduce, conserva la
+proporción y las dos variantes son la misma foto en dos tamaños. Las fotos
+subidas ANTES quedaron recortadas en su copia móvil (no se recupera): la
+cabecera la ignora y usa la grande, así que no hace falta volver a subirlas
+(ver [[modulo/catalogo-agente]]). La vista previa del modal mide la foto
+elegida y toma su proporción. Selección, vista previa y envío viven en `useImagenCategoria.js`.
 `POST/DELETE /maestro/categorias/:id/imagen` requieren Gestión de Catálogo.
 No se admite URL externa ni se modifica la foto de un producto.
 

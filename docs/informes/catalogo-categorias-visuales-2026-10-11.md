@@ -1,5 +1,11 @@
 # Categorías visuales del catálogo del agente — 2026-10-11
 
+> **Actualización 2026-10-25:** el recorte y la franja fija que describe este
+> informe cambiaron. La foto se sube sin recortar (`fit: 'inside'`) y el
+> banner toma su proporción real, con topes de 260/340/420 px. Ver
+> [[modulo/catalogo-agente]] y [[modulo/gestion-catalogo]]. Las medidas de las
+> tablas de abajo son las de la primera versión.
+
 Este informe conserva la primera implementación (solo entradas de cabecera).
 El [refinamiento posterior solicitado por el usuario](catalogo-revelado-subcategorias-2026-10-11.md)
 añade subcategorías visibles y entrada de productos; sus mediciones son las vigentes.

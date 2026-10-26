@@ -106,8 +106,10 @@ export function fotosEnOrden(productos, completar = null, configCatalogo = null)
     }
   }
   // Ambas versiones deben seguir dentro de esta MISMA caché: su renovación
-  // borra lo ajeno al conjunto. Un teléfono usa la vertical y una tablet puede
-  // cambiar de orientación sin depender de volver a tener señal.
+  // borra lo ajeno al conjunto. Un teléfono usa la liviana y una tablet puede
+  // cambiar de orientación sin depender de volver a tener señal. (Una copia
+  // móvil subida antes del 2026-10-25 quedó recortada y la cabecera la ignora;
+  // se baja igual: este archivo no importa nada y pesa unos 40 KB.)
   for (const categoria of configCatalogo?.categorias || []) {
     for (const ruta of [categoria.imagen?.urlMovil, categoria.imagen?.url]) {
       const url = direccionCompleta(ruta, completar)

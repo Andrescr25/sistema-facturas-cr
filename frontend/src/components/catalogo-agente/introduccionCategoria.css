@@ -49,3 +49,27 @@
 }
 @keyframes categoria-entrada { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes categoria-foto { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: scale(1); } }
+
+/* LA FOTO SE MUESTRA CON SU PROPORCIÓN REAL (2026-10-25, el usuario: «ahora está
+   recortando mucho la imagen que pongo»). La franja fija de 168 a 216 px dejaba
+   ver el pedazo del medio: en Línea Eléctrica, el bombillo salía cortado.
+   Con las medidas de la foto, el banner toma su forma (`--relacion`, que pone
+   el componente) y `cover` ya casi no recorta. Los topes impiden que una foto
+   cuadrada o una pantalla ancha lo vuelvan media pantalla; solo ahí se recorta.
+   Sin `min-height` explícito, la altura nunca baja de lo que ocupa el texto
+   (`overflow: clip` no es un contenedor con scroll, así que conserva ese
+   mínimo; en un Safari viejo cae a `hidden` y el recorte del texto solo se
+   vería con un nombre larguísimo en una foto muy panorámica).
+   `width: 100%` es necesario: sin él, cuando el tope de alto actúa el
+   navegador achica también el ANCHO para conservar la proporción y el banner
+   queda más angosto que la pantalla (medido: 934 px en vez de 1256). */
+.introduccion-categoria--foto {
+  overflow: hidden;
+  overflow: clip;
+  width: 100%;
+  aspect-ratio: var(--relacion);
+  min-height: auto;
+  max-height: 260px;
+}
+@media (min-width: 640px) { .introduccion-categoria--foto { max-height: 340px; } }
+@media (min-width: 1024px) { .introduccion-categoria--foto { max-height: 420px; } }

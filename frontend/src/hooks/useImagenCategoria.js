@@ -5,13 +5,20 @@ export default function useImagenCategoria({ onGuardar, onQuitar, onGuardada }) 
   const [abierta, setAbierta] = useState(false)
   const [archivo, setArchivo] = useState(null)
   const [preview, setPreview] = useState(null)
+  // Las medidas de la foto elegida: con ellas la vista previa toma la misma
+  // proporción que tendrá en el catálogo (IntroduccionCategoria).
+  const [medidas, setMedidas] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
   useEffect(() => {
-    if (!archivo) { setPreview(null); return }
+    if (!archivo) { setPreview(null); setMedidas(null); return }
     const url = URL.createObjectURL(archivo)
     setPreview(url)
-    return () => URL.revokeObjectURL(url)
+    let vigente = true
+    const foto = new Image()
+    foto.onload = () => { if (vigente) setMedidas({ ancho: foto.naturalWidth, alto: foto.naturalHeight }) }
+    foto.src = url
+    return () => { vigente = false; URL.revokeObjectURL(url) }
   }, [archivo])
 
   const abrir = () => setAbierta(true)
@@ -36,5 +43,5 @@ export default function useImagenCategoria({ onGuardar, onQuitar, onGuardada }) 
     } finally { setGuardando(false) }
   }
 
-  return { abierta, archivo, preview, guardando, error, abrir, cerrar, elegir, guardar }
+  return { abierta, archivo, preview, medidas, guardando, error, abrir, cerrar, elegir, guardar }
 }

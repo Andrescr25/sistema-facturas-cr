@@ -2,6 +2,7 @@ import { memo, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowDownRight, Layers } from 'lucide-react'
 import { urlArchivo } from '../../utils/urlArchivo'
 import { observarEntradaCategoria, terminarEntrada } from '../../utils/entradaCategoria'
+import { relacionDeImagen, urlMovilUsable } from '../../utils/proporcionImagenCategoria'
 import './introduccionCategoria.css'
 
 /**
@@ -27,18 +28,24 @@ function IntroduccionCategoria({ nombre, cantidad, imagen, numero, total, nivel 
   const elemento = useRef(null)
   const [fallida, setFallida] = useState(null)
   const foto = imagen?.url && fallida !== imagen.url ? imagen : null
+  // Una foto subida desde Gestión trae sus medidas: el banner toma su proporción.
+  // La de respaldo (de un producto) o una sin medidas conserva la franja de siempre.
+  const relacion = foto && !foto.esProducto ? relacionDeImagen(foto) : null
+  const movil = foto && !foto.esProducto ? urlMovilUsable(foto) : null
   const Titulo = `h${nivel}`
   useLayoutEffect(() => {
     if (animar) return observarEntradaCategoria(elemento.current)
   }, [animar])
 
   return (
-    <div ref={elemento} onAnimationEnd={terminarEntrada} className={`introduccion-categoria ${foto?.esProducto ? 'introduccion-categoria--producto' : ''}`}>
+    <div ref={elemento} onAnimationEnd={terminarEntrada}
+      className={`introduccion-categoria ${foto?.esProducto ? 'introduccion-categoria--producto' : ''} ${relacion ? 'introduccion-categoria--foto' : ''}`}
+      style={relacion ? { '--relacion': `${foto.ancho} / ${foto.alto}` } : undefined}>
       {/* Reserva su espacio antes de cargar. Una imagen lenta o rota no
           oculta el nombre ni modifica la altura de la sección. */}
       {foto ? (
         <picture className="introduccion-categoria__imagen" aria-hidden="true">
-          {foto.urlMovil && <source media="(max-width: 767px)" srcSet={urlArchivo(foto.urlMovil)} />}
+          {movil && <source media="(max-width: 767px)" srcSet={urlArchivo(movil)} />}
           <img src={urlArchivo(foto.url)} alt="" width={foto.ancho || 960} height={foto.alto || 540}
             loading="lazy" decoding="async" fetchpriority="low"
             onLoad={mostrarCuandoEsteLista} onError={() => setFallida(foto.url)} />
