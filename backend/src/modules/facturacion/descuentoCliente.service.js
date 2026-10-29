@@ -59,15 +59,27 @@ async function aplicarDescuentoEn(db, cliente, items, productos, claveDe, { revi
 }
 
 /** Endpoint privado de Facturación: los costos nunca van al catálogo público. */
-async function condicionesDelCliente(clienteId) {
+/**
+ * El descuento del cliente y en qué productos aplica.
+ *
+ * `conCostos: false` (quien no puede cambiar precio, 2026-10-29): no viajan los
+ * costos —con ellos se saca el margen de cada producto—. Como ese usuario
+ * siempre factura a precio de lista, el servidor manda ya resuelto en qué
+ * productos aplica (`aplica`), con la misma regla que usa al guardar.
+ */
+async function condicionesDelCliente(clienteId, { conCostos = true } = {}) {
   const { rows: [cliente] } = await pool.query('SELECT id, activo, descuento_global FROM cliente WHERE id = $1', [idValido(clienteId)]);
   if (!cliente) throw httpError(404, 'No existe ese cliente.');
   if (!cliente.activo) throw httpError(400, 'Ese cliente está inactivo.');
   const porcentaje = Number(cliente.descuento_global) || 0;
-  if (!porcentaje) return { clienteId: cliente.id, porcentaje, costos: [] };
+  if (!porcentaje) return { clienteId: cliente.id, porcentaje, costos: [], ...(conCostos ? {} : { aplica: [] }) };
   const { rows } = await pool.query(`SELECT p.id, p.precio_sin_iva AS precio, p.costo_con_iva AS costo, i.tarifa
     FROM producto p LEFT JOIN impuesto i ON i.id = p.impuesto_id WHERE p.activo = true`);
   const costos = await costosParaDescuentoEn(pool, rows);
+  if (!conCostos) {
+    const aplica = rows.filter(p => descuentoAplicable(Number(p.precio), costos.get(Number(p.id)), porcentaje) > 0).map(p => p.id);
+    return { clienteId: cliente.id, porcentaje, costos: [], aplica };
+  }
   return { clienteId: cliente.id, porcentaje, costos: [...costos].map(([id, costoSinIva]) => ({ id, costoSinIva })) };
 }
 

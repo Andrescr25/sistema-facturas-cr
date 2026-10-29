@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { ShoppingCart, PackageOpen } from 'lucide-react'
 import { fotoDe } from '../utils/cacheImagenesCatalogo'
+import { puedeAccion } from '../utils/modulos'
+import { useAuth } from '../contexts/AuthContext'
 import { useFacturacion } from '../hooks/useFacturacion'
 import { useFacturasEmitidas } from '../hooks/useFacturasEmitidas'
 import useCatalogoAlDia from '../hooks/useCatalogoAlDia'
@@ -84,6 +86,13 @@ export default function Facturacion() {
     calcularSubtotal, calcularImpuestos, calcularDescuentoGlobal, calcularTotal,
     impuestoPrincipal
   } = useFacturacion()
+  // Sin «Cambiar precio y descuento» la línea no ofrece esos campos (el
+  // servidor igual lo rechaza: facturacion/precioFijo.js).
+  const { usuario } = useAuth()
+  const precioFijo = !puedeAccion(usuario, 'precio-factura')
+  // Sin «Cobrar al facturar» no se ofrece cómo pagó: la factura queda
+  // pendiente, que ya es lo que viene elegido (ver SelectorPago).
+  const puedeCobrar = puedeAccion(usuario, 'cobro-factura')
 
   // VA ANTES DEL RETURN DE CARGA, y no después: un hook que solo se llama en
   // algunos renders rompe el orden y React tumba la pantalla entera con
@@ -260,6 +269,7 @@ export default function Facturacion() {
                           onCambiarDescuento={actualizarDescuentoItem}
                           onCambiarDescripcion={actualizarDescripcionItem}
                           DESCRIPCION_MAX={DESCRIPCION_MAX}
+                          precioFijo={precioFijo}
                           foto={fotoDe(productosPorId.get(item.productoId ?? item.id))}
                         />
                       ))}
@@ -276,7 +286,7 @@ export default function Facturacion() {
 
               {hayLineas && (
                 <PanelCobro
-              metodosPago={metodosPago}
+              metodosPago={puedeCobrar ? metodosPago : []}
               metodoPagoId={metodoPagoId}
               onElegirMetodoPago={elegirMetodoPago}
               referenciaPago={referenciaPago}

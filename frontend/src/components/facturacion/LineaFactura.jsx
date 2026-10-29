@@ -39,6 +39,7 @@ export default function LineaFactura({
   onCambiarDescuento,
   onCambiarDescripcion,
   DESCRIPCION_MAX,
+  precioFijo = false,
   foto
 }) {
   const subtotal = montosLineaFacturacion(item).base
@@ -95,37 +96,41 @@ export default function LineaFactura({
         </div>
       </div>
 
-      {/* Precio y descuento: de tableta para arriba. */}
-      <div className="mt-3 hidden gap-3 border-t border-neutro-100 pt-3 md:grid md:grid-cols-2">
-        <div>
-          <label className="label mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-600">
-            Precio unitario
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={item.price}
-            onChange={(e) => onCambiarPrecio(index, e.target.value)}
-            className="input h-10 w-full rounded-xl border border-neutro-300 text-sm focus:border-primario-500"
-            inputMode="decimal"
-          />
+      {/* Precio y descuento: de tableta para arriba, y solo con el permiso
+          «Cambiar precio y descuento». Sin él se ven junto al subtotal,
+          como en el teléfono, pero no se cambian. */}
+      {!precioFijo && (
+        <div className="mt-3 hidden gap-3 border-t border-neutro-100 pt-3 md:grid md:grid-cols-2">
+          <div>
+            <label className="label mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-600">
+              Precio unitario
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={item.price}
+              onChange={(e) => onCambiarPrecio(index, e.target.value)}
+              className="input h-10 w-full rounded-xl border border-neutro-300 text-sm focus:border-primario-500"
+              inputMode="decimal"
+            />
+          </div>
+          <div>
+            <label className="label mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-600">
+              Descuento %
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={item.discount || 0}
+              onChange={(e) => onCambiarDescuento(index, e.target.value)}
+              className="input h-10 w-full rounded-xl border border-neutro-300 text-sm focus:border-primario-500"
+              inputMode="numeric"
+            />
+          </div>
         </div>
-        <div>
-          <label className="label mb-1 block text-[11px] font-bold uppercase tracking-wider text-neutro-600">
-            Descuento %
-          </label>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            value={item.discount || 0}
-            onChange={(e) => onCambiarDescuento(index, e.target.value)}
-            className="input h-10 w-full rounded-xl border border-neutro-300 text-sm focus:border-primario-500"
-            inputMode="numeric"
-          />
-        </div>
-      </div>
+      )}
 
       {/* Nota de línea */}
       {detalleAbierto ? (

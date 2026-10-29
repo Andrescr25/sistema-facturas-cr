@@ -311,7 +311,31 @@ function normalizarRuta(ruta) {
   return texto.length > 1 ? texto.replace(/\/+$/, '') : texto;
 }
 
-const CLAVES = MODULOS.map(m => m.clave);
+/**
+ * Permisos de ACCIÓN dentro de un módulo: algo que se otorga aparte, aunque la
+ * persona ya tenga el módulo. Se guardan en `usuario_modulo` igual que un
+ * módulo (un administrador los tiene todos), pero no son una pantalla: no
+ * tienen ruta ni menú, y en el tablero de permisos salen debajo de su módulo.
+ *
+ * `precio-factura` (2026-10-29, el usuario sobre el agente de ventas: «el
+ * precio y descuento no lo puede tocar»). Quien no lo tiene factura al precio
+ * de lista, con solo la oferta vigente o el descuento del cliente; lo hace
+ * valer el servidor (`facturacion/precioFijo.js`). La migración 068 se lo dio a
+ * todos los que ya tenían Facturación: a nadie le cambió nada.
+ *
+ * `cobro-factura` (misma fecha: «de momento este no podrá cobrar»). Quien no
+ * lo tiene factura sin registrar el pago en el momento: la factura queda
+ * pendiente y la cobra quien tenga Cuentas por Cobrar. También lo dio la 068
+ * a quien ya facturaba.
+ *
+ * Espejo en frontend/src/utils/modulos.js; una prueba compara las claves.
+ */
+const PERMISOS_DE_ACCION = [
+  { clave: 'precio-factura', modulo: 'facturacion', nombre: 'Cambiar precio y descuento' },
+  { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' }
+];
+
+const CLAVES = [...MODULOS.map(m => m.clave), ...PERMISOS_DE_ACCION.map(a => a.clave)];
 
 /** Los módulos agrupados como se muestran en la pantalla de permisos. */
 function porGrupo() {
@@ -400,7 +424,7 @@ function accionDeAdmin(metodo, rutaCruda) {
 }
 
 module.exports = {
-  MODULOS, CLAVES, COMPARTIDAS, RUTAS_ADMIN, ACCIONES_ADMIN,
+  MODULOS, CLAVES, COMPARTIDAS, RUTAS_ADMIN, ACCIONES_ADMIN, PERMISOS_DE_ACCION,
   porGrupo, clasificarRuta, moduloDeRuta, esCompartida, esRutaAdmin, accionDeAdmin, normalizarRuta,
   modulosQuePuedenUsar
 };

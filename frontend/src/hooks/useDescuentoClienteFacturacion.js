@@ -14,8 +14,11 @@ export default function useDescuentoClienteFacturacion(cliente, online, facturaE
     }
     setEstado({ clienteId: id, porcentaje: 0, costos: new Map(), error: '', cargando: true })
     consultarDescuentoCliente(cliente, online).then(data => {
+      // Sin permiso de cambiar precio no llegan costos: llega `aplica`, ya
+      // resuelto por el servidor (ver descuentoCliente.service.js).
       if (vigente) setEstado({ clienteId: id, porcentaje: data.porcentaje,
-        costos: new Map(data.costos.map(p => [Number(p.id), Number(p.costoSinIva)])), error: '', cargando: false })
+        costos: new Map((data.costos || []).map(p => [Number(p.id), Number(p.costoSinIva)])),
+        ...(Array.isArray(data.aplica) ? { aplica: new Set(data.aplica.map(Number)) } : {}), error: '', cargando: false })
     }).catch(error => {
       if (vigente) setEstado({ clienteId: id, porcentaje: 0, costos: new Map(),
         error: error.response?.data?.message || error.message, cargando: false })

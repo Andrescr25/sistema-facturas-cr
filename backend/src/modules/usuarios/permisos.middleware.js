@@ -74,9 +74,25 @@ function requirePermiso(req, res, next) {
         });
       }
 
+      // Para que el controlador sepa, sin otra consulta, si tiene un permiso
+      // de acción (ver `puedeHacer`).
+      req.permisos = permisos;
       next();
     })
     .catch(next);
 }
 
-module.exports = { requirePermiso };
+/**
+ * ¿Quien hace esta petición tiene ese permiso de acción (PERMISOS_DE_ACCION)?
+ *
+ * Sin usuario no hay nada que restringir (lo mismo que `requirePermiso`). Los
+ * permisos salen de la base, no del token: quitárselo a alguien vale en su
+ * próxima petición, no cuando le venza la sesión.
+ */
+async function puedeHacer(req, clave) {
+  if (!req.usuario) return true;
+  const permisos = req.permisos || await permisosDe(req.usuario.id);
+  return Boolean(permisos && (permisos.esAdmin || permisos.modulos.has(clave)));
+}
+
+module.exports = { requirePermiso, puedeHacer };

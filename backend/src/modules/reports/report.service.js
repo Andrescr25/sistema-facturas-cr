@@ -197,23 +197,6 @@ class ReportService {
       error: 'La limpieza global fue retirada. Los faltantes conservan su historial.' };
   }
 
-  /**
-   * Obtener historial (No usado en vistas directas del reporte de proveedores pero mantenido por compatibilidad)
-   */
-  async getProcessingHistory() {
-    try {
-      const result = await query(`
-        SELECT * FROM procesamientos
-        ORDER BY fecha_procesamiento DESC
-        LIMIT 50
-      `);
-      return { success: true, data: result.rows };
-    } catch (error) {
-      console.error('❌ Error obteniendo historial:', error);
-      return { success: false, error: error.message, status: error.status };
-    }
-  }
-
 }
 
 module.exports = ReportService;

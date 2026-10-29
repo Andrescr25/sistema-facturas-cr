@@ -21,8 +21,9 @@ archivos:
   - backend/tests/sinPrefijoAlegra.test.js
   - backend/tests/dobles/sinComentarios.js
   - backend/tests/permisosPrestados.test.js
+  - frontend/src/components/usuarios/TableroPermisos.jsx
 aristas:
-  relacionado: [modulo/caja-general, modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
+  relacionado: [decision/agente-de-ventas-monitoreado, modulo/caja-general, modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-21
 ---
 
@@ -231,3 +232,11 @@ prefijo específico `/cuentas-por-cobrar/propios/caja/movimientos`. Cobros,
 deudores y cierre del día siguen en CxC. SQL063 conserva el acceso previo
 copiando sólo sus permisos, después asignables/revocables independientemente.
 El menú y la API separan los dos módulos. Ver [[modulo/caja-general]].
+
+PERMISOS DE ACCIÓN (2026-10-29). Además de los módulos (pantallas) hay
+permisos que se otorgan aparte dentro de un módulo: `PERMISOS_DE_ACCION`
+(`precio-factura`, `cobro-factura`), en `usuario_modulo` igual que un módulo.
+`requirePermiso` deja los permisos en `req.permisos` y el controlador pregunta
+con `puedeHacer(req, clave)`; la pantalla, con `puedeAccion`. En el tablero
+salen debajo de su módulo y se van con él. Ver
+[[decision/agente-de-ventas-monitoreado]].

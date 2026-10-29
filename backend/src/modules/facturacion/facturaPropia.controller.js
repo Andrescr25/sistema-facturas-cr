@@ -14,6 +14,7 @@ const correoFactura = require('./facturaCorreo.service');
 const { ofertasVigentes } = require('./ofertas.service');
 const { obtenerInicio } = require('../portal-clientes/portal-clientes.inicio.service');
 const { pool } = require('../../../config/database');
+const { puedeHacer } = require('../usuarios/permisos.middleware');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
 function fallo(res, error, contexto) {
@@ -32,7 +33,12 @@ function falloCorreo(res, error) {
 
 module.exports = {
   descuentoCliente: async (req, res) => {
-    try { res.json({ success: true, data: await require('./descuentoCliente.service').condicionesDelCliente(req.params.clienteId) }); }
+    // Sin «Cambiar precio y descuento» no viajan los costos (de ahí sale el
+    // margen): el servidor manda ya resuelto en qué productos aplica.
+    try {
+      const conCostos = await puedeHacer(req, 'precio-factura');
+      res.json({ success: true, data: await require('./descuentoCliente.service').condicionesDelCliente(req.params.clienteId, { conCostos }) });
+    }
     catch (error) { fallo(res, error, 'descuento del cliente'); }
   },
   /** GET /facturacion/facturas/:id/correo — propuesta revisable antes de enviar. */
@@ -187,7 +193,8 @@ module.exports = {
   /** PUT /facturacion/facturas/:id — solo mientras no sea electrónica ni tenga cobros. */
   editar: async (req, res) => {
     try {
-      const factura = await servicio.editarFactura(req.params.id, req.body || {}, req.usuario?.id);
+      const precioFijo = !(await puedeHacer(req, 'precio-factura'));
+      const factura = await servicio.editarFactura(req.params.id, req.body || {}, req.usuario?.id, { precioFijo });
       res.json({ success: true, data: factura });
     } catch (error) {
       fallo(res, error, 'editar');
@@ -213,7 +220,11 @@ module.exports = {
       // La clave la pone quien arma la factura, una sola vez, y la repite en
       // cada reenvío: mandarla dos veces devuelve la que ya existe.
       const { claveIdempotencia, ...datos } = req.body || {};
-      const factura = await servicio.crearFactura(datos, req.usuario?.id, { clave: claveIdempotencia || null });
+      // Sin el permiso «Cambiar precio y descuento» se factura a precio de
+      // lista (facturacion/precioFijo.js). Lo decide la base, no el token.
+      const precioFijo = !(await puedeHacer(req, 'precio-factura'));
+      const sinCobro = !(await puedeHacer(req, 'cobro-factura'));
+      const factura = await servicio.crearFactura(datos, req.usuario?.id, { clave: claveIdempotencia || null, precioFijo, sinCobro });
 
       // Una factura ya creada no es un error: se responde 200 con lo que hay.
       const status = factura.yaExistia ? 200 : 201;

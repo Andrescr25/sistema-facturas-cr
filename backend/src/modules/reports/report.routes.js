@@ -30,7 +30,4 @@ router.delete('/faltantes/proveedor/limpiar', reportController.clearProcessedSup
 // 2026-09-30 (rama independencia-alegra, migración 032): ninguna pantalla los
 // llamaba y leían la tabla vieja de proveedores por `productos.proveedor_id`.
 
-// Historial de procesamientos
-router.get('/historial', reportController.getProcessingHistory);
-
 module.exports = router;

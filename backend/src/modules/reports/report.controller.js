@@ -126,20 +126,6 @@ class ReportController {
       return ResponseHelper.error(res, error.message, 500);
     }
   };
-
-  getProcessingHistory = async (req, res) => {
-    try {
-      const result = await this.reportService.getProcessingHistory();
-
-      if (result.success) {
-        return ResponseHelper.success(res, result.data, 'Historial obtenido');
-      }
-
-      return ResponseHelper.error(res, result.error, result.status || 400);
-    } catch (error) {
-      return ResponseHelper.error(res, error.message, 500);
-    }
-  };
 }
 
 module.exports = ReportController;

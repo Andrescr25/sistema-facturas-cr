@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import {
   Home, FileText, Users, TrendingUp, DollarSign, Link2, Printer, Settings,
   Menu, X, CreditCard, ClipboardList, Boxes, Image, Wallet, PieChart,
-  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck, History, CalendarDays
+  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck, History, CalendarDays, Tablet
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 import SidebarNav from './SidebarNav'
@@ -62,6 +62,10 @@ const navigation = [
       { name: 'Reporte Contador', href: '/reporte-contador', icon: Landmark }
     ]
   },
+  // Se abre a pantalla completa y sin sesión (decisión del 2026-09-04, ver
+  // App.jsx). Antes no estaba en el menú: se llegaba por el Dashboard o el
+  // ingreso, y el agente de ventas (2026-10-29) no tiene Dashboard.
+  { name: 'Catálogo del agente', href: '/catalogo-agente', icon: Tablet },
   { name: 'Configuración', href: '/configuracion', icon: Settings },
   // Solo para administradores. Se filtra abajo junto con todo lo demás.
   { name: 'Usuarios y permisos', href: '/usuarios', icon: ShieldCheck, soloAdmin: true },

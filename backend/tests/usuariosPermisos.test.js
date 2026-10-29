@@ -167,7 +167,7 @@ describe('requirePermiso — el middleware que protege de verdad', () => {
 
   test('deja pasar una ruta compartida sin mirar permisos', async () => {
     const { middleware } = cargarConDobles({});
-    const r = await correr(middleware, { ruta: '/reportes/historial', usuario: { id: 4 } });
+    const r = await correr(middleware, { ruta: '/catalogos/productos', usuario: { id: 4 } });
     assert.equal(r.bloqueado, false);
   });
 

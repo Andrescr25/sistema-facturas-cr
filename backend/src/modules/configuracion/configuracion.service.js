@@ -263,6 +263,10 @@ async function catalogosParaOperar() {
   const e = todo.empresa;
   return {
     ...todo,
+    // De una cuenta de dinero, para operar alcanza con saber cuál es. El
+    // número y el saldo inicial son de Configuración: esta lectura la tiene
+    // cualquiera que haya entrado, también un agente de ventas.
+    cuentas: todo.cuentas.map(({ id, nombre, tipo }) => ({ id, nombre, tipo })),
     empresa: e && {
       nombre: e.nombre, nombre_comercial: e.nombre_comercial, tipo_identificacion: e.tipo_identificacion,
       identificacion: e.identificacion, telefono: e.telefono, correo: e.correo,

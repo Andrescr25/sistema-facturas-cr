@@ -16,13 +16,21 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
   const grupos = porGrupo()
   const tiene = (clave) => esAdmin || seleccionados.includes(clave)
 
-  const alternar = (clave) => {
+  // Quitar un módulo quita también sus permisos de acción: sin la pantalla
+  // no significan nada, y si se le vuelve a dar el módulo arranca sin ellos.
+  const sinAccionesDe = (lista, modulos) => {
+    const huerfanas = modulos.flatMap(m => (m.acciones || []).map(a => a.clave))
+    return lista.filter(c => !huerfanas.includes(c))
+  }
+
+  const alternar = (clave, modulo = null) => {
     if (esAdmin || deshabilitado) return
-    onCambiar(
-      seleccionados.includes(clave)
-        ? seleccionados.filter(c => c !== clave)
-        : [...seleccionados, clave]
-    )
+    if (seleccionados.includes(clave)) {
+      const sin = seleccionados.filter(c => c !== clave)
+      onCambiar(modulo ? sinAccionesDe(sin, [modulo]) : sin)
+    } else {
+      onCambiar([...seleccionados, clave])
+    }
   }
 
   const alternarGrupo = (modulos) => {
@@ -31,7 +39,7 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
     const todos = claves.every(c => seleccionados.includes(c))
     onCambiar(
       todos
-        ? seleccionados.filter(c => !claves.includes(c))
+        ? sinAccionesDe(seleccionados.filter(c => !claves.includes(c)), modulos)
         : [...new Set([...seleccionados, ...claves])]
     )
   }
@@ -66,24 +74,13 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
               {modulos.map(m => {
                 const marcado = tiene(m.clave)
                 return (
-                  <button
-                    key={m.clave}
-                    type="button"
-                    onClick={() => alternar(m.clave)}
-                    disabled={esAdmin || deshabilitado}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-neutro-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                  >
-                    <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${
-                        marcado ? 'border-exito-600 bg-exito-600 text-white' : 'border-neutro-300 bg-white'
-                      }`}
-                    >
-                      {marcado && <Check size={11} strokeWidth={3} />}
-                    </span>
-                    <span className={`text-[13px] ${marcado ? 'font-semibold text-neutro-900' : 'text-neutro-500'}`}>
-                      {m.nombre}
-                    </span>
-                  </button>
+                  <div key={m.clave}>
+                    <Casilla marcado={marcado} nombre={m.nombre} onClick={() => alternar(m.clave, m)} deshabilitado={esAdmin || deshabilitado} />
+                    {/* Sus permisos de acción, debajo y solo si tiene el módulo. */}
+                    {marcado && (m.acciones || []).map(a => (
+                      <Casilla key={a.clave} sangria marcado={tiene(a.clave)} nombre={a.nombre} onClick={() => alternar(a.clave)} deshabilitado={esAdmin || deshabilitado} />
+                    ))}
+                  </div>
                 )
               })}
             </div>
@@ -91,5 +88,28 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
         )
       })}
     </div>
+  )
+}
+
+/** Una casilla del tablero: la de un módulo o, con `sangria`, la de un permiso de acción. */
+function Casilla({ marcado, nombre, onClick, deshabilitado, sangria = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={deshabilitado}
+      className={`flex w-full items-center gap-2.5 py-2 pr-3 text-left hover:bg-neutro-50 disabled:cursor-not-allowed disabled:hover:bg-transparent ${sangria ? 'pl-9' : 'pl-3'}`}
+    >
+      <span
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${
+          marcado ? 'border-exito-600 bg-exito-600 text-white' : 'border-neutro-300 bg-white'
+        }`}
+      >
+        {marcado && <Check size={11} strokeWidth={3} />}
+      </span>
+      <span className={`${sangria ? 'text-[12px]' : 'text-[13px]'} ${marcado ? 'font-semibold text-neutro-900' : 'text-neutro-500'}`}>
+        {nombre}
+      </span>
+    </button>
   )
 }

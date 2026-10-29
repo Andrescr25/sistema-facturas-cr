@@ -206,6 +206,17 @@ describe('lectura', () => {
     assert.equal('terminos_pago' in r.empresa, true);
   });
 
+  test('para operar, de una cuenta de dinero solo va cuál es: sin número ni saldo inicial', async () => {
+    // Esta lectura la tiene cualquiera que haya entrado, también un agente de
+    // ventas (2026-10-29). Pagos a Proveedores y Recurrentes usan id, nombre y tipo.
+    const { servicio } = montar((sql) => {
+      if (/FROM cuenta_dinero/.test(sql)) return { rows: [{ id: 3, nombre: 'BCR', tipo: 'banco', numero: 'CR0000', saldo_inicial: 500000, descripcion: 'x', activo: true }] };
+      return { rows: [] };
+    });
+    const r = await servicio.catalogosParaOperar();
+    assert.deepEqual(r.cuentas, [{ id: 3, nombre: 'BCR', tipo: 'banco' }]);
+  });
+
   test('la pantalla de Configuración ve también lo inactivo', async () => {
     const { servicio, log } = montar(() => ({ rows: [] }));
     await servicio.obtenerConfiguracion();

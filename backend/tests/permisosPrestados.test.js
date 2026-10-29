@@ -86,10 +86,11 @@ describe('las escrituras de /reportes tienen dueño; leer sigue compartido', () 
     }
   });
 
-  test('el historial de reportes conserva lectura compartida; los faltantes tienen dueño', () => {
-    for (const ruta of ['/reportes/historial']) {
-      assert.equal(esCompartida(ruta), true, ruta);
-    }
+  test('lo que no tiene dueño debajo de /reportes sigue compartido; los faltantes tienen dueño', () => {
+    // El historial de procesamientos (/reportes/historial) se borró el
+    // 2026-10-29: ninguna pantalla lo usaba y cualquier sesión lo leía.
+    assert.equal(esCompartida('/reportes/otra-lectura'), true);
+    assert.equal(esCompartida('/reportes/faltantes/cliente'), false);
   });
 
   test('ninguna ruta que ESCRIBE debajo de /reportes queda compartida', () => {

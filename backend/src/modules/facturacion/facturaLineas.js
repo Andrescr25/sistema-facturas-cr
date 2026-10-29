@@ -3,6 +3,9 @@ const { httpError } = require('../../utils/validacion');
 
 const dinero = (v) => Math.round((Number(v) || 0) * 100) / 100;
 
+/** "₡45.145,80", para los mensajes. `toLocaleString('es-CR')` daba "₡45 145,8". */
+const enColones = (v) => `₡${dinero(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+
 /**
  * Recorta un texto al largo de su columna.
  *
@@ -177,4 +180,4 @@ function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set
   };
 }
 
-module.exports = { armarLineas, exigirClienteMostrado, recortar, dinero };
+module.exports = { armarLineas, exigirClienteMostrado, recortar, dinero, enColones };

@@ -1376,3 +1376,16 @@ faltar", está perfecto, pero ampliémoslo más, haz que me recomiende más
 productos que el cliente lleva». La fila se queda como está; se suman más
 productos (también los que el cliente llevó una sola vez este último año) y un
 botón «Ver más» que los despliega. [Resultado](grafo/modulo/facturacion.md).
+
+
+## 2026-10-29 — Agente de ventas monitoreado (F1: usuario y candados)
+
+El usuario: «voy a contratar un agente de ventas, este se hará cargo de las
+rutas poco a poco, pero quiero tenerlo completamente monitoreado»; acceso a
+Facturación, Catálogo del agente y Preventa (cola de visitas, facturar o
+«próxima visita», ubicación). Decidió: «el precio y descuento no lo puede
+tocar»; «de momento este no podrá cobrar … pero igual esto desarróllalo para
+futuro: cuánto dinero recogió por usuario y todo más acomodado a cierre de
+caja»; próxima visita por defecto y personalizable («que el agente planifique
+bien cómo va a visitar»); GPS en cada acción. «Vamos poco a poco, función a
+función.» [Resultado](grafo/decision/agente-de-ventas-monitoreado.md).

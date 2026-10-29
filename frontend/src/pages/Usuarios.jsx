@@ -33,7 +33,7 @@ export default function Usuarios() {
   const resumenModulos = (u) => {
     if (u.esAdmin) return 'Todos los módulos'
     if (!u.modulos?.length) return 'Sin acceso a ningún módulo'
-    if (u.modulos.length === MODULOS.length) return 'Todos los módulos'
+    if (MODULOS.every(m => u.modulos.includes(m.clave))) return 'Todos los módulos'
     const nombres = u.modulos
       .map(c => MODULOS.find(m => m.clave === c)?.nombre)
       .filter(Boolean)

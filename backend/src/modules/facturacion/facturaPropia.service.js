@@ -52,12 +52,11 @@ const CAMPOS_FACTURA = {
   anotaciones: { etiqueta: 'Anotaciones', validar: texto(4000) }
 };
 
-const { armarLineas, exigirClienteMostrado, recortar, dinero } = require('./facturaLineas');
+const { armarLineas, exigirClienteMostrado, recortar, dinero, enColones } = require('./facturaLineas');
 const { aplicarDescuentoEn } = require('./descuentoCliente.service');
+const { exigirPrecioDeLista } = require('./precioFijo');
 const { estaTomadaEn, mensajeDeFacturaTomada } = require('../warehouse/tomadaEnBodega');
 
-/** "₡45.145,80", para los mensajes. `toLocaleString('es-CR')` daba "₡45 145,8". */
-const enColones = (v) => `₡${dinero(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 
 /**
  * Postgres avisa "value too long for type character varying(40)" pero NO dice
@@ -308,7 +307,7 @@ function revisarPedido(datos) {
 }
 
 /** Cliente, productos, líneas y el guardado — todo sobre la transacción recibida. */
-async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preciosConImpuesto = false, exigirDescuentoRevisado = false } = {}) {
+async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preciosConImpuesto = false, exigirDescuentoRevisado = false, precioFijo = false } = {}) {
   const clienteFacturado = await buscarCliente(cliente, {
     clienteId: datos.clienteId,
     alegraClienteId: datos.client
@@ -331,6 +330,14 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preci
   // el id de Alegra (`client`) y se resolvió por ESE id.
   if (datos.clienteId !== undefined && datos.clienteId !== null && datos.clienteId !== '') {
     exigirClienteMostrado(datos, clienteFacturado);
+  }
+
+  // Sin el permiso «Cambiar precio y descuento»: precio de lista y solo los
+  // descuentos que pone el sistema (precioFijo.js). Se revisa lo que mandó la
+  // pantalla, antes de que el descuento del cliente lo complete.
+  if (precioFijo) {
+    await exigirPrecioDeLista(cliente, items, (i) => porClave.get(String(usaAlegraId ? i.id : i.productoId)),
+      { porcentajeCliente: clienteFacturado.descuento_global });
   }
 
   const descontados = await aplicarDescuentoEn(cliente, clienteFacturado, items, productos,
@@ -368,10 +375,17 @@ async function crearFacturaEnTransaccion(cliente, datos, usuarioId, { preciosCon
 /**
  * @param {object} datos  lo que manda la pantalla: cliente, líneas, fecha…
  * @param {number} usuarioId
- * @param {{clave?: string|null}} opciones  clave de idempotencia
+ * @param {{clave?: string|null, precioFijo?: boolean, sinCobro?: boolean}} opciones  clave de
+ *   idempotencia; `precioFijo`: quien factura no puede cambiar precio y descuento;
+ *   `sinCobro`: no puede registrar el pago al facturar (ver usuarios/modulos.js)
  */
-async function crearFactura(datos, usuarioId, { clave = null } = {}) {
+async function crearFactura(datos, usuarioId, { clave = null, precioFijo = false, sinCobro = false } = {}) {
   const pedido = revisarPedido(datos);
+  // Se rechaza, no se ignora: si la pantalla mandó un cobro, alguien cree que
+  // cobró. Que la factura quede pendiente sin decirlo sería peor.
+  if (sinCobro && datos.cobro && datos.cobro.metodoPagoId) {
+    throw Object.assign(httpError(403, 'Su usuario no registra cobros: la factura tiene que quedar pendiente de pago.'), { code: 'SIN_COBRO' });
+  }
 
   if (clave) {
     const reserva = await idempotencia.reservar(clave, datos);
@@ -394,7 +408,7 @@ async function crearFactura(datos, usuarioId, { clave = null } = {}) {
   }
 
   try {
-    const factura = await enTransaccion((cliente) => emitirCon(cliente, datos, pedido, usuarioId, { exigirDescuentoRevisado: true }));
+    const factura = await enTransaccion((cliente) => emitirCon(cliente, datos, pedido, usuarioId, { exigirDescuentoRevisado: true, precioFijo }));
 
     if (clave) {
       await idempotencia.marcarCreada(clave, { id: factura.id, numero: factura.numero });
@@ -516,7 +530,7 @@ async function anularFactura(id, { motivo } = {}, usuarioId) {
  * factura corregida puede tener menos líneas que antes, y actualizar dejaría
  * las sobrantes.
  */
-async function editarFactura(id, datos, usuarioId) {
+async function editarFactura(id, datos, usuarioId, { precioFijo = false } = {}) {
   return enTransaccion(async (cliente) => {
     // Una factura que Bodega ya tomó no se edita (2026-10-23): nota de crédito
     // para quitar, factura nueva para agregar. Se bloquea la fila antes de
@@ -524,7 +538,7 @@ async function editarFactura(id, datos, usuarioId) {
     // Impresión NO pasa por acá: llama a `editarFacturaEn` directo.
     const { rows: [fila] } = await cliente.query('SELECT id, numero FROM factura WHERE id = $1 FOR UPDATE', [idValido(id)]);
     if (fila && await estaTomadaEn(cliente, fila.id)) throw httpError(409, mensajeDeFacturaTomada(fila.numero));
-    return editarFacturaEn(cliente, id, datos, usuarioId);
+    return editarFacturaEn(cliente, id, datos, usuarioId, { precioFijo });
   });
 }
 
@@ -532,7 +546,7 @@ async function editarFactura(id, datos, usuarioId) {
  * Lo mismo, dentro de una transacción que ya abrió otro: Impresión edita la
  * factura y marca la cola en la misma (reprinting/procesarImpresion.js).
  */
-async function editarFacturaEn(cliente, id, datos, usuarioId) {
+async function editarFacturaEn(cliente, id, datos, usuarioId, { precioFijo = false } = {}) {
   const n = idValido(id);
   const items = Array.isArray(datos?.items) ? datos.items : null;
   if (!items || items.length === 0) throw httpError(400, 'La factura no tiene líneas.');
@@ -555,6 +569,20 @@ async function editarFacturaEn(cliente, id, datos, usuarioId) {
     const { rows: yaEnLaFactura } = await cliente.query(
       'SELECT DISTINCT producto_id FROM factura_linea WHERE factura_id = $1 AND producto_id IS NOT NULL', [n]
     );
+    if (precioFijo) {
+      // Lo que ya tenía la factura también vale: el precio de lista pudo
+      // cambiar desde que se emitió, y eso no lo hizo quien la edita.
+      const { rows: anteriores } = await cliente.query(
+        `SELECT producto_id, array_agg(precio_unitario) AS precios, array_agg(descuento_porcentaje) AS descuentos
+           FROM factura_linea WHERE factura_id = $1 AND producto_id IS NOT NULL GROUP BY producto_id`, [n]);
+      const { rows: [fichaCliente] } = await cliente.query(
+        'SELECT descuento_global FROM cliente WHERE id = $1', [datos.clienteId ?? factura.cliente_id]);
+      await exigirPrecioDeLista(cliente, items, (i) => porClave.get(String(usaAlegraId ? i.id : i.productoId)), {
+        porcentajeCliente: fichaCliente?.descuento_global,
+        anteriores: new Map(anteriores.map(r => [Number(r.producto_id), { precios: r.precios, descuentos: r.descuentos }]))
+      });
+    }
+
     const armado = armarLineas(items, porClave, (i) => (usaAlegraId ? i.id : i.productoId), {
       yaFacturados: new Set(yaEnLaFactura.map(r => r.producto_id)),
       // Al editar, lo que ya estaba en la factura no se revisa; lo que se agrega, sí.

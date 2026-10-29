@@ -3,6 +3,8 @@ import { colones, colonesExacto } from '../../utils/colones'
 import { num, baseDe, esDetallePropio } from '../../utils/facturaVista'
 import { CELDA } from './estilosFactura'
 import PrecioConIva from './PrecioConIva'
+import { puedeAccion } from '../../utils/modulos'
+import { useAuth } from '../../contexts/AuthContext'
 
 /**
  * Las líneas de la factura. En edición cada dato se vuelve un input EN SU
@@ -22,6 +24,9 @@ import PrecioConIva from './PrecioConIva'
 export default function LineasFactura({ filas, editando, edicion, totales }) {
   const { hayDescuento } = totales
   const comun = { editando, edicion, totales }
+  // Sin «Cambiar precio y descuento», al editar se ven pero no se cambian.
+  const { usuario } = useAuth()
+  const fijo = { ...comun, editando: editando && puedeAccion(usuario, 'precio-factura') }
   return (
     <>
       {/* Teléfono y tablet angosta: una tarjeta por línea. */}
@@ -34,8 +39,8 @@ export default function LineasFactura({ filas, editando, edicion, totales }) {
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
               <Campo etiqueta="Cantidad"><Cantidad l={l} i={i} {...comun} /></Campo>
-              <Campo etiqueta="Precio unit."><Precio l={l} i={i} {...comun} /></Campo>
-              {hayDescuento && <Campo etiqueta="Descuento"><Descuento l={l} i={i} {...comun} /></Campo>}
+              <Campo etiqueta="Precio unit."><Precio l={l} i={i} {...fijo} /></Campo>
+              {hayDescuento && <Campo etiqueta="Descuento"><Descuento l={l} i={i} {...fijo} /></Campo>}
               <Campo etiqueta="Impuesto"><Impuesto l={l} totales={totales} /></Campo>
             </dl>
             <div className="mt-2 flex items-baseline justify-between border-t border-dashed border-neutro-200 pt-2">
@@ -66,8 +71,8 @@ export default function LineasFactura({ filas, editando, edicion, totales }) {
               <tr key={`${l.productoId}-${i}`} className="border-b border-neutro-100 last:border-0">
                 <td className="px-4 py-2.5"><Producto l={l} i={i} {...comun} /></td>
                 <td className="px-2 py-2.5 text-center"><Cantidad l={l} i={i} {...comun} /></td>
-                <td className="px-2 py-2.5 text-right"><Precio l={l} i={i} {...comun} /></td>
-                {hayDescuento && <td className="px-2 py-2.5 text-right"><Descuento l={l} i={i} {...comun} /></td>}
+                <td className="px-2 py-2.5 text-right"><Precio l={l} i={i} {...fijo} /></td>
+                {hayDescuento && <td className="px-2 py-2.5 text-right"><Descuento l={l} i={i} {...fijo} /></td>}
                 <td className="px-2 py-2.5 text-right"><Impuesto l={l} totales={totales} /></td>
                 <td className="px-4 py-2.5 text-right font-bold text-neutro-900">{colones(baseDe(l))}</td>
                 {editando && <td className="px-2 py-2.5 text-right"><Quitar l={l} i={i} edicion={edicion} /></td>}

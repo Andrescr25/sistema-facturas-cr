@@ -43,6 +43,23 @@ export const MODULOS = [
   { clave: 'configuracion', nombre: 'Configuración', grupo: 'Herramientas', ruta: '/configuracion' }
 ]
 
+/**
+ * Permisos de ACCIÓN dentro de un módulo: se otorgan aparte aunque la persona
+ * tenga el módulo, y en el tablero salen debajo de él. Espeja
+ * `PERMISOS_DE_ACCION` del backend (usuarios/modulos.js); una prueba compara
+ * las claves.
+ *
+ * `precio-factura`: sin él, Facturación no deja tocar precio ni descuento
+ * (2026-10-29, el usuario: «el precio y descuento no lo puede tocar»).
+ * `cobro-factura`: sin él, no ofrece cobrar al facturar («de momento este no
+ * podrá cobrar»). Quien lo hace valer es el servidor; esto solo decide qué se
+ * dibuja.
+ */
+export const PERMISOS_DE_ACCION = [
+  { clave: 'precio-factura', modulo: 'facturacion', nombre: 'Cambiar precio y descuento' },
+  { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' }
+]
+
 /** Ruta de React -> clave del módulo, para filtrar el menú. */
 export const CLAVE_POR_RUTA = Object.fromEntries(MODULOS.map(m => [m.ruta, m.clave]))
 
@@ -51,8 +68,9 @@ export function porGrupo() {
   const grupos = []
   for (const m of MODULOS) {
     const ultimo = grupos[grupos.length - 1]
-    if (ultimo && ultimo.grupo === m.grupo) ultimo.modulos.push(m)
-    else grupos.push({ grupo: m.grupo, modulos: [m] })
+    const conAcciones = { ...m, acciones: PERMISOS_DE_ACCION.filter(a => a.modulo === m.clave) }
+    if (ultimo && ultimo.grupo === m.grupo) ultimo.modulos.push(conAcciones)
+    else grupos.push({ grupo: m.grupo, modulos: [conAcciones] })
   }
   return grupos
 }
@@ -82,6 +100,9 @@ export const ACCIONES_SOLO_ADMIN = ['anular-factura', 'anular-cobro', 'reabrir-c
 export function puedeAccion(usuario, clave) {
   if (!usuario) return false
   if (ACCIONES_SOLO_ADMIN.includes(clave)) return Boolean(usuario.esAdmin)
+  if (PERMISOS_DE_ACCION.some(a => a.clave === clave)) {
+    return Boolean(usuario.esAdmin) || (usuario.modulos || []).includes(clave)
+  }
   return true
 }
 
