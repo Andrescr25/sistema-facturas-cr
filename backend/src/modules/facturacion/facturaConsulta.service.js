@@ -126,7 +126,7 @@ function aVista(f) {
  * @param {string} filtros.desde         AAAA-MM-DD
  * @param {string} filtros.hasta         AAAA-MM-DD
  */
-async function listarFacturas({ buscar = '', estado = 'emitidas', desde = '', hasta = '', clienteId = '', pagina = 1, limite = 30 } = {}) {
+async function listarFacturas({ buscar = '', estado = 'emitidas', desde = '', hasta = '', clienteId = '', pagina = 1, limite = 30, creadoPor = null } = {}) {
   const where = [];
   const params = [];
   const agregar = (valor) => { params.push(valor); return `$${params.length}`; };
@@ -172,6 +172,8 @@ async function listarFacturas({ buscar = '', estado = 'emitidas', desde = '', ha
   if (String(desde).trim()) where.push(`f.fecha >= ${agregar(String(desde).trim())}::date`);
   if (String(hasta).trim()) where.push(`f.fecha <= ${agregar(String(hasta).trim())}::date`);
   if (String(clienteId).trim()) where.push(`f.cliente_id = ${agregar(idValido(clienteId))}`);
+  // Quien no ve las de todos (soloSusFacturas.js): solo las que creó.
+  if (creadoPor !== null && creadoPor !== undefined) where.push(`f.creado_por = ${agregar(Number(creadoPor))}`);
 
   const lim = Math.min(Math.max(parseInt(limite, 10) || 30, 1), LIMITE_MAXIMO);
   const pag = Math.max(parseInt(pagina, 10) || 1, 1);

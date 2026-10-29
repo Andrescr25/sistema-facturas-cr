@@ -88,8 +88,8 @@ describe('quién factura a precio fijo: lo decide la base, por permiso', () => {
 
   test('el permiso es una clave válida para guardar, y el administrador la tiene por su rol', () => {
     const { CLAVES, PERMISOS_DE_ACCION, MODULOS } = require('../src/modules/usuarios/modulos');
-    assert.deepEqual(PERMISOS_DE_ACCION.map(a => a.clave), ['precio-factura', 'cobro-factura']);
-    for (const clave of ['precio-factura', 'cobro-factura']) {
+    assert.deepEqual(PERMISOS_DE_ACCION.map(a => a.clave), ['precio-factura', 'cobro-factura', 'facturas-todas']);
+    for (const clave of ['precio-factura', 'cobro-factura', 'facturas-todas']) {
       assert.ok(CLAVES.includes(clave));
       assert.equal(MODULOS.some(m => m.clave === clave), false, `${clave} no es una pantalla: no va al menú`);
     }
@@ -116,10 +116,10 @@ describe('la pantalla no ofrece lo que el servidor no va a aceptar', () => {
     assert.equal(puedeAccion({ esAdmin: false, modulos: ['facturacion', 'precio-factura'] }, 'precio-factura'), true);
     assert.equal(puedeAccion({ esAdmin: true, modulos: [] }, 'precio-factura'), true);
     assert.equal(puedeAccion(null, 'precio-factura'), false);
-    assert.deepEqual(PERMISOS_DE_ACCION.map(a => a.clave), ['precio-factura', 'cobro-factura']);
+    assert.deepEqual(PERMISOS_DE_ACCION.map(a => a.clave), ['precio-factura', 'cobro-factura', 'facturas-todas']);
     assert.equal(puedeAccion({ esAdmin: false, modulos: ['facturacion'] }, 'cobro-factura'), false);
     const facturacion = porGrupo().flatMap(g => g.modulos).find(m => m.clave === 'facturacion');
-    assert.deepEqual(facturacion.acciones.map(a => a.nombre), ['Cambiar precio y descuento', 'Cobrar al facturar'],
+    assert.deepEqual(facturacion.acciones.map(a => a.nombre), ['Cambiar precio y descuento', 'Cobrar al facturar', 'Ver las facturas de todos'],
       'el tablero los muestra debajo de Facturación');
   });
 
@@ -298,8 +298,8 @@ describe('migración 068: a nadie le cambia nada — contra PostgreSQL local', (
     await db.query(sql);
 
     const permisos = async (id) => (await db.query(
-      `SELECT modulo FROM usuario_modulo WHERE usuario_id = $1 AND modulo IN ('precio-factura', 'cobro-factura') ORDER BY modulo`, [id])).rows.map(r => r.modulo);
-    assert.deepEqual(await permisos(cajero), ['cobro-factura', 'precio-factura']);
+      `SELECT modulo FROM usuario_modulo WHERE usuario_id = $1 AND modulo IN ('precio-factura', 'cobro-factura', 'facturas-todas') ORDER BY modulo`, [id])).rows.map(r => r.modulo);
+    assert.deepEqual(await permisos(cajero), ['cobro-factura', 'facturas-todas', 'precio-factura']);
     assert.deepEqual(await permisos(bodega), []);
   });
 });

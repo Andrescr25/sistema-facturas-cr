@@ -15,36 +15,38 @@
 const express = require('express');
 const facturaPropia = require('./facturaPropia.controller');
 const notaCredito = require('./notaCredito.controller');
+// Sin «Ver las facturas de todos», una factura o nota ajena «no existe».
+const { facturaPropia: suya, notaPropia: suNota, facturaDelCuerpoPropia: sobreSuFactura } = require('./soloSusFacturas');
 
 const router = express.Router();
 
 // Los descuentos de exceso que el cliente ya ve en el catálogo y el portal.
 router.get('/ofertas', facturaPropia.ofertas);
 router.get('/facturas', facturaPropia.listar);
-router.get('/facturas/:id', facturaPropia.ver);
+router.get('/facturas/:id', suya, facturaPropia.ver);
 // El PDF propio: es lo que permite entregar la venta impresa sin Alegra.
-router.get('/facturas/:id/pdf', facturaPropia.pdf);
+router.get('/facturas/:id/pdf', suya, facturaPropia.pdf);
 // Mandarle la factura al cliente con NUESTRO PDF. El archivo se adjunta; no
 // se manda un enlace, que tendría que ser público y la factura lleva la
 // cédula y la dirección del cliente.
-router.get('/facturas/:id/telefonos', facturaPropia.telefonos);
-router.post('/facturas/:id/whatsapp', facturaPropia.whatsapp);
+router.get('/facturas/:id/telefonos', suya, facturaPropia.telefonos);
+router.post('/facturas/:id/whatsapp', suya, facturaPropia.whatsapp);
 // El correo confirma un destinatario y adjunta el mismo PDF propio.
-router.get('/facturas/:id/correo', facturaPropia.datosCorreo);
-router.post('/facturas/:id/correo', facturaPropia.correo);
+router.get('/facturas/:id/correo', suya, facturaPropia.datosCorreo);
+router.post('/facturas/:id/correo', suya, facturaPropia.correo);
 router.post('/facturas', facturaPropia.crear);
-router.put('/facturas/:id', facturaPropia.editar);
+router.put('/facturas/:id', suya, facturaPropia.editar);
 // Anular NO borra: la factura conserva su número y queda con su motivo. Un
 // número que desaparece es un hueco que después hay que explicarle a Hacienda.
-router.patch('/facturas/:id/anular', facturaPropia.anular);
+router.patch('/facturas/:id/anular', suya, facturaPropia.anular);
 
 // ---- Notas de crédito propias ----
 // Deshacen una venta ya entregada SIN borrar la factura: el número se conserva
 // y la nota dice qué se devuelve y por qué.
 router.get('/notas-credito/motivos', notaCredito.motivos);
-router.post('/notas-credito', notaCredito.crear);
-router.get('/notas-credito/:id/pdf', notaCredito.pdf);
-router.patch('/notas-credito/:id/anular', notaCredito.anular);
+router.post('/notas-credito', sobreSuFactura, notaCredito.crear);
+router.get('/notas-credito/:id/pdf', suNota, notaCredito.pdf);
+router.patch('/notas-credito/:id/anular', suNota, notaCredito.anular);
 
 // Lo que ese cliente suele llevar, para recordárselo al tomarle el pedido.
 // `:clienteId` es NUESTRO id del cliente (`cliente.id`), nunca el de Alegra.

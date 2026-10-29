@@ -15,6 +15,7 @@ const { ofertasVigentes } = require('./ofertas.service');
 const { obtenerInicio } = require('../portal-clientes/portal-clientes.inicio.service');
 const { pool } = require('../../../config/database');
 const { puedeHacer } = require('../usuarios/permisos.middleware');
+const { soloDe } = require('./soloSusFacturas');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
 function fallo(res, error, contexto) {
@@ -69,7 +70,9 @@ module.exports = {
         // `q` es como busca el resto del sistema; `buscar` se acepta igual para
         // no hacer que quien llame tenga que recordar cuál de los dos es.
         buscar: buscar || q || '',
-        estado, desde, hasta, clienteId, pagina, limite
+        estado, desde, hasta, clienteId, pagina, limite,
+        // Sin «Ver las facturas de todos», solo las que hizo él.
+        creadoPor: await soloDe(req)
       });
       res.json({ success: true, data, paginacion });
     } catch (error) {

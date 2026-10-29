@@ -1,7 +1,7 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { ShieldOff } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { puedeVer } from '../utils/modulos'
+import { puedeVer, inicioDe } from '../utils/modulos'
 
 /**
  * Bloquea una pantalla para quien no tenga su módulo.
@@ -21,6 +21,10 @@ export default function RequierePermiso({ children }) {
 
   if (puedeVer(usuario, pathname)) return children
 
+  // Quien no tiene el inicio (Dashboard) entra a su primer módulo.
+  const inicio = inicioDe(usuario)
+  if (pathname === '/' && inicio && inicio !== '/') return <Navigate to={inicio} replace />
+
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
       <div className="max-w-sm space-y-3 rounded-3xl border border-neutro-100 bg-white p-8 text-center">
@@ -29,7 +33,7 @@ export default function RequierePermiso({ children }) {
         <p className="text-sm text-neutro-500">
           Pídale a un administrador que le habilite el módulo si lo necesita para su trabajo.
         </p>
-        <Link to="/" className="inline-block text-sm font-bold text-exito-700 hover:underline">
+        <Link to={inicio || '/'} className="inline-block text-sm font-bold text-exito-700 hover:underline">
           Volver al inicio
         </Link>
       </div>

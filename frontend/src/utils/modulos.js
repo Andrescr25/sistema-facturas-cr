@@ -52,12 +52,14 @@ export const MODULOS = [
  * `precio-factura`: sin él, Facturación no deja tocar precio ni descuento
  * (2026-10-29, el usuario: «el precio y descuento no lo puede tocar»).
  * `cobro-factura`: sin él, no ofrece cobrar al facturar («de momento este no
- * podrá cobrar»). Quien lo hace valer es el servidor; esto solo decide qué se
- * dibuja.
+ * podrá cobrar»). `facturas-todas`: sin él, solo ve las facturas que hizo
+ * («el agente ve solo sus facturas»). Quien lo hace valer es el servidor;
+ * esto solo decide qué se dibuja.
  */
 export const PERMISOS_DE_ACCION = [
   { clave: 'precio-factura', modulo: 'facturacion', nombre: 'Cambiar precio y descuento' },
-  { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' }
+  { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' },
+  { clave: 'facturas-todas', modulo: 'facturacion', nombre: 'Ver las facturas de todos' }
 ]
 
 /** Ruta de React -> clave del módulo, para filtrar el menú. */
@@ -122,4 +124,17 @@ export function puedeVer(usuario, ruta) {
   const clave = CLAVE_POR_RUTA[ruta]
   if (!clave) return true
   return (usuario.modulos || []).includes(clave)
+}
+
+/**
+ * La primera pantalla que esta persona puede ver: el inicio (Dashboard) si lo
+ * tiene, y si no, su primer módulo en el orden del menú. Null si no ve ninguno.
+ *
+ * Sin esto, quien no tiene Dashboard —el agente de ventas, 2026-10-29— entraba
+ * al sistema y caía en «No tiene acceso a esta pantalla», con un «Volver al
+ * inicio» que lo devolvía a lo mismo.
+ */
+export function inicioDe(usuario) {
+  if (puedeVer(usuario, '/')) return '/'
+  return MODULOS.find(m => m.ruta !== '/' && puedeVer(usuario, m.ruta))?.ruta ?? null
 }

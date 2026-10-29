@@ -21,6 +21,13 @@ archivos:
   - frontend/src/pages/Facturacion.jsx
   - frontend/src/components/Layout.jsx
   - backend/tests/precioFijoFactura.test.js
+  - backend/src/modules/facturacion/soloSusFacturas.js
+  - backend/src/modules/facturacion/facturacion.routes.js
+  - backend/src/modules/facturacion/facturaConsulta.service.js
+  - backend/src/integrations/hacienda/rutas.js
+  - frontend/src/components/facturacion/PanelFacturasEmitidas.jsx
+  - frontend/src/components/RequierePermiso.jsx
+  - backend/tests/soloSusFacturas.test.js
 aristas:
   relacionado: [modulo/permisos, modulo/facturacion, modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos]
 medido: 2026-10-29
@@ -73,8 +80,18 @@ de su módulo; quitar el módulo los quita. Un administrador los tiene por rol.
 - «Catálogo del agente» no estaba en el menú de nadie (se llegaba por el
   Dashboard o el ingreso): ahora sale para quien tenga el módulo.
 
-**Abierto, para que decida el usuario:** con Facturación el agente ve TODAS
-las facturas emitidas (de todos los clientes, con saldo) en «Facturas».
+**Solo sus facturas** (el usuario: «el agente ve solo sus facturas»):
+`facturas-todas` «Ver las facturas de todos», tercer permiso de acción, también
+dado por la 068 a quien ya facturaba. Sin él, la lista se filtra por
+`factura.creado_por` y una factura o nota ajena pedida por su número «no
+existe» (404 `NO_EXISTE`) al verla, imprimirla, mandarla, editarla, emitirla o
+bajar su comprobante de Hacienda (`soloSusFacturas.js`; las rutas lo llevan
+una por una, porque `/notas-credito/motivos` no es una nota). Su copia sin
+señal baja solo las suyas. La pestaña lo dice.
+
+**Al entrar** quien no tiene Dashboard caía en «No tiene acceso» con un
+«Volver al inicio» que lo devolvía ahí: ahora entra a su primer módulo
+(`inicioDe` en utils/modulos.js).
 
 ## Lo que sigue
 

@@ -134,10 +134,15 @@ configuracion.get(
     }),
   ),
 );
+// Sin «Ver las facturas de todos», lo de una factura o nota ajena «no existe»
+// (modules/facturacion/soloSusFacturas.js). Se carga al usarse, como el correo.
+const suya = (req, res, next) => require("../../modules/facturacion/soloSusFacturas").facturaPropia(req, res, next);
+const suNota = (req, res, next) => require("../../modules/facturacion/soloSusFacturas").notaPropia(req, res, next);
 // Un clic desde la factura: el estado para pintar el avance, emitir sin
 // preguntar ambiente ni tipo, y volver a mandarle el comprobante al cliente.
 ventas.get(
   "/facturas/:id/estado",
+  suya,
   envolver(async (req, res) =>
     res.json({
       success: true,
@@ -152,6 +157,7 @@ ventas.get(
 );
 ventas.post(
   "/facturas/:id/emitir",
+  suya,
   envolver(async (req, res) =>
     res.json({
       success: true,
@@ -162,6 +168,7 @@ ventas.post(
 // La nota de crédito, igual que la factura: cómo va y emitir de un clic.
 ventas.get(
   "/notas-credito/:id/estado",
+  suNota,
   envolver(async (req, res) =>
     res.json({
       success: true,
@@ -174,6 +181,7 @@ ventas.get(
 );
 ventas.post(
   "/notas-credito/:id/emitir",
+  suNota,
   envolver(async (req, res) =>
     res.json({
       success: true,
@@ -183,12 +191,14 @@ ventas.post(
 );
 ventas.post(
   "/facturas/:id/correo",
+  suya,
   envolver(async (req, res) =>
     res.json({ success: true, data: await servicio.reenviarCorreo(req.params.id, req.usuario?.id) }),
   ),
 );
 ventas.post(
   "/notas-credito/:id/correo",
+  suNota,
   envolver(async (req, res) =>
     res.json({ success: true, data: await servicio.reenviarCorreoNota(req.params.id, req.usuario?.id) }),
   ),
@@ -260,6 +270,10 @@ for (const [router, origenes] of [
           "Este comprobante pertenece a otro módulo.",
           403,
         );
+      // El comprobante de una factura o nota ajena tampoco se abre.
+      const ventasPropias = require("../../modules/facturacion/soloSusFacturas");
+      if (c.origen === "factura") await ventasPropias.exigirFacturaPropia(req, c.origen_id);
+      if (c.origen === "nota_credito") await ventasPropias.exigirNotaPropia(req, c.origen_id);
       await fn(req, res);
     });
   router.get(

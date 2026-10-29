@@ -13,6 +13,8 @@ import EtiquetaTipoFactura from './EtiquetaTipoFactura'
 import { colones } from '../../utils/colones'
 import { estadoDeFactura, notasDeFactura } from '../../utils/notaCreditoTexto'
 import { fechaCorta } from '../../utils/fechaCR'
+import { puedeAccion } from '../../utils/modulos'
+import { useAuth } from '../../contexts/AuthContext'
 
 /**
  * Las facturas ya emitidas.
@@ -91,6 +93,10 @@ function ModalAnular({ factura, onCerrar, onAnular }) {
 export default function PanelFacturasEmitidas({ f }) {
   const [anulando, setAnulando] = useState(null)
   const [nota, setNota] = useState(null)
+  // Sin «Ver las facturas de todos» el servidor manda solo las suyas: se dice,
+  // para que nadie piense que faltan facturas.
+  const { usuario } = useAuth()
+  const soloLasSuyas = !puedeAccion(usuario, 'facturas-todas')
 
   // Una factura abierta ocupa la pantalla entera. Es un documento: se entra a
   // él y se vuelve, en vez de empujar la lista hacia abajo.
@@ -200,6 +206,7 @@ export default function PanelFacturasEmitidas({ f }) {
         </div>
       </div>
 
+      {soloLasSuyas && <p className="text-xs font-semibold text-neutro-500">Se muestran solo las facturas que hiciste vos.</p>}
       {f.error && <p className="rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700">{f.error}</p>}
       {f.mensaje && <p className="rounded-xl bg-exito-50 px-3 py-2 text-sm text-exito-700">{f.mensaje}</p>}
 

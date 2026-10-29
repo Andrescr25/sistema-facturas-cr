@@ -328,11 +328,16 @@ function normalizarRuta(ruta) {
  * pendiente y la cobra quien tenga Cuentas por Cobrar. También lo dio la 068
  * a quien ya facturaba.
  *
+ * `facturas-todas` (misma fecha: «el agente ve solo sus facturas»). Quien no lo
+ * tiene ve, abre e imprime solo las facturas que hizo él
+ * (`facturacion/soloSusFacturas.js`). También lo dio la 068.
+ *
  * Espejo en frontend/src/utils/modulos.js; una prueba compara las claves.
  */
 const PERMISOS_DE_ACCION = [
   { clave: 'precio-factura', modulo: 'facturacion', nombre: 'Cambiar precio y descuento' },
-  { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' }
+  { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' },
+  { clave: 'facturas-todas', modulo: 'facturacion', nombre: 'Ver las facturas de todos' }
 ];
 
 const CLAVES = [...MODULOS.map(m => m.clave), ...PERMISOS_DE_ACCION.map(a => a.clave)];
