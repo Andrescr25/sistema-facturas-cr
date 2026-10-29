@@ -216,6 +216,7 @@ export default function Facturacion() {
                   productosEncontrados={productosEncontrados}
                   totalProductosEncontrados={totalProductosEncontrados}
                   onSeleccionarProducto={abrirModalCantidadProducto}
+                  impuestoPrincipal={impuestoPrincipal}
                 />
 
                 {/* Lo que este cliente lleva siempre. Va DEBAJO de agregar
@@ -298,6 +299,7 @@ export default function Facturacion() {
           cantidadInputRef={cantidadMovilInputRef}
           onCerrar={cerrarModalCantidadProducto}
           onConfirmar={confirmarCantidadProducto}
+          impuestoPrincipal={impuestoPrincipal}
         />
       )}
     </div>

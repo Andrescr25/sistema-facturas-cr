@@ -1340,3 +1340,12 @@ ortografía y medidas. Pide quitar de las corofijas la información de empaque
 como `(C 10)(M 300)`, conservando el resto del nombre y el margen del 28 %.
 La preferencia se refiere a los productos; no pide cambiar los títulos de
 las marcas ni las descripciones originales de sus proveedores.
+
+
+## 2026-10-28 — En Facturación el producto buscado sale con IVA
+
+El usuario: «ocupo que hagas un ajuste en facturación, cuando uno busca un
+producto para facturar este sale con el precio sin IVA, ocupo que salga con
+IVA». Se muestra con IVA donde se ve un producto antes de agregarlo; la línea
+de la factura no cambia. [Resultado](grafo/modulo/facturacion.md).
+

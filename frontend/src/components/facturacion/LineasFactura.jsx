@@ -2,6 +2,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { colones, colonesExacto } from '../../utils/colones'
 import { num, baseDe, esDetallePropio } from '../../utils/facturaVista'
 import { CELDA } from './estilosFactura'
+import PrecioConIva from './PrecioConIva'
 
 /**
  * Las líneas de la factura. En edición cada dato se vuelve un input EN SU
@@ -206,7 +207,7 @@ function AgregarProducto({ edicion }) {
               className="flex min-h-11 items-center justify-between rounded-lg border border-neutro-200 bg-white px-2.5 py-1.5 text-left text-sm hover:border-primario-300 md:min-h-0"
             >
               <span className="min-w-0 truncate font-semibold text-neutro-800">{p.name}</span>
-              <span className="ml-2 shrink-0 text-neutro-500">{colones(p.price)}</span>
+              <PrecioConIva producto={p} className="ml-2 shrink-0 text-neutro-700" />
             </button>
           ))}
         </div>

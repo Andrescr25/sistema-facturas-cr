@@ -51,6 +51,37 @@ export function montosLineaFacturacion(item, impuestoPrincipal = null, impuestos
   return { base, descuento, impuesto: dinero(base * tarifa / 100) }
 }
 
+/**
+ * La tarifa con la que se cobra un producto: la suya, y si no trae ninguna, la
+ * principal de la factura. Es la misma decisión que toma `agregarItem` al
+ * armar la línea, así que lo que se muestra antes de agregar es lo que se cobra.
+ */
+export function tarifaDeProducto(producto, impuestoPrincipal = null) {
+  const propio = producto?.tax?.[0]
+  if (propio) return Number(propio.percentage) || 0
+  return Number(impuestoPrincipal?.percentage) || 0
+}
+
+/**
+ * Lo que paga el cliente por UNA unidad del producto, con su IVA (2026-10-28,
+ * el usuario: «cuando uno busca un producto para facturar sale con el precio
+ * sin IVA, ocupo que salga con IVA»).
+ *
+ * El precio del producto es SIN IVA (`precio_sin_iva`) y la tarifa es la de
+ * cada producto —0, 1, 2, 4, 8 o 13 %—: nunca se multiplica por 1,13 a mano.
+ * Se calcula con `montosLineaFacturacion`, la misma cuenta de la línea de
+ * factura, para que el redondeo coincida al céntimo con su total de 1 unidad.
+ */
+export function precioConIva(producto, impuestoPrincipal = null) {
+  const { base, impuesto } = montosLineaFacturacion({
+    quantity: 1,
+    price: producto?.price,
+    discount: 0,
+    tax: [{ percentage: tarifaDeProducto(producto, impuestoPrincipal) }]
+  })
+  return dinero(base + impuesto)
+}
+
 export function calcularSubtotal(items) {
   return dinero(items.reduce((sum, item) => sum + montosLineaFacturacion(item).base, 0))
 }

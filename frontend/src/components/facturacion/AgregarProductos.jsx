@@ -1,5 +1,6 @@
 import { PackagePlus, Search, X, Keyboard, Plus } from 'lucide-react'
 import { getReference } from '../../utils/facturacionUtils'
+import PrecioConIva from './PrecioConIva'
 
 /**
  * Paso 2: meter productos a la factura.
@@ -33,7 +34,8 @@ export default function AgregarProductos({
   onLimpiarBusquedaProducto,
   productosEncontrados,
   totalProductosEncontrados = 0,
-  onSeleccionarProducto
+  onSeleccionarProducto,
+  impuestoPrincipal
 }) {
   // Cuántos quedaron fuera por el tope de resultados.
   const ocultos = Math.max(0, totalProductosEncontrados - productosEncontrados.length)
@@ -112,11 +114,8 @@ export default function AgregarProductos({
                 <p className="truncate font-bold text-neutro-900">{productoPreviewRapido.name}</p>
                 <p className="text-xs text-neutro-500">Ref. {getReference(productoPreviewRapido.reference)}</p>
               </div>
-              {productoPreviewRapido.price > 0 && (
-                <span className="shrink-0 text-lg font-extrabold text-exito-600">
-                  ₡{productoPreviewRapido.price.toLocaleString('es-CR')}
-                </span>
-              )}
+              <PrecioConIva producto={productoPreviewRapido} impuestoPrincipal={impuestoPrincipal}
+                className="shrink-0 text-lg font-extrabold text-exito-600" />
             </div>
           )}
 
@@ -168,11 +167,8 @@ export default function AgregarProductos({
                     <p className="font-semibold leading-snug text-neutro-900">{producto.name}</p>
                     <p className="mt-0.5 text-xs text-neutro-500">Ref. {getReference(producto.reference)}</p>
                   </div>
-                  {producto.price > 0 && (
-                    <span className="shrink-0 font-bold text-exito-600">
-                      ₡{producto.price.toLocaleString('es-CR')}
-                    </span>
-                  )}
+                  <PrecioConIva producto={producto} impuestoPrincipal={impuestoPrincipal}
+                    className="shrink-0 font-bold text-exito-600" />
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primario-100 text-primario-700">
                     <Plus size={18} strokeWidth={3} />
                   </span>

@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Facturación de venta — ya cerrado en la migración
 estado: vigente
 archivos:
+  - frontend/src/components/facturacion/PrecioConIva.jsx
+  - frontend/src/utils/facturacionUtils.js
+  - backend/tests/precioConIvaFacturacion.test.js
   - backend/tests/operacionSinSemanas.test.js
   - backend/src/modules/facturacion/facturacion.routes.js
   - backend/src/modules/facturacion/facturaPropia.controller.js
@@ -61,7 +64,7 @@ archivos:
   - frontend/src/utils/impresionUtils.js
 aristas:
   relacionado: [modulo/rutas-clientes, modulo/rentabilidad, leccion/precio-sin-iva-costo-con-iva, modulo/hacienda, leccion/la-estructura-se-cuida-con-una-prueba, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
-medido: 2026-10-20
+medido: 2026-10-28
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -448,3 +451,19 @@ pantalla no ofrezca Editar: se corrige con una nota de crédito (quitar) o con
 una factura nueva (agregar). Impresión sigue ajustando por `editarFacturaEn`.
 Las reglas y la tabla `factura_en_bodega` (066) están en
 [[modulo/facturas-bodega]].
+
+## El producto que se busca sale con IVA — 2026-10-28
+
+El usuario: «cuando uno busca un producto para facturar este sale con el
+precio sin IVA, ocupo que salga con IVA». El precio guardado es SIN IVA; ahora
+la lista del buscador, la ficha «Encontrado» del modo por código, el modal de
+cantidad y el buscador de editar una factura muestran lo que se cobra por una
+unidad, con la leyenda «con IVA» (`PrecioConIva.jsx`). La cuenta es
+`precioConIva` de `facturacionUtils.js`: la tarifa del producto (0, 1, 2, 4, 8
+o 13 %; nunca un 1,13 fijo), y si no trae, la principal de la factura. Pasa por
+`montosLineaFacturacion`, la misma cuenta de la línea, así que coincide al
+céntimo con su total de una unidad. En el buscador de editar facturas la
+tarifa que falta es 0 %, igual que `lineaDeProducto`. La línea que se agrega
+sigue llevando el precio SIN IVA y su tarifa: lo que cambia es lo que se ve.
+Ver [[leccion/precio-sin-iva-costo-con-iva]].
+

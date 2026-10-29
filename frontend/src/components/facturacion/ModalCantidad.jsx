@@ -2,6 +2,7 @@ import { Check, X } from 'lucide-react'
 import Contador from '../ui/Contador'
 import { getReference } from '../../utils/facturacionUtils'
 import { useModal } from '../../hooks/useModal'
+import PrecioConIva from './PrecioConIva'
 
 /**
  * Cuántas unidades entran de este producto.
@@ -16,7 +17,7 @@ import { useModal } from '../../hooks/useModal'
  * pasarle el mouse.
  */
 export default function ModalCantidad({
-  producto, cantidad, setCantidad, cantidadInputRef, onCerrar, onConfirmar
+  producto, cantidad, setCantidad, cantidadInputRef, onCerrar, onConfirmar, impuestoPrincipal
 }) {
   useModal(onCerrar)
 
@@ -39,11 +40,8 @@ export default function ModalCantidad({
           <div className="min-w-0">
             <h3 className="font-bold leading-snug text-neutro-900">{producto.name}</h3>
             <p className="mt-0.5 text-xs text-neutro-500">Ref. {getReference(producto.reference)}</p>
-            {producto.price > 0 && (
-              <p className="mt-1 text-lg font-extrabold text-exito-600">
-                ₡{producto.price.toLocaleString('es-CR')}
-              </p>
-            )}
+            <PrecioConIva producto={producto} impuestoPrincipal={impuestoPrincipal}
+              className="mt-1 block text-left text-lg font-extrabold text-exito-600" />
           </div>
           <button
             onClick={onCerrar}
