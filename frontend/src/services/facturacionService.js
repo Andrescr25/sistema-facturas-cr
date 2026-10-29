@@ -168,7 +168,10 @@ class FacturacionService {
         category: p.categoria ? { name: p.categoria } : null,
         inventory: null,
         cabys: p.cabys || null,
-        unidad: p.unidad || null
+        unidad: p.unidad || null,
+        // La foto viaja con el producto (2026-10-28): la línea de la factura
+        // ofrece verla. Misma forma que el catálogo del agente, para `fotoDe`.
+        images: p.imagen_url ? [{ url: p.imagen_url, favorite: true }] : []
       }));
 
       await indexedDBService.saveProductos(normalizados);

@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Facturación de venta — ya cerrado en la migración
 estado: vigente
 archivos:
+  - frontend/src/components/facturacion/VerFotoProducto.jsx
+  - frontend/src/components/facturacion/LineaFactura.jsx
+  - backend/tests/fotoProductoFacturacion.test.js
   - frontend/src/components/facturacion/PrecioConIva.jsx
   - frontend/src/utils/facturacionUtils.js
   - backend/tests/precioConIvaFacturacion.test.js
@@ -467,3 +470,28 @@ tarifa que falta es 0 %, igual que `lineaDeProducto`. La línea que se agrega
 sigue llevando el precio SIN IVA y su tarifa: lo que cambia es lo que se ve.
 Ver [[leccion/precio-sin-iva-costo-con-iva]].
 
+## Ver la foto del producto en la línea — 2026-10-28
+
+El usuario: «una forma de ver la imagen del producto que estoy facturando; un
+logo pequeño para ver la img; completamente responsive». Cada línea de la
+factura en curso trae, junto al botón de quitar, un botón pequeño (40 px, igual
+que el de quitar) que abre la foto en el modal del sistema (hoja desde abajo en
+el teléfono, diálogo centrado en pantallas grandes; la foto se achica para caber
+entera, con un alto máximo del 60 % de la pantalla). Solo aparece si el producto
+tiene foto, y la foto no se pide hasta tocarlo. Sin señal se dice «No se pudo
+cargar la foto» en vez de dejar un cuadro vacío (si el dispositivo ya la tenía
+guardada, se ve).
+
+La foto no viajaba a Facturación: `actualizarCacheProductos` descartaba
+`imagen_url`. Ahora se guarda como `images: [{ url, favorite: true }]` (la forma
+del catálogo del agente, para `fotoDe`). La página la busca en el catálogo por
+`productoId` al dibujar cada línea —no se copia a la línea—, así también la
+tienen las líneas de una factura cargada para editar o de las sugerencias del
+cliente, y nada nuevo viaja a la cola de facturas pendientes.
+
+**La foto entra en la huella** (`huellaParaOperar`): antes se decidió que
+cambiarla no renovara la copia del dispositivo; ahora sí, porque la copia
+muestra la foto y el archivo viejo se borra al reemplazarla (se vería rota).
+Efecto del despliegue: la huella cambia una vez, así que cada dispositivo
+renueva solo su catálogo la primera vez y las copias viejas, guardadas sin
+foto, la reciben. Ocultar un producto y el costo siguen sin renovar nada.

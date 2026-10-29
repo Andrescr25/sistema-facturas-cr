@@ -1,6 +1,7 @@
 import { Trash2, StickyNote, ChevronUp } from 'lucide-react'
 import Contador from '../ui/Contador'
 import { getReference, montosLineaFacturacion } from '../../utils/facturacionUtils'
+import VerFotoProducto from './VerFotoProducto'
 
 const colones = (n) => `₡${(Number(n) || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -23,6 +24,8 @@ const colones = (n) => `₡${(Number(n) || 0).toLocaleString('es-CR', { minimumF
  *     porque se factura de pie y un precio cambiado sin querer sale caro.
  *   · La nota de línea se abre solo si hace falta, y viene abierta cuando la
  *     línea ya trae una escrita, para que nunca quede escondida.
+ *   · Si el producto tiene foto, un botón pequeño junto al de quitar la abre
+ *     (`foto` es la ruta; la página la busca en el catálogo por producto).
  */
 export default function LineaFactura({
   item,
@@ -35,7 +38,8 @@ export default function LineaFactura({
   onCambiarPrecio,
   onCambiarDescuento,
   onCambiarDescripcion,
-  DESCRIPCION_MAX
+  DESCRIPCION_MAX,
+  foto
 }) {
   const subtotal = montosLineaFacturacion(item).base
   const detalleAbierto = mostrarDetalle || Boolean(item.description)
@@ -48,13 +52,16 @@ export default function LineaFactura({
           <p className="font-semibold leading-snug text-neutro-900">{item.name}</p>
           <p className="mt-0.5 text-xs text-neutro-500">Ref. {getReference(item.reference)}</p>
         </div>
-        <button
-          onClick={() => onEliminar(index)}
-          aria-label={`Quitar ${item.name}`}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutro-400 transition-colors hover:bg-peligro-50 hover:text-peligro-600"
-        >
-          <Trash2 size={18} />
-        </button>
+        <div className="flex shrink-0 items-center">
+          <VerFotoProducto nombre={item.name} referencia={item.reference} foto={foto} />
+          <button
+            onClick={() => onEliminar(index)}
+            aria-label={`Quitar ${item.name}`}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutro-400 transition-colors hover:bg-peligro-50 hover:text-peligro-600"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
       </div>
 
       {/* Cantidad y subtotal, la fila que de verdad se usa */}

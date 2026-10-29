@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { ShoppingCart, PackageOpen } from 'lucide-react'
+import { fotoDe } from '../utils/cacheImagenesCatalogo'
 import { useFacturacion } from '../hooks/useFacturacion'
 import { useFacturasEmitidas } from '../hooks/useFacturasEmitidas'
 import useCatalogoAlDia from '../hooks/useCatalogoAlDia'
@@ -93,6 +95,12 @@ export default function Facturacion() {
   // (un producto reactivado, uno nuevo, un precio): antes solo al tocar
   // «Actualizar». También va antes del return de carga, por lo mismo.
   useCatalogoAlDia({ enLinea: isOnline, listo: !loading, ocupado: syncingCache, alRenovar: setProductos })
+
+  // La foto de cada línea se busca en el catálogo por el producto, no se copia a
+  // la línea: así también la tienen las que vienen de una factura cargada o de
+  // las sugerencias, y no viaja nada más a la cola de facturas pendientes.
+  // Antes del return de carga, por lo mismo que los ganchos de arriba.
+  const productosPorId = useMemo(() => new Map(productos.map((p) => [p.id, p])), [productos])
 
   if (loading && productos.length === 0) {
     return (
@@ -252,6 +260,7 @@ export default function Facturacion() {
                           onCambiarDescuento={actualizarDescuentoItem}
                           onCambiarDescripcion={actualizarDescripcionItem}
                           DESCRIPCION_MAX={DESCRIPCION_MAX}
+                          foto={fotoDe(productosPorId.get(item.productoId ?? item.id))}
                         />
                       ))}
                     </div>

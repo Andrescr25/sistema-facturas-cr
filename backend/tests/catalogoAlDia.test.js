@@ -158,10 +158,13 @@ describe('contra PostgreSQL local', () => {
     await cambia('el impuesto', 'UPDATE producto SET impuesto_id = NULL WHERE id = $1', [visible]);
     await cambia('desactivarlo', 'UPDATE producto SET activo = FALSE WHERE id = $1', [visible]);
     await cambia('reactivarlo', 'UPDATE producto SET activo = TRUE WHERE id = $1', [visible]);
-    // Ocultar o mostrar es de los catálogos; la foto no viaja a Facturación.
+    // La foto SÍ viaja desde 2026-10-28 (Facturación la muestra en cada línea):
+    // ponerla o reemplazarla renueva la copia; si no, quedaría vieja o rota.
+    await cambia('ponerle una foto', "UPDATE producto SET imagen_url = '/archivos/productos/zz.jpg' WHERE id = $1", [visible]);
+    await cambia('reemplazarle la foto', "UPDATE producto SET imagen_url = '/archivos/productos/zz-2.jpg' WHERE id = $1", [visible]);
+    // Ocultar o mostrar es de los catálogos que ven los clientes, no de la venta.
     await noCambia('ocultarlo', 'UPDATE producto SET oculto = TRUE WHERE id = $1', [visible]);
     await noCambia('mostrarlo', 'UPDATE producto SET oculto = FALSE WHERE id = $1', [visible]);
-    await noCambia('cambiarle la foto', "UPDATE producto SET imagen_url = '/archivos/productos/zz.jpg' WHERE id = $1", [visible]);
     await noCambia('cambiarle el costo', 'UPDATE producto SET costo_con_iva = 999 WHERE id = $1', [visible]);
     // La misma consulta dos veces da lo mismo: no depende del orden de las filas.
     assert.equal(await huella(), await huella());

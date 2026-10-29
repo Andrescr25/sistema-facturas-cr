@@ -413,14 +413,22 @@ async function productosParaOperar({ buscar = '', pagina = 1, limite = 30 } = {}
  * acuerde del botón.
  *
  * Entra lo que viaja a esa copia —nombre, referencia, descripción, precio,
- * impuesto y su tarifa, categoría, CAByS, unidad— y nada más: cambiar una
- * foto u ocultar un producto no obliga a bajar el catálogo otra vez.
+ * impuesto y su tarifa, categoría, CAByS, unidad y la ruta de su foto— y
+ * nada más: ocultar un producto no obliga a bajar el catálogo otra vez.
+ *
+ * LA FOTO ENTRA DESDE 2026-10-28. Antes no (cambiarla no renovaba nada), pero
+ * ahora Facturación la muestra en cada línea («ver la imagen del producto que
+ * estoy facturando»). Con la foto en la huella, poner una por primera vez o
+ * reemplazarla renueva la copia de cada dispositivo una vez, y el primer
+ * despliegue la renueva sola en todos: las copias que ya existían se guardaron
+ * sin foto. Si no entrara, una foto reemplazada (el archivo viejo se borra) se
+ * vería rota hasta tocar «Actualizar».
  */
 async function huellaParaOperar() {
   const { rows } = await pool.query(`
     SELECT COUNT(*)::int AS productos,
            md5(COALESCE(string_agg(concat_ws('|', p.id, p.nombre, p.referencia, p.descripcion, p.precio_sin_iva,
-                                             p.impuesto_id, i.tarifa, c.nombre, p.cabys, p.unidad),
+                                             p.impuesto_id, i.tarifa, c.nombre, p.cabys, p.unidad, p.imagen_url),
                                    E'\n' ORDER BY p.id), '')) AS huella
       FROM producto p
       LEFT JOIN categoria_producto c ON c.id = p.categoria_id

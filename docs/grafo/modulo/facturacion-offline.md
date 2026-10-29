@@ -34,7 +34,7 @@ archivos:
   - backend/tests/descuentoClientePg.test.js
 aristas:
   relacionado: [leccion/lo-que-mueve-plata-no-va-por-omision, modulo/historicos-contexto-documentos, modulo/facturacion, modulo/correo-facturas, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/fecha-utc-costa-rica, leccion/la-db-local-es-produccion]
-medido: 2026-10-20
+medido: 2026-10-28
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -245,3 +245,9 @@ La búsqueda mezcla teléfono y servidor con `combinarBusqueda`, sin repetir y
 en el mismo orden. Comprobado en Chromium a 390 px sobre una copia: las 60
 facturas de la lista y una búsqueda por cliente en el orden real de llegada.
 
+## La copia del catálogo ahora guarda la foto — 2026-10-28
+
+Cada producto de la copia lleva `images` (ruta de la foto) para el botón de ver
+la foto de la línea ([[modulo/facturacion]]). La ruta entra en la huella del
+catálogo: el primer despliegue renueva la copia de cada dispositivo una vez.
+La foto en sí necesita internet (o estar ya guardada por el service worker).

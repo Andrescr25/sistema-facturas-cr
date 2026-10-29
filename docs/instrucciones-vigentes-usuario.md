@@ -1358,3 +1358,13 @@ Se conserva el formato de producto en MAYÚSCULAS y su orden/medidas. Se
 retiran los acentos de las vocales y se conserva la Ñ. Esta preferencia
 sustituye la conservación de tildes del ajuste del 25/10; el resto del nombre,
 las ediciones posteriores del usuario y los títulos de marca se conservan.
+
+
+## 2026-10-28 — Ver la foto del producto que se factura
+
+El usuario: «quiero que ahí mismo en facturación agregues una forma de ver la
+imagen del producto que estoy facturando; puede ser que yo lo añada y ahí me
+salga un logo pequeño para ver la img; recuerda que esto también tiene que ser
+completamente responsive». Un botón pequeño en cada línea abre la foto; solo
+sale si el producto tiene foto. [Resultado](grafo/modulo/facturacion.md).
+
