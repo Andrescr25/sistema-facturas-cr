@@ -1,7 +1,7 @@
-const prisma = require('../lib/prisma');
 const { query } = require('../config/database');
 const notasCreditoService = require('./notasCreditoService');
 const pagosProveedor = require('../src/modules/pagos-proveedores/pagosProveedor.service');
+const lectura = require('../src/modules/pagos-proveedores/cuentasPorPagar.lectura');
 
 /**
  * Cuentas por pagar: la lista de lo que se le debe a cada proveedor.
@@ -13,12 +13,13 @@ const pagosProveedor = require('../src/modules/pagos-proveedores/pagosProveedor.
  * main/developer— las exige, pero en esta rama nadie las lee: se quedaban
  * viejas (13 cuentas figuraban PENDIENTE meses después de vencer, porque el
  * estado solo se corregía al abrir la pantalla).
+ *
+ * LAS CUENTAS SE LEEN CON `pg`, NO CON PRISMA (2026-10-29): la factura cargada
+ * a mano a crédito no tiene factura del buzón (`factura_id` NULL) y Prisma lo
+ * declara obligatorio. Ver `cuentasPorPagar.lectura.js`.
  */
 
 class PagosProveedoresService {
-  constructor() {
-    this.prisma = prisma;
-  }
 
   /**
    * Proveedores que tienen al menos una cuenta por pagar registrada (para el
@@ -27,16 +28,8 @@ class PagosProveedoresService {
    * ninguna cuenta por pagar en el sistema. Independiente del filtro de
    * estado/fecha activo, para no perder opciones del dropdown al filtrar.
    */
-  async listarProveedoresConCuentas() {
-    const cuentas = await this.prisma.cuentaPorPagar.findMany({
-      where: { liberada: true },
-      distinct: ['proveedorCedula'],
-      select: { proveedorCedula: true, proveedorNombre: true }
-    });
-
-    return cuentas
-      .map((c) => ({ cedula: c.proveedorCedula, nombre: c.proveedorNombre }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  listarProveedoresConCuentas() {
+    return lectura.proveedoresConCuentas();
   }
 
   calcularDiasRestantes(fechaVencimiento) {
@@ -183,65 +176,11 @@ class PagosProveedoresService {
     return rows.map((r) => r.id);
   }
 
-  /** Proveedor y búsqueda: lo que no depende del saldo. */
-  buildWhereFilters(filtros = {}) {
-    const andFilters = [];
-
-    if (filtros.proveedor && filtros.proveedor !== 'todos') {
-      andFilters.push({
-        OR: [
-          { proveedorCedula: filtros.proveedor },
-          { proveedorNombre: { contains: filtros.proveedor, mode: 'insensitive' } }
-        ]
-      });
-    }
-
-    if (filtros.search) {
-      andFilters.push({
-        OR: [
-          { numeroConsecutivo: { contains: filtros.search, mode: 'insensitive' } },
-          { proveedorNombre: { contains: filtros.search, mode: 'insensitive' } },
-          { proveedorCedula: { contains: filtros.search, mode: 'insensitive' } }
-        ]
-      });
-    }
-
-    return andFilters.length > 0 ? { AND: andFilters } : undefined;
-  }
-
   async listarCuentas(filtros = {}) {
-    const dynamicFilters = this.buildWhereFilters(filtros);
-    const where = {
-      ...(dynamicFilters || {}),
-      id: { in: await this.idsPorEstado(filtros) }
-    };
-
-    const cuentas = await this.prisma.cuentaPorPagar.findMany({
-      where,
-      include: {
-        factura: {
-          select: {
-            numeroConsecutivo: true,
-            productos: {
-              select: {
-                id: true,
-                descripcion: true,
-                cantidad: true,
-                totalLinea: true,
-                precioUnitario: true,
-                codigoProveedor: true
-              },
-              orderBy: {
-                numeroLinea: 'asc'
-              },
-              take: 50
-            }
-          }
-        }
-      },
-      orderBy: {
-        fechaVencimiento: 'asc'
-      }
+    const cuentas = await lectura.leerCuentas({
+      ids: await this.idsPorEstado(filtros),
+      proveedor: filtros.proveedor,
+      search: filtros.search
     });
 
     const saldos = await pagosProveedor.saldosDeCuentas(cuentas.map((c) => c.id));
@@ -298,10 +237,7 @@ class PagosProveedoresService {
       error.status = 400;
       throw error;
     }
-    const data = {};
-    if (payload.notas !== undefined) data.notas = payload.notas;
-
-    const cuenta = await this.prisma.cuentaPorPagar.update({ where: { id }, data });
+    const cuenta = await lectura.anotarCuenta(id, payload.notas ?? null);
     return {
       ...cuenta,
       diasRestantes: this.calcularDiasRestantes(cuenta.fechaVencimiento)

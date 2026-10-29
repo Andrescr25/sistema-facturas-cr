@@ -187,4 +187,7 @@ Ver [[modulo/gastos-operativos]]; SQL061/062 aplicadas en producción; ver despl
 electrónica. Registra una compra sin clave ni buzón: entra al inventario,
 actualiza el costo y deja su cuenta por pagar. No hay aceptación ante
 Hacienda. Desde ese día Reporte Clientes solo deja marcar que llegó lo que
-ingresó por una compra; ver [[decision/solo-llega-lo-que-ingreso]].
+ingresó por una compra; ver [[decision/solo-llega-lo-que-ingreso]]. Su cuenta
+por pagar nace sin factura del buzón (`factura_id` NULL): ver
+[[tabla/cuentas-por-pagar]] — el 2026-10-29 eso tumbó la lista de Pagos a
+Proveedores hasta que se leyó con `pg`.

@@ -11,6 +11,8 @@ archivos:
   - backend/migrations/independencia/025_pago_proveedor.sql
   - backend/tests/pagosProveedor.test.js
   - backend/src/modules/pagos-proveedores/pagoProveedorIdempotencia.js
+  - backend/src/modules/pagos-proveedores/cuentasPorPagar.lectura.js
+  - backend/tests/cuentaPorPagarSinFactura.test.js
 aristas:
   vive_en: [modulo/compras]
   depende_de: [tabla/facturas-proveedores, tabla/compra]
@@ -54,3 +56,17 @@ desde SQL062 el operador confirma Aprobar y el medio en Revisión. El saldo
 completo se paga en la MISMA transacción que la decisión, con registrarPagoEn.
 Rechazar no paga y deja la cuenta sin liberar; si ya tiene pagos/notas exige
 revisión. La ficha muestra siempre el saldo real, incluso al anular un pago.
+
+SIN FACTURA DEL BUZÓN, Y SE LEE CON `pg` (2026-10-29). La factura de compra
+cargada a mano a CRÉDITO (`crearCuentaACredito`) y la de contado
+(`crearCuentaDeContado`, con `id` null) crean su cuenta con `factura_id` NULL:
+no hay factura del buzón que colgarle. El cliente de Prisma declara `facturaId`
+obligatorio, y Prisma valida cada fila que LEE, así que UNA cuenta así hacía
+fallar la lista de Pagos a Proveedores entera (P2032, 500 «Error obteniendo
+cuentas por pagar») desde que se cargó la primera factura a mano. Las pruebas
+no lo vieron porque nadie leyó la lista con una de ellas; ver
+[[leccion/el-doble-de-prisma-no-valida-tipos]], caso 2. Ahora las cuentas se
+leen y se anotan con `pg` (`cuentasPorPagar.lectura.js`): una cuenta sin
+factura sale con `facturaId` null, sin productos, y con el número de la propia
+cuenta. Una prueba impide que vuelva a haber una lectura de `cuentas_por_pagar`
+con Prisma.

@@ -54,9 +54,11 @@ describe('el filtro de estado', () => {
     assert.notEqual(filtro({ estado: 'todos' }).distinto, 'PARCIAL');
   });
 
-  test('buildWhereFilters ya no filtra por la columna estado', () => {
-    const condiciones = servicio.buildWhereFilters({ estado: 'pagada' })?.AND || [];
-    assert.equal(condiciones.some((c) => 'estado' in c), false);
+  test('la búsqueda de texto ya no filtra por la columna estado', () => {
+    const { condicionesDeBusqueda } = require('../src/modules/pagos-proveedores/cuentasPorPagar.lectura');
+    const { donde } = condicionesDeBusqueda({ estado: 'pagada', proveedor: 'ACME', search: 'F-12' });
+    assert.equal(donde.length, 2);
+    assert.equal(donde.some((c) => /\bestado\b/.test(c)), false);
   });
 });
 
