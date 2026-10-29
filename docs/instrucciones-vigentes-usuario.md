@@ -1349,3 +1349,12 @@ producto para facturar este sale con el precio sin IVA, ocupo que salga con
 IVA». Se muestra con IVA donde se ve un producto antes de agregarlo; la línea
 de la factura no cambia. [Resultado](grafo/modulo/facturacion.md).
 
+
+
+## 2026-10-28 — Nombres de producto sin tildes
+
+El usuario aprueba los nombres anteriores y solicita «quita todas las tildes».
+Se conserva el formato de producto en MAYÚSCULAS y su orden/medidas. Se
+retiran los acentos de las vocales y se conserva la Ñ. Esta preferencia
+sustituye la conservación de tildes del ajuste del 25/10; el resto del nombre,
+las ediciones posteriores del usuario y los títulos de marca se conservan.

@@ -1295,3 +1295,16 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   y las marcas completas iguales. Plan inverso conservado, sin SQL nuevo.
 
 [Detalle](informes/nombres-marcas-2026-10-25.md).
+
+
+### Productos sin tildes — 2026-10-28
+
+- [x] Revisar nombres actuales de los 314 productos: 48 cambios y 266 ya sin
+  tildes; conservar mayúsculas, Ñ, medidas y ediciones posteriores del usuario.
+- [x] Ensayo local con ROLLBACK: 48 nombres y todos los demás campos iguales;
+  repetición sin escrituras y las 7 pruebas PostgreSQL existentes correctas.
+- [x] Codex aplica con respaldo y bitácora; lectura real confirma 314 sin
+  tildes, 48 corregidos, Ñ y demás campos conservados. Títulos/fotos de marca
+  y stock iguales; plan inverso guardado. Sin SQL ni código nuevo.
+
+[Detalle](informes/nombres-marcas-2026-10-25.md).

@@ -51,7 +51,7 @@ aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
   relacionado: [modulo/marcas-catalogo, modulo/rentabilidad, tabla/venta-linea, modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, tabla/alegra-products-cache]
-medido: 2026-10-25
+medido: 2026-10-28
 ---
 
 QUÉ ES
@@ -275,3 +275,10 @@ El lote ya normalizado conserva su ortografía y medidas con ese formato;
 las corofijas además eliminan del nombre los datos de empaque C/M. El cambio
 usa `corregir-nombres.js` con plan y respaldo, sin tocar costos, precios,
 referencias, imágenes ni líneas de documentos. Ver [[modulo/marcas-catalogo]].
+
+
+2026-10-28: por preferencia posterior del usuario, los nombres normalizados
+quedan en MAYÚSCULAS y sin tildes en las vocales; la Ñ se conserva. El
+ajuste usa nombres actuales y el corrector existente con plan/respaldo,
+conservando medidas, precios y demás campos. No modifica títulos de marca
+ni documentos del proveedor. Ver el informe de nombres del 25/10.

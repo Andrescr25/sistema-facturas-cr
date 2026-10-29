@@ -8,8 +8,9 @@ tres del usuario, conservando nombres. La lectura de planificación encuentra
 ## Criterio
 
 Producto → medida/capacidad/número → marca y características → empaque.
-Nombre completo en MAYÚSCULAS, con tildes, abreviaturas legibles y separadores
-uniformes (ajuste posterior confirmado por el usuario el mismo día).
+Nombre completo en MAYÚSCULAS, sin tildes en las vocales, con abreviaturas
+legibles y separadores uniformes. Se conserva la Ñ; la preferencia de quitar
+las tildes se confirmó el 28/10, después del ajuste de mayúsculas del 25/10.
 Por ejemplo: `TORNILLO PARA GYPSUM 1 1/2 · PUNTA FINA · 1 × 100`, también
 para el producto que antes intercalaba `1X100` antes de `PTA FINA`.
 El término comercial [gypsum](https://mcprod.epaenlinea.com/tornillos-gypsum.html)
@@ -111,3 +112,37 @@ el 25/10/2026. Plan, filas previas/posteriores, verificación y plan inverso
 están en `~/.local/share/sistema-facturas-cr/respaldos/20261025-nombres-mayusculas-codex/`.
 Para deshacer se usa `deshacer.json` con el mismo corrector y un respaldo
 nuevo; valida que no haya ediciones/reasignaciones posteriores.
+
+
+## 2026-10-28 — Vocales sin tildes
+
+El usuario revisó los nombres y pide «quita todas las tildes». Se revisan los
+314 productos del lote anterior con sus nombres actuales, para conservar
+ediciones posteriores como NEGRA en las amarras. Hay 48 que requieren cambio;
+los otros 266 ya están sin tildes. Se elimina únicamente el acento agudo
+(U+0301 tras descomposición Unicode), conservando mayúsculas, Ñ, diéresis,
+medidas, empaques y el orden que ya aprobó. Los títulos de marca y las
+descripciones originales de proveedores conservan su formato.
+
+El mismo corrector existente valida nombre/marca y guarda respaldo antes de
+escribir. El ensayo local de 48 nombres, con ROLLBACK, conservó todos los
+demás campos y comprobó repetición sin escrituras, Ñ y diéresis; las 7
+pruebas PostgreSQL existentes son correctas. No cambia código de ejecución
+ni pantallas y no necesita migración ni despliegue.
+Codex aplicó los 48 cambios autorizados en producción el 28/10/2026,
+con respaldo inmediato y bitácora. La lectura posterior confirmó que los
+314 productos están sin tildes en las vocales, las Ñ se conservan, y todos
+los demás campos de los 48 productos son iguales al respaldo. Los títulos,
+fotos de marca y existencias también se conservaron.
+
+Los planes, la captura de planificación, las filas inmediatamente anteriores,
+la lectura posterior, la verificación y el plan inverso están en
+`~/.local/share/sistema-facturas-cr/respaldos/20261028-nombres-sin-tildes-codex/`.
+Para deshacer, usar `deshacer.json` con el corrector existente y respaldo
+nuevo; nunca sobrescribir cambios posteriores. No reejecutar planes antiguos
+que restablezcan las tildes contra la preferencia actual del usuario.
+
+Una dependencia compartida estaba pendiente de descarga de iCloud. Para los
+procesos de esta operación se leyó una copia temporal exacta de pg y sus
+14 paquetes, verificados por `integrity` del package-lock; no se instalaron
+ni modificaron dependencias del backend y no se regeneró Prisma.

@@ -39,7 +39,7 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria]
   relacionado: [modulo/portal-clientes, modulo/gestion-catalogo, modulo/catalogo-agente, decision/orden-canonico-compartido, leccion/fotos-del-catalogo-en-la-tablet, leccion/precio-sin-iva-costo-con-iva, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-25
+medido: 2026-10-28
 ---
 
 ## La foto de marca es una portada — 2026-10-22
@@ -191,3 +191,10 @@ en MAYÚSCULAS, conservando tildes, medidas y orden. Las 25 corofijas omiten
 los sufijos de empaque C/M; conservan su margen del 28 %. Los títulos de
 marca mantienen su presentación. Se reutiliza el corrector revisado con
 respaldo; no cambia el código de las pantallas ni los documentos guardados.
+
+
+2026-10-28: por preferencia posterior del usuario, los nombres normalizados
+quedan en MAYÚSCULAS y sin tildes en las vocales; la Ñ se conserva. El
+ajuste usa nombres actuales y el corrector existente con plan/respaldo,
+conservando medidas, precios y demás campos. No modifica títulos de marca
+ni documentos del proveedor. Ver el informe de nombres del 25/10.
