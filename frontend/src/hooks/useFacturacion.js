@@ -19,7 +19,8 @@ import {
   scrollElementIntoView,
   enriquecerFacturasPendientes,
   idPropioDelCliente,
-  sugerenciasDelCatalogo
+  sugerenciasDelCatalogo,
+  SIN_SUGERENCIAS
 } from '../utils/facturacionUtils'
 
 const RECORDATORIO_ACTUALIZACION_KEY = 'facturacion.recordatorio_actualizacion_fecha'
@@ -88,7 +89,7 @@ export function useFacturacion() {
   // Lo que ese cliente suele llevar. Es el mismo cálculo que ve él en su
   // catálogo: si fueran dos cuentas distintas, el agente le ofrecería algo
   // que el portal no le muestra.
-  const [sugerencias, setSugerencias] = useState({ habituales: [], perdidos: [] })
+  const [sugerencias, setSugerencias] = useState(SIN_SUGERENCIAS)
   const facturaExistente = modoEdicion && !facturaEditando?.pendienteSincronizar && !String(facturaEditando?.id).startsWith('local-')
   const condicionesDescuento = useDescuentoClienteFacturacion(clienteSeleccionado, isOnline, facturaExistente)
   const { items, setItems, agregarProductoAFactura, eliminarItem, actualizarCantidadItem, validarCantidadItem,
@@ -789,12 +790,12 @@ export function useFacturacion() {
   // docs/grafo/leccion/ids-propios-y-de-alegra-no-se-mezclan.md.
   const clienteIdSugerencias = idPropioDelCliente(clienteSeleccionado)
   useEffect(() => {
-    if (!clienteIdSugerencias) { setSugerencias({ habituales: [], perdidos: [] }); return }
+    if (!clienteIdSugerencias) { setSugerencias(SIN_SUGERENCIAS); return }
 
     let vigente = true
     facturacionService.getSugerenciasCliente(clienteIdSugerencias)
       .then(r => { if (vigente) setSugerencias(r) })
-      .catch(() => { if (vigente) setSugerencias({ habituales: [], perdidos: [] }) })
+      .catch(() => { if (vigente) setSugerencias(SIN_SUGERENCIAS) })
     return () => { vigente = false }
   }, [clienteIdSugerencias])
 

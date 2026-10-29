@@ -4,6 +4,10 @@ tipo: modulo
 titulo: Facturación de venta — ya cerrado en la migración
 estado: vigente
 archivos:
+  - frontend/src/components/facturacion/BarraSugerencias.jsx
+  - frontend/src/components/facturacion/TarjetaSugerencia.jsx
+  - frontend/src/utils/sugerenciasFacturacion.js
+  - backend/tests/sugerenciasAmpliadas.test.js
   - frontend/src/components/facturacion/VerFotoProducto.jsx
   - frontend/src/components/facturacion/LineaFactura.jsx
   - backend/tests/fotoProductoFacturacion.test.js
@@ -168,6 +172,27 @@ con `cliente.id` en la ruta y `producto.id` en la respuesta. Del 2026-10-03
 al 2026-10-04 la pantalla lo pidió con el id de Alegra: 216 de 247 clientes
 veían las compras de otro. Ver
 [[leccion/ids-propios-y-de-alegra-no-se-mezclan]], caso 5.
+
+AMPLIADO (2026-10-28, «que me recomiende más productos que el cliente lleva»).
+La fila de `BarraSugerencias` no cambió (10 tarjetas, 3 lugares reservados para
+lo que dejó de llevar). Facturación llama `obtenerInicio(clienteId,
+{ ampliado: true })`: hasta 40 habituales y 20 perdidos (el portal sigue en
+24) y una lista nueva, `ocasionales` = lo que el cliente compró UNA vez en los
+últimos 365 días, de lo más reciente a lo más viejo, hasta 30. Antes un
+producto comprado una vez no era «habitual» de nadie y 44 de 236 clientes (y
+la mediana, 5 productos de una vez) se quedaban sin sugerencia. Los umbrales
+de habitual (2 veces) y perdido (3 veces, más de 60 días) son los mismos del
+portal; el portal NO pide `ampliado`, así que su respuesta no gana la lista
+nueva. La regla de qué va en la fila y qué en «Ver más» es pura
+(`utils/sugerenciasFacturacion.js`): los ocasionales entran a la fila solo si
+sobra lugar, nunca le quitan el sitio a un habitual. «Ver más (N)» despliega
+una cuadrícula agrupada por motivo (2 columnas en el teléfono, 3/4/5 al
+ensancharse) con alto máximo del 55 % de la pantalla y su propio
+desplazamiento. La tarjeta es una sola (`TarjetaSugerencia.jsx`) y dice el
+motivo con su dato: «Lo lleva 22 veces», «Hace 199 días que no lo lleva»,
+«Lo llevó una vez, hace 40 días». El historial que se lee sube de 200 a 500
+filas en la versión ampliada, porque las compras de una vez van al final del
+orden (más veces primero).
 
 NO DUPLICAR AL REENVIAR (`idempotencia.js`, tabla `factura_intento`,
 migración 041). La clave la pone la tablet una vez y viaja en cada reenvío.

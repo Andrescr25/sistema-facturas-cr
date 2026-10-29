@@ -151,6 +151,12 @@ module.exports = {
    * distintas, el agente le ofrecería algo que el portal no le muestra—, así
    * que se reusa el servicio en vez de escribirlo otra vez.
    *
+   * AMPLIADO (2026-10-28): acá se piden más productos por lista y la lista
+   * `ocasionales` —lo que el cliente compró UNA vez este último año—, porque el
+   * agente quiere recordarle más de lo que ya lleva. El portal no cambia: su
+   * llamada sigue sin `ampliado`. Los umbrales de «habitual» y «perdido» son
+   * los mismos para los dos.
+   *
    * ACÁ EL CLIENTE VIENE EN LA RUTA, y en el portal sale del token. No es una
    * inconsistencia: quien factura es del personal y le está cobrando a ese
    * cliente, mientras que un cliente no puede pedir la portada de otro.
@@ -162,15 +168,15 @@ module.exports = {
    * docs/grafo/leccion/ids-propios-y-de-alegra-no-se-mezclan.md.
    */
   sugerencias: async (req, res) => {
-    const vacio = { habituales: [], perdidos: [] };
+    const vacio = { habituales: [], perdidos: [], ocasionales: [] };
     const clienteId = Number(req.params.clienteId);
     // Un id que no es un entero positivo no es de nadie: no se consulta.
     if (!Number.isInteger(clienteId) || clienteId <= 0) {
       return res.json({ success: true, data: vacio });
     }
     try {
-      const { habituales, perdidos } = await obtenerInicio(clienteId);
-      res.json({ success: true, data: { habituales, perdidos } });
+      const { habituales, perdidos, ocasionales } = await obtenerInicio(clienteId, { ampliado: true });
+      res.json({ success: true, data: { habituales, perdidos, ocasionales: ocasionales || [] } });
     } catch (error) {
       console.error('❌ Facturación propia (sugerencias):', error.message);
       // Sin sugerencias se factura igual que siempre: no se estorba.

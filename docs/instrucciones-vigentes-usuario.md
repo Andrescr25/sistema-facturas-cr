@@ -1368,3 +1368,11 @@ salga un logo pequeño para ver la img; recuerda que esto también tiene que ser
 completamente responsive». Un botón pequeño en cada línea abre la foto; solo
 sale si el producto tiene foto. [Resultado](grafo/modulo/facturacion.md).
 
+
+## 2026-10-28 — Ampliar «Suele faltar» en Facturación
+
+El usuario: «los productos que salen como recomendación, que sale como "suele
+faltar", está perfecto, pero ampliémoslo más, haz que me recomiende más
+productos que el cliente lleva». La fila se queda como está; se suman más
+productos (también los que el cliente llevó una sola vez este último año) y un
+botón «Ver más» que los despliega. [Resultado](grafo/modulo/facturacion.md).

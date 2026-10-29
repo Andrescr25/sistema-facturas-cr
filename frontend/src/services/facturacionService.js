@@ -455,10 +455,11 @@ class FacturacionService {
       const { data } = await api.get(`/facturacion/clientes/${clienteId}/sugerencias`);
       return {
         habituales: data?.data?.habituales || [],
-        perdidos: data?.data?.perdidos || []
+        perdidos: data?.data?.perdidos || [],
+        ocasionales: data?.data?.ocasionales || []
       };
     } catch {
-      return { habituales: [], perdidos: [] };
+      return { habituales: [], perdidos: [], ocasionales: [] };
     }
   }
 

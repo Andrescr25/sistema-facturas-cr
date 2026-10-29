@@ -183,6 +183,10 @@ export function sugerenciasDelCatalogo(sugerencias, productos) {
   const delCatalogo = (lista) => (lista || []).filter(s => enCatalogo.has(String(s.id)))
   return {
     habituales: delCatalogo(sugerencias?.habituales),
-    perdidos: delCatalogo(sugerencias?.perdidos)
+    perdidos: delCatalogo(sugerencias?.perdidos),
+    ocasionales: delCatalogo(sugerencias?.ocasionales)
   }
 }
+
+/** Sin cliente, o si la consulta falló: ninguna sugerencia (se factura igual). */
+export const SIN_SUGERENCIAS = Object.freeze({ habituales: [], perdidos: [], ocasionales: [] })

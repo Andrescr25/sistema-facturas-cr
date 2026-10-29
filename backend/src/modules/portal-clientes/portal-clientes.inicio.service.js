@@ -32,6 +32,17 @@ const VECES_MIN_PERDIDO = 3;
 const DIAS_MIN_PERDIDO = 60;
 const TOPE_SECCION = 24; // el cliente navega en un teléfono, no en una tablet
 
+// FACTURACIÓN PIDE MÁS (2026-10-28, el usuario: «que me recomiende más productos
+// que el cliente lleva»). Con `ampliado` se devuelven más productos por lista y
+// una lista nueva: `ocasionales`, lo que el cliente compró UNA sola vez en el
+// último año. Hoy un producto comprado una vez no es «habitual» de nadie, y 44
+// de 236 clientes se quedaban sin ninguna sugerencia (medido). El portal no
+// pide `ampliado`: su respuesta y sus topes no cambian.
+const TOPES_AMPLIADO = { habituales: 40, perdidos: 20, ocasionales: 30 };
+const DIAS_MAX_OCASIONAL = 365; // una compra de hace años no es lo que «lleva»
+const LIMITE_HISTORIAL = 200;
+const LIMITE_HISTORIAL_AMPLIADO = 500; // las compras de una vez van al final del orden
+
 /**
  * Compras del cliente, agregadas por producto.
  *
@@ -52,20 +63,26 @@ const SQL_HISTORIAL = `
          (${HOY_CR} - a.ultima_compra) AS dias
   FROM agregado a
   ORDER BY a.veces DESC, a.ultima_compra DESC
-  LIMIT 200;
+  LIMIT $2;
 `;
 
-async function obtenerInicio(clienteId) {
+/**
+ * @param {number|string} clienteId
+ * @param {{ ampliado?: boolean }} [opciones]  `ampliado`: más por lista y la lista
+ *   `ocasionales` (solo Facturación; el portal y el agente no lo piden).
+ */
+async function obtenerInicio(clienteId, { ampliado = false } = {}) {
   // Las compras del cliente y las ofertas vigentes no dependen entre sí, así
   // que se piden a la vez: en secuencia eran dos viajes a Supabase (~140ms
   // cada uno) para armar una pantalla que el cliente abre en el teléfono.
   const [historial, descuentos] = await Promise.all([
-    query(SQL_HISTORIAL, [Number(clienteId)]),
+    query(SQL_HISTORIAL, [Number(clienteId), ampliado ? LIMITE_HISTORIAL_AMPLIADO : LIMITE_HISTORIAL]),
     mapaVigentesPropios()
   ]);
 
   const habitualesIds = [];
   const perdidosIds = [];
+  const ocasionalesIds = [];
   const porItem = new Map();
 
   for (const row of historial.rows) {
@@ -80,14 +97,17 @@ async function obtenerInicio(clienteId) {
       perdidosIds.push(String(row.producto_id));
     } else if (veces >= VECES_MIN_HABITUAL) {
       habitualesIds.push(String(row.producto_id));
+    } else if (ampliado && dias <= DIAS_MAX_OCASIONAL) {
+      // Una sola compra, reciente: no es un hábito, pero sí algo que ya llevó.
+      ocasionalesIds.push(String(row.producto_id));
     }
   }
 
   const idsOferta = [...descuentos.keys()];
-  const todosLosIds = [...new Set([...habitualesIds, ...perdidosIds, ...idsOferta])];
+  const todosLosIds = [...new Set([...habitualesIds, ...perdidosIds, ...ocasionalesIds, ...idsOferta])];
 
   if (todosLosIds.length === 0) {
-    return { habituales: [], perdidos: [], ofertas: [] };
+    return { habituales: [], perdidos: [], ofertas: [], ...(ampliado ? { ocasionales: [] } : {}) };
   }
 
   // Una sola consulta para las tres secciones: los productos se filtran
@@ -100,7 +120,7 @@ async function obtenerInicio(clienteId) {
 
   const porId = new Map(productos.rows.map(p => [String(p.producto_id), p]));
 
-  const armar = (ids, ordenar) => ids
+  const armar = (ids, ordenar, tope = TOPE_SECCION) => ids
     .map(id => {
       const row = porId.get(id);
       if (!row) return null; // dado de baja u oculto desde que lo compró
@@ -113,16 +133,19 @@ async function obtenerInicio(clienteId) {
     })
     .filter(Boolean)
     .sort(ordenar)
-    .slice(0, TOPE_SECCION);
+    .slice(0, tope);
 
+  const topes = ampliado ? TOPES_AMPLIADO : { habituales: TOPE_SECCION, perdidos: TOPE_SECCION };
   return {
     // Lo que más compra: primero lo más frecuente y reciente.
-    habituales: armar(habitualesIds, (a, b) => (b.veces - a.veces) || (a.dias - b.dias)),
+    habituales: armar(habitualesIds, (a, b) => (b.veces - a.veces) || (a.dias - b.dias), topes.habituales),
     // Lo que dejó de comprar: primero lo que más compraba.
-    perdidos: armar(perdidosIds, (a, b) => (b.veces - a.veces) || (b.dias - a.dias)),
+    perdidos: armar(perdidosIds, (a, b) => (b.veces - a.veces) || (b.dias - a.dias), topes.perdidos),
     // En oferta: primero el descuento más grande.
-    ofertas: armar(idsOferta, (a, b) => (b.descuento || 0) - (a.descuento || 0))
+    ofertas: armar(idsOferta, (a, b) => (b.descuento || 0) - (a.descuento || 0)),
+    // Lo que llevó una sola vez este último año: primero lo más reciente.
+    ...(ampliado ? { ocasionales: armar(ocasionalesIds, (a, b) => a.dias - b.dias, topes.ocasionales) } : {})
   };
 }
 
-module.exports = { obtenerInicio, VECES_MIN_HABITUAL, VECES_MIN_PERDIDO, DIAS_MIN_PERDIDO };
+module.exports = { obtenerInicio, VECES_MIN_HABITUAL, VECES_MIN_PERDIDO, DIAS_MIN_PERDIDO, DIAS_MAX_OCASIONAL };

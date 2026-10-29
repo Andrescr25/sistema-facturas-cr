@@ -210,7 +210,8 @@ describe('las fotos se piden al backend, no a la web', () => {
   // Estas reciben la ruta en una variable: la expresión del <img> no alcanza
   // para reconocerlas, así que se nombran.
   for (const componente of [
-    ['components', 'facturacion', 'BarraSugerencias.jsx'],
+    // La foto de cada sugerencia la dibuja la tarjeta, la misma de la fila y del «Ver más».
+    ['components', 'facturacion', 'TarjetaSugerencia.jsx'],
     ['components', 'rentabilidad', 'ListaProductos.jsx'],
     ['components', 'inventario-auditoria', 'SeccionProductosNuevos.jsx'],
     ['components', 'catalogo-agente', 'TarjetaProductoAgente.jsx']

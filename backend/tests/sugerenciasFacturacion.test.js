@@ -42,9 +42,10 @@ function montar(resultado) {
   require.cache[rutaInicio] = {
     id: rutaInicio, filename: rutaInicio, loaded: true,
     exports: {
-      obtenerInicio: async (clienteId) => {
+      obtenerInicio: async (clienteId, opciones) => {
         visto.llamadas++;
         visto.clienteId = clienteId;
+        visto.opciones = opciones;
         if (resultado instanceof Error) throw resultado;
         return resultado;
       }
@@ -57,6 +58,7 @@ function montar(resultado) {
 const DATOS = {
   habituales: [{ id: 462, nombre: 'YOYO DE PESCA NEGRO', veces: 22, dias: 3 }],
   perdidos: [{ id: 900, nombre: 'TABLA MARMELO', veces: 5, dias: 199 }],
+  ocasionales: [{ id: 333, nombre: 'CINTA METRICA 5M', veces: 1, dias: 40 }],
   ofertas: [{ id: 111, nombre: 'UNA OFERTA' }]
 };
 
@@ -69,6 +71,22 @@ describe('las sugerencias del cliente al facturarle', () => {
 
     assert.equal(res.cuerpo.data.habituales[0].nombre, 'YOYO DE PESCA NEGRO');
     assert.equal(res.cuerpo.data.perdidos[0].dias, 199);
+  });
+
+  test('devuelve también lo que llevó una sola vez este último año', async () => {
+    const { controlador, res } = montar(DATOS);
+    await controlador.sugerencias({ params: { clienteId: '90' } }, res);
+
+    assert.equal(res.cuerpo.data.ocasionales[0].nombre, 'CINTA METRICA 5M');
+  });
+
+  test('pide la versión AMPLIADA; el portal no la pide', async () => {
+    const { controlador, res, visto } = montar(DATOS);
+    await controlador.sugerencias({ params: { clienteId: '90' } }, res);
+    assert.deepEqual(visto.opciones, { ampliado: true });
+
+    const portal = fs.readFileSync(path.join(__dirname, '..', 'src', 'modules', 'portal-clientes', 'portal-clientes.controller.js'), 'utf8');
+    assert.match(portal, /inicio\.obtenerInicio\(req\.cliente\.clienteId\)/, 'el portal sigue sin pedir lo ampliado');
   });
 
   test('NO devuelve las ofertas: acá no vienen al caso', async () => {
@@ -94,7 +112,7 @@ describe('las sugerencias del cliente al facturarle', () => {
     const { controlador, res } = montar(new Error('la base dijo que no'));
     await controlador.sugerencias({ params: { clienteId: '90' } }, res);
 
-    assert.deepEqual(res.cuerpo.data, { habituales: [], perdidos: [] });
+    assert.deepEqual(res.cuerpo.data, { habituales: [], perdidos: [], ocasionales: [] });
     assert.notEqual(res.estado, 500);
   });
 
@@ -102,7 +120,7 @@ describe('las sugerencias del cliente al facturarle', () => {
     const { controlador, res } = montar({ habituales: [], perdidos: [], ofertas: [] });
     await controlador.sugerencias({ params: { clienteId: '77' } }, res);
 
-    assert.deepEqual(res.cuerpo.data, { habituales: [], perdidos: [] });
+    assert.deepEqual(res.cuerpo.data, { habituales: [], perdidos: [], ocasionales: [] });
   });
 
   test('lo que no es un id (un cliente creado sin señal, "undefined") ni se consulta', async () => {
@@ -111,7 +129,7 @@ describe('las sugerencias del cliente al facturarle', () => {
       await controlador.sugerencias({ params: { clienteId } }, res);
 
       assert.equal(visto.llamadas, 0, `se consultó con "${clienteId}"`);
-      assert.deepEqual(res.cuerpo.data, { habituales: [], perdidos: [] });
+      assert.deepEqual(res.cuerpo.data, { habituales: [], perdidos: [], ocasionales: [] });
     }
   });
 });
@@ -237,19 +255,21 @@ describe('la pantalla pide y muestra en ids propios', () => {
   test('la que no está en el catálogo de la tablet no se muestra: no se podría agregar', async () => {
     const { sugerenciasDelCatalogo } = await utiles();
     const r = sugerenciasDelCatalogo(
-      { habituales: [{ id: 12 }, { id: 99 }], perdidos: [{ id: '12' }, { id: 7 }] },
+      { habituales: [{ id: 12 }, { id: 99 }], perdidos: [{ id: '12' }, { id: 7 }], ocasionales: [{ id: 12 }, { id: 5 }] },
       [{ id: 12 }]
     );
 
     assert.deepEqual(r.habituales.map(s => s.id), [12]);
     assert.deepEqual(r.perdidos.map(s => s.id), ['12']);
+    assert.deepEqual(r.ocasionales.map(s => s.id), [12]);
   });
 
   test('sin sugerencias o sin catálogo devuelve listas vacías', async () => {
     const { sugerenciasDelCatalogo } = await utiles();
 
-    assert.deepEqual(sugerenciasDelCatalogo(undefined, undefined), { habituales: [], perdidos: [] });
-    assert.deepEqual(sugerenciasDelCatalogo({ habituales: [{ id: 1 }] }, []), { habituales: [], perdidos: [] });
+    const vacio = { habituales: [], perdidos: [], ocasionales: [] };
+    assert.deepEqual(sugerenciasDelCatalogo(undefined, undefined), vacio);
+    assert.deepEqual(sugerenciasDelCatalogo({ habituales: [{ id: 1 }] }, []), vacio);
   });
 
   test('el hook usa esas dos funciones y ya no mira `alegraId`', () => {

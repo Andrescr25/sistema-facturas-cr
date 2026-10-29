@@ -163,6 +163,12 @@ no tienen subcategoría quedan en Otros cuando hay familias, sin encabezado
 vacío en categorías aún sin clasificar. Categorías conservan nombre real
 para filtrar y nombre visible para presentar.
 
+La portada personal (`obtenerInicio`) la comparte Facturación, que la pide con
+`{ ampliado: true }` para ver más productos y los de una sola compra
+([[modulo/facturacion]], «Suele faltar»). El portal NO lo pide: sus topes (24)
+y su respuesta (`habituales`, `perdidos`, `ofertas`) no cambian; una prueba lo
+fija.
+
 La clasificación sale de la misma lectura de `producto`, con LEFT JOIN a las
 filas activas y compatibles; no hay consulta por ficha ni columna nueva.
 `marcaPublica` limita campos y tipos incluso dentro del JSON de imagen.
