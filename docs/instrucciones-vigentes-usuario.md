@@ -1388,4 +1388,5 @@ tocar»; «de momento este no podrá cobrar … pero igual esto desarróllalo pa
 futuro: cuánto dinero recogió por usuario y todo más acomodado a cierre de
 caja»; próxima visita por defecto y personalizable («que el agente planifique
 bien cómo va a visitar»); GPS en cada acción. «Vamos poco a poco, función a
-función.» [Resultado](grafo/decision/agente-de-ventas-monitoreado.md). Después: «el agente ve solo sus facturas». Y: «perfecto, continúa — subamos a main hasta el final de todo».
+función.» [Resultado](grafo/decision/agente-de-ventas-monitoreado.md). Después: «el agente ve solo sus facturas». Y: «perfecto, continúa — subamos a main hasta el final de todo». Luego: «ocupo que el agente pueda editar la rotación, pueda asignarle
+ubicación con punto exacto en el mapa».

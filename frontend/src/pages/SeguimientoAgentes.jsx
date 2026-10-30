@@ -1,4 +1,4 @@
-import { Footprints as IconoRecorrido, RefreshCw, Users, Receipt, CalendarClock, MapPinOff, AlertTriangle, ListOrdered, Banknote } from 'lucide-react'
+import { Footprints as IconoRecorrido, RefreshCw, Users, Receipt, CalendarClock, MapPinOff, AlertTriangle, ListOrdered, Banknote, PencilLine } from 'lucide-react'
 import { useSeguimientoAgente } from '../hooks/useSeguimientoAgente'
 import Boton from '../components/ui/Boton'
 import TarjetasResumen from '../components/pagos/TarjetasResumen'
@@ -23,6 +23,8 @@ export default function SeguimientoAgentes() {
     { clave: 'sinventa', titulo: 'No compraron', icono: CalendarClock, valor: r.sinVenta, tono: 'alerta' },
     { clave: 'singps', titulo: 'Sin ubicación', icono: MapPinOff, valor: r.sinGps, tono: r.sinGps ? 'peligro' : 'neutro',
       pie: r.fueraDeVisita ? `${r.fueraDeVisita} factura${r.fueraDeVisita === 1 ? '' : 's'} fuera de Preventa` : undefined },
+    // Fichas que corrigió (rotación o ubicación): solo si corrigió alguna.
+    ...(r.fichasCorregidas > 0 ? [{ clave: 'fichas', titulo: 'Fichas corregidas', icono: PencilLine, valor: r.fichasCorregidas, tono: 'neutro' }] : []),
     // Lo que cobró: solo si cobró (hoy el agente no tiene «Cobrar al facturar»).
     ...(r.cobrado > 0 ? [{ clave: 'cobrado', titulo: 'Cobró', icono: Banknote, valor: colones(r.cobrado), tono: 'exito' }] : [])
   ] : []

@@ -35,7 +35,8 @@ export default function Preventa() {
             agenda.seleccionar(null)
             agenda.avisar(`${cliente.nombre} quedó para el ${fechaEnPalabras(visita.proxima_fecha, { day: 'numeric', month: 'long' })}.`)
             agenda.recargar()
-          }} />
+          }}
+          alGuardarFicha={(mensaje) => { agenda.avisar(mensaje); agenda.recargar() }} />
         : <ListaAgenda agenda={agenda} />)}
     </div>
   )

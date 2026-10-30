@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Receipt, MapPin, Navigation, Phone, MessageCircle, Mail, CalendarClock } from 'lucide-react'
+import { ArrowLeft, Receipt, MapPin, Navigation, Phone, MessageCircle, Mail, CalendarClock, Repeat, Crosshair } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Boton from '../ui/Boton'
 import RotacionCliente from '../clientes/RotacionCliente'
@@ -7,6 +7,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { puedeVer } from '../../utils/modulos'
 import { enlacesParaLlegar, contactosDe, textoReprogramada } from '../../utils/visitaPreventa'
 import ModalProximaVisita from './ModalProximaVisita'
+import ModalRotacionCliente from './ModalRotacionCliente'
+import ModalUbicacionCliente from './ModalUbicacionCliente'
 
 const ENLACE = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-bold transition-colors'
 const TONO = {
@@ -25,8 +27,10 @@ const TONO = {
  *
  * «Próxima visita» (F4): si no compró, el motivo y para cuándo queda.
  */
-export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita }) {
+export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita, alGuardarFicha }) {
   const [proxima, setProxima] = useState(false)
+  // Rotación y punto exacto en el mapa, desde la visita (2026-10-29).
+  const [editando, setEditando] = useState(null) // 'rotacion' | 'ubicacion'
   const reprogramada = textoReprogramada(cliente.rotacion)
   const { usuario } = useAuth()
   const navigate = useNavigate()
@@ -44,6 +48,7 @@ export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita })
         <h2 className="break-words text-2xl font-bold text-neutro-900">{cliente.nombre}</h2>
         <p className="mt-1 text-sm text-neutro-500">Cliente #{cliente.id} · {cliente.ruta?.nombre || 'Sin ruta asignada'}</p>
         <RotacionCliente rotacion={cliente.rotacion} />
+        <Boton variante="fantasma" tamano="sm" icono={Repeat} onClick={() => setEditando('rotacion')} className="mt-2 gap-1.5">Cambiar rotación</Boton>
         {reprogramada && (
           <p className="mt-3 rounded-xl bg-nota-50 px-3 py-2 text-sm font-semibold text-nota-700">
             {reprogramada}{cliente.rotacion.reprogramada.nota ? ` — «${cliente.rotacion.reprogramada.nota}»` : ''}
@@ -68,8 +73,11 @@ export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita })
               {llegar.waze && <a href={llegar.waze} target="_blank" rel="noopener noreferrer" className={`${ENLACE} ${TONO.neutro}`}><Navigation size={16} />Ir con Waze</a>}
             </div>
           ) : (
-            <p className="rounded-xl bg-neutro-50 p-3 text-sm text-neutro-500">Sin ubicación en la ficha. Se agrega en Clientes.</p>
+            <p className="rounded-xl bg-neutro-50 p-3 text-sm text-neutro-500">Sin ubicación en la ficha.</p>
           )}
+          <Boton variante="secundario" icono={Crosshair} onClick={() => setEditando('ubicacion')} ancho className="gap-2">
+            {llegar.maps ? 'Corregir en el mapa' : 'Marcar en el mapa'}
+          </Boton>
         </section>
 
         <section aria-label="Contacto" className="card min-w-0 space-y-3 p-5 sm:p-6">
@@ -95,6 +103,14 @@ export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita })
       {proxima && (
         <ModalProximaVisita cliente={cliente} hoy={hoy} onCerrar={() => setProxima(false)}
           onGuardada={(visita) => { setProxima(false); alGuardarVisita(cliente, visita) }} />
+      )}
+      {editando === 'rotacion' && (
+        <ModalRotacionCliente cliente={cliente} onCerrar={() => setEditando(null)}
+          onGuardada={(dias) => { setEditando(null); alGuardarFicha(`${cliente.nombre}: se visita cada ${dias} días.`) }} />
+      )}
+      {editando === 'ubicacion' && (
+        <ModalUbicacionCliente cliente={cliente} onCerrar={() => setEditando(null)}
+          onGuardada={() => { setEditando(null); alGuardarFicha(`Ubicación de ${cliente.nombre} guardada.`) }} />
       )}
     </div>
   )

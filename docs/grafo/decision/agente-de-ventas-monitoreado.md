@@ -68,6 +68,12 @@ archivos:
   - frontend/src/components/cuentas-por-cobrar/CuadreCajaDia.jsx
   - frontend/src/hooks/useCuadreCaja.js
   - backend/tests/cobrosPorUsuario.test.js
+  - backend/src/modules/preventa/fichaDesdeVisita.js
+  - frontend/src/components/preventa/MapaUbicacion.jsx
+  - frontend/src/components/preventa/ModalUbicacionCliente.jsx
+  - frontend/src/components/preventa/ModalRotacionCliente.jsx
+  - frontend/src/hooks/useFichaDesdeVisita.js
+  - backend/tests/fichaDesdeVisita.test.js
 aristas:
   relacionado: [modulo/permisos, modulo/facturacion, modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos]
 medido: 2026-10-29
@@ -212,8 +218,30 @@ cambia. «Seguimiento de agentes» suma lo que cobró el agente (sin GPS: un cob
 no sale de una visita). De paso, «Ayer» del cuadre usaba `toISOString()` y de
 noche daba hoy: ahora es ayer en Costa Rica.
 
+## Rotación y punto exacto en el mapa, desde la visita (2026-10-29)
+
+El usuario: «ocupo que el agente pueda editar la rotación, pueda asignarle
+ubicación con punto exacto en el mapa». El agente no tiene Clientes: desde la
+visita corrige SOLO esos dos datos y solo en clientes de sus rutas
+(`PATCH /preventa/clientes/:id`, 403 si no). Pasa por `editarCliente`, la
+misma edición de Clientes, con su validación y su bitácora.
+
+- Rotación: 7, 15, 22, 30 u otra (1 a 365 días). La próxima visita se
+  recalcula sola desde la última factura.
+- Ubicación: mapa de OpenStreetMap con Leaflet (dependencia nueva `leaflet`
+  1.9.4, cargada aparte con React.lazy: 44 KB que solo baja quien abre el
+  mapa). Tocar el mapa pone el marcador, arrastrarlo lo ajusta, «Usar mi
+  ubicación» lo pone donde está el teléfono. Si la ficha no tiene punto, el
+  mapa abre centrado donde está el agente pero sin marcador. Se guarda como
+  enlace de Maps con las coordenadas exactas
+  (`https://www.google.com/maps?q=lat,lng`, 6 decimales): así sirven «Ir con
+  Waze» y la distancia del Seguimiento. Un punto fuera de Costa Rica se rechaza.
+- «Seguimiento de agentes» muestra cada corrección (de la bitácora) en el
+  recorrido, sin contarla como visita, y cuántas fichas corrigió.
+- Los mosaicos piden internet; OpenStreetMap no pide llave. En zonas rurales
+  tiene menos detalle que una foto satelital.
+
 ## Lo que sigue
 
 Subir a main con las migraciones 068–071 aplicadas antes en producción (y el
-agente creado DESPUÉS). Si hace falta más adelante: Preventa sin señal y
-guardar la ubicación del cliente con GPS.
+agente creado DESPUÉS). Si hace falta más adelante: Preventa sin señal.

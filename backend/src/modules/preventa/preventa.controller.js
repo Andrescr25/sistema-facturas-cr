@@ -2,6 +2,7 @@ const servicio = require('./preventa.service');
 const { puedeHacer } = require('../usuarios/permisos.middleware');
 const { rutasDe } = require('../usuarios/rutasAsignadas');
 const visitas = require('./visitas');
+const { corregirFicha } = require('./fichaDesdeVisita');
 
 // Sin «Ver todas las rutas», solo las que se le asignaron en Usuarios (2026-10-29).
 const rutasPermitidas = async (req) => ((await puedeHacer(req, 'rutas-todas')) ? null : rutasDe(req.usuario.id));
@@ -22,3 +23,6 @@ exports.agenda = (req, res) => responder(res, async () => servicio.agenda(req.qu
 // «Próxima visita» (F4): el agente la marca solo en clientes de sus rutas.
 exports.proximaVisita = (req, res) => responder(res, async () =>
   visitas.registrarProximaVisita(req.body || {}, { usuarioId: req.usuario?.id, rutasPermitidas: await rutasPermitidas(req) }));
+// Rotación y ubicación exacta desde la visita (2026-10-29), solo en clientes de sus rutas.
+exports.corregirFicha = (req, res) => responder(res, async () =>
+  corregirFicha(req.params.id, req.body || {}, { usuarioId: req.usuario?.id, rutasPermitidas: await rutasPermitidas(req) }));

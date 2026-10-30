@@ -5,5 +5,6 @@ const controlador = require('./preventa.controller');
 router.get('/rutas', controlador.rutas);
 router.get('/agenda', controlador.agenda);
 router.post('/visitas', controlador.proximaVisita);
+router.patch('/clientes/:id', controlador.corregirFicha);
 
 module.exports = router;

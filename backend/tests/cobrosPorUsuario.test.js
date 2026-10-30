@@ -139,7 +139,7 @@ describe('la pantalla', () => {
 
   test('el recorrido muestra el cobro sin GPS (no sale de una visita)', () => {
     const r = leer('components', 'seguimiento', 'RecorridoAgente.jsx');
-    assert.match(r, /const gps = cobro \? null : lecturaDelGps\(p\.gps, p\.cliente\.ubicacionMaps\)/);
+    assert.match(r, /const gps = cobro \|\| ficha \? null : lecturaDelGps\(p\.gps, p\.cliente\.ubicacionMaps\)/);
     assert.match(r, /Cobró \{colones\(p\.cobro\.monto\)\}/);
   });
 });

@@ -89,7 +89,24 @@ async function dia({ usuarioId, fecha } = {}) {
       WHERE p.registrado_por = $1 AND p.fecha = $2
       ORDER BY p.creado_en, p.id`, [id, elDia]);
 
+  // Lo que corrigió de las fichas desde la visita: rotación y ubicación (bitácora).
+  const { rows: fichas } = await query(
+    `SELECT b.entidad_id, c.nombre AS cliente_nombre, c.ubicacion_maps, b.cambios,
+            to_char(b.creado_en, 'HH24:MI') AS hora, b.creado_en AS momento
+       FROM bitacora_cambio b JOIN cliente c ON c.id::text = b.entidad_id
+      WHERE b.usuario_id = $1 AND b.entidad = 'cliente' AND b.accion = 'editar'
+        AND b.creado_en::date = $2::date AND (b.cambios ? 'rotacion_dias' OR b.cambios ? 'ubicacion_maps')
+      ORDER BY b.creado_en, b.id`, [id, elDia]);
+
   const recorrido = [
+    ...fichas.map(f => ({
+      tipo: 'ficha', hora: f.hora, momento: f.momento,
+      cliente: { id: Number(f.entidad_id), nombre: f.cliente_nombre, ubicacionMaps: f.ubicacion_maps },
+      ficha: {
+        rotacion: f.cambios.rotacion_dias ? { antes: f.cambios.rotacion_dias[0], despues: f.cambios.rotacion_dias[1] } : null,
+        ubicacion: f.cambios.ubicacion_maps ? { antes: f.cambios.ubicacion_maps[0], despues: f.cambios.ubicacion_maps[1] } : null
+      }
+    })),
     ...cobros.map(p => ({
       tipo: 'cobro', hora: p.hora, momento: p.momento,
       cliente: { id: p.cliente_id, nombre: p.cliente_nombre, ubicacionMaps: p.ubicacion_maps },
@@ -109,7 +126,7 @@ async function dia({ usuarioId, fecha } = {}) {
   ].sort((a, b) => new Date(a.momento) - new Date(b.momento)).map(({ momento, ...paso }) => paso);
 
   const ventas = recorrido.filter(p => p.tipo === 'venta' && !p.factura.anulada);
-  const visitados = new Set(recorrido.filter(p => p.tipo !== 'cobro').map(p => p.cliente.id));
+  const visitados = new Set(recorrido.filter(p => p.tipo === 'venta' || p.tipo === 'proxima_visita').map(p => p.cliente.id));
   const pendientes = elDia === hoy ? await pendientesDeHoy(id, visitados) : null;
 
   return {
@@ -119,6 +136,7 @@ async function dia({ usuarioId, fecha } = {}) {
       ventas: ventas.length,
       monto: Math.round(ventas.reduce((s, p) => s + p.factura.total, 0) * 100) / 100,
       sinVenta: recorrido.filter(p => p.tipo === 'proxima_visita').length,
+      fichasCorregidas: recorrido.filter(p => p.tipo === 'ficha').length,
       sinGps: recorrido.filter(p => p.gps && p.gps.estado !== 'tomada').length,
       fueraDeVisita: recorrido.filter(p => p.tipo === 'venta' && !p.desdeVisita).length,
       // Lo que cobró (cuando cobre: hoy su usuario no tiene «Cobrar al facturar»).

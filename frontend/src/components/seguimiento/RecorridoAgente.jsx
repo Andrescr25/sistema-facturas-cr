@@ -1,4 +1,4 @@
-import { Receipt, CalendarClock, MapPin, Banknote } from 'lucide-react'
+import { Receipt, CalendarClock, MapPin, Banknote, PencilLine } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import { colones } from '../../utils/colones'
 import { fechaEnPalabras } from '../../utils/fechaCR'
@@ -10,7 +10,8 @@ const TONO_TEXTO = { exito: 'text-exito-700', alerta: 'text-alerta-700', neutro:
 /**
  * Lo que hizo el agente en el día, en orden de hora: cada factura y cada
  * «próxima visita», con dónde estaba y qué tan lejos del cliente (F5), y lo
- * que cobró (F6), que no lleva GPS: se registra en caja o al facturar.
+ * que cobró (F6), que no lleva GPS: se registra en caja o al facturar. Y lo que
+ * corrigió de las fichas desde la visita: rotación y punto en el mapa.
  */
 export default function RecorridoAgente({ recorrido }) {
   if (!recorrido.length) {
@@ -20,9 +21,10 @@ export default function RecorridoAgente({ recorrido }) {
     <ol className="space-y-3">
       {recorrido.map((p, i) => {
         const cobro = p.tipo === 'cobro'
-        const gps = cobro ? null : lecturaDelGps(p.gps, p.cliente.ubicacionMaps)
+        const ficha = p.tipo === 'ficha'
+        const gps = cobro || ficha ? null : lecturaDelGps(p.gps, p.cliente.ubicacionMaps)
         const venta = p.tipo === 'venta'
-        const Icono = cobro ? Banknote : venta ? Receipt : CalendarClock
+        const Icono = ficha ? PencilLine : cobro ? Banknote : venta ? Receipt : CalendarClock
         return (
           <li key={`${p.tipo}-${p.factura?.id ?? p.cobro?.id ?? i}-${p.hora}`} className="card flex min-w-0 gap-3 p-4 sm:p-5">
             <div className="flex w-14 shrink-0 flex-col items-center gap-1">
@@ -31,7 +33,16 @@ export default function RecorridoAgente({ recorrido }) {
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <p className="break-words font-bold text-neutro-900">{p.cliente.nombre}</p>
-              {cobro ? (
+              {ficha ? (
+                <div className="space-y-0.5 text-sm text-neutro-700">
+                  {p.ficha.rotacion && <p>Cambió la rotación: {p.ficha.rotacion.antes ? `cada ${p.ficha.rotacion.antes}` : 'sin rotación'} → cada {p.ficha.rotacion.despues} días</p>}
+                  {p.ficha.ubicacion && (
+                    <p>{p.ficha.ubicacion.antes ? 'Corrigió' : 'Marcó'} la ubicación en el mapa{' '}
+                      <a href={p.ficha.ubicacion.despues} target="_blank" rel="noopener noreferrer" className="font-bold text-primario-700 hover:underline">ver punto</a>
+                    </p>
+                  )}
+                </div>
+              ) : cobro ? (
                 <p className="flex flex-wrap items-center gap-2 text-sm text-neutro-700">
                   <span>Cobró {colones(p.cobro.monto)} · {p.cobro.metodo}</span>
                   {p.cobro.anulado && <Insignia tono="peligro">Anulado</Insignia>}
