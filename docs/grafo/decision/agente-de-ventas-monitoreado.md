@@ -241,7 +241,22 @@ misma edición de Clientes, con su validación y su bitácora.
 - Los mosaicos piden internet; OpenStreetMap no pide llave. En zonas rurales
   tiene menos detalle que una foto satelital.
 
-## Lo que sigue
+## Estado al retomar el relevo — 2026-10-29
 
-Subir a main con las migraciones 068–071 aplicadas antes en producción (y el
-agente creado DESPUÉS). Si hace falta más adelante: Preventa sin señal.
+F1–F6 y la edición de rotación/ubicación ya están en producción: Claude
+publicó `7fba578` tras aplicar 068–071 y verificarlas en una conexión nueva.
+El registro de publicación conserva la confirmación de Render. El párrafo
+anterior de «subir a main» era pendiente histórico: no repetir esas
+migraciones ni crear otra implementación por falta de actualización del relevo.
+
+Codex revalidó ese mismo código en una copia desechable de PostgreSQL local:
+187 pruebas de permisos, sesión sin señal, precio fijo, facturas propias,
+rutas asignadas, visitas/GPS, seguimiento y cobros por usuario correctas;
+compilación de la pantalla correcta. Esta verificación no usa producción y
+no sustituye la prueba del usuario con su agente real.
+
+Queda configurar el usuario real y sus rutas, con Facturación, Catálogo del
+agente y Preventa, sin los cuatro permisos de acción, conforme a lo pedido.
+La demo y `zz-agente` locales se conservan mientras el usuario los prueba;
+no borrar la factura local 001000014882, a un cliente real de la copia, sin
+aclarar su origen con él. Si se pide más adelante: Preventa sin señal.

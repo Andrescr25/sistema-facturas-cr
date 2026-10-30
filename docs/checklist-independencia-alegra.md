@@ -1308,3 +1308,16 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   y stock iguales; plan inverso guardado. Sin SQL ni código nuevo.
 
 [Detalle](informes/nombres-marcas-2026-10-25.md).
+
+
+### Relevo del agente de ventas — 2026-10-29
+
+- [x] Contrastar código, memoria y publicación: F1–F6 y rotación/mapa ya
+  publicados por Claude en 7fba578 con 068–071 aplicadas antes.
+- [x] Codex revalida 187 pruebas del agente y permisos contra clon local
+  desechable; todas correctas, compilación correcta, sin cambios de negocio.
+- [ ] Configurar el usuario real y las rutas cuando el usuario indique cuáles.
+- [ ] Retirar la demo local cuando termine de probar, conservando su factura
+  de prueba a un cliente real hasta aclararla.
+
+[Detalle](grafo/decision/agente-de-ventas-monitoreado.md).
