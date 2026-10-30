@@ -96,5 +96,5 @@ export function useAgendaPreventa() {
   return { rutas, errorRutas, cargandoRutas, recargarRutas, rutaId, cambiarRuta,
     error, cargando: Boolean(rutaId) && (cargando || (!vigente && !error)), recargar,
     filtros, setFiltros, grupos, cantidades, total: clientes.length, hoy: datos.hoy,
-    seleccionId, seleccionado, seleccionar: setSeleccionId, aviso }
+    seleccionId, seleccionado, seleccionar: setSeleccionId, aviso, avisar: setAviso }
 }

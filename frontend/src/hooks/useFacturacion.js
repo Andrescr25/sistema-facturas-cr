@@ -99,6 +99,8 @@ export function useFacturacion() {
   const [fecha, setFecha] = useState(hoyEnCostaRica())
   const [observaciones, setObservaciones] = useState('')
   const [descuentoGlobal, setDescuentoGlobal] = useState(0)
+  // Factura de una visita de Preventa: viaja con ella (F4 del agente; la pone Facturacion.jsx).
+  const [visitaPreventa, setVisitaPreventa] = useState(null)
 
   // Estados de búsqueda y entrada rápida
   const [codigoProducto, setCodigoProducto] = useState('')
@@ -873,6 +875,7 @@ export function useFacturacion() {
       }
 
       if (!facturaExistente) facturaData.descuentoClienteRevisado = condicionesDescuento.porcentaje
+      if (!facturaExistente && visitaPreventa) facturaData.visita = visitaPreventa
 
 
       // El cobro viaja con la factura y se registra en la misma transacción:
@@ -1210,6 +1213,7 @@ export function useFacturacion() {
     items,
     DESCRIPCION_MAX,
     descuentoGlobal,
+    setVisitaPreventa,
     observaciones,
     setObservaciones,
 

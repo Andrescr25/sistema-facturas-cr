@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { tomarUbicacion } from '../services/ubicacionService'
 
 /**
  * Facturar desde Preventa (F3 del agente, 2026-10-29): el agente toca
@@ -9,13 +10,26 @@ import { useSearchParams } from 'react-router-dom'
  *
  * Vive aparte de useFacturacion, que ya es grande: solo lee la dirección y
  * llama a `seleccionarCliente`, el mismo camino que tocar el cliente a mano.
+ *
+ * LA VISITA (F4): al llegar se toma el GPS del dispositivo, y mientras el
+ * cliente elegido sea el de la visita, `visita` viaja con la factura; el
+ * servidor la anota como visita con venta, en la misma transacción.
  */
 export function useClienteDesdePreventa({ clientes, clienteSeleccionado, seleccionarCliente }) {
   const [parametros] = useSearchParams()
   const id = Number(parametros.get('cliente')) || null
   const ruta = parametros.get('ruta')
   const [noEsta, setNoEsta] = useState(false)
+  const [ubicacion, setUbicacion] = useState(null)
   const hecho = useRef(false)
+  const desdePreventa = parametros.get('desde') === 'preventa'
+
+  useEffect(() => {
+    if (!desdePreventa || !id) return
+    let vivo = true
+    tomarUbicacion().then(u => { if (vivo) setUbicacion(u) })
+    return () => { vivo = false }
+  }, [desdePreventa, id])
 
   useEffect(() => {
     if (hecho.current || !id || clienteSeleccionado || !clientes?.length) return
@@ -25,8 +39,13 @@ export function useClienteDesdePreventa({ clientes, clienteSeleccionado, selecci
     else setNoEsta(true)
   }, [id, clientes, clienteSeleccionado, seleccionarCliente])
 
+  const esElDeLaVisita = desdePreventa && id && Number(clienteSeleccionado?.id) === id
+  const visita = useMemo(() => (esElDeLaVisita ? { desde: 'preventa', ...(ubicacion || { estado: 'no_disponible' }) } : null),
+    [esElDeLaVisita, ubicacion])
+
   return {
-    desdePreventa: parametros.get('desde') === 'preventa',
+    desdePreventa,
+    visita,
     volverA: `/preventa${ruta ? `?ruta=${encodeURIComponent(ruta)}` : ''}`,
     clienteNoEsta: noEsta
   }

@@ -55,6 +55,7 @@ const CAMPOS_FACTURA = {
 const { armarLineas, exigirClienteMostrado, recortar, dinero, enColones } = require('./facturaLineas');
 const { aplicarDescuentoEn } = require('./descuentoCliente.service');
 const { exigirPrecioDeLista } = require('./precioFijo');
+const { registrarVentaEn } = require('../preventa/visitas');
 const { estaTomadaEn, mensajeDeFacturaTomada } = require('../warehouse/tomadaEnBodega');
 
 
@@ -349,12 +350,16 @@ async function emitirCon(cliente, datos, { cabecera, items }, usuarioId, { preci
     exigirLoMostrado: !usaAlegraId
   });
 
-  return guardarFactura(cliente, {
+  const factura = await guardarFactura(cliente, {
     datos: { ...datos, ...cabecera },
     clienteFacturado,
     armado,
     usuarioId
   });
+  // Facturada desde una visita de Preventa (F4 del agente): la visita queda con
+  // la factura y el GPS del momento, en la misma transacción.
+  if (datos.visita) await registrarVentaEn(cliente, { factura, usuarioId, ubicacion: datos.visita });
+  return factura;
 }
 
 /**

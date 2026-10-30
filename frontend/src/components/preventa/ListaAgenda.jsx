@@ -4,6 +4,7 @@ import Insignia from '../ui/Insignia'
 import Boton from '../ui/Boton'
 import { SECCIONES_PREVENTA } from '../../utils/agendaPreventa'
 import { visitaEnPalabras, textoRotacion } from '../../utils/rotacionTexto'
+import { textoReprogramada } from '../../utils/visitaPreventa'
 
 const ICONOS = { atrasado: AlertCircle, hoy: CalendarDays, proximo: Clock, sin_rotacion: UserCircle, sin_facturas: FileText }
 
@@ -35,6 +36,7 @@ export default function ListaAgenda({ agenda: a }) {
                 <div className="mt-3 flex flex-wrap items-center gap-2"><Insignia tono={visita.tono}>{visita.etiqueta}</Insignia></div>
                 <p className="mt-2 font-semibold text-neutro-800">{visita.cuando}</p>
                 <p className="mt-1 text-sm text-neutro-500">{textoRotacion(c.rotacion.dias)} · {visita.detalle}</p>
+                {textoReprogramada(c.rotacion) && <p className="mt-2 text-sm font-semibold text-nota-700">{textoReprogramada(c.rotacion)}</p>}
                 <p className="mt-4 text-sm font-semibold text-primario-600">Ver visita →</p>
               </button>
             })}

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { ShoppingCart, PackageOpen } from 'lucide-react'
 import { fotoDe } from '../utils/cacheImagenesCatalogo'
 import { puedeAccion } from '../utils/modulos'
@@ -60,7 +60,7 @@ export default function Facturacion() {
     isOnline, loading, syncingCache,
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
     productos, setProductos, clientes, sugerencias, agregarSugerencia, facturasPendientes,
-    condicionesDescuento, facturaExistente, clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
+    condicionesDescuento, facturaExistente, clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal, setVisitaPreventa,
     codigoProducto, cantidadProducto, setCantidadProducto,
     modoEntradaRapida, setModoEntradaRapida,
     busquedaProducto, productosEncontrados, totalProductosEncontrados,
@@ -97,6 +97,8 @@ export default function Facturacion() {
   const puedeCobrar = puedeAccion(usuario, 'cobro-factura')
   // Desde una visita de Preventa: el cliente llega elegido y se ofrece volver.
   const preventa = useClienteDesdePreventa({ clientes, clienteSeleccionado, seleccionarCliente })
+  // La visita (con su GPS) viaja con la factura mientras se le factura a ese cliente.
+  useEffect(() => { setVisitaPreventa(preventa.visita) }, [preventa.visita, setVisitaPreventa])
 
   // VA ANTES DEL RETURN DE CARGA, y no después: un hook que solo se llama en
   // algunos renders rompe el orden y React tumba la pantalla entera con

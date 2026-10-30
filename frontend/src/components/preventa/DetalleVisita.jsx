@@ -1,10 +1,12 @@
-import { ArrowLeft, Receipt, MapPin, Navigation, Phone, MessageCircle, Mail } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, Receipt, MapPin, Navigation, Phone, MessageCircle, Mail, CalendarClock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Boton from '../ui/Boton'
 import RotacionCliente from '../clientes/RotacionCliente'
 import { useAuth } from '../../contexts/AuthContext'
 import { puedeVer } from '../../utils/modulos'
-import { enlacesParaLlegar, contactosDe } from '../../utils/visitaPreventa'
+import { enlacesParaLlegar, contactosDe, textoReprogramada } from '../../utils/visitaPreventa'
+import ModalProximaVisita from './ModalProximaVisita'
 
 const ENLACE = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-bold transition-colors'
 const TONO = {
@@ -20,8 +22,12 @@ const TONO = {
  * «Facturar» abre Facturación con este cliente ya elegido y un aviso para
  * volver a la agenda (useClienteDesdePreventa). Solo sale si quien mira tiene
  * Facturación.
+ *
+ * «Próxima visita» (F4): si no compró, el motivo y para cuándo queda.
  */
-export default function DetalleVisita({ cliente, volver }) {
+export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita }) {
+  const [proxima, setProxima] = useState(false)
+  const reprogramada = textoReprogramada(cliente.rotacion)
   const { usuario } = useAuth()
   const navigate = useNavigate()
   const direccion = [cliente.provincia, cliente.canton, cliente.distrito, cliente.barrio].filter(Boolean).join(', ')
@@ -38,11 +44,17 @@ export default function DetalleVisita({ cliente, volver }) {
         <h2 className="break-words text-2xl font-bold text-neutro-900">{cliente.nombre}</h2>
         <p className="mt-1 text-sm text-neutro-500">Cliente #{cliente.id} · {cliente.ruta?.nombre || 'Sin ruta asignada'}</p>
         <RotacionCliente rotacion={cliente.rotacion} />
-        {puedeVer(usuario, '/facturacion') && (
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <Boton icono={Receipt} onClick={facturar} ancho className="min-h-12 gap-2 text-base">Facturar</Boton>
-          </div>
+        {reprogramada && (
+          <p className="mt-3 rounded-xl bg-nota-50 px-3 py-2 text-sm font-semibold text-nota-700">
+            {reprogramada}{cliente.rotacion.reprogramada.nota ? ` — «${cliente.rotacion.reprogramada.nota}»` : ''}
+          </p>
         )}
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {puedeVer(usuario, '/facturacion') && (
+            <Boton icono={Receipt} onClick={facturar} ancho className="min-h-12 gap-2 text-base">Facturar</Boton>
+          )}
+          <Boton variante="secundario" icono={CalendarClock} onClick={() => setProxima(true)} ancho className="min-h-12 gap-2 text-base">Próxima visita</Boton>
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -79,6 +91,11 @@ export default function DetalleVisita({ cliente, volver }) {
       </div>
 
       <p className="text-sm text-neutro-500">La última atención corresponde a la última factura vigente. La frecuencia y la ruta se configuran en Clientes.</p>
+
+      {proxima && (
+        <ModalProximaVisita cliente={cliente} hoy={hoy} onCerrar={() => setProxima(false)}
+          onGuardada={(visita) => { setProxima(false); alGuardarVisita(cliente, visita) }} />
+      )}
     </div>
   )
 }

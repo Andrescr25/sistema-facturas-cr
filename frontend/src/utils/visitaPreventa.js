@@ -12,6 +12,8 @@
  * número y, si es de 8 dígitos, se le pone el 506 de Costa Rica.
  */
 
+import { sumarDias } from './fechaCR.js'
+
 const COORDENADAS = [
   /[?&](?:q|query|ll|destination|daddr)=(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/i,
   /@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/
@@ -63,4 +65,35 @@ export function contactosDe(cliente) {
       llamar: numero ? `tel:+${numero}` : null,
       whatsapp: numero ? `https://wa.me/${numero}` : null
     }))
+}
+
+/** Por qué no compró: las mismas claves que el servidor (preventa/visitas.js). */
+export const MOTIVOS_VISITA = [
+  { clave: 'no_necesita', nombre: 'No necesitaba nada' },
+  { clave: 'cerrado', nombre: 'Estaba cerrado' },
+  { clave: 'sin_encargado', nombre: 'No estaba el encargado' },
+  { clave: 'sin_dinero', nombre: 'No tenía con qué pagar' },
+  { clave: 'otro', nombre: 'Otro motivo' }
+]
+
+export const nombreDelMotivo = (clave) => MOTIVOS_VISITA.find(m => m.clave === clave)?.nombre || 'Sin motivo'
+
+/**
+ * Las fechas que ofrece «Próxima visita». La primera es la que viene elegida:
+ * la que propone el servidor (hoy + su rotación). Las demás, para que el agente
+ * planifique a su gusto; y siempre puede escribir otra.
+ */
+export function fechasParaProximaVisita(hoy, sugerida, rotacionDias) {
+  const opciones = [{ clave: 'rotacion', nombre: rotacionDias ? `Según su rotación (cada ${rotacionDias} días)` : 'En 7 días', fecha: sugerida }]
+  for (const [clave, nombre, dias] of [['manana', 'Mañana', 1], ['semana', 'En 7 días', 7], ['quince', 'En 15 días', 15]]) {
+    const fecha = sumarDias(hoy, dias)
+    if (!opciones.some(o => o.fecha === fecha)) opciones.push({ clave, nombre, fecha })
+  }
+  return opciones
+}
+
+/** «Reprogramada por el agente · No estaba el encargado», para la lista y la visita. */
+export function textoReprogramada(rotacion) {
+  const r = rotacion?.reprogramada
+  return r ? `Reprogramada${r.por ? ` por ${r.por}` : ''} · ${nombreDelMotivo(r.motivo)}` : null
 }

@@ -45,6 +45,14 @@ archivos:
   - frontend/src/hooks/useClienteDesdePreventa.js
   - frontend/src/components/facturacion/VolverAPreventa.jsx
   - backend/tests/visitaPreventa.test.js
+  - backend/migrations/independencia/070_visitas_del_agente.sql
+  - backend/src/modules/preventa/visitas.js
+  - backend/src/modules/preventa/preventa.routes.js
+  - frontend/src/components/preventa/ModalProximaVisita.jsx
+  - frontend/src/hooks/useProximaVisita.js
+  - frontend/src/services/ubicacionService.js
+  - frontend/src/utils/fechaCR.js
+  - backend/tests/visitasDelAgente.test.js
 aristas:
   relacionado: [modulo/permisos, modulo/facturacion, modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos]
 medido: 2026-10-29
@@ -137,8 +145,31 @@ trae las coordenadas escritas (los cortos `maps.app.goo.gl` no las traen).
 «Contacto»: cada teléfono distinto con «Llamar» y «WhatsApp», leyendo el
 número de textos como «89350207 JEISON» y poniéndole el 506.
 
+## F4 (2026-10-29): «Próxima visita» y la visita con venta, con GPS
+
+Tabla `visita` (migración 070): una fila por visita, `venta` (con su factura)
+o `proxima_visita` (motivo obligatorio —no necesitaba, cerrado, sin encargado,
+sin dinero, otro—, nota opcional y la nueva fecha, de mañana a 180 días), con
+el GPS del momento o por qué no lo hay (`negada` / `no_disponible`; la base
+exige coordenadas si dice `tomada`). Sale de la visita: «Próxima visita» abre
+un modal con la fecha que propone el servidor ya elegida —hoy + su rotación,
+o en 7 días— y otras para planificar (mañana, 7, 15 días u otra fecha).
+
+La próxima visita marcada manda en la agenda (pasa a Próximos/Hoy/Atrasados
+según esa fecha, y dice «Reprogramada por X · motivo») HASTA QUE VUELVA A
+COMPRAR: una factura de un día igual o posterior la deja sin efecto, porque la
+factura manda (se compara por día de Costa Rica). La rotación y la ficha no se
+tocan (`conReprogramacion` en `preventa/visitas.js`; solo Preventa la usa:
+Clientes y Reporte Clientes siguen con la regla de la factura).
+
+Facturar desde la visita anota la visita de venta en la MISMA transacción que
+la factura (`datos.visita`); si la factura falla, no queda. El GPS se toma al
+llegar a Facturación desde Preventa y viaja con la factura, también con la que
+se arma sin señal. Una página web no puede seguir al agente todo el día: solo
+pregunta dónde está en cada acción.
+
 ## Lo que sigue
 
-F4 «Próxima visita» con motivo, fecha elegible y GPS · F5 seguimiento del
-agente para el administrador · cobros y cierre de caja por usuario · después,
-si hace falta: Preventa sin señal y guardar la ubicación del cliente con GPS.
+F5 seguimiento del agente para el administrador · cobros y cierre de caja por
+usuario · después, si hace falta: Preventa sin señal y guardar la ubicación del
+cliente con GPS.

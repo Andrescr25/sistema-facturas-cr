@@ -3,6 +3,7 @@ const { filtroRutaActual, listarRutasActuales } = require('../rutas/rutaActual.s
 const { ULTIMA_ATENCION_SQL, rotacionDe, ordenPorProximaVisita } = require('../clientes/rotacion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { httpError } = require('../../utils/validacion');
+const { REPROGRAMADA_SQL, conReprogramacion, fechaSugerida } = require('./visitas');
 
 /** Agenda de TODOS los clientes activos de la ruta actual, tengan o no
  * faltantes. Leerla no crea visitas, pedidos ni facturas. La fecha se calcula
@@ -18,13 +19,17 @@ async function agenda({ rutaId } = {}, { rutasPermitidas = null } = {}) {
   const { rows } = await query(`SELECT c.id, c.nombre, c.correo, c.telefono,
     c.telefono_secundario, c.celular, c.provincia, c.canton, c.distrito,
     c.barrio, c.otras_senas, c.rotacion_dias, c.ubicacion_maps,
-    c.ruta_id, r.nombre AS ruta_nombre, ${ULTIMA_ATENCION_SQL('c.id')} AS ultima_factura
+    c.ruta_id, r.nombre AS ruta_nombre, ${ULTIMA_ATENCION_SQL('c.id')} AS ultima_factura,
+    ${REPROGRAMADA_SQL('c.id')} AS reprogramada
     FROM cliente c LEFT JOIN ruta_cliente r ON r.id=c.ruta_id
     WHERE c.activo ${where}`, params);
-  const clientes = rows.map(({ rotacion_dias, ultima_factura, ruta_id, ruta_nombre, ...cliente }) => ({
+  const clientes = rows.map(({ rotacion_dias, ultima_factura, ruta_id, ruta_nombre, reprogramada, ...cliente }) => ({
     ...cliente,
     ruta: { id: ruta_id, nombre: ruta_nombre },
-    rotacion: rotacionDe({ rotacionDias: rotacion_dias, ultimaFactura: ultima_factura, hoy })
+    // La «próxima visita» que marcó el agente manda hasta que vuelva a comprar (visitas.js).
+    rotacion: conReprogramacion(rotacionDe({ rotacionDias: rotacion_dias, ultimaFactura: ultima_factura, hoy }), reprogramada, hoy),
+    // Lo que «Próxima visita» propone por defecto: hoy más su rotación.
+    proximaSugerida: fechaSugerida(rotacion_dias, hoy)
   })).sort(ordenPorProximaVisita);
   return { hoy, clientes };
 }

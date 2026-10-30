@@ -61,3 +61,15 @@ export function fechaHoraEnCostaRica(valor) {
   const fecha = new Date(valor)
   return Number.isNaN(fecha.getTime()) ? '—' : fecha.toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' })
 }
+
+/**
+ * Suma días a un día de calendario ("AAAA-MM-DD") y devuelve otro día. En UTC
+ * de punta a punta, sin husos ni cambios de hora (la misma cuenta que
+ * `sumarDias` del backend, utils/fechaCR.js).
+ */
+export function sumarDias(dia, dias) {
+  const [a, m, d] = String(dia).split('-').map(Number)
+  const base = new Date(Date.UTC(a, m - 1, d))
+  base.setUTCDate(base.getUTCDate() + Number(dias || 0))
+  return base.toISOString().slice(0, 10)
+}

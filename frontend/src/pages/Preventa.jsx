@@ -4,6 +4,7 @@ import Boton from '../components/ui/Boton'
 import FiltrosAgenda from '../components/preventa/FiltrosAgenda'
 import ListaAgenda from '../components/preventa/ListaAgenda'
 import DetalleVisita from '../components/preventa/DetalleVisita'
+import { fechaEnPalabras } from '../utils/fechaCR'
 
 export default function Preventa() {
   const agenda = useAgendaPreventa()
@@ -29,7 +30,12 @@ export default function Preventa() {
         <p className="mt-2 text-neutro-500">Verás a todos sus clientes, incluso quienes todavía no tienen una próxima visita definida.</p>
       </div>}
       {agenda.rutaId && !agenda.cargando && !agenda.error && (agenda.seleccionado
-        ? <DetalleVisita cliente={agenda.seleccionado} volver={() => agenda.seleccionar(null)} />
+        ? <DetalleVisita cliente={agenda.seleccionado} hoy={agenda.hoy} volver={() => agenda.seleccionar(null)}
+          alGuardarVisita={(cliente, visita) => {
+            agenda.seleccionar(null)
+            agenda.avisar(`${cliente.nombre} quedó para el ${fechaEnPalabras(visita.proxima_fecha, { day: 'numeric', month: 'long' })}.`)
+            agenda.recargar()
+          }} />
         : <ListaAgenda agenda={agenda} />)}
     </div>
   )
