@@ -240,3 +240,6 @@ permisos que se otorgan aparte dentro de un módulo: `PERMISOS_DE_ACCION`
 con `puedeHacer(req, clave)`; la pantalla, con `puedeAccion`. En el tablero
 salen debajo de su módulo y se van con él. Ver
 [[decision/agente-de-ventas-monitoreado]].
+
+`seguimiento-agentes` (2026-10-29): módulo de solo lectura con lo que hizo cada
+agente; ver [[decision/agente-de-ventas-monitoreado]].

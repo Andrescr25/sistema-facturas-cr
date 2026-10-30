@@ -53,6 +53,14 @@ archivos:
   - frontend/src/services/ubicacionService.js
   - frontend/src/utils/fechaCR.js
   - backend/tests/visitasDelAgente.test.js
+  - backend/src/modules/seguimiento/seguimiento.service.js
+  - backend/src/modules/seguimiento/seguimiento.routes.js
+  - frontend/src/pages/SeguimientoAgentes.jsx
+  - frontend/src/hooks/useSeguimientoAgente.js
+  - frontend/src/utils/seguimientoAgente.js
+  - frontend/src/components/seguimiento/RecorridoAgente.jsx
+  - frontend/src/components/seguimiento/PendientesAgente.jsx
+  - backend/tests/seguimientoAgente.test.js
 aristas:
   relacionado: [modulo/permisos, modulo/facturacion, modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos]
 medido: 2026-10-29
@@ -168,8 +176,21 @@ llegar a Facturación desde Preventa y viaja con la factura, también con la que
 se arma sin señal. Una página web no puede seguir al agente todo el día: solo
 pregunta dónde está en cada acción.
 
+## F5 (2026-10-29): Seguimiento de agentes
+
+Módulo propio `seguimiento-agentes` (`/seguimiento`, menú Ventas; el
+administrador lo ve por su rol y se le puede dar a un supervisor). Sin SQL:
+sale de las facturas que creó (`creado_por`) y de sus visitas. Se elige el
+agente —quien atiende rutas o anotó visitas en 90 días— y el día (hasta hoy):
+resumen (clientes atendidos, facturas y monto sin las anuladas, cuántos no
+compraron, acciones sin ubicación y facturas hechas fuera de Preventa), el
+recorrido en orden de hora con el motivo y la distancia al cliente según el
+GPS (contra las coordenadas de su ficha; más de 300 m sale en alerta) y, si
+es hoy, «Le falta hoy»: los de sus rutas atrasados o de hoy que no visitó (la
+misma agenda de Preventa). Las horas, en Costa Rica: `factura.creado_en` ya es
+hora local por la zona de la conexión; `visita.creado_en` lleva zona.
+
 ## Lo que sigue
 
-F5 seguimiento del agente para el administrador · cobros y cierre de caja por
-usuario · después, si hace falta: Preventa sin señal y guardar la ubicación del
-cliente con GPS.
+Cobros y cierre de caja por usuario (pedido «para futuro») · después, si hace
+falta: Preventa sin señal y guardar la ubicación del cliente con GPS.

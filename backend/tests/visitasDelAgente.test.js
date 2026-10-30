@@ -5,8 +5,8 @@
  * El usuario: «si el cliente pasa a una próxima visita, el agente de ventas
  * marque que será para próxima visita»; por defecto hoy + su rotación, «que el
  * agente planifique bien cómo va a visitar y esto sea más personalizable»; GPS
- * en cada acción. Contra PostgreSQL local, en una transacción que se deshace
- * (aplica la 070 adentro).
+ * en cada acción. Contra PostgreSQL local (con la 070 aplicada), en una
+ * transacción que se deshace.
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -16,7 +16,6 @@ const { sinComentarios } = require('./dobles/sinComentarios');
 
 const BACK = path.join(__dirname, '..');
 const FRONT = path.join(BACK, '..', 'frontend', 'src');
-const MIGRACION = path.join(BACK, 'migrations', 'independencia', '070_visitas_del_agente.sql');
 const leer = (...p) => sinComentarios(fs.readFileSync(path.join(FRONT, ...p), 'utf8'));
 const GPS = { estado: 'tomada', latitud: 10.0569, longitud: -84.4351, precision: 12 };
 
@@ -66,7 +65,6 @@ describe('visitas — contra PostgreSQL local', () => {
     require('../config/aislado').asegurarBaseLocal();
     db = new (require('pg').Client)({ connectionString: process.env.DATABASE_URL });
     await db.connect(); await db.query('BEGIN');
-    await db.query(fs.readFileSync(MIGRACION, 'utf8'));
     const { baseEnTransaccion } = require('./dobles/buzonEnTransaccion');
     const rutaDb = require.resolve('../config/database');
     for (const r of Object.keys(require.cache)) if (r.includes(`${path.sep}src${path.sep}`)) delete require.cache[r];

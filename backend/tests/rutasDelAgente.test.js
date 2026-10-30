@@ -4,8 +4,8 @@
  * El usuario: el agente «se hará cargo de las rutas poco a poco». En su ficha
  * de Usuarios se le marcan sus rutas; Preventa le muestra solo esas, salvo
  * que tenga «Ver todas las rutas» (`rutas-todas`). Lo hace valer el servidor.
- * Contra PostgreSQL local, en una transacción que se deshace (aplica la 069
- * adentro, por si la copia no la tiene).
+ * Contra PostgreSQL local (con la 069 aplicada, como toda migración: lo exige
+ * tablasPropias.test.js), en una transacción que se deshace.
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -26,7 +26,6 @@ describe('rutas del agente — contra PostgreSQL local', () => {
     require('../config/aislado').asegurarBaseLocal();
     db = new (require('pg').Client)({ connectionString: process.env.DATABASE_URL });
     await db.connect(); await db.query('BEGIN');
-    await db.query(fs.readFileSync(MIGRACION, 'utf8'));
     const { baseEnTransaccion } = require('./dobles/buzonEnTransaccion');
     const rutaDb = require.resolve('../config/database');
     for (const r of Object.keys(require.cache)) if (r.includes(`${path.sep}src${path.sep}`)) delete require.cache[r];
@@ -110,8 +109,13 @@ describe('rutas del agente — contra PostgreSQL local', () => {
   test('la 069 da «Ver todas las rutas» a quien ya tenía Preventa, y se puede correr dos veces', async () => {
     const viejo = (await db.query(`INSERT INTO usuario (usuario, nombre, password_hash, activo, es_admin) VALUES ('zz-preventa-069', 'ZZ', 'zz', TRUE, FALSE) RETURNING id`)).rows[0].id;
     await db.query(`INSERT INTO usuario_modulo (usuario_id, modulo) VALUES ($1, 'preventa')`, [viejo]);
-    await db.query(fs.readFileSync(MIGRACION, 'utf8'));
-    await db.query(fs.readFileSync(MIGRACION, 'utf8'));
+    // Solo lo que reparte permisos: la tabla ya está en la copia, y volver a
+    // correr su DDL en una transacción larga trababa a las pruebas que corren
+    // a la par (deadlock al crear el índice).
+    const otorgar = fs.readFileSync(MIGRACION, 'utf8').split(';').map(x => x.trim()).filter(x => /^INSERT INTO usuario_modulo/m.test(x.replace(/^--.*$/gm, '').trim()));
+    assert.equal(otorgar.length, 1);
+    await db.query(otorgar[0]);
+    await db.query(otorgar[0]);
     const { rows } = await db.query(`SELECT modulo FROM usuario_modulo WHERE usuario_id = $1 ORDER BY modulo`, [viejo]);
     assert.deepEqual(rows.map(r => r.modulo), ['preventa', 'rutas-todas']);
   });

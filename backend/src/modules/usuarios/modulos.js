@@ -67,6 +67,15 @@ const MODULOS = [
     rutasApi: ['/preventa']
   },
   {
+    clave: 'seguimiento-agentes',
+    nombre: 'Seguimiento de agentes',
+    grupo: 'Ventas',
+    ruta: '/seguimiento',
+    // Qué hizo cada agente en el día: facturas, visitas y su GPS (2026-10-29).
+    // Solo lecturas; un administrador lo ve por su rol.
+    rutasApi: ['/seguimiento']
+  },
+  {
     clave: 'entregas',
     nombre: 'Carga y Entregas',
     grupo: 'Ventas',
