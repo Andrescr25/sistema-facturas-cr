@@ -88,8 +88,8 @@ describe('quién factura a precio fijo: lo decide la base, por permiso', () => {
 
   test('el permiso es una clave válida para guardar, y el administrador la tiene por su rol', () => {
     const { CLAVES, PERMISOS_DE_ACCION, MODULOS } = require('../src/modules/usuarios/modulos');
-    assert.deepEqual(PERMISOS_DE_ACCION.map(a => a.clave), ['precio-factura', 'cobro-factura', 'facturas-todas']);
-    for (const clave of ['precio-factura', 'cobro-factura', 'facturas-todas']) {
+    assert.deepEqual(PERMISOS_DE_ACCION.map(a => a.clave), ['precio-factura', 'cobro-factura', 'facturas-todas', 'rutas-todas']);
+    for (const clave of ['precio-factura', 'cobro-factura', 'facturas-todas', 'rutas-todas']) {
       assert.ok(CLAVES.includes(clave));
       assert.equal(MODULOS.some(m => m.clave === clave), false, `${clave} no es una pantalla: no va al menú`);
     }
@@ -116,7 +116,7 @@ describe('la pantalla no ofrece lo que el servidor no va a aceptar', () => {
     assert.equal(puedeAccion({ esAdmin: false, modulos: ['facturacion', 'precio-factura'] }, 'precio-factura'), true);
     assert.equal(puedeAccion({ esAdmin: true, modulos: [] }, 'precio-factura'), true);
     assert.equal(puedeAccion(null, 'precio-factura'), false);
-    assert.deepEqual(PERMISOS_DE_ACCION.map(a => a.clave), ['precio-factura', 'cobro-factura', 'facturas-todas']);
+    assert.deepEqual(PERMISOS_DE_ACCION.map(a => a.clave), ['precio-factura', 'cobro-factura', 'facturas-todas', 'rutas-todas']);
     assert.equal(puedeAccion({ esAdmin: false, modulos: ['facturacion'] }, 'cobro-factura'), false);
     const facturacion = porGrupo().flatMap(g => g.modulos).find(m => m.clave === 'facturacion');
     assert.deepEqual(facturacion.acciones.map(a => a.nombre), ['Cambiar precio y descuento', 'Cobrar al facturar', 'Ver las facturas de todos'],

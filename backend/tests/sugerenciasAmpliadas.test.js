@@ -160,7 +160,7 @@ describe('el cálculo ampliado, contra PostgreSQL local', () => {
   const venta = async (clienteId, productoId, diasAtras) => {
     const facturaId = (await conexion.query(
       `INSERT INTO factura (cliente_id, cliente_nombre, fecha, estado)
-       VALUES ($1, 'zz-venta de prueba', CURRENT_DATE - $2::int, 'emitida') RETURNING id`,
+       VALUES ($1, 'zz-venta de prueba', (now() AT TIME ZONE 'America/Costa_Rica')::date - $2::int, 'emitida') RETURNING id`,
       [clienteId, diasAtras])).rows[0].id;
     await conexion.query(
       `INSERT INTO factura_linea (factura_id, numero_linea, producto_id, nombre, cantidad, precio_unitario, total)
@@ -203,7 +203,7 @@ describe('el cálculo ampliado, contra PostgreSQL local', () => {
     for (const dias of [3, 8]) {
       const facturaId = (await conexion.query(
         `INSERT INTO factura (cliente_id, cliente_nombre, fecha, estado)
-         VALUES ($1, 'zz-venta de prueba', CURRENT_DATE - $2::int, 'emitida') RETURNING id`, [cliente, dias])).rows[0].id;
+         VALUES ($1, 'zz-venta de prueba', (now() AT TIME ZONE 'America/Costa_Rica')::date - $2::int, 'emitida') RETURNING id`, [cliente, dias])).rows[0].id;
       await conexion.query(
         `INSERT INTO factura_linea (factura_id, numero_linea, producto_id, nombre, cantidad, precio_unitario, total)
          SELECT $1, n, id, 'zz-línea', 1, 1000, 1130 FROM unnest($2::int[]) WITH ORDINALITY AS t(id, n)`, [facturaId, ids]);

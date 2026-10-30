@@ -235,7 +235,7 @@ El menú y la API separan los dos módulos. Ver [[modulo/caja-general]].
 
 PERMISOS DE ACCIÓN (2026-10-29). Además de los módulos (pantallas) hay
 permisos que se otorgan aparte dentro de un módulo: `PERMISOS_DE_ACCION`
-(`precio-factura`, `cobro-factura`, `facturas-todas`), en `usuario_modulo` igual que un módulo.
+(`precio-factura`, `cobro-factura`, `facturas-todas`; en Preventa `rutas-todas`), en `usuario_modulo` igual que un módulo.
 `requirePermiso` deja los permisos en `req.permisos` y el controlador pregunta
 con `puedeHacer(req, clave)`; la pantalla, con `puedeAccion`. En el tablero
 salen debajo de su módulo y se van con él. Ver

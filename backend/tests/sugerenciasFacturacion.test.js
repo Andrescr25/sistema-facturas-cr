@@ -177,7 +177,7 @@ describe('las sugerencias salen del cliente correcto — contra PostgreSQL local
     const venta = async (clienteId, productoId, diasAtras, estado = 'emitida') => {
       const facturaId = (await conexion.query(
         `INSERT INTO factura (cliente_id, cliente_nombre, fecha, estado)
-         VALUES ($1, 'zz-venta de prueba', CURRENT_DATE - $2::int, $3) RETURNING id`,
+         VALUES ($1, 'zz-venta de prueba', (now() AT TIME ZONE 'America/Costa_Rica')::date - $2::int, $3) RETURNING id`,
         [clienteId, diasAtras, estado])).rows[0].id;
       await conexion.query(
         `INSERT INTO factura_linea (factura_id, numero_linea, producto_id, nombre, cantidad, precio_unitario, total)

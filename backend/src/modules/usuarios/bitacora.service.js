@@ -40,7 +40,9 @@ const ENTIDADES = {
   pago_proveedor: 'Pago a proveedor',
   cierre_caja: 'Cierre de caja',
   compra: 'Compra',
-  empresa: 'Datos de la empresa'
+  empresa: 'Datos de la empresa',
+  // Las rutas que atiende un agente (2026-10-29).
+  usuario: 'Usuario'
 };
 
 const ACCIONES = {

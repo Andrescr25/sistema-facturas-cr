@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { useContextoConsulta } from './useContextoConsulta'
 import { agruparAgenda, contarAgenda } from '../utils/agendaPreventa'
@@ -9,7 +10,9 @@ export function useAgendaPreventa() {
   const [errorRutas, setErrorRutas] = useState('')
   const [cargandoRutas, setCargandoRutas] = useState(true)
   const [intentoRutas, setIntentoRutas] = useState(0)
-  const [rutaId, setRutaId] = useState('')
+  // La ruta va en la dirección (?ruta=): al volver de Facturar se queda donde estaba.
+  const [parametros, setParametros] = useSearchParams()
+  const [rutaId, setRutaId] = useState(() => parametros.get('ruta') || '')
   const [revision, setRevision] = useState(0)
   const [datos, setDatos] = useState({ clientes: [], hoy: '' })
   const [error, setError] = useState('')
@@ -25,12 +28,23 @@ export function useAgendaPreventa() {
     setFiltros({ estado: 'todos', buscar: '' })
   }, [])
 
+  // La dirección sigue a la ruta elegida, a mano o sola (la única del agente).
+  useEffect(() => {
+    if ((parametros.get('ruta') || '') !== rutaId) setParametros(rutaId ? { ruta: rutaId } : {}, { replace: true })
+  }, [rutaId, parametros, setParametros])
+
   useEffect(() => {
     const control = new AbortController()
     let vivo = true
     setCargandoRutas(true)
     api.get('/preventa/rutas', { signal: control.signal })
-      .then(({ data }) => { if (vivo) { setRutas(data.data || []); setErrorRutas('') } })
+      .then(({ data }) => {
+        if (!vivo) return
+        const lista = data.data || []
+        setRutas(lista); setErrorRutas('')
+        // Con una sola ruta a su cargo (el agente que empieza), entra directo a ella.
+        if (lista.length === 1) setRutaId(actual => actual || String(lista[0].id))
+      })
       .catch(e => { if (vivo) setErrorRutas(e.response?.data?.message || 'No se pudieron consultar las rutas.') })
       .finally(() => { if (vivo) setCargandoRutas(false) })
     return () => { vivo = false; control.abort() }

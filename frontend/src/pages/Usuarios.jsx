@@ -101,6 +101,9 @@ export default function Usuarios() {
                       )}
                     </div>
                     <p className="mt-0.5 text-[12px] text-neutro-500">{resumenModulos(u)}</p>
+                    {u.rutas?.length > 0 && (
+                      <p className="text-[12px] font-semibold text-primario-700">Rutas: {u.rutas.map(r => r.nombre).join(' · ')}</p>
+                    )}
                     <p className="text-[11px] text-neutro-400">
                       {u.ultimoIngreso
                         ? `Último ingreso: ${new Date(u.ultimoIngreso).toLocaleString('es-CR', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`

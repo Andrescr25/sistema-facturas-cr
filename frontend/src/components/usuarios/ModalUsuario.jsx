@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Loader2, AlertCircle, Shield, KeyRound } from 'lucide-react'
 import TableroPermisos from './TableroPermisos'
+import RutasDelUsuario from './RutasDelUsuario'
 import { useModal } from '../../hooks/useModal'
 
 /**
@@ -19,6 +20,9 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
   const [password, setPassword] = useState('')
   const [esAdmin, setEsAdmin] = useState(usuario?.esAdmin || false)
   const [modulos, setModulos] = useState(usuario?.esAdmin ? [] : (usuario?.modulos || []))
+  const [rutas, setRutas] = useState((usuario?.rutas || []).map(r => r.id))
+  // Las rutas se eligen si ve Preventa pero no todas las rutas (el agente de ventas).
+  const eligeRutas = !esAdmin && modulos.includes('preventa') && !modulos.includes('rutas-todas')
   const [error, setError] = useState('')
   const [passwordNueva, setPasswordNueva] = useState('')
   const [cambiandoPassword, setCambiandoPassword] = useState(false)
@@ -33,10 +37,11 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
       return setError('Elija al menos un módulo, o hágalo administrador.')
     }
     setError('')
+    const rutasQueVan = eligeRutas ? rutas : []
     onGuardar(
       editando
-        ? { nombre: nombre.trim(), esAdmin, modulos }
-        : { usuario: nombreUsuario.trim(), nombre: nombre.trim(), password, esAdmin, modulos }
+        ? { nombre: nombre.trim(), esAdmin, modulos, rutas: rutasQueVan }
+        : { usuario: nombreUsuario.trim(), nombre: nombre.trim(), password, esAdmin, modulos, rutas: rutasQueVan }
     )
   }
 
@@ -129,6 +134,8 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
               deshabilitado={Boolean(guardando)}
             />
           </div>
+
+          {eligeRutas && <RutasDelUsuario seleccionadas={rutas} onCambiar={setRutas} deshabilitado={Boolean(guardando)} />}
 
           {editando && (
             <div className="rounded-2xl border border-neutro-200 p-3">

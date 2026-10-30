@@ -53,13 +53,15 @@ export const MODULOS = [
  * (2026-10-29, el usuario: «el precio y descuento no lo puede tocar»).
  * `cobro-factura`: sin él, no ofrece cobrar al facturar («de momento este no
  * podrá cobrar»). `facturas-todas`: sin él, solo ve las facturas que hizo
- * («el agente ve solo sus facturas»). Quien lo hace valer es el servidor;
+ * («el agente ve solo sus facturas»). `rutas-todas`: sin él, Preventa muestra
+ * solo las rutas que se le asignaron. Quien lo hace valer es el servidor;
  * esto solo decide qué se dibuja.
  */
 export const PERMISOS_DE_ACCION = [
   { clave: 'precio-factura', modulo: 'facturacion', nombre: 'Cambiar precio y descuento' },
   { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' },
-  { clave: 'facturas-todas', modulo: 'facturacion', nombre: 'Ver las facturas de todos' }
+  { clave: 'facturas-todas', modulo: 'facturacion', nombre: 'Ver las facturas de todos' },
+  { clave: 'rutas-todas', modulo: 'preventa', nombre: 'Ver todas las rutas' }
 ]
 
 /** Ruta de React -> clave del módulo, para filtrar el menú. */

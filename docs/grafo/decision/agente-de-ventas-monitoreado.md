@@ -28,6 +28,23 @@ archivos:
   - frontend/src/components/facturacion/PanelFacturasEmitidas.jsx
   - frontend/src/components/RequierePermiso.jsx
   - backend/tests/soloSusFacturas.test.js
+  - backend/migrations/independencia/069_rutas_del_agente.sql
+  - backend/src/modules/usuarios/rutasAsignadas.js
+  - backend/src/modules/usuarios/usuarios.service.js
+  - backend/src/modules/preventa/preventa.controller.js
+  - backend/src/modules/preventa/preventa.service.js
+  - backend/src/modules/rutas/rutaActual.service.js
+  - frontend/src/components/usuarios/RutasDelUsuario.jsx
+  - frontend/src/components/usuarios/Casilla.jsx
+  - frontend/src/hooks/useRutasParaAsignar.js
+  - frontend/src/components/preventa/FiltrosAgenda.jsx
+  - frontend/src/hooks/useAgendaPreventa.js
+  - backend/tests/rutasDelAgente.test.js
+  - frontend/src/components/preventa/DetalleVisita.jsx
+  - frontend/src/utils/visitaPreventa.js
+  - frontend/src/hooks/useClienteDesdePreventa.js
+  - frontend/src/components/facturacion/VolverAPreventa.jsx
+  - backend/tests/visitaPreventa.test.js
 aristas:
   relacionado: [modulo/permisos, modulo/facturacion, modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos]
 medido: 2026-10-29
@@ -93,9 +110,35 @@ señal baja solo las suyas. La pestaña lo dice.
 «Volver al inicio» que lo devolvía ahí: ahora entra a su primer módulo
 (`inicioDe` en utils/modulos.js).
 
+## F2 (2026-10-29): las rutas que atiende
+
+Tabla `usuario_ruta` (migración 069). En la ficha de Usuarios, a quien ve
+Preventa sin «Ver todas las rutas» (`rutas-todas`, cuarto permiso de acción)
+se le marcan sus rutas; la lista de Usuarios dice cuáles atiende cada uno.
+Cada cambio queda en la bitácora (entidad `usuario`, acción editar, rutas de
+antes y después). Preventa le muestra solo esas —sin «Clientes sin ruta»— y,
+con una sola, entra directo; sin ninguna, se lo dice. El servidor responde 403
+a la agenda de otra ruta. La 069 da `rutas-todas` a quien ya tenía Preventa.
+
+**Ojo al desplegar:** las migraciones dan los permisos de «ver todo» a todo
+usuario que ya tenga Facturación o Preventa. El agente se crea DESPUÉS de
+aplicarlas, o se le desmarcan esos permisos en su ficha (en la copia local le
+pasó a `zz-agente`, creado antes).
+
+## F3 (2026-10-29): la visita, con ubicación y «Facturar»
+
+En la visita: «Facturar» (solo con Facturación) abre
+`/facturacion?cliente=ID&desde=preventa&ruta=R`; Facturación elige ese cliente
+de la copia del dispositivo —sirve sin señal— y muestra «Volver a la agenda»
+(`useClienteDesdePreventa`, aparte del hook grande). Preventa guarda la ruta en
+la dirección, así vuelve donde estaba. «Cómo llegar»: dirección, otras señas,
+«Abrir en Maps» con el enlace de la ficha y «Ir con Waze» solo si el enlace
+trae las coordenadas escritas (los cortos `maps.app.goo.gl` no las traen).
+«Contacto»: cada teléfono distinto con «Llamar» y «WhatsApp», leyendo el
+número de textos como «89350207 JEISON» y poniéndole el 506.
+
 ## Lo que sigue
 
-F2 rutas asignadas al agente · F3 visita con ubicación y «Facturar» · F4
-«Próxima visita» con motivo, fecha elegible y GPS · F5 seguimiento del agente
-para el administrador · después: Preventa sin señal, guardar ubicación con
-GPS, cobros y cierre de caja por usuario.
+F4 «Próxima visita» con motivo, fecha elegible y GPS · F5 seguimiento del
+agente para el administrador · cobros y cierre de caja por usuario · después,
+si hace falta: Preventa sin señal y guardar la ubicación del cliente con GPS.

@@ -12,6 +12,7 @@
 const bcrypt = require('bcryptjs');
 const { query } = require('../../../config/database');
 const { CLAVES } = require('./modulos');
+const { rutasDe, rutasPorUsuario, guardarRutas } = require('./rutasAsignadas');
 
 const RONDAS_BCRYPT = 12;
 const MIN_PASSWORD = 8;
@@ -25,7 +26,7 @@ function httpError(status, message) {
 
 const COLUMNAS = `id, usuario, nombre, activo, es_admin, ultimo_ingreso, creado_en`;
 
-function mapUsuario(row, modulos = []) {
+function mapUsuario(row, modulos = [], rutas = []) {
   return {
     id: row.id,
     usuario: row.usuario,
@@ -37,7 +38,9 @@ function mapUsuario(row, modulos = []) {
     // Un admin no tiene filas en usuario_modulo: las tendría que mantener
     // sincronizadas cada vez que se agrega un módulo nuevo. Se le devuelven
     // todas las claves para que la pantalla lo muestre con todo marcado.
-    modulos: row.es_admin ? [...CLAVES] : modulos
+    modulos: row.es_admin ? [...CLAVES] : modulos,
+    // Las rutas que atiende en Preventa (rutasAsignadas.js): [{ id, nombre }].
+    rutas
   };
 }
 
@@ -62,14 +65,15 @@ async function listar() {
     porUsuario.get(row.usuario_id).push(row.modulo);
   }
 
-  return u.rows.map(row => mapUsuario(row, porUsuario.get(row.id) || []));
+  const rutas = await rutasPorUsuario();
+  return u.rows.map(row => mapUsuario(row, porUsuario.get(row.id) || [], rutas.get(row.id) || []));
 }
 
 async function obtener(usuarioId) {
   const u = await query(`SELECT ${COLUMNAS} FROM usuario WHERE id = $1;`, [usuarioId]);
   if (u.rows.length === 0) throw httpError(404, 'Usuario no encontrado.');
   const p = await query(`SELECT modulo FROM usuario_modulo WHERE usuario_id = $1;`, [usuarioId]);
-  return mapUsuario(u.rows[0], p.rows.map(x => x.modulo));
+  return mapUsuario(u.rows[0], p.rows.map(x => x.modulo), (await rutasPorUsuario()).get(Number(usuarioId)) || []);
 }
 
 /**
@@ -87,7 +91,7 @@ async function permisosDe(usuarioId) {
   return { esAdmin: false, modulos: new Set(p.rows.map(x => x.modulo)) };
 }
 
-async function crear({ usuario, nombre, password, esAdmin = false, modulos = [] }, creadoPor) {
+async function crear({ usuario, nombre, password, esAdmin = false, modulos = [], rutas }, creadoPor) {
   const nombreUsuario = String(usuario || '').trim().toLowerCase();
   if (nombreUsuario.length < MIN_USUARIO) {
     throw httpError(400, `El usuario debe tener al menos ${MIN_USUARIO} caracteres.`);
@@ -113,7 +117,8 @@ async function crear({ usuario, nombre, password, esAdmin = false, modulos = [] 
   if (!esAdmin && limpios.length > 0) {
     await guardarModulos(creado.id, limpios, creadoPor);
   }
-  return mapUsuario(creado, limpios);
+  if (!esAdmin && rutas !== undefined) await guardarRutas(creado.id, rutas, creadoPor);
+  return mapUsuario(creado, limpios, (await rutasPorUsuario()).get(creado.id) || []);
 }
 
 /**
@@ -142,7 +147,7 @@ async function guardarModulos(usuarioId, modulos, otorgadoPor) {
  * sí mismo el rol o se desactive y deje el sistema sin nadie que pueda
  * repartir permisos. Es el error que no se puede deshacer desde la pantalla.
  */
-async function actualizar(usuarioId, { nombre, esAdmin, activo, modulos }, usuarioQueEdita) {
+async function actualizar(usuarioId, { nombre, esAdmin, activo, modulos, rutas }, usuarioQueEdita) {
   const actual = await query(`SELECT ${COLUMNAS} FROM usuario WHERE id = $1;`, [usuarioId]);
   if (actual.rows.length === 0) throw httpError(404, 'Usuario no encontrado.');
 
@@ -178,8 +183,10 @@ async function actualizar(usuarioId, { nombre, esAdmin, activo, modulos }, usuar
     const p = await query(`SELECT modulo FROM usuario_modulo WHERE usuario_id = $1;`, [usuarioId]);
     limpios = p.rows.map(x => x.modulo);
   }
+  // Un admin ve todas las rutas por su rol: sin filas, como con los módulos.
+  if (rutas !== undefined || nuevoAdmin) await guardarRutas(Number(usuarioId), nuevoAdmin ? [] : rutas, usuarioQueEdita);
 
-  return mapUsuario(res.rows[0], limpios);
+  return mapUsuario(res.rows[0], limpios, (await rutasPorUsuario()).get(Number(usuarioId)) || []);
 }
 
 async function comprobarQueQuedaUnAdmin(usuarioIdQueCambia) {

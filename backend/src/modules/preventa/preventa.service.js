@@ -8,12 +8,16 @@ const { httpError } = require('../../utils/validacion');
  * faltantes. Leerla no crea visitas, pedidos ni facturas. La fecha se calcula
  * desde la venta vigente con la misma regla de la ficha y el reporte.
  */
-async function agenda({ rutaId } = {}) {
+async function agenda({ rutaId } = {}, { rutasPermitidas = null } = {}) {
   if (rutaId == null || rutaId === '') throw httpError(400, 'Seleccioná una ruta o los clientes sin ruta.');
+  // Quien no ve todas las rutas (el agente): solo las suyas, y no «sin ruta».
+  if (rutasPermitidas && !rutasPermitidas.includes(Number(rutaId))) {
+    throw httpError(403, 'Esa ruta no está asignada a su usuario.');
+  }
   const params = [], where = filtroRutaActual(rutaId, params), hoy = hoyEnCostaRica();
   const { rows } = await query(`SELECT c.id, c.nombre, c.correo, c.telefono,
     c.telefono_secundario, c.celular, c.provincia, c.canton, c.distrito,
-    c.barrio, c.otras_senas, c.rotacion_dias,
+    c.barrio, c.otras_senas, c.rotacion_dias, c.ubicacion_maps,
     c.ruta_id, r.nombre AS ruta_nombre, ${ULTIMA_ATENCION_SQL('c.id')} AS ultima_factura
     FROM cliente c LEFT JOIN ruta_cliente r ON r.id=c.ruta_id
     WHERE c.activo ${where}`, params);

@@ -3,6 +3,8 @@ import { ShoppingCart, PackageOpen } from 'lucide-react'
 import { fotoDe } from '../utils/cacheImagenesCatalogo'
 import { puedeAccion } from '../utils/modulos'
 import { useAuth } from '../contexts/AuthContext'
+import { useClienteDesdePreventa } from '../hooks/useClienteDesdePreventa'
+import VolverAPreventa from '../components/facturacion/VolverAPreventa'
 import { useFacturacion } from '../hooks/useFacturacion'
 import { useFacturasEmitidas } from '../hooks/useFacturasEmitidas'
 import useCatalogoAlDia from '../hooks/useCatalogoAlDia'
@@ -57,7 +59,7 @@ export default function Facturacion() {
     metodosPago, metodoPagoId, elegirMetodoPago, referenciaPago, setReferenciaPago,
     isOnline, loading, syncingCache,
     tabActiva, cambiarTab, modoEdicion, facturaEditando,
-    productos, setProductos, sugerencias, agregarSugerencia, facturasPendientes,
+    productos, setProductos, clientes, sugerencias, agregarSugerencia, facturasPendientes,
     condicionesDescuento, facturaExistente, clienteSeleccionado, deseleccionarCliente, items, DESCRIPCION_MAX, descuentoGlobal,
     codigoProducto, cantidadProducto, setCantidadProducto,
     modoEntradaRapida, setModoEntradaRapida,
@@ -93,6 +95,8 @@ export default function Facturacion() {
   // Sin «Cobrar al facturar» no se ofrece cómo pagó: la factura queda
   // pendiente, que ya es lo que viene elegido (ver SelectorPago).
   const puedeCobrar = puedeAccion(usuario, 'cobro-factura')
+  // Desde una visita de Preventa: el cliente llega elegido y se ofrece volver.
+  const preventa = useClienteDesdePreventa({ clientes, clienteSeleccionado, seleccionarCliente })
 
   // VA ANTES DEL RETURN DE CARGA, y no después: un hook que solo se llama en
   // algunos renders rompe el orden y React tumba la pantalla entera con
@@ -181,6 +185,7 @@ export default function Facturacion() {
             <AvisoEdicion facturaEditando={facturaEditando} onCancelar={limpiarFactura} />
           )}
 
+          {preventa.desdePreventa && <VolverAPreventa volverA={preventa.volverA} clienteNoEsta={preventa.clienteNoEsta} />}
           {!clienteSeleccionado ? (
             <>
               {cacheStats && <EstadoCatalogo cacheStats={cacheStats} porSubir={facturasPendientes.length} />}

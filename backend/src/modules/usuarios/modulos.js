@@ -332,12 +332,18 @@ function normalizarRuta(ruta) {
  * tiene ve, abre e imprime solo las facturas que hizo él
  * (`facturacion/soloSusFacturas.js`). También lo dio la 068.
  *
+ * `rutas-todas` (en Preventa, misma fecha: el agente «se hará cargo de las
+ * rutas poco a poco»). Quien no lo tiene ve en Preventa solo las rutas que se
+ * le marcan en Usuarios (`usuarios/rutasAsignadas.js`). La 069 se lo dio a
+ * quien ya tenía Preventa.
+ *
  * Espejo en frontend/src/utils/modulos.js; una prueba compara las claves.
  */
 const PERMISOS_DE_ACCION = [
   { clave: 'precio-factura', modulo: 'facturacion', nombre: 'Cambiar precio y descuento' },
   { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' },
-  { clave: 'facturas-todas', modulo: 'facturacion', nombre: 'Ver las facturas de todos' }
+  { clave: 'facturas-todas', modulo: 'facturacion', nombre: 'Ver las facturas de todos' },
+  { clave: 'rutas-todas', modulo: 'preventa', nombre: 'Ver todas las rutas' }
 ];
 
 const CLAVES = [...MODULOS.map(m => m.clave), ...PERMISOS_DE_ACCION.map(a => a.clave)];

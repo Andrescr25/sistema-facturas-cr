@@ -15,11 +15,14 @@ function filtroRutaActual(rutaId, params) {
   return `AND c.ruta_id=$${params.length}`;
 }
 
-/** Las rutas inactivas con fichas asignadas siguen siendo consultables. */
-async function listarRutasActuales() {
+/** Las rutas inactivas con fichas asignadas siguen siendo consultables.
+ * `soloIds`: las que puede ver quien no ve todas (las que atiende el agente). */
+async function listarRutasActuales(soloIds = null) {
+  if (soloIds && soloIds.length === 0) return [];
   return (await query(`SELECT r.id, r.nombre, r.activo FROM ruta_cliente r
-    WHERE r.activo OR EXISTS(SELECT 1 FROM cliente c WHERE c.ruta_id=r.id)
-    ORDER BY lower(r.nombre), r.id`)).rows;
+    WHERE (r.activo OR EXISTS(SELECT 1 FROM cliente c WHERE c.ruta_id=r.id))
+      ${soloIds ? 'AND r.id = ANY($1::int[])' : ''}
+    ORDER BY lower(r.nombre), r.id`, soloIds ? [soloIds] : [])).rows;
 }
 
 module.exports = { filtroRutaActual, listarRutasActuales };

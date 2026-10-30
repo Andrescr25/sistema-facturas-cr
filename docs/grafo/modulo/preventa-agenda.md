@@ -79,3 +79,8 @@ minuto sin motivo. Si la ficha salió de la ruta o se desactivó, cierra el
 detalle y avisa. Reintentos independientes para rutas y agenda.
 
 Pruebas, navegador y límites: [informe](../../informes/preventa-agenda-2026-10-13.md).
+
+RUTAS DEL AGENTE (2026-10-29). Quien no tiene «Ver todas las rutas» ve solo
+las rutas que se le asignaron en Usuarios (`usuario_ruta`, migración 069) y
+no «Clientes sin ruta»; la agenda de otra ruta responde 403. Ver
+[[decision/agente-de-ventas-monitoreado]].
