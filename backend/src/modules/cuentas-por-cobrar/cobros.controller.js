@@ -98,6 +98,19 @@ module.exports = {
     }
   },
 
+  /**
+   * POST /cuentas-por-cobrar/propios/caja/rendicion — el efectivo que entregó un
+   * usuario que cobró ese día (migración 071). Lo cobrado se congela al recibir.
+   */
+  recibirEfectivo: async (req, res) => {
+    try {
+      const r = await caja.recibirEfectivo(req.body || {}, req.usuario?.id);
+      res.status(201).json({ success: true, data: r });
+    } catch (error) {
+      fallo(res, error, 'recibirEfectivo');
+    }
+  },
+
   /** POST /cuentas-por-cobrar/propios/caja/reabrir — con motivo, y queda anotado. */
   reabrirCaja: async (req, res) => {
     try {

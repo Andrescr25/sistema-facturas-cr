@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getCobrosDia } from '../services/cuentasPorCobrarService'
-import { hoyEnCostaRica } from '../utils/fechaCR'
+import { hoyEnCostaRica, sumarDias } from '../utils/fechaCR'
 
 /**
  * Hook para el cuadre de caja diario: carga los cobros registrados en un día
@@ -56,10 +56,10 @@ export function useCuadreCaja() {
     setFecha(hoyEnCostaRica())
   }, [])
 
+  // Ayer en Costa Rica. Con `toISOString()` (UTC), pasadas las 6 p.m. «ayer»
+  // daba HOY: el cierre de ayer no se podía abrir de noche.
   const irAyer = useCallback(() => {
-    const ayer = new Date()
-    ayer.setDate(ayer.getDate() - 1)
-    setFecha(ayer.toISOString().slice(0, 10))
+    setFecha(sumarDias(hoyEnCostaRica(), -1))
   }, [])
 
   return {

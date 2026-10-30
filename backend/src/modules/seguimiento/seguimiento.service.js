@@ -79,7 +79,22 @@ async function dia({ usuarioId, fecha } = {}) {
       WHERE v.usuario_id = $1 AND v.fecha = $2 AND v.resultado = 'proxima_visita'
       ORDER BY v.creado_en, v.id`, [id, elDia]);
 
+  const { rows: cobros } = await query(
+    `SELECT p.id, p.numero, p.monto, p.anulado, p.cliente_id, p.cliente_nombre, c.ubicacion_maps,
+            COALESCE(mp.nombre, p.metodo_pago_texto) AS metodo,
+            to_char(p.creado_en, 'HH24:MI') AS hora, p.creado_en AS momento
+       FROM pago p
+       LEFT JOIN metodo_pago mp ON mp.id = p.metodo_pago_id
+       LEFT JOIN cliente c ON c.id = p.cliente_id
+      WHERE p.registrado_por = $1 AND p.fecha = $2
+      ORDER BY p.creado_en, p.id`, [id, elDia]);
+
   const recorrido = [
+    ...cobros.map(p => ({
+      tipo: 'cobro', hora: p.hora, momento: p.momento,
+      cliente: { id: p.cliente_id, nombre: p.cliente_nombre, ubicacionMaps: p.ubicacion_maps },
+      cobro: { id: p.id, numero: p.numero, monto: Number(p.monto), metodo: p.metodo, anulado: p.anulado }
+    })),
     ...facturas.map(f => ({
       tipo: 'venta', hora: f.hora, momento: f.momento,
       cliente: { id: f.cliente_id, nombre: f.cliente_nombre, ubicacionMaps: f.ubicacion_maps },
@@ -94,7 +109,7 @@ async function dia({ usuarioId, fecha } = {}) {
   ].sort((a, b) => new Date(a.momento) - new Date(b.momento)).map(({ momento, ...paso }) => paso);
 
   const ventas = recorrido.filter(p => p.tipo === 'venta' && !p.factura.anulada);
-  const visitados = new Set(recorrido.map(p => p.cliente.id));
+  const visitados = new Set(recorrido.filter(p => p.tipo !== 'cobro').map(p => p.cliente.id));
   const pendientes = elDia === hoy ? await pendientesDeHoy(id, visitados) : null;
 
   return {
@@ -106,6 +121,8 @@ async function dia({ usuarioId, fecha } = {}) {
       sinVenta: recorrido.filter(p => p.tipo === 'proxima_visita').length,
       sinGps: recorrido.filter(p => p.gps && p.gps.estado !== 'tomada').length,
       fueraDeVisita: recorrido.filter(p => p.tipo === 'venta' && !p.desdeVisita).length,
+      // Lo que cobró (cuando cobre: hoy su usuario no tiene «Cobrar al facturar»).
+      cobrado: Math.round(recorrido.filter(p => p.tipo === 'cobro' && !p.cobro.anulado).reduce((s, p) => s + p.cobro.monto, 0) * 100) / 100,
       pendientes: pendientes ? pendientes.length : null
     },
     recorrido,

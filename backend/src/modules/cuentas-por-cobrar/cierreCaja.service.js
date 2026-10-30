@@ -38,6 +38,7 @@ const { pool } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
 const { httpError } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
+const { agruparPorUsuario, rendicionesDe, recibirEfectivo: recibirEfectivoCon } = require('./rendicionEfectivo.service');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -78,6 +79,19 @@ async function salidasDeCaja(ejecutor, dia) {
  * Los cobros ANULADOS no cuentan: esa plata no entró. Se devuelven aparte
  * para que se vean, porque alguien va a preguntar por ellos.
  */
+/**
+ * De qué método es un cobro: la clave del catálogo, y si no tiene, el texto
+ * copiado. Una sola regla para el cierre y para lo cobrado por usuario.
+ * El nombre del catálogo antes que el texto copiado: las 1.350 facturas
+ * traídas de Alegra guardan "CASH", y eso no se le muestra a nadie.
+ */
+function metodoDe(r) {
+  return {
+    clave: r.metodo_clave || (r.metodo_pago_texto || 'otros').toLowerCase(),
+    nombre: r.metodo_nombre || r.metodo_pago_texto || 'Otros'
+  };
+}
+
 async function resumenDelDia(fecha) {
   const dia = diaValido(fecha);
 
@@ -85,11 +99,13 @@ async function resumenDelDia(fecha) {
     `SELECT p.id, p.fecha, p.cliente_nombre, p.metodo_pago_id, p.metodo_pago_texto,
             p.referencia, p.monto, p.anulado, p.motivo_anulacion,
             mp.clave AS metodo_clave, mp.nombre AS metodo_nombre,
+            p.registrado_por, ur.nombre AS registrado_nombre,
             (SELECT string_agg(f.numero, ', ')
                FROM pago_factura pf JOIN factura f ON f.id = pf.factura_id
               WHERE pf.pago_id = p.id) AS facturas
        FROM pago p
        LEFT JOIN metodo_pago mp ON mp.id = p.metodo_pago_id
+       LEFT JOIN usuario ur ON ur.id = p.registrado_por
       WHERE p.fecha = $1::date
       ORDER BY p.id`,
     [dia]
@@ -98,10 +114,7 @@ async function resumenDelDia(fecha) {
   const vigentes = rows.filter(r => !r.anulado);
   const porMetodo = new Map();
   for (const r of vigentes) {
-    const clave = r.metodo_clave || (r.metodo_pago_texto || 'otros').toLowerCase();
-    // El nombre del catálogo antes que el texto copiado: las 1.350 facturas
-    // traídas de Alegra guardan "CASH", y eso no se le muestra a nadie.
-    const nombre = r.metodo_nombre || r.metodo_pago_texto || 'Otros';
+    const { clave, nombre } = metodoDe(r);
     const actual = porMetodo.get(clave) || { metodo: nombre, clave, monto: 0, cantidad: 0 };
     actual.monto = dinero(actual.monto + num(r.monto));
     actual.cantidad += 1;
@@ -113,7 +126,7 @@ async function resumenDelDia(fecha) {
     metodo: r.metodo_nombre || r.metodo_pago_texto, metodoClave: r.metodo_clave,
     referencia: r.referencia, monto: num(r.monto),
     anulado: r.anulado, motivoAnulacion: r.motivo_anulacion,
-    facturas: r.facturas
+    facturas: r.facturas, registradoPor: r.registrado_nombre || null
   }));
 
   const efectivo = porMetodo.get('efectivo');
@@ -134,9 +147,14 @@ async function resumenDelDia(fecha) {
       // Lo que la caja debería tener en billetes: lo cobrado menos lo que salió.
       efectivoEsperado: dinero(efectivoCobrado - salidasEfectivo)
     },
+    // Cuánto cobró cada usuario y si ya entregó el efectivo (migración 071).
+    porUsuario: agruparPorUsuario(vigentes, metodoDe, await rendicionesDe(pool, dia)),
     cierre: await cierreDe(dia)
   };
 }
+
+/** Recibir el efectivo que cobró un usuario ese día (rendicionEfectivo.service.js). */
+const recibirEfectivo = (datos, recibidoPor) => recibirEfectivoCon(datos, recibidoPor, resumenDelDia);
 
 /** La forma en que se devuelve un cierre, para no escribirla dos veces. */
 function aVista(c) {
@@ -278,4 +296,4 @@ async function reabrirCaja(fecha, { motivo } = {}, usuarioId = null) {
   });
 }
 
-module.exports = { resumenDelDia, cierreDe, cerrarCaja, reabrirCaja };
+module.exports = { resumenDelDia, cierreDe, cerrarCaja, reabrirCaja, recibirEfectivo };

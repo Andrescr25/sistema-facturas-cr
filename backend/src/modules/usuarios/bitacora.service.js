@@ -42,7 +42,8 @@ const ENTIDADES = {
   compra: 'Compra',
   empresa: 'Datos de la empresa',
   // Las rutas que atiende un agente (2026-10-29).
-  usuario: 'Usuario'
+  usuario: 'Usuario',
+  rendicion_efectivo: 'Entrega de efectivo'
 };
 
 const ACCIONES = {

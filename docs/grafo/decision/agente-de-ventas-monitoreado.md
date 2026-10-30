@@ -61,6 +61,13 @@ archivos:
   - frontend/src/components/seguimiento/RecorridoAgente.jsx
   - frontend/src/components/seguimiento/PendientesAgente.jsx
   - backend/tests/seguimientoAgente.test.js
+  - backend/migrations/independencia/071_rendicion_efectivo.sql
+  - backend/src/modules/cuentas-por-cobrar/rendicionEfectivo.service.js
+  - backend/src/modules/cuentas-por-cobrar/cierreCaja.service.js
+  - frontend/src/components/cuentas-por-cobrar/CobrosPorUsuario.jsx
+  - frontend/src/components/cuentas-por-cobrar/CuadreCajaDia.jsx
+  - frontend/src/hooks/useCuadreCaja.js
+  - backend/tests/cobrosPorUsuario.test.js
 aristas:
   relacionado: [modulo/permisos, modulo/facturacion, modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos]
 medido: 2026-10-29
@@ -190,7 +197,23 @@ es hoy, «Le falta hoy»: los de sus rutas atrasados o de hoy que no visitó (la
 misma agenda de Preventa). Las horas, en Costa Rica: `factura.creado_en` ya es
 hora local por la zona de la conexión; `visita.creado_en` lleva zona.
 
+## F6 (2026-10-29): cuánto cobró cada usuario y el efectivo que entregó
+
+Pedido «para futuro»: hoy el agente no cobra. Cada cobro ya decía quién lo
+registró (`pago.registrado_por`). En «Cobros del día» de Cuentas por Cobrar,
+«Cobros por usuario»: lo de cada uno, el efectivo aparte (es lo que se cuenta
+en billetes) y los demás métodos de referencia; con la misma regla de qué es
+efectivo que el cierre (`metodoDe`, una sola copia). «Recibir efectivo» anota
+cuánto entregó ese usuario (tabla `rendicion_efectivo`, migración 071): lo
+cobrado se CONGELA al recibir, queda la diferencia y la bitácora; una vez por
+usuario y día, y no con la caja del día cerrada (reabrir borra la fila del
+cierre, así que «cerrada» es que la fila exista). El cierre de siempre no
+cambia. «Seguimiento de agentes» suma lo que cobró el agente (sin GPS: un cobro
+no sale de una visita). De paso, «Ayer» del cuadre usaba `toISOString()` y de
+noche daba hoy: ahora es ayer en Costa Rica.
+
 ## Lo que sigue
 
-Cobros y cierre de caja por usuario (pedido «para futuro») · después, si hace
-falta: Preventa sin señal y guardar la ubicación del cliente con GPS.
+Subir a main con las migraciones 068–071 aplicadas antes en producción (y el
+agente creado DESPUÉS). Si hace falta más adelante: Preventa sin señal y
+guardar la ubicación del cliente con GPS.

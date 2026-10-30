@@ -32,5 +32,6 @@ router.get('/propios/caja', cobros.resumenCaja);
 router.get('/propios/caja/movimientos', cobros.movimientosCaja);
 router.post('/propios/caja/cerrar', cobros.cerrarCaja);
 router.post('/propios/caja/reabrir', cobros.reabrirCaja);
+router.post('/propios/caja/rendicion', cobros.recibirEfectivo);
 
 module.exports = router;

@@ -78,7 +78,8 @@ export async function getCobrosDia(fecha) {
       metodoPago: c.metodo,
       monto: c.monto,
       anulado: c.anulado,
-      referencia: c.referencia
+      referencia: c.referencia,
+      registradoPor: c.registradoPor
     })),
     resumen: {
       total: d?.resumen?.total ?? 0,
@@ -92,7 +93,9 @@ export async function getCobrosDia(fecha) {
       salidas: d?.salidas ?? [],
       porMetodo: Object.fromEntries(
         (d?.resumen?.porMetodo ?? []).map((m) => [m.clave, { monto: m.monto, cantidad: m.cantidad, nombre: m.metodo }])
-      )
+      ),
+      // Cuánto cobró cada usuario y si ya entregó el efectivo (migración 071).
+      porUsuario: d?.porUsuario ?? []
     },
     cierre: d?.cierre ?? null
   }
@@ -102,6 +105,13 @@ export async function getCobrosDia(fecha) {
 export async function cerrarCaja({ fecha, efectivoContado, motivoDiferencia, observaciones }) {
   const response = await api.post('/cuentas-por-cobrar/propios/caja/cerrar',
     { fecha, efectivoContado, motivoDiferencia, observaciones })
+  return response.data?.data ?? null
+}
+
+/** Recibir el efectivo que cobró un usuario ese día. Lo cobrado se congela al recibir. */
+export async function recibirEfectivo({ fecha, usuarioId, efectivoEntregado, observaciones }) {
+  const response = await api.post('/cuentas-por-cobrar/propios/caja/rendicion',
+    { fecha, usuarioId, efectivoEntregado, observaciones })
   return response.data?.data ?? null
 }
 

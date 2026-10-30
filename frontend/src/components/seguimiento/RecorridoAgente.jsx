@@ -1,4 +1,4 @@
-import { Receipt, CalendarClock, MapPin } from 'lucide-react'
+import { Receipt, CalendarClock, MapPin, Banknote } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import { colones } from '../../utils/colones'
 import { fechaEnPalabras } from '../../utils/fechaCR'
@@ -9,7 +9,8 @@ const TONO_TEXTO = { exito: 'text-exito-700', alerta: 'text-alerta-700', neutro:
 
 /**
  * Lo que hizo el agente en el día, en orden de hora: cada factura y cada
- * «próxima visita», con dónde estaba y qué tan lejos del cliente (F5).
+ * «próxima visita», con dónde estaba y qué tan lejos del cliente (F5), y lo
+ * que cobró (F6), que no lleva GPS: se registra en caja o al facturar.
  */
 export default function RecorridoAgente({ recorrido }) {
   if (!recorrido.length) {
@@ -18,18 +19,24 @@ export default function RecorridoAgente({ recorrido }) {
   return (
     <ol className="space-y-3">
       {recorrido.map((p, i) => {
-        const gps = lecturaDelGps(p.gps, p.cliente.ubicacionMaps)
+        const cobro = p.tipo === 'cobro'
+        const gps = cobro ? null : lecturaDelGps(p.gps, p.cliente.ubicacionMaps)
         const venta = p.tipo === 'venta'
-        const Icono = venta ? Receipt : CalendarClock
+        const Icono = cobro ? Banknote : venta ? Receipt : CalendarClock
         return (
-          <li key={`${p.tipo}-${p.factura?.id ?? i}-${p.hora}`} className="card flex min-w-0 gap-3 p-4 sm:p-5">
+          <li key={`${p.tipo}-${p.factura?.id ?? p.cobro?.id ?? i}-${p.hora}`} className="card flex min-w-0 gap-3 p-4 sm:p-5">
             <div className="flex w-14 shrink-0 flex-col items-center gap-1">
               <span className="text-sm font-bold text-neutro-900">{p.hora}</span>
-              <Icono size={18} className={venta ? 'text-exito-600' : 'text-nota-600'} />
+              <Icono size={18} className={venta || cobro ? 'text-exito-600' : 'text-nota-600'} />
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <p className="break-words font-bold text-neutro-900">{p.cliente.nombre}</p>
-              {venta ? (
+              {cobro ? (
+                <p className="flex flex-wrap items-center gap-2 text-sm text-neutro-700">
+                  <span>Cobró {colones(p.cobro.monto)} · {p.cobro.metodo}</span>
+                  {p.cobro.anulado && <Insignia tono="peligro">Anulado</Insignia>}
+                </p>
+              ) : venta ? (
                 <p className="flex flex-wrap items-center gap-2 text-sm text-neutro-700">
                   <span>Factura {p.factura.numero} · {colones(p.factura.total)}</span>
                   {p.factura.anulada && <Insignia tono="peligro">Anulada</Insignia>}
@@ -40,10 +47,12 @@ export default function RecorridoAgente({ recorrido }) {
                   {p.nota && <span className="block text-neutro-500">«{p.nota}»</span>}
                 </p>
               )}
-              <p className={`flex flex-wrap items-center gap-x-2 text-sm font-semibold ${TONO_TEXTO[gps.tono]}`}>
-                <MapPin size={14} className="shrink-0" />{gps.texto}
-                {gps.mapa && <a href={gps.mapa} target="_blank" rel="noopener noreferrer" className="font-bold text-primario-700 underline-offset-2 hover:underline">ver dónde</a>}
-              </p>
+              {gps && (
+                <p className={`flex flex-wrap items-center gap-x-2 text-sm font-semibold ${TONO_TEXTO[gps.tono]}`}>
+                  <MapPin size={14} className="shrink-0" />{gps.texto}
+                  {gps.mapa && <a href={gps.mapa} target="_blank" rel="noopener noreferrer" className="font-bold text-primario-700 underline-offset-2 hover:underline">ver dónde</a>}
+                </p>
+              )}
             </div>
           </li>
         )

@@ -2,7 +2,8 @@ import { CalendarDays, Banknote, ArrowRightLeft, CreditCard, Loader2, RefreshCw,
 import { useCuadreCaja } from '../../hooks/useCuadreCaja'
 import { formatCurrency, formatDate } from '../../utils/cuentasPorCobrarUtils'
 import PanelCierreCaja from './PanelCierreCaja'
-import { hoyEnCostaRica } from '../../utils/fechaCR'
+import CobrosPorUsuario from './CobrosPorUsuario'
+import { hoyEnCostaRica, sumarDias } from '../../utils/fechaCR'
 
 /**
  * Configuración visual de cada método de pago: ícono, colores y etiqueta
@@ -138,7 +139,7 @@ export default function CuadreCajaDia() {
           <button
             onClick={irAyer}
             className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              fecha === new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().slice(0, 10)
+              fecha === sumarDias(hoyEnCostaRica(), -1)
                 ? 'bg-primario-600 text-white shadow-md'
                 : 'bg-neutro-100 text-neutro-700 hover:bg-neutro-200'
             }`}
@@ -187,6 +188,9 @@ export default function CuadreCajaDia() {
       {/* El cierre va FUERA del bloque de cobros: un día sin cobros pero con
           plata que salió de la caja (un proveedor pagado en efectivo) también
           se cuenta y se cierra. */}
+      {!loading && !error && resumen && (
+        <CobrosPorUsuario fecha={fecha} porUsuario={resumen.porUsuario} cerrada={Boolean(cierre)} onCambio={recargar} />
+      )}
       {!loading && !error && resumen && (
         <PanelCierreCaja
           fecha={fecha}
