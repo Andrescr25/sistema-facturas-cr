@@ -1411,3 +1411,9 @@ información viene en una sola hoja; proponme un mejor diseño… que sea más
 fácil para el empleado». Eligió «tarjetas → detalle». Y de su lado: «en mi vista de admin veo
 todo muy desordenado, ajústalo también; y el seguimiento de agente, pónmelo
 dentro de empleados».
+## 2026-10-30 — Cobros: fecha en Safari y productos de la factura
+
+El usuario pide corregir el campo Fecha del pago que desborda la tarjeta en
+Safari de iPhone, y el detalle de productos que aparece vacío o con ₡0,00 al
+cobrar una factura. Se conserva el flujo de abonos y los importes guardados.
+[Resultado](grafo/modulo/cuentas-por-cobrar.md).

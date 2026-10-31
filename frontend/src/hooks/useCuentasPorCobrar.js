@@ -91,18 +91,12 @@ export function useCuentasPorCobrar(initialFilters = {}) {
   /**
    * Las líneas de la factura, para el detalle del modal.
    *
-   * Falla en silencio devolviendo una lista vacía: el detalle es contexto,
-   * no un requisito para cobrar. Si no carga, la tabla dice que no hay
-   * detalle y el abono se registra igual.
+   * El modal distingue una factura sin líneas de un error de carga y deja
+   * reintentar, sin bloquear el cobro por un fallo al consultar el detalle.
    */
   const handleCargarProductos = useCallback(async (facturaId) => {
-    try {
-      const result = await getProductosFactura(facturaId)
-      return result?.data || []
-    } catch (err) {
-      console.error('No se pudo cargar el detalle de la factura:', err.message)
-      return []
-    }
+    const result = await getProductosFactura(facturaId)
+    return result.data
   }, [])
 
   const handleRegistrarAbono = useCallback(async ({ facturaId, numero, monto, fecha, metodoPagoId, referencia, saldarTotal = false }) => {

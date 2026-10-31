@@ -7,12 +7,10 @@ import { formatCurrency } from '../../utils/pagos'
  *
  * Existía solo en Pagos a Proveedores; ahora también en Cuentas por Cobrar,
  * que es lo que se pidió. Una sola tabla para los dos: cada módulo trae sus
- * líneas de donde puede —el proveedor las tiene en la base, la de venta se
- * le piden a Alegra al abrir— pero llegan con la misma forma y se pintan
- * igual.
+ * líneas de su documento propio, con la misma forma para dibujarlas.
  *
  * OJO CON LAS DOS COLUMNAS DE PLATA
- * Alegra guarda el precio unitario SIN impuesto y el total de la línea CON
+ * La factura guarda el precio unitario SIN impuesto y el total de la línea CON
  * impuesto. Multiplicar cantidad por precio no da el total, y eso se lee
  * como un error de la pantalla si no está dicho. Por eso el encabezado lo
  * aclara en vez de dejar dos números que no cuadran.
@@ -20,7 +18,7 @@ import { formatCurrency } from '../../utils/pagos'
  * Viene plegada: en una factura de veinte líneas, quien abre el modal
  * normalmente va a cobrar, no a auditar el detalle.
  */
-export default function TablaProductosFactura({ productos, cargando, abiertaPorDefecto = false }) {
+export default function TablaProductosFactura({ productos, cargando, error, onReintentar, abiertaPorDefecto = false }) {
   const [abierta, setAbierta] = useState(abiertaPorDefecto)
 
   const cantidad = productos?.length || 0
@@ -51,6 +49,12 @@ export default function TablaProductosFactura({ productos, cargando, abiertaPorD
             <p className="flex items-center gap-2 px-4 py-3 text-sm text-neutro-400">
               <Loader2 size={14} className="animate-spin" /> Cargando el detalle…
             </p>
+          ) : error ? (
+            <div role="alert" className="rounded-xl bg-alerta-50 px-4 py-3 text-sm text-alerta-900">
+              <p>{error}</p>
+              {onReintentar && <button type="button" onClick={onReintentar}
+                className="mt-1 min-h-11 font-bold underline">Reintentar</button>}
+            </div>
           ) : cantidad === 0 ? (
             <p className="rounded-xl bg-neutro-50 px-4 py-3 text-center text-sm text-neutro-500">
               Esta factura no trae detalle de productos.

@@ -217,6 +217,12 @@
      al borde de la tarjeta, fuera de su campo (2026-10-19). El relleno de la
      derecha le deja su lugar para que no tape la fecha. */
   input[type="date"] {
+    /* El control nativo de iOS puede imponer su ancho aunque tenga w-full
+       y border-box. Quitar solo la apariencia conserva el selector de fecha
+       y hace que su caja respete el ancho disponible de la tarjeta. */
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
     position: relative;
     padding-right: 2rem !important;
   }

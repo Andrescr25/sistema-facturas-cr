@@ -1321,3 +1321,16 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   de prueba a un cliente real hasta aclararla.
 
 [Detalle](grafo/decision/agente-de-ventas-monitoreado.md).
+### Cobros: Safari y detalle de productos — 2026-10-30
+
+- [x] Corregir la caja de fecha móvil sin cambiar el selector ni el día.
+- [x] Mostrar descripción, código, cantidad, precio y total guardado con IVA;
+  usar la lectura de Cobros sin exigir permisos de Facturación.
+- [x] Distinguir error de detalle vacío y permitir reintentar; estado en hook.
+- [x] Seis regresiones nuevas y 179 pruebas dirigidas con PostgreSQL local
+  correctas; build y lint del cambio correctos. Global con fallos previos.
+- [x] 87 comprobaciones WebKit/Chromium a 320–1280 px correctas; fecha de
+  cobro individual/múltiple, detalle, errores/reintento y cobro simulado.
+  Todas las columnas caben en escritorio; 23 pruebas grafo/estructura correctas.
+
+[Detalle](informes/cobros-safari-detalle-2026-10-30.md).

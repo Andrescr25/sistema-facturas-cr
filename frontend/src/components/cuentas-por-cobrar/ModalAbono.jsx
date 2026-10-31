@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { CheckCircle2, Loader2, CalendarDays, CreditCard } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/cuentasPorCobrarUtils'
-import { getMetodosPago } from '../../services/cuentasPorCobrarService'
+import { useOpcionesPago } from '../../hooks/useOpcionesPago'
+import { useDetalleCobro } from '../../hooks/useDetalleCobro'
 import { hoyEnCostaRica } from '../../utils/fechaCR'
 import HojaModal from '../pagos/HojaModal'
 import ResumenSaldo from '../pagos/ResumenSaldo'
@@ -17,7 +18,8 @@ import TablaProductosFactura from '../pagos/TablaProductosFactura'
  * Proveedores se ve igual sin que nadie mantenga dos veces la misma hoja.
  *
  * Y se le agregó el detalle de productos, que solo tenía el módulo de
- * pagar. Las líneas salen de la factura propia (GET /facturacion/facturas/:id).
+ * pagar. Las líneas salen de la factura propia bajo el permiso de Cobros.
+ * En escritorio la tabla tiene ancho para ver también el total, sin arrastrar.
  */
 
 /**
@@ -46,44 +48,13 @@ export default function ModalAbono({
 
   // Los métodos salen de NUESTRO catálogo. La lista que había escrita a mano
   // no tenía SINPE Móvil, que es como paga mucha gente.
-  const [metodos, setMetodos] = useState([])
-  const [metodoPagoId, setMetodoPagoId] = useState(null)
+  const { metodos, error: errorMetodos } = useOpcionesPago()
+  const [metodoElegido, setMetodoElegido] = useState(null)
+  const metodoPagoId = metodoElegido ?? (metodos.find(m => m.clave === 'efectivo') || metodos[0])?.id ?? null
   const [referencia, setReferencia] = useState('')
 
-  const [abonos, setAbonos] = useState([])
-  const [cargandoAbonos, setCargandoAbonos] = useState(true)
-  const [productos, setProductos] = useState([])
-  const [cargandoProductos, setCargandoProductos] = useState(true)
-
-  useEffect(() => {
-    let cancelado = false
-    getMetodosPago().then((lista) => {
-      if (cancelado) return
-      setMetodos(lista)
-      const efectivo = lista.find(m => m.clave === 'efectivo') || lista[0]
-      setMetodoPagoId(efectivo ? efectivo.id : null)
-    }).catch(() => {})
-    return () => { cancelado = true }
-  }, [])
-
-  useEffect(() => {
-    let cancelado = false
-    setCargandoAbonos(true)
-    onCargarAbonos(factura.id).then((data) => {
-      if (!cancelado) { setAbonos(data); setCargandoAbonos(false) }
-    })
-    return () => { cancelado = true }
-  }, [factura.id, onCargarAbonos])
-
-  useEffect(() => {
-    if (!onCargarProductos) { setCargandoProductos(false); return }
-    let cancelado = false
-    setCargandoProductos(true)
-    onCargarProductos(factura.id).then((data) => {
-      if (!cancelado) { setProductos(data); setCargandoProductos(false) }
-    })
-    return () => { cancelado = true }
-  }, [factura.id, onCargarProductos])
+  const { abonos, cargandoAbonos, productos, cargandoProductos, errorProductos, reintentarProductos } =
+    useDetalleCobro(factura.id, onCargarAbonos, onCargarProductos)
 
   const saldarTotal = seleccion === 'total'
   const montoNum = Number(monto)
@@ -92,7 +63,7 @@ export default function ModalAbono({
   const montoInvalido = !saldarTotal && (!monto || montoNum <= 0 || montoNum > factura.saldo)
 
   const handleRegistrar = async () => {
-    if (montoInvalido || faltaReferencia || !metodoPagoId) return
+    if (montoInvalido || faltaReferencia || !metodoPagoId || !fecha) return
     // Saldar total no manda un monto: el servidor relee el saldo CON BLOQUEO
     // al aplicar el abono, así no falla si otra caja cobró mientras tanto ni
     // deja un resto de céntimos.
@@ -117,6 +88,7 @@ export default function ModalAbono({
     <HojaModal
       titulo={clienteNombre}
       subtitulo={`Factura #${factura.numero}`}
+      ancho="sm:max-w-2xl"
       onCerrar={onCerrar}
     >
       <ResumenSaldo
@@ -125,7 +97,8 @@ export default function ModalAbono({
         diasRestantes={factura.diasRestantes}
       />
 
-      <TablaProductosFactura productos={productos} cargando={cargandoProductos} />
+      <TablaProductosFactura productos={productos} cargando={cargandoProductos}
+        error={errorProductos} onReintentar={reintentarProductos} />
 
       <OpcionesPago
         saldo={factura.saldo}
@@ -170,6 +143,7 @@ export default function ModalAbono({
             </label>
             <input
               type="date"
+              aria-label="Fecha del pago"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
               max={hoyEnCostaRica()}
@@ -184,13 +158,14 @@ export default function ModalAbono({
             </label>
             <select
               value={metodoPagoId ?? ''}
-              onChange={(e) => { setMetodoPagoId(Number(e.target.value)); setReferencia('') }}
+              onChange={(e) => { setMetodoElegido(Number(e.target.value)); setReferencia('') }}
               className="input h-12 w-full text-base"
             >
               {metodos.map((m) => (
-                <option key={m.id} value={m.id}>{m.label}</option>
+                <option key={m.id} value={m.id}>{m.nombre}</option>
               ))}
             </select>
+            {errorMetodos && <p role="alert" className="mt-2 text-sm text-peligro-700">{errorMetodos}</p>}
 
             {/* SINPE y transferencia sin número son imposibles de cuadrar
                 después contra el banco. El catálogo dice cuáles lo piden. */}
@@ -199,7 +174,7 @@ export default function ModalAbono({
                 type="text"
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
-                placeholder={`Referencia del ${metodo.label.toLowerCase()}…`}
+                placeholder={`Referencia del ${metodo.nombre.toLowerCase()}…`}
                 maxLength={60}
                 className="input mt-2 h-12 w-full text-base"
               />
@@ -212,7 +187,7 @@ export default function ModalAbono({
         <div className="space-y-2">
           <button
             onClick={handleRegistrar}
-            disabled={procesando || montoInvalido}
+            disabled={procesando || montoInvalido || faltaReferencia || !metodoPagoId || !fecha}
             className={`flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-base font-bold transition-all disabled:opacity-40 ${
               saldarTotal ? 'bg-exito-600 text-white shadow-lg hover:bg-exito-700' : 'btn btn-primary shadow-lg'
             }`}

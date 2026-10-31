@@ -18,6 +18,7 @@ const router = express.Router();
 const cobros = require('./cobros.controller');
 
 router.get('/propios/deudores', cobros.deudores);
+router.get('/propios/facturas/:id/productos', cobros.productos);
 router.get('/propios/facturas/:id/abonos', cobros.abonos);
 router.post('/propios/abonos', cobros.registrar);
 router.patch('/propios/abonos/:id/anular', cobros.anular);

@@ -32,7 +32,7 @@ const { pool } = require('../../../config/database');
 const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
-const { COBRADO, ACREDITADO } = require('../facturacion/facturaConsulta.service');
+const { COBRADO, ACREDITADO, COLUMNAS_LINEA, lineaAVista } = require('../facturacion/facturaConsulta.service');
 const { hoyEnCostaRica, diaEnCostaRica } = require('../../utils/fechaCR');
 const { telefonosDe, validarTelefonoEscrito } = require('../../utils/telefonosCliente');
 const { enviarYRegistrar } = require('../envios-whatsapp/envios.service');
@@ -124,6 +124,23 @@ async function listarDeudores({ buscar = '', pagina = 1, limite = 30 } = {}) {
     })),
     paginacion: { total, pagina: pag, limite: lim, paginas: Math.ceil(total / lim) }
   };
+}
+
+/**
+ * Contexto para cobrar: solo las líneas, con el DTO e importes de la factura.
+ * Quien cobra no necesita permiso de Facturación ni haber creado la factura.
+ * Una consulta distingue documento inexistente de documento sin líneas.
+ */
+async function productosDeFactura(facturaId) {
+  const id = idValido(facturaId);
+  const { rows } = await pool.query(`
+    SELECT f.id AS factura_id, l.* FROM factura f
+      LEFT JOIN LATERAL (
+        SELECT ${COLUMNAS_LINEA} FROM factura_linea WHERE factura_id = f.id
+      ) l ON TRUE
+     WHERE f.id = $1 ORDER BY l.numero_linea`, [id]);
+  if (!rows.length) throw httpError(404, 'No existe esa factura.');
+  return rows.filter(l => l.numero_linea !== null).map(lineaAVista);
 }
 
 /** Los abonos de una factura. Los anulados van MARCADOS, no escondidos. */
@@ -438,6 +455,6 @@ async function enviarRecordatorio(clienteId, { telefono, mensaje, usuarioId } = 
 }
 
 module.exports = {
-  listarDeudores, abonosDeFactura, registrarAbono, anularAbono,
+  listarDeudores, productosDeFactura, abonosDeFactura, registrarAbono, anularAbono,
   saldoDeCliente, enviarRecordatorio, textoRecordatorio
 };

@@ -1,9 +1,8 @@
 /**
  * Cobros sobre la base propia — Controller.
  *
- * Convive con el controlador viejo (que va contra Alegra) mientras la
- * pantalla se cambia: apagar el camino viejo antes de que Cuentas por Cobrar
- * llame al nuevo dejaría a la empresa sin poder registrar un abono.
+ * Lecturas y cobros sobre la factura propia. El servicio conserva el saldo
+ * calculado y la transacción del pago; el controlador solo arma la respuesta.
  */
 
 const servicio = require('./cobros.service');
@@ -25,6 +24,15 @@ module.exports = {
       res.json({ success: true, data: r.data, paginacion: r.paginacion });
     } catch (error) {
       fallo(res, error, 'deudores');
+    }
+  },
+
+  /** GET /cuentas-por-cobrar/propios/facturas/:id/productos */
+  productos: async (req, res) => {
+    try {
+      res.json({ success: true, data: await servicio.productosDeFactura(req.params.id) });
+    } catch (error) {
+      fallo(res, error, 'productos');
     }
   },
 

@@ -1,4 +1,5 @@
 import api from './api'
+import { productosFacturaCobro } from '../utils/productosFacturaCobro'
 
 /**
  * La cartera ENTERA. Buscar, filtrar por estado o vencimiento y el resumen
@@ -27,17 +28,10 @@ export async function getAbonosFactura(facturaId) {
  * antes se le pedían a Alegra cada vez que se abría el modal.
  */
 export async function getProductosFactura(facturaId) {
-  const response = await api.get(`/facturacion/facturas/${facturaId}`)
-  const factura = response.data?.data
+  const response = await api.get(`/cuentas-por-cobrar/propios/facturas/${facturaId}/productos`)
   return {
     success: true,
-    data: (factura?.lineas ?? []).map((l) => ({
-      nombre: l.nombre,
-      referencia: l.referencia,
-      cantidad: l.cantidad,
-      precio: l.precioUnitario,
-      total: l.cantidad * l.precioUnitario * (1 - (l.descuentoPorcentaje || 0) / 100)
-    }))
+    data: productosFacturaCobro(response.data?.data ?? [])
   }
 }
 
