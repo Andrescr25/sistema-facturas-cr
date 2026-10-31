@@ -7,6 +7,9 @@ import HorasDeLaQuincena from '../components/ingresos/HorasDeLaQuincena'
 import ClientesNuevos from '../components/ingresos/ClientesNuevos'
 import ResumenQuincena from '../components/ingresos/ResumenQuincena'
 import ComisionDelMes from '../components/ingresos/ComisionDelMes'
+import GasolinaDeLaQuincena from '../components/ingresos/GasolinaDeLaQuincena'
+import DeudaEmpleado from '../components/ingresos/DeudaEmpleado'
+import PagosEmpleado from '../components/empleados/PagosEmpleado'
 import { useMisIngresos } from '../hooks/useMisIngresos'
 import { useJornada } from '../hooks/useJornada'
 
@@ -19,7 +22,6 @@ export default function MisIngresos() {
   const ingresos = useMisIngresos()
   const jornada = useJornada({ onCambio: ingresos.recargar })
   const q = ingresos.datos?.quincena
-  const tarifas = ingresos.datos?.ficha.tarifas
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
       <EncabezadoPagina icono={PiggyBank} titulo="Mis ingresos" descripcion="Tus horas y lo que vas ganando en la quincena."
@@ -31,14 +33,17 @@ export default function MisIngresos() {
       {q && (
         <>
           <SelectorQuincena periodo={q.periodo} onElegir={ingresos.setPeriodo} />
-          <ResumenQuincena quincena={q} tarifas={tarifas} titulo={q.periodo.enCurso ? 'Llevás ganado en esta quincena' : 'Ganaste en esta quincena'}
+          <DeudaEmpleado deuda={ingresos.datos.deuda} titulo="Pendiente de pagarte" />
+          <ResumenQuincena quincena={q} titulo={q.periodo.enCurso ? 'Llevás ganado en esta quincena' : 'Ganaste en esta quincena'}
             nota={jornada.estado?.abierta ? 'La jornada abierta suma al terminarla.' : ''} />
           <ComisionDelMes comision={q.comision} />
+          <GasolinaDeLaQuincena gasolina={q.gasolina} />
           <section aria-label="Horas por día" className="space-y-3">
             <h2 className="flex items-center gap-2 text-lg font-bold text-neutro-900"><Timer size={18} className="text-primario-500" />Horas por día</h2>
             <HorasDeLaQuincena dias={q.dias} />
           </section>
-          <ClientesNuevos clientes={q.clientesNuevos} incentivo={tarifas.incentivoClienteNuevo} />
+          <ClientesNuevos clientes={q.clientesNuevos} incentivo={q.tarifas.incentivoClienteNuevo} />
+          <PagosEmpleado pagos={ingresos.datos.pagos} />
         </>
       )}
     </div>

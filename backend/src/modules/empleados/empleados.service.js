@@ -17,6 +17,7 @@ const liquidacion = require('./liquidacion');
 const jornadas = require('./jornada.service');
 const { clientesNuevos } = require('./clientesNuevos');
 const { ventasNetas } = require('./ventasNetas');
+const pagos = require('./pagosEmpleado.service');
 
 // Las tarifas, con sus nombres de la pantalla. Lo que no venga queda como estaba
 // (al crear, lo pone la base: 2 %, ₡2.000 y ₡5.000, lo que decidió el usuario).
@@ -104,8 +105,13 @@ async function actualizar(usuarioId, datos = {}, editaId) {
 /**
  * Lo de una quincena: horas día por día, clientes nuevos, gasolina y la
  * comisión de su mes (se suma al total solo en la 2.ª quincena; en la 1.ª se
- * muestra cómo va). La que está corriendo, si no se pide otra.
- * `anterior`/`siguiente` para recorrerlas, sin pasar de hoy ni de antes de su ficha.
+ * muestra cómo va), y lo que ya se pagó de ella. La que está corriendo, si no
+ * se pide otra. `anterior`/`siguiente` para recorrerlas, sin pasar de hoy ni de
+ * antes de su ficha.
+ *
+ * LO PAGADO NO CAMBIA: una quincena pagada se cuenta con las tarifas de su
+ * pago, y un día de gasolina pagado, con lo que se pagó. Las tarifas de hoy
+ * valen para lo que todavía no se pagó.
  */
 async function quincenaDe(ficha, clave) {
   const actual = liquidacion.quincenaDe(hoyEnCostaRica());
@@ -113,59 +119,106 @@ async function quincenaDe(ficha, clave) {
   if (!q) throw httpError(400, 'Elegí una quincena.');
   if (q.desde > actual.desde) throw httpError(400, 'Esa quincena todavía no empieza.');
   const anterior = liquidacion.quincenaAnterior(q);
+  const pagado = await pagos.pagadoEnQuincena(ficha.usuarioId, q);
+  const t = pagado.pagos.find(p => p.concepto === 'quincena')?.desglose?.tarifas || ficha.tarifas;
   const dias = liquidacion.horasPorDia(await jornadas.jornadasEntre(ficha.usuarioId, q.desde, q.hasta));
   const minutos = dias.reduce((s, d) => s + d.minutos, 0);
   const clientes = await clientesNuevos(ficha.usuarioId, q);
-  const t = ficha.tarifas;
-  const fechasGasolina = liquidacion.diasConGasolina(dias);
   const mes = liquidacion.mesDe(q);
   const ventas = await ventasNetas(ficha.usuarioId, mes, ficha.desde);
   const comision = {
     ...mes, ...ventas, porcentaje: t.comisionPorcentaje, monto: liquidacion.comisionDe(ventas.netas, t.comisionPorcentaje),
     enEstaQuincena: q.numero === 2, enCurso: hoyEnCostaRica() <= mes.hasta
   };
+  const conJornada = liquidacion.diasConGasolina(dias);
+  // Un día pagado cuyo tramo después se anuló sigue a la vista: se pagó de más.
+  const diasGasolina = [...new Set([...conJornada, ...pagado.gasolina.keys()])].sort().map(fecha => {
+    const p = pagado.gasolina.get(fecha);
+    const conTramo = conJornada.includes(fecha);
+    return p ? { fecha, monto: p.monto, pagada: true, pagadoEl: p.pagadoEl, sinJornada: !conTramo }
+      : { fecha, monto: t.gasolinaDiaria, pagada: false, sinJornada: false };
+  });
   const montos = {
     porHoras: liquidacion.montoPorHoras(minutos, t.pagoHora),
     clientesNuevos: liquidacion.montoPorCada(clientes.cuentan.length, t.incentivoClienteNuevo),
-    gasolina: liquidacion.montoPorCada(fechasGasolina.length, t.gasolinaDiaria),
+    gasolina: liquidacion.dinero(diasGasolina.filter(d => !d.sinJornada).reduce((s, d) => s + d.monto, 0)),
     comision: comision.enEstaQuincena ? comision.monto : 0
   };
+  const total = liquidacion.dinero(montos.porHoras + montos.clientesNuevos + montos.gasolina + montos.comision);
+  // Lo pagado: la quincena y sus ajustes, más los días de gasolina pagados aparte.
+  const gasolinaAparte = [...pagado.gasolina.values()].filter(d => d.concepto === 'gasolina').reduce((s, d) => s + d.monto, 0);
+  const yaPagado = liquidacion.dinero(pagado.pagos.reduce((s, p) => s + p.monto, 0) + gasolinaAparte);
   return {
     periodo: {
-      ...q, enCurso: q.clave === actual.clave,
+      ...q, enCurso: q.clave === actual.clave, terminada: q.hasta < hoyEnCostaRica(),
       anterior: anterior.hasta >= ficha.desde ? anterior.clave : null,
       siguiente: q.clave === actual.clave ? null : liquidacion.quincenaSiguiente(q).clave
     },
-    dias, minutos, porHoras: montos.porHoras,
+    tarifas: t, dias, minutos, porHoras: montos.porHoras,
     clientesNuevos: { ...clientes, monto: montos.clientesNuevos },
-    gasolina: { dias: fechasGasolina, porDia: t.gasolinaDiaria, monto: montos.gasolina },
-    comision,
-    total: liquidacion.dinero(montos.porHoras + montos.clientesNuevos + montos.gasolina + montos.comision)
+    gasolina: { dias: diasGasolina, porDia: t.gasolinaDiaria, monto: montos.gasolina },
+    comision, total,
+    pagos: {
+      pagos: pagado.pagos.map(({ desglose: _d, ...p }) => p),
+      pagada: pagado.pagos.some(p => p.concepto === 'quincena'),
+      pagado: yaPagado, porPagar: liquidacion.dinero(total - yaPagado)
+    }
   };
 }
 
-/** Lo que ve cada uno de su ficha: tarifas, jornada y la quincena. `propio`: lo pide el mismo empleado. */
-async function ingresosDe(usuarioId, clave, { propio = false } = {}) {
-  const ficha = await fichaDe(usuarioId, propio ? jornadas.SIN_FICHA : undefined);
-  return { ficha, jornada: await jornadas.estadoDe(ficha.usuarioId), quincena: await quincenaDe(ficha, clave) };
+/**
+ * «El total que le debo» (el usuario): lo que falta de cada quincena que ya
+ * terminó (o que ya se pagó), más la gasolina sin pagar de la que corre —esa
+ * se le da día a día—. Lo que corre de la quincena en curso no se debe todavía:
+ * es lo que «va ganando». Una quincena pagada de más resta.
+ */
+async function deudaDe(ficha) {
+  const actual = liquidacion.quincenaDe(hoyEnCostaRica());
+  const quincenas = [];
+  for (let q = liquidacion.quincenaDe(ficha.desde); q.desde <= actual.desde; q = liquidacion.quincenaSiguiente(q)) {
+    const d = await quincenaDe(ficha, q.clave);
+    const vencida = d.periodo.terminada || d.pagos.pagada;
+    const gasolinaPendiente = liquidacion.dinero(d.gasolina.dias.filter(x => !x.pagada).reduce((s, x) => s + x.monto, 0));
+    const debe = vencida ? d.pagos.porPagar : gasolinaPendiente;
+    quincenas.push({ clave: q.clave, nombre: q.nombre, total: d.total, pagado: d.pagos.pagado, porPagar: d.pagos.porPagar, debe, pagada: d.pagos.pagada, enCurso: d.periodo.enCurso });
+  }
+  return { total: liquidacion.dinero(quincenas.reduce((s, x) => s + x.debe, 0)), quincenas: quincenas.reverse() };
 }
 
-/** La lista de Empleados: cada uno con su quincena en curso. */
+/** Lo que ve cada uno de su ficha: tarifas, jornada, la quincena, lo que se le debe y sus pagos. `propio`: lo pide el mismo empleado. */
+async function ingresosDe(usuarioId, clave, { propio = false } = {}) {
+  const ficha = await fichaDe(usuarioId, propio ? jornadas.SIN_FICHA : undefined);
+  return {
+    ficha, jornada: await jornadas.estadoDe(ficha.usuarioId), quincena: await quincenaDe(ficha, clave),
+    deuda: await deudaDe(ficha), pagos: await pagos.pagosDe(ficha.usuarioId)
+  };
+}
+
+/** La lista de Empleados: cada uno con su quincena en curso y lo que se le debe. */
 async function listar() {
   const { rows } = await query(`${FICHA_SQL} ORDER BY e.activo DESC, lower(u.nombre), e.id`);
   const lista = [];
   for (const fila of rows) {
     const ficha = comoFicha(fila);
-    const { quincena, jornada } = await ingresosDe(ficha.usuarioId);
+    const quincena = await quincenaDe(ficha);
     const { periodo, minutos, porHoras, clientesNuevos: nuevos, gasolina, comision, total } = quincena;
-    lista.push({ ...ficha, jornada, quincena: {
-      periodo, minutos, porHoras, total,
+    lista.push({ ...ficha, jornada: await jornadas.estadoDe(ficha.usuarioId), leDebo: (await deudaDe(ficha)).total, quincena: {
+      periodo, minutos, porHoras, total, pagado: quincena.pagos.pagado,
       clientesNuevos: { cuentan: nuevos.cuentan.length, esperando: nuevos.esperando.length, monto: nuevos.monto },
-      gasolina: { dias: gasolina.dias.length, monto: gasolina.monto },
+      gasolina: { dias: gasolina.dias.length, pendientes: gasolina.dias.filter(d => !d.pagada).length, monto: gasolina.monto },
       comision: { nombre: comision.nombre, netas: comision.netas, monto: comision.monto, enEstaQuincena: comision.enEstaQuincena }
     } });
   }
   return lista;
 }
 
-module.exports = { usuariosSinFicha, crear, actualizar, fichaDe, ingresosDe, listar };
+// Los pagos leen la quincena con la misma cuenta que se muestra.
+const leerParaPagar = async (usuarioId, clave) => {
+  const ficha = await fichaDe(usuarioId);
+  return { ficha, quincena: await quincenaDe(ficha, clave) };
+};
+const pagarQuincena = (usuarioId, datos, registradoPor) => pagos.pagarQuincena(usuarioId, datos, registradoPor, leerParaPagar);
+const pagarGasolina = (usuarioId, datos, registradoPor) =>
+  pagos.pagarGasolina(usuarioId, datos, registradoPor, leerParaPagar, (dia) => liquidacion.quincenaDe(dia).clave);
+
+module.exports = { usuariosSinFicha, crear, actualizar, fichaDe, ingresosDe, listar, pagarQuincena, pagarGasolina, anularPago: pagos.anular };

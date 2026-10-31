@@ -29,4 +29,21 @@ async function idCajaGeneral(ejecutor) {
   return rows[0].id;
 }
 
-module.exports = { CAJA_GENERAL, idCajaGeneral };
+/**
+ * El método de un pago que sale de Caja General: que exista y esté activo, y
+ * su referencia si la pide (SINPE, transferencia…). Lo comparten los pagos a
+ * proveedores y los pagos a empleados (2026-10-30).
+ */
+async function metodoDePago(ejecutor, metodoPagoId, referenciaCruda, { referenciaOpcional = false } = {}) {
+  const id = Number(metodoPagoId);
+  const fallar = (mensaje) => { const error = new Error(mensaje); error.status = 400; throw error; };
+  if (!id) fallar('Falta el método de pago.');
+  const { rows } = await ejecutor.query('SELECT id, nombre, pide_referencia FROM metodo_pago WHERE id = $1 AND activo = TRUE', [id]);
+  const metodo = rows[0];
+  if (!metodo) fallar('Ese método de pago no existe o está inactivo.');
+  const referencia = referenciaCruda ? String(referenciaCruda).trim().slice(0, 60) : null;
+  if (metodo.pide_referencia && !referencia && !referenciaOpcional) fallar(`${metodo.nombre}: falta el número de referencia del pago.`);
+  return { metodo, referencia };
+}
+
+module.exports = { CAJA_GENERAL, idCajaGeneral, metodoDePago };

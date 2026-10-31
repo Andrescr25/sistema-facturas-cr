@@ -17,7 +17,8 @@ export default function TarjetaEmpleado({ empleado, onAbrir }) {
           {jornada.abierta && <Insignia tono="activo" icono={Timer}>Trabajando desde {horaEnCostaRica(jornada.abierta.inicio)}</Insignia>}
           {jornada.sinSalida.length > 0 && <Insignia tono="alerta" icono={AlertTriangle}>{jornada.sinSalida.length} sin salida</Insignia>}
         </div>
-        <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
+          <div><dt className="text-neutro-500">Le debo</dt><dd className={`text-lg font-bold ${empleado.leDebo > 0 ? 'text-alerta-800' : 'text-neutro-700'}`}>{colones(empleado.leDebo)}</dd></div>
           <div><dt className="text-neutro-500">Lleva en la quincena</dt><dd className="text-lg font-bold text-exito-700">{colones(quincena.total)}</dd></div>
           <div><dt className="text-neutro-500">Horas</dt><dd className="text-base font-bold text-neutro-900">{duracion(quincena.minutos)}</dd></div>
           <div><dt className="text-neutro-500">Comisión de {quincena.comision.nombre.split(' ')[0]}</dt><dd className="text-base font-bold text-neutro-900">{colones(quincena.comision.monto)}</dd></div>

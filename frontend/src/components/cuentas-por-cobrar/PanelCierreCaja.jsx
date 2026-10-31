@@ -5,6 +5,9 @@ import { formatCurrency } from '../../utils/cuentasPorCobrarUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import { puedeAccion } from '../../utils/modulos'
 
+// Cómo se nombra cada salida de efectivo del día (las arma cierreCaja.service).
+const SALIDA = { proveedor: 'Pago a', gasto: 'Gasto:', pago_empleado: 'Planilla:' }
+
 /**
  * Cerrar la caja del día: lo que debería haber contra lo que hay.
  *
@@ -32,7 +35,7 @@ function DesgloseSalidas({ cobrado, salidas }) {
       </div>
       {salidas.map((x) => (
         <div key={`${x.tipo}-${x.id}`} className="flex justify-between text-neutro-500">
-          <span className="truncate pr-2">− {x.tipo === 'proveedor' ? 'Pago a' : 'Gasto:'} {x.descripcion}</span>
+          <span className="truncate pr-2">− {SALIDA[x.tipo] || 'Gasto:'} {x.descripcion}</span>
           <span>−{formatCurrency(x.monto)}</span>
         </div>
       ))}

@@ -144,7 +144,7 @@ describe('ventas netas, comisión y total — contra PostgreSQL local', () => {
 
     const q2 = await quincena(agente, `${mes}-Q2`);
     assert.equal(q2.comision.enEstaQuincena, true);
-    assert.deepEqual(q2.gasolina.dias, [dia(18)], 'el día anulado no lleva gasolina');
+    assert.deepEqual(q2.gasolina.dias.map(d => d.fecha), [dia(18)], 'el día anulado no lleva gasolina');
     assert.deepEqual([q2.porHoras, q2.gasolina.monto, q2.comision.monto, q2.total], [5400, 5000, 30, 10430]);
   });
 

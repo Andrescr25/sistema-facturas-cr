@@ -158,7 +158,7 @@ describe('la pantalla', () => {
   });
 
   test('los clientes nuevos se ven igual en «Mis ingresos» y en Empleados', () => {
-    assert.match(leer('pages', 'MisIngresos.jsx'), /<ClientesNuevos clientes=\{q\.clientesNuevos\} incentivo=\{tarifas\.incentivoClienteNuevo\} \/>/);
-    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /<ClientesNuevos clientes=\{q\.clientesNuevos\} incentivo=\{ficha\.tarifas\.incentivoClienteNuevo\} \/>/);
+    assert.match(leer('pages', 'MisIngresos.jsx'), /<ClientesNuevos clientes=\{q\.clientesNuevos\} incentivo=\{q\.tarifas\.incentivoClienteNuevo\} \/>/);
+    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /<ClientesNuevos clientes=\{q\.clientesNuevos\} incentivo=\{q\.tarifas\.incentivoClienteNuevo\} \/>/);
   });
 });

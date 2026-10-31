@@ -49,6 +49,17 @@ archivos:
   - frontend/src/components/ingresos/ResumenQuincena.jsx
   - frontend/src/components/ingresos/ComisionDelMes.jsx
   - backend/tests/comisionEmpleado.test.js
+  - backend/migrations/independencia/074_pago_empleado.sql
+  - backend/src/modules/empleados/pagosEmpleado.service.js
+  - backend/src/utils/cajaGeneral.js
+  - backend/src/modules/pagos-proveedores/pagosProveedor.service.js
+  - frontend/src/components/empleados/ModalPagoEmpleado.jsx
+  - frontend/src/components/empleados/PagosEmpleado.jsx
+  - frontend/src/components/ingresos/GasolinaDeLaQuincena.jsx
+  - frontend/src/components/ingresos/DeudaEmpleado.jsx
+  - frontend/src/components/caja-general/MovimientosCaja.jsx
+  - frontend/src/components/cuentas-por-cobrar/PanelCierreCaja.jsx
+  - backend/tests/pagosEmpleado.test.js
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/permisos]
 medido: 2026-10-30
@@ -139,4 +150,30 @@ es lo que ya se pagó (E4).
 - **Total de la quincena** = horas + clientes nuevos + gasolina + (comisión
   del mes, en la 2.ª). En grande, con cada parte y su cuenta
   (`ResumenQuincena`); el mismo componente para el agente y para Empleados.
+
+## E4 (2026-10-30): pagos, caja y «le debo» — migración 074
+
+- **`pago_empleado`**: cada pago sale de Caja General con su método (y
+  referencia si la pide: `metodoDePago`, la misma regla de los pagos a
+  proveedores, ahora en `utils/cajaGeneral.js`). Conceptos: `quincena`
+  (una vigente por período, índice único), `ajuste` (lo que falta de una
+  quincena ya pagada) y `gasolina` (días sueltos).
+- **Lo pagado no cambia**: el pago congela el desglose y las TARIFAS. Una
+  quincena pagada se sigue contando con las tarifas de su pago; un día de
+  gasolina pagado, con lo que se pagó. Cambiar una tarifa vale para lo que
+  falta. Si después se corrige una jornada, la diferencia es un ajuste.
+- **Pagar la quincena** paga lo que falta (horas, clientes, comisión en la
+  2.ª, y la gasolina sin pagar, que queda marcada con ese pago). Desde su
+  último día; antes, 409.
+- **`gasolina_pagada`**: un día se paga una vez (UNIQUE). Anular el pago borra
+  sus días: vuelven a pendiente.
+- **`movimiento_caja`** se recreó con las tres ramas de la 027 tal cual y la
+  de `pago_empleado` («Planilla:» en Caja General y en el cierre). En efectivo,
+  el cierre del día lo resta como cualquier salida.
+- **«Le debo»** = lo que falta de cada quincena terminada (o ya pagada) + la
+  gasolina sin pagar de la que corre. Una quincena pagada de más resta. El
+  agente ve lo mismo como «Pendiente de pagarte», y sus pagos.
+- **Anular un pago** es solo de administrador (`ACCIONES_ADMIN`
+  `anular-pago-empleado`): es plata que ya salió de caja. Pide motivo y va a
+  la bitácora.
 

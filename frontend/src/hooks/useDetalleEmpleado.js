@@ -32,5 +32,19 @@ export function useDetalleEmpleado(usuarioId) {
     }
   }
 
-  return { datos, periodo, setPeriodo, cargando, error, recargar: () => setRevision(n => n + 1), guardarJornada }
+  const enviar = async (llamar, porDefecto) => {
+    try {
+      const { data } = await llamar()
+      setRevision(n => n + 1)
+      return data.data
+    } catch (e) {
+      throw new Error(e.response?.data?.message || porDefecto)
+    }
+  }
+  // Los montos los calcula el servidor: la pantalla solo dice qué se paga y cómo.
+  const pagarQuincena = (periodoQuePaga, medio) => enviar(() => api.post(`/empleados/${usuarioId}/pagos/quincena`, { periodo: periodoQuePaga, ...medio }), 'No se pudo registrar el pago.')
+  const pagarGasolina = (fechas, medio) => enviar(() => api.post(`/empleados/${usuarioId}/pagos/gasolina`, { fechas, ...medio }), 'No se pudo registrar el pago.')
+  const anularPago = (pagoId, motivo) => enviar(() => api.patch(`/empleados/pagos/${pagoId}/anular`, { motivo }), 'No se pudo anular el pago.')
+
+  return { datos, periodo, setPeriodo, cargando, error, recargar: () => setRevision(n => n + 1), guardarJornada, pagarQuincena, pagarGasolina, anularPago }
 }

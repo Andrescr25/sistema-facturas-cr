@@ -15,7 +15,9 @@ import { formatCurrency, formatDate } from '../../utils/pagos'
 const TIPO = {
   cobro: 'Cobro a',
   pago_proveedor: 'Pago a',
-  gasto: 'Gasto:'
+  gasto: 'Gasto:',
+  // Lo que se le paga a un empleado: quincena, ajuste o gasolina (2026-10-30).
+  pago_empleado: 'Planilla:'
 }
 
 export default function MovimientosCaja() {

@@ -304,7 +304,8 @@ const RUTAS_ADMIN = ['/usuarios'];
  *
  * Decisión del usuario, 2026-10-03 (sección 14 del checklist): anular una
  * factura, anular un cobro y reabrir una caja ya cerrada. Las tres deshacen
- * plata ya contada. Crear o anular una nota de crédito y editar una factura
+ * plata ya contada. Anular un pago a un empleado (2026-10-30) también: es
+ * plata que ya salió de caja. Crear o anular una nota de crédito y editar una factura
  * emitida las sigue haciendo quien tenga el módulo —Impresión edita facturas
  * todos los días al rebajar faltantes—, y cerrar la caja también: es el
  * trabajo de quien cobra.
@@ -317,7 +318,8 @@ const ACCIONES_ADMIN = [
   { clave: 'anular-factura', metodo: 'PATCH', patron: /^\/facturacion\/facturas\/[^/]+\/anular$/, que: 'anular una factura' },
   { clave: 'anular-cobro', metodo: 'PATCH', patron: /^\/cuentas-por-cobrar\/propios\/abonos\/[^/]+\/anular$/, que: 'anular un cobro' },
   { clave: 'reabrir-caja', metodo: 'POST', patron: /^\/cuentas-por-cobrar\/propios\/caja\/reabrir$/, que: 'reabrir una caja cerrada' },
-  { clave: 'corregir-entrega', metodo: 'POST', patron: /^\/entregas\/facturas\/[^/]+\/revision$/, que: 'corregir un registro físico de carga o entrega' }
+  { clave: 'corregir-entrega', metodo: 'POST', patron: /^\/entregas\/facturas\/[^/]+\/revision$/, que: 'corregir un registro físico de carga o entrega' },
+  { clave: 'anular-pago-empleado', metodo: 'PATCH', patron: /^\/empleados\/pagos\/[^/]+\/anular$/, que: 'anular un pago a un empleado' }
 ];
 
 /**

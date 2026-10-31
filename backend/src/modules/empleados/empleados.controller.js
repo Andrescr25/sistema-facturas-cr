@@ -17,3 +17,6 @@ exports.detalle = (req, res) => responder(res, () => servicio.ingresosDe(req.par
 exports.actualizar = (req, res) => responder(res, () => servicio.actualizar(req.params.usuarioId, req.body || {}, req.usuario?.id));
 exports.agregarJornada = (req, res) => responder(res, () => jornadas.agregar(req.params.usuarioId, req.body || {}, req.usuario?.id));
 exports.corregirJornada = (req, res) => responder(res, () => jornadas.corregir(req.params.id, req.body || {}, req.usuario?.id));
+exports.pagarQuincena = (req, res) => responder(res, () => servicio.pagarQuincena(req.params.usuarioId, req.body || {}, req.usuario?.id));
+exports.pagarGasolina = (req, res) => responder(res, () => servicio.pagarGasolina(req.params.usuarioId, req.body || {}, req.usuario?.id));
+exports.anularPago = (req, res) => responder(res, () => servicio.anularPago(req.params.id, req.body || {}, req.usuario?.id));

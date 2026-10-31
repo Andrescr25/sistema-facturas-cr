@@ -26,7 +26,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
-const { idCajaGeneral } = require('../../utils/cajaGeneral');
+const { idCajaGeneral, metodoDePago } = require('../../utils/cajaGeneral');
 const { leerIdempotencia, pagoPrevio } = require('./pagoProveedorIdempotencia');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -173,15 +173,7 @@ async function registrarPagoEn(cliente, datos = {}, usuarioId = null, preparado 
 
   const cuentaDineroId = await idCajaGeneral(cliente);
 
-  const { rows: metodos } = await cliente.query(
-    'SELECT id, nombre, pide_referencia FROM metodo_pago WHERE id = $1 AND activo = TRUE', [metodoId]
-  );
-  const metodo = metodos[0];
-  if (!metodo) throw httpError(400, 'Ese método de pago no existe o está inactivo.');
-  const referencia = datos.referencia ? String(datos.referencia).trim().slice(0, 60) : null;
-  if (metodo.pide_referencia && !referencia && opciones.referenciaOpcional !== true) {
-    throw httpError(400, `${metodo.nombre}: falta el número de referencia del pago.`);
-  }
+  const { metodo, referencia } = await metodoDePago(cliente, metodoId, datos.referencia, { referenciaOpcional: opciones.referenciaOpcional === true });
 
   const primera = cuentas[0];
   const { rows } = await cliente.query(

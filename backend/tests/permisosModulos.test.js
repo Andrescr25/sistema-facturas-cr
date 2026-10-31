@@ -262,11 +262,13 @@ describe('la ruta se clasifica como la entiende Express', () => {
 describe('acciones que exigen administrador aunque se tenga el módulo', () => {
   // Decisión del usuario, 2026-10-03: anular facturas y cobros, y reabrir una
   // caja ya cerrada. Notas de crédito, editar una factura y cerrar la caja NO.
+  // 2026-10-30: anular un pago a un empleado también (ya salió de caja).
   test('las acciones de administrador, por su método y su ruta', () => {
     assert.equal(accionDeAdmin('PATCH', '/facturacion/facturas/5482/anular').clave, 'anular-factura');
     assert.equal(accionDeAdmin('PATCH', '/cuentas-por-cobrar/propios/abonos/7/anular').clave, 'anular-cobro');
     assert.equal(accionDeAdmin('POST', '/cuentas-por-cobrar/propios/caja/reabrir').clave, 'reabrir-caja');
-    assert.deepEqual(ACCIONES_ADMIN.map(a => a.clave), ['anular-factura', 'anular-cobro', 'reabrir-caja', 'corregir-entrega']);
+    assert.equal(accionDeAdmin('PATCH', '/empleados/pagos/9/anular').clave, 'anular-pago-empleado');
+    assert.deepEqual(ACCIONES_ADMIN.map(a => a.clave), ['anular-factura', 'anular-cobro', 'reabrir-caja', 'corregir-entrega', 'anular-pago-empleado']);
   });
 
   test('tampoco se saltan con mayúsculas, la barra final o el método en minúscula', () => {

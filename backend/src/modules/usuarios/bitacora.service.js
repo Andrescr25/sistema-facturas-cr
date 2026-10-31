@@ -46,7 +46,8 @@ const ENTIDADES = {
   rendicion_efectivo: 'Entrega de efectivo',
   // La planilla del empleado (2026-10-30).
   empleado: 'Empleado',
-  jornada: 'Jornada'
+  jornada: 'Jornada',
+  pago_empleado: 'Pago a empleado'
 };
 
 const ACCIONES = {
