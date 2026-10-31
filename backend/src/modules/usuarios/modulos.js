@@ -76,6 +76,15 @@ const MODULOS = [
     rutasApi: ['/seguimiento']
   },
   {
+    clave: 'ingresos',
+    nombre: 'Mis ingresos',
+    grupo: 'Ventas',
+    ruta: '/ingresos',
+    // El empleado ve lo que va ganando y marca su jornada (2026-10-30). Lee
+    // SIEMPRE lo de su propia sesión: con el permiso no se ve a otro.
+    rutasApi: ['/ingresos']
+  },
+  {
     clave: 'entregas',
     nombre: 'Carga y Entregas',
     grupo: 'Ventas',
@@ -220,6 +229,16 @@ const MODULOS = [
     grupo: 'Finanzas',
     ruta: '/reporte-contador',
     rutasApi: ['/reporte-contador']
+  },
+  {
+    clave: 'empleados',
+    nombre: 'Empleados',
+    grupo: 'Finanzas',
+    ruta: '/empleados',
+    // La planilla (2026-10-30): tarifas, jornadas, lo ganado y lo que se le debe
+    // a cada empleado. El usuario: «desde mi panel administrador ver qué hizo,
+    // cuántas horas, comisión, viáticos, el total que le debo».
+    rutasApi: ['/empleados']
   },
 
   // ---- Herramientas ----

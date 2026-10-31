@@ -213,10 +213,10 @@ async function restablecerPassword(usuarioId, { password }) {
 /**
  * Borra un usuario. Sus permisos se van con él (ON DELETE CASCADE).
  *
- * Se puede borrar de verdad, y no solo desactivar, porque hoy nada guarda
- * "quién hizo qué" apuntando a usuario.id salvo campos que ya son
- * ON DELETE SET NULL. El día que se registren acciones por usuario, esto
- * debería pasar a ser solo desactivar.
+ * Lo que dice "quién hizo qué" con un campo ON DELETE SET NULL no lo impide.
+ * Lo que es de esa persona sí: sus jornadas y su ficha de empleado
+ * (2026-10-30), o el efectivo que entregó. Ahí la base no deja borrarlo y se
+ * desactiva en su lugar, para no perder lo trabajado ni lo pagado.
  */
 async function eliminar(usuarioId, usuarioQueBorra) {
   if (String(usuarioId) === String(usuarioQueBorra)) {
@@ -224,7 +224,10 @@ async function eliminar(usuarioId, usuarioQueBorra) {
   }
   await comprobarQueQuedaUnAdmin(usuarioId);
 
-  const r = await query(`DELETE FROM usuario WHERE id = $1 RETURNING usuario;`, [usuarioId]);
+  const r = await query(`DELETE FROM usuario WHERE id = $1 RETURNING usuario;`, [usuarioId]).catch((e) => {
+    if (e.code === '23503') throw httpError(409, 'Este usuario tiene registros propios (jornadas, planilla o entregas de efectivo): desactívelo en vez de borrarlo.');
+    throw e;
+  });
   if (r.rows.length === 0) throw httpError(404, 'Usuario no encontrado.');
   return { eliminado: true, usuario: r.rows[0].usuario };
 }

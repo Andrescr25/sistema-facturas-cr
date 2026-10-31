@@ -73,3 +73,20 @@ export function sumarDias(dia, dias) {
   base.setUTCDate(base.getUTCDate() + Number(dias || 0))
   return base.toISOString().slice(0, 10)
 }
+
+const HORA = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Costa_Rica', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
+/** Un instante del servidor, a la hora de Costa Rica: "07:42". */
+export function horaEnCostaRica(valor) {
+  const fecha = new Date(valor)
+  return !valor || Number.isNaN(fecha.getTime()) ? '—' : HORA.format(fecha)
+}
+
+/**
+ * Un instante como lo pide <input type="datetime-local"> en Costa Rica:
+ * "2026-10-30T07:42". El servidor lo lee en esa misma zona.
+ */
+export function momentoLocalCR(valor) {
+  const fecha = new Date(valor)
+  return !valor || Number.isNaN(fecha.getTime()) ? '' : `${hoyEnCostaRica(fecha)}T${HORA.format(fecha)}`
+}

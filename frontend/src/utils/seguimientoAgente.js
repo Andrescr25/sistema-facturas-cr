@@ -19,6 +19,11 @@ export function distanciaMetros(a, b) {
   return Math.round(2 * 6371000 * Math.asin(Math.sqrt(h)))
 }
 
+/** El punto donde estaba, en Maps; null si el dispositivo no dio la ubicación. */
+export function mapaDe(gps) {
+  return gps?.estado === 'tomada' && gps.latitud !== null ? `https://www.google.com/maps?q=${gps.latitud},${gps.longitud}` : null
+}
+
 /**
  * Qué decir del GPS de una acción.
  * @returns {{ texto: string, tono: 'exito'|'alerta'|'neutro', mapa: string|null }}
@@ -27,7 +32,7 @@ export function lecturaDelGps(gps, ubicacionMaps) {
   if (!gps) return { texto: 'Sin visita de Preventa: facturada desde Facturación', tono: 'neutro', mapa: null }
   if (gps.estado === 'negada') return { texto: 'No dio permiso de ubicación', tono: 'alerta', mapa: null }
   if (gps.estado !== 'tomada' || gps.latitud === null) return { texto: 'El dispositivo no dio la ubicación', tono: 'alerta', mapa: null }
-  const mapa = `https://www.google.com/maps?q=${gps.latitud},${gps.longitud}`
+  const mapa = mapaDe(gps)
   const cliente = coordenadasDe(ubicacionMaps)
   if (!cliente) return { texto: 'Ubicación tomada; la ficha del cliente no tiene coordenadas para comparar', tono: 'neutro', mapa }
   const metros = distanciaMetros({ lat: gps.latitud, lng: gps.longitud }, cliente)

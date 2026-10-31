@@ -24,6 +24,8 @@ import CatalogoAgente from './pages/CatalogoAgente'
 import Clientes from './pages/Clientes'
 import Preventa from './pages/Preventa'
 import SeguimientoAgentes from './pages/SeguimientoAgentes'
+import MisIngresos from './pages/MisIngresos'
+import Empleados from './pages/Empleados'
 import Entregas from './pages/Entregas'
 import Ingresar from './pages/Ingresar'
 import RequiereSesion from './components/RequiereSesion'
@@ -128,6 +130,8 @@ function App() {
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/preventa" element={<Preventa />} />
               <Route path="/seguimiento" element={<SeguimientoAgentes />} />
+              <Route path="/ingresos" element={<MisIngresos />} />
+              <Route path="/empleados" element={<Empleados />} />
               <Route path="/entregas" element={<Entregas />} />
               <Route path="/gestion-catalogo" element={<GestionCatalogo />} />
               <Route path="/configuracion" element={<Configuracion />} />

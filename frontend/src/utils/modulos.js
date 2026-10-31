@@ -21,6 +21,7 @@ export const MODULOS = [
   { clave: 'clientes', nombre: 'Clientes', grupo: 'Ventas', ruta: '/clientes' },
   { clave: 'preventa', nombre: 'Preventa', grupo: 'Ventas', ruta: '/preventa' },
   { clave: 'seguimiento-agentes', nombre: 'Seguimiento de agentes', grupo: 'Ventas', ruta: '/seguimiento' },
+  { clave: 'ingresos', nombre: 'Mis ingresos', grupo: 'Ventas', ruta: '/ingresos' },
   { clave: 'entregas', nombre: 'Carga y Entregas', grupo: 'Ventas', ruta: '/entregas' },
   { clave: 'cuentas-por-cobrar', nombre: 'Cuentas por Cobrar', grupo: 'Ventas', ruta: '/cuentas-por-cobrar' },
   { clave: 'reporte-clientes', nombre: 'Reporte Clientes', grupo: 'Ventas', ruta: '/reportes/clientes' },
@@ -39,6 +40,7 @@ export const MODULOS = [
   { clave: 'caja-general', nombre: 'Caja General', grupo: 'Finanzas', ruta: '/caja-general' },
   { clave: 'rentabilidad', nombre: 'Rentabilidad', grupo: 'Finanzas', ruta: '/rentabilidad' },
   { clave: 'reporte-contador', nombre: 'Reporte Contador', grupo: 'Finanzas', ruta: '/reporte-contador' },
+  { clave: 'empleados', nombre: 'Empleados', grupo: 'Finanzas', ruta: '/empleados' },
 
   { clave: 'catalogo-agente', nombre: 'Catálogo del agente', grupo: 'Herramientas', ruta: '/catalogo-agente' },
   { clave: 'configuracion', nombre: 'Configuración', grupo: 'Herramientas', ruta: '/configuracion' }

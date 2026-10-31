@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import {
   Home, FileText, Users, TrendingUp, DollarSign, Link2, Printer, Settings,
   Menu, X, CreditCard, ClipboardList, Boxes, Image, Wallet, PieChart,
-  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck, History, CalendarDays, Tablet, Footprints
+  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck, History, CalendarDays, Tablet, Footprints, PiggyBank, Briefcase
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 import SidebarNav from './SidebarNav'
@@ -28,6 +28,7 @@ const navigation = [
       { name: 'Clientes', href: '/clientes', icon: UserCircle },
       { name: 'Preventa', href: '/preventa', icon: CalendarDays },
       { name: 'Seguimiento de agentes', href: '/seguimiento', icon: Footprints },
+      { name: 'Mis ingresos', href: '/ingresos', icon: PiggyBank },
       { name: 'Carga y Entregas', href: '/entregas', icon: Truck },
       { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },
       { name: 'Reporte Clientes', href: '/reportes/clientes', icon: TrendingUp },
@@ -60,7 +61,8 @@ const navigation = [
     children: [
       { name: 'Caja General', href: '/caja-general', icon: Landmark },
       { name: 'Rentabilidad', href: '/rentabilidad', icon: PieChart },
-      { name: 'Reporte Contador', href: '/reporte-contador', icon: Landmark }
+      { name: 'Reporte Contador', href: '/reporte-contador', icon: Landmark },
+      { name: 'Empleados', href: '/empleados', icon: Briefcase }
     ]
   },
   // Se abre a pantalla completa y sin sesión (decisión del 2026-09-04, ver

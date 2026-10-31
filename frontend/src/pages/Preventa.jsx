@@ -4,10 +4,14 @@ import Boton from '../components/ui/Boton'
 import FiltrosAgenda from '../components/preventa/FiltrosAgenda'
 import ListaAgenda from '../components/preventa/ListaAgenda'
 import DetalleVisita from '../components/preventa/DetalleVisita'
+import RecordatorioJornada from '../components/preventa/RecordatorioJornada'
+import { useAuth } from '../contexts/AuthContext'
+import { puedeVer } from '../utils/modulos'
 import { fechaEnPalabras } from '../utils/fechaCR'
 
 export default function Preventa() {
   const agenda = useAgendaPreventa()
+  const { usuario } = useAuth()
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -18,6 +22,7 @@ export default function Preventa() {
         <Boton variante="secundario" icono={RefreshCw} cargando={agenda.cargando} disabled={!agenda.rutaId}
           onClick={() => { agenda.recargar(); agenda.recargarRutas() }}>Actualizar agenda</Boton>
       </div>
+      {puedeVer(usuario, '/ingresos') && !agenda.seleccionId && <RecordatorioJornada />}
       {!agenda.seleccionId && <FiltrosAgenda agenda={agenda} />}
       {agenda.aviso && <p role="status" className="rounded-xl bg-nota-50 p-4 text-sm text-nota-700">{agenda.aviso}</p>}
       {agenda.error && <div role="alert" className="card space-y-3 p-5 text-peligro-700">

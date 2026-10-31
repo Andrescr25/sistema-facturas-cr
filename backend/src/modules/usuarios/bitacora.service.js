@@ -43,7 +43,10 @@ const ENTIDADES = {
   empresa: 'Datos de la empresa',
   // Las rutas que atiende un agente (2026-10-29).
   usuario: 'Usuario',
-  rendicion_efectivo: 'Entrega de efectivo'
+  rendicion_efectivo: 'Entrega de efectivo',
+  // La planilla del empleado (2026-10-30).
+  empleado: 'Empleado',
+  jornada: 'Jornada'
 };
 
 const ACCIONES = {
@@ -81,7 +84,9 @@ const DONDE_SE_LLAMA = {
   factura: { tabla: 'factura', columna: 'numero' },
   nota_credito: { tabla: 'nota_credito', columna: 'numero' },
   cotizacion: { tabla: 'cotizacion', columna: 'numero' },
-  compra: { tabla: 'compra', columna: 'numero_consecutivo' }
+  compra: { tabla: 'compra', columna: 'numero_consecutivo' },
+  // La ficha de empleado se anota con el id de su usuario.
+  empleado: { tabla: 'usuario', columna: 'nombre' }
 };
 
 /** Completa el título de las líneas que no lo traen. Una consulta por entidad. */
