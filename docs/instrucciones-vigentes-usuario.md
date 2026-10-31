@@ -1417,3 +1417,9 @@ El usuario pide corregir el campo Fecha del pago que desborda la tarjeta en
 Safari de iPhone, y el detalle de productos que aparece vacío o con ₡0,00 al
 cobrar una factura. Se conserva el flujo de abonos y los importes guardados.
 [Resultado](grafo/modulo/cuentas-por-cobrar.md).
+
+
+2026-10-30: «subelo a main». La publicación de Cobros incluye también los
+commits pendientes de Empleados/Mis ingresos de Claude: revisar el conjunto,
+verificarlo con copias locales y aplicar 072–075 antes de publicar, según
+AGENTS.md. [Validación y resultado](informes/cobros-safari-detalle-2026-10-30.md).

@@ -61,3 +61,8 @@ no permite registrar un cobro.
 
 No requiere SQL ni modifica importes, saldos, inventario o pagos anteriores.
 [Caso y validación](../../informes/cobros-safari-detalle-2026-10-30.md).
+
+
+La publicación conjunta con Empleados requiere primero 072–075 de ese módulo,
+aunque Cobros no agrega SQL. El informe registra la revisión completa y
+las pruebas actualizadas de fecha y permisos de ruta.

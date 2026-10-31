@@ -63,7 +63,11 @@ test('en el teléfono las líneas son tarjetas y las acciones van en dos columna
   for (const campo of ['Cantidad', 'Precio', 'Descuento']) assert.equal((lineas.match(new RegExp(`<${campo} l=\\{l\\}`, 'g')) || []).length, 2, campo);
   assert.match(vista, /grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex/);
   // El ícono del calendario, dentro de su campo de fecha (antes se iba al borde de la tarjeta).
-  assert.match(fs.readFileSync(path.resolve(__dirname, '../../frontend/src/index.css'), 'utf8'), /input\[type="date"\] \{\n    position: relative;/);
+  const css = fs.readFileSync(path.resolve(__dirname, '../../frontend/src/index.css'), 'utf8');
+  const fecha = css.match(/input\[type="date"\]\s*\{([^}]+)\}/)?.[1] || '';
+  // La propiedad puede convivir con las reglas que ajustan la caja en iOS;
+  // no depende de ser la primera declaración ni de su sangría.
+  assert.match(fecha, /\bposition:\s*relative\s*;/);
   // Los campos de edición, con letra de 16 px en el teléfono (sin zoom).
   assert.match(fs.readFileSync(path.resolve(__dirname, '../../frontend/src/components/facturacion/estilosFactura.js'), 'utf8'), /py-2 text-base md:px-1\.5 md:py-1 md:text-sm/);
 });

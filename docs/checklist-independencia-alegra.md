@@ -1334,3 +1334,17 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   Todas las columnas caben en escritorio; 23 pruebas grafo/estructura correctas.
 
 [Detalle](informes/cobros-safari-detalle-2026-10-30.md).
+
+
+### Publicación conjunta de Cobros y Empleados — 2026-10-30
+
+- [x] Revisar los siete commits de Claude pendientes y el arreglo de Cobros.
+- [x] Ensayar 072–075 en clon desechable: huellas y Caja conservadas,
+  tablas nuevas vacías, repetición y ROLLBACK correctos; 68 pruebas de planilla.
+- [x] Ajustar las dos pruebas antiguas de fecha y rutas asignadas.
+- [x] Suite completa: 3.288 correctas/0 fallos y 3 omisiones históricas;
+  recorrido de Empleados/Mis ingresos: 117 comprobaciones correctas.
+- [x] Aplicar 072–075 con respaldo (23:56 CR), verificar con conexión nueva
+  y dejar lista la publicación por avance a main: 13 tablas y Caja conservadas.
+
+[Detalle](informes/cobros-safari-detalle-2026-10-30.md).

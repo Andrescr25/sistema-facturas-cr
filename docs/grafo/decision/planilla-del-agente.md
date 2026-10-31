@@ -243,3 +243,12 @@ producción con la de la 027; antes de la 075, ver quién tenía
 `seguimiento-agentes`). Después, el usuario crea la ficha de empleado
 del agente en «Empleados» y le da el módulo «Mis ingresos».
 
+
+
+2026-10-30, 23:56 CR: Codex revisa los siete commits de Claude y aplica
+072–075 antes de la publicación conjunta con Cobros. Respaldo privado,
+transacción única y lectura posterior nueva: cuatro tablas vacías, columnas
+nuevas nulas y huellas de las 13 tablas protegidas y Caja conservadas. Suite
+completa: 3.288 correctas/0 fallos y tres omisiones históricas; recorrido local
+independiente de estas pantallas: 117 comprobaciones correctas.
+[Registro](../../informes/cobros-safari-detalle-2026-10-30.md).

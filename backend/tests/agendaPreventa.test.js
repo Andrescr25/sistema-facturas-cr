@@ -86,12 +86,17 @@ describe('Preventa — agenda completa y permisos, PostgreSQL local', { skip: !a
       const { rows: [u] } = await c.query(`INSERT INTO usuario(usuario,nombre,password_hash,es_admin,activo)
         VALUES($1,'ZZ Agenda','ZZ sin login',$2,$3) RETURNING id`, [`zz-ag-${randomUUID().slice(0,8)}`, modulo === 'admin', modulo !== 'inactivo']);
       if (['preventa','clientes','reporte-clientes'].includes(modulo)) await c.query('INSERT INTO usuario_modulo(usuario_id,modulo) VALUES($1,$2)', [u.id, modulo]);
+      // Desde la 069, Preventa ve solo las rutas asignadas: el permiso del
+      // módulo por sí solo no abre la agenda de otra ruta.
+      if (modulo === 'preventa') await c.query('INSERT INTO usuario_ruta(usuario_id,ruta_id) VALUES($1,$2)', [u.id, f.a.id]);
       const token = jwt.sign({ sub: u.id, usuario: 'ZZ agenda' }, process.env.JWT_SECRET, { expiresIn: '5m' });
       for (const path of ['/preventa/rutas', `/Preventa/Agenda/?rutaId=${f.a.id}`]) {
         const r = await llamar(path, token), esperado = ['preventa','admin'].includes(modulo) ? 200 : modulo === 'inactivo' ? 401 : 403;
         assert.equal(r.status, esperado, modulo); if (esperado === 200) assert.equal(r.headers.get('cache-control'), 'no-store');
       }
-      if (modulo === 'preventa') assert.equal((await llamar('/preventa/agenda?rutaId=0', token)).status, 400);
+      if (modulo === 'preventa') assert.equal((await llamar('/preventa/agenda?rutaId=0', token)).status, 403);
+      if (modulo === 'preventa') assert.equal((await llamar(`/preventa/agenda?rutaId=${f.b.id}`, token)).status, 403);
+      if (modulo === 'admin') assert.equal((await llamar('/preventa/agenda?rutaId=0', token)).status, 400);
       if (modulo === 'clientes') assert.equal((await llamar('/preventa/agenda?rutaId=0', token)).status, 403);
     }
     const ajeno = jwt.sign({ sub: 1 }, 'ZZ secreto exclusivo del portal de clientes 20261013', { expiresIn: '5m' });
