@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 
 /**
  * Los usuarios del sistema y sus permisos.
@@ -9,6 +10,7 @@ import api from '../services/api'
  * llegara a esta pantalla sin serlo, vería errores 403, no datos.
  */
 export function useUsuarios() {
+  const { actualizarUsuario } = useAuth()
   const [usuarios, setUsuarios] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -48,7 +50,10 @@ export function useUsuarios() {
     accion('nuevo', () => api.post('/usuarios', datos)), [accion])
 
   const actualizar = useCallback((id, cambios) =>
-    accion(id, () => api.put(`/usuarios/${id}`, cambios)), [accion])
+    accion(id, async () => {
+      const { data } = await api.put(`/usuarios/${id}`, cambios)
+      actualizarUsuario(data.data)
+    }), [accion, actualizarUsuario])
 
   const restablecerPassword = useCallback((id, password) =>
     accion(id, () => api.post(`/usuarios/${id}/password`, { password })), [accion])

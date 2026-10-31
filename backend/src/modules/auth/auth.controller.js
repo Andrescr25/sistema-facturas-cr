@@ -52,7 +52,7 @@ async function yo(req, res) {
 
     res.json({
       success: true,
-      data: { ...req.usuario, esAdmin: permisos.esAdmin, modulos: [...permisos.modulos] }
+      data: { ...req.usuario, esAdmin: permisos.esAdmin, modulos: [...permisos.modulos], modulosOcultos: permisos.modulosOcultos || [] }
     });
   } catch (error) {
     console.error('Error resolviendo la sesión:', error.message);

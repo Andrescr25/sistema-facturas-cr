@@ -19,7 +19,8 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
   const [nombre, setNombre] = useState(usuario?.nombre || '')
   const [password, setPassword] = useState('')
   const [esAdmin, setEsAdmin] = useState(usuario?.esAdmin || false)
-  const [modulos, setModulos] = useState(usuario?.esAdmin ? [] : (usuario?.modulos || []))
+  const [modulos, setModulos] = useState(usuario?.modulos || [])
+  const [modulosOcultos, setModulosOcultos] = useState(usuario?.modulosOcultos || [])
   const [rutas, setRutas] = useState((usuario?.rutas || []).map(r => r.id))
   // Las rutas se eligen si ve Preventa pero no todas las rutas (el agente de ventas).
   const eligeRutas = !esAdmin && modulos.includes('preventa') && !modulos.includes('rutas-todas')
@@ -38,10 +39,11 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
     }
     setError('')
     const rutasQueVan = eligeRutas ? rutas : []
+    const ocultosQueVan = esAdmin ? modulosOcultos : []
     onGuardar(
       editando
-        ? { nombre: nombre.trim(), esAdmin, modulos, rutas: rutasQueVan }
-        : { usuario: nombreUsuario.trim(), nombre: nombre.trim(), password, esAdmin, modulos, rutas: rutasQueVan }
+        ? { nombre: nombre.trim(), esAdmin, modulos, modulosOcultos: ocultosQueVan, rutas: rutasQueVan }
+        : { usuario: nombreUsuario.trim(), nombre: nombre.trim(), password, esAdmin, modulos, modulosOcultos: ocultosQueVan, rutas: rutasQueVan }
     )
   }
 
@@ -120,17 +122,19 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
               <p className="text-[11px] text-neutro-500">
                 {esYoMismo
                   ? 'No puede quitarse a usted mismo este rol.'
-                  : 'Ve todos los módulos y puede gestionar usuarios.'}
+                  : 'Tiene todos los permisos y puede elegir su vista.'}
               </p>
             </div>
           </button>
 
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-neutro-400">Módulos que puede ver</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-neutro-400">{esAdmin ? 'Módulos visibles en su menú' : 'Módulos que puede ver'}</p>
             <TableroPermisos
               seleccionados={modulos}
               onCambiar={setModulos}
               esAdmin={esAdmin}
+              modulosOcultos={modulosOcultos}
+              onCambiarOcultos={setModulosOcultos}
               deshabilitado={Boolean(guardando)}
             />
           </div>

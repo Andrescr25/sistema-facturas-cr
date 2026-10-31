@@ -31,7 +31,11 @@ export default function Usuarios() {
   }
 
   const resumenModulos = (u) => {
-    if (u.esAdmin) return 'Todos los módulos'
+    if (u.esAdmin) {
+      const ocultos = u.modulosOcultos || []
+      const visibles = MODULOS.filter(m => !ocultos.includes(m.clave)).length
+      return ocultos.length ? `${visibles} módulos visibles · todos los permisos` : 'Todos los módulos visibles'
+    }
     if (!u.modulos?.length) return 'Sin acceso a ningún módulo'
     if (MODULOS.every(m => u.modulos.includes(m.clave))) return 'Todos los módulos'
     const nombres = u.modulos

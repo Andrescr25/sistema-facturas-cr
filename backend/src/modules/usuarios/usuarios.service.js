@@ -13,6 +13,7 @@ const bcrypt = require('bcryptjs');
 const { query } = require('../../../config/database');
 const { CLAVES } = require('./modulos');
 const { rutasDe, rutasPorUsuario, guardarRutas } = require('./rutasAsignadas');
+const { limpiarModulosOcultos, modulosOcultosDe } = require('./vistaModulos');
 
 const RONDAS_BCRYPT = 12;
 const MIN_PASSWORD = 8;
@@ -24,7 +25,7 @@ function httpError(status, message) {
   return error;
 }
 
-const COLUMNAS = `id, usuario, nombre, activo, es_admin, ultimo_ingreso, creado_en`;
+const COLUMNAS = `id, usuario, nombre, activo, es_admin, ultimo_ingreso, creado_en, modulos_ocultos`;
 
 function mapUsuario(row, modulos = [], rutas = []) {
   return {
@@ -37,8 +38,9 @@ function mapUsuario(row, modulos = [], rutas = []) {
     creadoEn: row.creado_en,
     // Un admin no tiene filas en usuario_modulo: las tendría que mantener
     // sincronizadas cada vez que se agrega un módulo nuevo. Se le devuelven
-    // todas las claves para que la pantalla lo muestre con todo marcado.
+    // todas las claves como permisos; su vista se elige con modulosOcultos.
     modulos: row.es_admin ? [...CLAVES] : modulos,
+    modulosOcultos: modulosOcultosDe(row),
     // Las rutas que atiende en Preventa (rutasAsignadas.js): [{ id, nombre }].
     rutas
   };
@@ -82,16 +84,16 @@ async function obtener(usuarioId) {
  * "existe y no tiene permisos": el middleware trata los dos casos aparte.
  */
 async function permisosDe(usuarioId) {
-  const u = await query(`SELECT id, es_admin, activo FROM usuario WHERE id = $1;`, [usuarioId]);
+  const u = await query(`SELECT id, es_admin, activo, modulos_ocultos FROM usuario WHERE id = $1;`, [usuarioId]);
   const row = u.rows[0];
   if (!row || !row.activo) return null;
-  if (row.es_admin) return { esAdmin: true, modulos: new Set(CLAVES) };
+  if (row.es_admin) return { esAdmin: true, modulos: new Set(CLAVES), modulosOcultos: modulosOcultosDe(row) };
 
   const p = await query(`SELECT modulo FROM usuario_modulo WHERE usuario_id = $1;`, [usuarioId]);
-  return { esAdmin: false, modulos: new Set(p.rows.map(x => x.modulo)) };
+  return { esAdmin: false, modulos: new Set(p.rows.map(x => x.modulo)), modulosOcultos: [] };
 }
 
-async function crear({ usuario, nombre, password, esAdmin = false, modulos = [], rutas }, creadoPor) {
+async function crear({ usuario, nombre, password, esAdmin = false, modulos = [], modulosOcultos = [], rutas }, creadoPor) {
   const nombreUsuario = String(usuario || '').trim().toLowerCase();
   if (nombreUsuario.length < MIN_USUARIO) {
     throw httpError(400, `El usuario debe tener al menos ${MIN_USUARIO} caracteres.`);
@@ -102,14 +104,15 @@ async function crear({ usuario, nombre, password, esAdmin = false, modulos = [],
   }
 
   const limpios = limpiarModulos(modulos);
+  const ocultos = limpiarModulosOcultos(modulosOcultos, esAdmin);
   const hash = await bcrypt.hash(String(password), RONDAS_BCRYPT);
 
   const res = await query(`
-    INSERT INTO usuario (usuario, nombre, password_hash, es_admin)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO usuario (usuario, nombre, password_hash, es_admin, modulos_ocultos)
+    VALUES ($1, $2, $3, $4, $5)
     ON CONFLICT (usuario) DO NOTHING
     RETURNING ${COLUMNAS};
-  `, [nombreUsuario, String(nombre).trim(), hash, Boolean(esAdmin)]);
+  `, [nombreUsuario, String(nombre).trim(), hash, Boolean(esAdmin), ocultos]);
 
   if (res.rows.length === 0) throw httpError(400, `El usuario "${nombreUsuario}" ya existe.`);
 
@@ -147,7 +150,7 @@ async function guardarModulos(usuarioId, modulos, otorgadoPor) {
  * sí mismo el rol o se desactive y deje el sistema sin nadie que pueda
  * repartir permisos. Es el error que no se puede deshacer desde la pantalla.
  */
-async function actualizar(usuarioId, { nombre, esAdmin, activo, modulos, rutas }, usuarioQueEdita) {
+async function actualizar(usuarioId, { nombre, esAdmin, activo, modulos, modulosOcultos, rutas }, usuarioQueEdita) {
   const actual = await query(`SELECT ${COLUMNAS} FROM usuario WHERE id = $1;`, [usuarioId]);
   if (actual.rows.length === 0) throw httpError(404, 'Usuario no encontrado.');
 
@@ -168,16 +171,18 @@ async function actualizar(usuarioId, { nombre, esAdmin, activo, modulos, rutas }
   const nuevoNombre = nombre === undefined ? actual.rows[0].nombre : String(nombre).trim();
   const nuevoAdmin = esAdmin === undefined ? actual.rows[0].es_admin : Boolean(esAdmin);
   const nuevoActivo = activo === undefined ? actual.rows[0].activo : Boolean(activo);
+  // Validar antes del UPDATE: un error de casillas no debe guardar el resto.
+  let limpios = modulos === undefined ? null : limpiarModulos(modulos);
+  const ocultos = limpiarModulosOcultos(modulosOcultos === undefined
+    ? (nuevoAdmin ? modulosOcultosDe(actual.rows[0]) : []) : modulosOcultos, nuevoAdmin);
 
   const res = await query(`
-    UPDATE usuario SET nombre = $1, es_admin = $2, activo = $3 WHERE id = $4
+    UPDATE usuario SET nombre = $1, es_admin = $2, activo = $3, modulos_ocultos = $5 WHERE id = $4
     RETURNING ${COLUMNAS};
-  `, [nuevoNombre, nuevoAdmin, nuevoActivo, usuarioId]);
+  `, [nuevoNombre, nuevoAdmin, nuevoActivo, usuarioId, ocultos]);
 
-  let limpios = [];
   if (modulos !== undefined) {
-    limpios = limpiarModulos(modulos);
-    // Un admin ve todo por su rol; guardarle filas sería duplicar la verdad.
+    // Un admin tiene todos los permisos por su rol; no dependen de su vista.
     await guardarModulos(usuarioId, nuevoAdmin ? [] : limpios, usuarioQueEdita);
   } else {
     const p = await query(`SELECT modulo FROM usuario_modulo WHERE usuario_id = $1;`, [usuarioId]);

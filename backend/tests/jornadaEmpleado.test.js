@@ -279,8 +279,11 @@ describe('la pantalla', () => {
     assert.match(t, /quedó sin salida: no cuenta hasta que el administrador la corrija/);
   });
 
-  test('Preventa recuerda iniciar la jornada solo a quien tiene «Mis ingresos»', () => {
-    assert.match(leer('pages', 'Preventa.jsx'), /\{puedeVer\(usuario, '\/ingresos'\) && !agenda\.seleccionId && <RecordatorioJornada \/>\}/);
+  test('Preventa recuerda iniciar la jornada solo a quien mantiene visible «Mis ingresos»', async () => {
+    assert.match(leer('pages', 'Preventa.jsx'), /\{visibleEnMenu\(usuario, '\/ingresos'\) && !agenda\.seleccionId && <RecordatorioJornada \/>\}/);
+    const { visibleEnMenu } = await import('../../frontend/src/utils/modulos.js');
+    assert.equal(visibleEnMenu({ modulos: ['ingresos'] }, '/ingresos'), true);
+    assert.equal(visibleEnMenu({ esAdmin: true, modulosOcultos: ['ingresos'] }, '/ingresos'), false);
   });
 
   test('el punto en el mapa sale de una sola regla para visitas y jornadas', () => {

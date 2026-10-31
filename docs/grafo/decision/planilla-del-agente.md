@@ -254,7 +254,7 @@ independiente de estas pantallas: 117 comprobaciones correctas.
 [Registro](../../informes/cobros-safari-detalle-2026-10-30.md).
 
 
-2026-10-31: el administrador pide poder quitar de su vista «Mis ingresos»,
-porque es para el empleado. El enlace se oculta/muestra desde el pie del menú,
-como preferencia de ese usuario en ese navegador. No se cambia el permiso de
-Ingresos ni se oculta para empleados. [Regla](../modulo/permisos.md).
+2026-10-31: el administrador aclara que quiere elegir todos sus módulos
+visibles desde las casillas de Usuarios y permisos, conservando el rol.
+La solución anterior del pie y navegador se retira; la 076 guarda la
+selección en la cuenta. [Regla y publicación](../modulo/permisos.md).

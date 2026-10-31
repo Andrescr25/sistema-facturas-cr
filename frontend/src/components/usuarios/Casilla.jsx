@@ -8,6 +8,7 @@ export default function Casilla({ marcado, nombre, onClick, deshabilitado, sangr
   return (
     <button
       type="button"
+      aria-pressed={Boolean(marcado)}
       onClick={onClick}
       disabled={deshabilitado}
       className={`flex w-full items-center gap-2.5 py-2 pr-3 text-left hover:bg-neutro-50 disabled:cursor-not-allowed disabled:hover:bg-transparent ${sangria ? 'pl-9' : 'pl-3'}`}

@@ -8,7 +8,7 @@ import DetalleVisita from '../components/preventa/DetalleVisita'
 import RecordatorioJornada from '../components/preventa/RecordatorioJornada'
 import ModalClienteNuevo from '../components/preventa/ModalClienteNuevo'
 import { useAuth } from '../contexts/AuthContext'
-import { puedeVer } from '../utils/modulos'
+import { visibleEnMenu } from '../utils/modulos'
 import { fechaEnPalabras } from '../utils/fechaCR'
 
 export default function Preventa() {
@@ -30,7 +30,7 @@ export default function Preventa() {
             onClick={() => { agenda.recargar(); agenda.recargarRutas() }}>Actualizar agenda</Boton>
         </div>
       </div>
-      {puedeVer(usuario, '/ingresos') && !agenda.seleccionId && <RecordatorioJornada />}
+      {visibleEnMenu(usuario, '/ingresos') && !agenda.seleccionId && <RecordatorioJornada />}
       {!agenda.seleccionId && <FiltrosAgenda agenda={agenda} />}
       {agenda.aviso && <p role="status" className="rounded-xl bg-nota-50 p-4 text-sm text-nota-700">{agenda.aviso}</p>}
       {agenda.error && <div role="alert" className="card space-y-3 p-5 text-peligro-700">

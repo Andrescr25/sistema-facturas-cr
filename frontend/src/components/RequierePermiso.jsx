@@ -19,11 +19,11 @@ export default function RequierePermiso({ children }) {
   const { usuario } = useAuth()
   const { pathname } = useLocation()
 
-  if (puedeVer(usuario, pathname)) return children
-
   // Quien no tiene el inicio (Dashboard) entra a su primer módulo.
   const inicio = inicioDe(usuario)
   if (pathname === '/' && inicio && inicio !== '/') return <Navigate to={inicio} replace />
+
+  if (puedeVer(usuario, pathname)) return children
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">

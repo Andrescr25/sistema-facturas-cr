@@ -7,6 +7,8 @@ import {
 import api from '../services/api'
 import { colones } from '../utils/colones'
 import BotonExportarExcel from '../components/ui/BotonExportarExcel'
+import { useAuth } from '../contexts/AuthContext'
+import { visibleEnMenu } from '../utils/modulos'
 
 // es-CR separa los miles con un espacio duro (U+00A0): "₡204 879" se lee
 // como dos números. En Costa Rica los miles van con punto. El código del
@@ -26,6 +28,7 @@ import BotonExportarExcel from '../components/ui/BotonExportarExcel'
  * forma todos los días.
  */
 export default function Dashboard() {
+  const { usuario } = useAuth()
   const [datos, setDatos] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -111,6 +114,8 @@ export default function Dashboard() {
       color: 'bg-nota-600'
     }
   ]
+  const pendientesVisibles = pendientes.filter(p => visibleEnMenu(usuario, p.href))
+  const accesosVisibles = accesos.filter(a => visibleEnMenu(usuario, a.href))
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -135,7 +140,7 @@ export default function Dashboard() {
           {/* La cobranza va aparte y primero: es plata en la calle, y el
               monto vencido es el único número de esta pantalla que crece
               solo si nadie hace nada. */}
-          <Link
+          {visibleEnMenu(usuario, '/cuentas-por-cobrar') && <Link
             to="/cuentas-por-cobrar"
             className="block bg-white rounded-2xl border border-neutro-200 hover:border-exito-400 p-5 transition-colors"
           >
@@ -167,12 +172,12 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-          </Link>
+          </Link>}
 
-          <div>
+          {pendientesVisibles.length > 0 && <div>
             <h2 className="text-sm font-bold text-neutro-900 mb-3">Pendientes</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {pendientes.map((p) => {
+              {pendientesVisibles.map((p) => {
                 const Icono = p.icono
                 const hay = p.valor > 0
                 return (
@@ -197,12 +202,12 @@ export default function Dashboard() {
                 )
               })}
             </div>
-          </div>
+          </div>}
 
-          <div>
+          {accesosVisibles.length > 0 && <div>
             <h2 className="text-sm font-bold text-neutro-900 mb-3">Accesos rápidos</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {accesos.map((a) => {
+              {accesosVisibles.map((a) => {
                 const Icono = a.icono
                 return (
                   <Link
@@ -222,7 +227,7 @@ export default function Dashboard() {
                 )
               })}
             </div>
-          </div>
+          </div>}
         </>
       )}
     </div>

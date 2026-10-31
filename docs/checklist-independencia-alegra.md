@@ -1350,12 +1350,19 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
 [Detalle](informes/cobros-safari-detalle-2026-10-30.md).
 
 
-### «Mis ingresos» opcional para el administrador — 2026-10-31
+### Vista del administrador en Usuarios y permisos — 2026-10-31
 
-- [x] Ocultar/mostrar desde el pie compartido del menú móvil y de escritorio.
-- [x] Preferencia por usuario/navegador, con persistencia y sincronización
-  entre pestañas, sin cambiar permisos ni afectar empleados.
-- [x] 62 pruebas correctas (módulos, tres regresiones puras, grafo y estructura);
-  56 comprobaciones Chromium/WebKit a390/1280px. Build y lint del cambio correctos.
+- [x] Retirar la solución inicial del pie del menú y su preferencia local.
+- [x] Habilitar las casillas/grupos existentes para elegir módulos visibles
+  del administrador, conservando su rol y los permisos del personal.
+- [x] Guardar la selección en la cuenta con 076; ensayo local repetible con
+  usuarios y permisos previos conservados, sin tocar producción.
+- [x] Actualizar la sesión al guardar la ficha propia; login, token y yo;
+  Dashboard/Preventa coherentes e inicio seguro incluso ocultando todo.
+- [x] 87 pruebas dirigidas correctas y104 comprobaciones Chromium/WebKit
+  a390/1280px contra API/DB locales reales. Build y lint del cambio correctos.
+- [x] Recorrer suite completa y revalidar las dos aserciones sobre la vista
+  anterior: 270 archivos, 3.301 correctas y3 omisiones históricas, sin fallos vigentes.
+- [ ] Aplicar 076 antes de publicar el código a main.
 
 [Detalle](grafo/modulo/permisos.md).

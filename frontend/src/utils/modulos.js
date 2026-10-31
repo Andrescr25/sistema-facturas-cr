@@ -131,8 +131,16 @@ export function puedeVer(usuario, ruta) {
 }
 
 /** Ocultar un enlace no quita acceso: el administrador conserva sus permisos. */
-export function visibleEnMenu(usuario, ruta, { ocultarMisIngresos = false } = {}) {
-  return puedeVer(usuario, ruta) && !(usuario.esAdmin && ruta === '/ingresos' && ocultarMisIngresos)
+export function visibleEnMenu(usuario, ruta) {
+  const ocultos = Array.isArray(usuario?.modulosOcultos) ? usuario.modulosOcultos : []
+  return puedeVer(usuario, ruta) && !(usuario.esAdmin && ocultos.includes(CLAVE_POR_RUTA[ruta]))
+}
+
+/** Un grupo parcialmente visible se marca completo; uno completo se oculta. */
+export function alternarVistaModulos(ocultos, claves) {
+  return claves.every(c => !ocultos.includes(c))
+    ? [...new Set([...ocultos, ...claves])]
+    : ocultos.filter(c => !claves.includes(c))
 }
 
 /**
@@ -144,6 +152,6 @@ export function visibleEnMenu(usuario, ruta, { ocultarMisIngresos = false } = {}
  * inicio» que lo devolvía a lo mismo.
  */
 export function inicioDe(usuario) {
-  if (puedeVer(usuario, '/')) return '/'
-  return MODULOS.find(m => m.ruta !== '/' && puedeVer(usuario, m.ruta))?.ruta ?? null
+  if (visibleEnMenu(usuario, '/')) return '/'
+  return MODULOS.find(m => m.ruta !== '/' && visibleEnMenu(usuario, m.ruta))?.ruta ?? (usuario?.esAdmin ? '/usuarios' : null)
 }

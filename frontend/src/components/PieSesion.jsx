@@ -1,6 +1,5 @@
-import { Eye, EyeOff, LogOut, Shield } from 'lucide-react'
+import { LogOut, Shield } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import Boton from './ui/Boton'
 
 /**
  * Quién está usando el sistema, y cómo salirse.
@@ -14,7 +13,7 @@ import Boton from './ui/Boton'
  * (la de móvil y la de escritorio): son dos <nav> distintos en Layout.jsx y
  * duplicar esto acá era condenarse a arreglarlo dos veces.
  */
-export default function PieSesion({ onNavegar, ocultarMisIngresos, onAlternarIngresos }) {
+export default function PieSesion({ onNavegar }) {
   const { usuario, salir } = useAuth()
   if (!usuario) return null
 
@@ -40,13 +39,6 @@ export default function PieSesion({ onNavegar, ocultarMisIngresos, onAlternarIng
         </div>
         <p className="truncate text-[11px] text-neutro-400">{usuario.usuario}</p>
       </div>
-
-      {usuario.esAdmin && (
-        <Boton variante="fantasma" tamano="sm" icono={ocultarMisIngresos ? Eye : EyeOff}
-          onClick={onAlternarIngresos} className="mb-1 min-h-11 w-full justify-start">
-          {ocultarMisIngresos ? 'Mostrar Mis ingresos' : 'Ocultar Mis ingresos'}
-        </Boton>
-      )}
 
       <button
         type="button"

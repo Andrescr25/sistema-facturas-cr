@@ -1,5 +1,5 @@
 import Casilla from './Casilla'
-import { porGrupo } from '../../utils/modulos'
+import { alternarVistaModulos, porGrupo } from '../../utils/modulos'
 
 /**
  * Las casillas de qué módulos ve un usuario, agrupadas como el menú.
@@ -8,13 +8,12 @@ import { porGrupo } from '../../utils/modulos'
  * es por área: al de bodega se le da Ventas entero y nada más. Marcar 17
  * casillas de a una para el caso normal sería trabajo inventado.
  *
- * Con `esAdmin` el tablero se muestra completo y bloqueado: un administrador
- * ve todo por su rol, y dejar casillas editables ahí haría creer que se le
- * puede quitar una.
+ * Para el administrador las casillas eligen su vista; sus permisos de
+ * administración se conservan. Para el personal siguen repartiendo acceso.
  */
-export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, deshabilitado }) {
+export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, deshabilitado, modulosOcultos = [], onCambiarOcultos }) {
   const grupos = porGrupo()
-  const tiene = (clave) => esAdmin || seleccionados.includes(clave)
+  const tiene = (clave) => esAdmin ? !modulosOcultos.includes(clave) : seleccionados.includes(clave)
 
   // Quitar un módulo quita también sus permisos de acción: sin la pantalla
   // no significan nada, y si se le vuelve a dar el módulo arranca sin ellos.
@@ -24,7 +23,8 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
   }
 
   const alternar = (clave, modulo = null) => {
-    if (esAdmin || deshabilitado) return
+    if (deshabilitado) return
+    if (esAdmin) return onCambiarOcultos(alternarVistaModulos(modulosOcultos, [clave]))
     if (seleccionados.includes(clave)) {
       const sin = seleccionados.filter(c => c !== clave)
       onCambiar(modulo ? sinAccionesDe(sin, [modulo]) : sin)
@@ -34,8 +34,9 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
   }
 
   const alternarGrupo = (modulos) => {
-    if (esAdmin || deshabilitado) return
+    if (deshabilitado) return
     const claves = modulos.map(m => m.clave)
+    if (esAdmin) return onCambiarOcultos(alternarVistaModulos(modulosOcultos, claves))
     const todos = claves.every(c => seleccionados.includes(c))
     onCambiar(
       todos
@@ -45,10 +46,10 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
   }
 
   return (
-    <div className={`space-y-3 ${esAdmin ? 'opacity-60' : ''}`}>
+    <div className="space-y-3">
       {esAdmin && (
         <p className="rounded-xl bg-alerta-50 border border-alerta-200 px-3 py-2 text-[12px] font-semibold text-alerta-800">
-          Es administrador: ve todos los módulos y además gestiona usuarios. Quítele el rol para elegir módulos uno por uno.
+          Elegí qué módulos aparecen en su menú. Conserva sus permisos de administrador y el acceso a Usuarios y permisos.
         </p>
       )}
 
@@ -61,7 +62,7 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
             <button
               type="button"
               onClick={() => alternarGrupo(modulos)}
-              disabled={esAdmin || deshabilitado}
+              disabled={deshabilitado}
               className="w-full flex items-center justify-between gap-2 bg-neutro-50 px-3 py-2 text-left disabled:cursor-not-allowed"
             >
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-neutro-500">{grupo}</span>
@@ -75,9 +76,9 @@ export default function TableroPermisos({ seleccionados, onCambiar, esAdmin, des
                 const marcado = tiene(m.clave)
                 return (
                   <div key={m.clave}>
-                    <Casilla marcado={marcado} nombre={m.nombre} onClick={() => alternar(m.clave, m)} deshabilitado={esAdmin || deshabilitado} />
+                    <Casilla marcado={marcado} nombre={m.nombre} onClick={() => alternar(m.clave, m)} deshabilitado={deshabilitado} />
                     {/* Sus permisos de acción, debajo y solo si tiene el módulo. */}
-                    {marcado && (m.acciones || []).map(a => (
+                    {!esAdmin && marcado && (m.acciones || []).map(a => (
                       <Casilla key={a.clave} sangria marcado={tiene(a.clave)} nombre={a.nombre} onClick={() => alternar(a.clave)} deshabilitado={esAdmin || deshabilitado} />
                     ))}
                   </div>

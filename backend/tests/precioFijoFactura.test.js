@@ -153,10 +153,13 @@ describe('la pantalla no ofrece lo que el servidor no va a aceptar', () => {
     assert.equal((lineas.match(/<Descuento l=\{l\} i=\{i\} \{\.\.\.fijo\} \/>/g) || []).length, 2);
   });
 
-  test('el tablero quita el permiso de acción cuando se quita su módulo', () => {
+  test('el tablero quita el permiso de acción del personal; la vista del admin conserva sus permisos', async () => {
     const tablero = leer('components', 'usuarios', 'TableroPermisos.jsx');
     assert.match(tablero, /onCambiar\(modulo \? sinAccionesDe\(sin, \[modulo\]\) : sin\)/);
-    assert.match(tablero, /\{marcado && \(m\.acciones \|\| \[\]\)\.map/);
+    assert.match(tablero, /\{!esAdmin && marcado && \(m\.acciones \|\| \[\]\)\.map/);
+    const { puedeAccion } = await import(path.join(FRONT, 'utils', 'modulos.js'));
+    assert.equal(puedeAccion({ esAdmin: true, modulosOcultos: ['facturacion'] }, 'precio-factura'), true);
+    assert.equal(puedeAccion({ modulos: ['facturacion'] }, 'precio-factura'), false);
   });
 });
 

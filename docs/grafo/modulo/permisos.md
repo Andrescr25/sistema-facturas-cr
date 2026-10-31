@@ -24,8 +24,19 @@ archivos:
   - frontend/src/components/usuarios/TableroPermisos.jsx
   - frontend/src/components/Layout.jsx
   - frontend/src/components/PieSesion.jsx
-  - frontend/src/hooks/useMenuIngresos.js
-  - backend/tests/menuIngresos.test.js
+  - backend/migrations/independencia/076_vista_modulos_administrador.sql
+  - backend/src/modules/usuarios/vistaModulos.js
+  - backend/src/modules/usuarios/usuarios.service.js
+  - backend/src/modules/auth/auth.service.js
+  - backend/src/modules/auth/auth.controller.js
+  - backend/tests/vistaModulos.test.js
+  - backend/tests/vistaModulosAdmin.test.js
+  - frontend/src/components/usuarios/ModalUsuario.jsx
+  - frontend/src/pages/Usuarios.jsx
+  - frontend/src/contexts/AuthContext.jsx
+  - frontend/src/hooks/useUsuarios.js
+  - frontend/src/components/RequierePermiso.jsx
+  - frontend/src/pages/Dashboard.jsx
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/caja-general, modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
 medido: 2026-10-31
@@ -252,19 +263,52 @@ usuario sin poder guardarse (`limpiarModulos` la rechaza). Ver
 [[decision/planilla-del-agente]].
 
 
-## Ocultar «Mis ingresos» en el menú del administrador — 2026-10-31
+## Vista del administrador desde Usuarios y permisos — 2026-10-31
 
-El administrador puede ocultar o volver a mostrar ese enlace desde el pie
-de su barra lateral, junto a su nombre. La preferencia es visual y se guarda
-por ID de usuario en ese navegador (`useMenuIngresos`); no altera permisos,
-roles o datos de la planilla. `visibleEnMenu` aplica la preferencia solo al
-administrador y solo a `/ingresos`; `puedeVer` e `inicioDe` conservan su regla.
-Los empleados con permiso de Ingresos siguen viendo su módulo y no reciben
-ese control. El pie móvil y el de escritorio comparten el estado desde Layout.
+El usuario corrige la primera propuesta: quiere usar las casillas existentes
+de Usuarios y permisos para cualquier módulo, conservando el rol de admin.
+Se retiran el control del pie, el hook y la preferencia local anterior.
 
-La elección persiste al recargar y se sincroniza entre pestañas; cambiar de
-usuario no hereda la del anterior. Si el navegador impide almacenamiento,
-la elección vale hasta recargar y la navegación continúa. Sin SQL ni llamadas
-para guardar datos. Tres regresiones de reglas y 56 comprobaciones de
-navegador Chromium/WebKit a390/1280px: ocultar/mostrar, persistencia,
-otra sesión, empleado, pestañas y ausencia de desborde/errores/escrituras.
+La migración **076** agrega `usuario.modulos_ocultos` (text[], vacío por
+omisión). Vacío conserva todos los módulos, también los nuevos. Solo admite
+claves de pantallas; no permisos de acción ni Usuarios y permisos. Se valida
+antes de escribir el usuario y se conserva en ediciones parciales. Al pasar
+a usuario común se limpia; las ocultaciones nunca se usan para autorizar API.
+`permisosDe` sigue otorgando CLAVES completas al administrador y el servidor
+sigue comprobando rol, estado y permisos en cada llamada.
+
+La ficha deja las casillas y grupos habilitados para administradores;
+para ellos el título dice «Módulos visibles en su menú». Para el personal
+las casillas siguen otorgando o retirando acceso. Se mantiene la protección
+contra quitarse el rol, desactivarse o dejar al sistema sin administrador.
+
+Listado, ficha, login y /auth/yo entregan modulosOcultos. Guardar la ficha
+propia actualiza AuthContext y el menú sin cerrar sesión; otras sesiones la
+leen al entrar o recargar. El token incluye la elección al iniciar sesión
+para el respaldo existente sin señal (una copia del token viejo puede
+mantener la vista anterior mientras no haya conexión, igual que sus permisos).
+
+`visibleEnMenu` filtra la navegación, los accesos de Dashboard y el
+recordatorio de jornada de Preventa; `puedeVer` conserva la autorización de
+pantallas. Si se oculta Dashboard, `inicioDe` elige el primer módulo visible;
+si se ocultan todos, abre Usuarios y permisos. Este acceso y Bitácora
+siguen disponibles en el menú para poder deshacer cualquier selección.
+Los grupos y secciones de accesos que quedan vacíos no se dibujan.
+
+87 pruebas dirigidas correctas, incluidas ocho de PostgreSQL con ROLLBACK:
+ficha propia, permisos administrativos intactos, elección por cuenta,
+login/token/yo, validación previa, edición parcial y cambio de rol. 104
+comprobaciones de navegador con API/DB locales reales, Chromium/WebKit a
+390/1280px: guardar, recargar, otra sesión, grupos, ocultar todo, inicio sin
+bucle y Dashboard coherente. Build y lint del cambio correctos.
+
+La suite completa recorrió 270 archivos. Se actualizan y revalidan dos
+aserciones que esperaban las reglas anteriores del tablero y de Preventa;
+no hubo cambios de aplicación posteriores al recorrido. Resultado vigente:
+3.301 correctas, 0 fallos y 3 omisiones históricas del corte. Evidencia de
+suite original y revalidaciones conservada en
+`~/.local/share/sistema-facturas-cr/codex-vista-modulos-admin-20261031/`.
+
+**Para publicar:** aplicar 076 antes del código. Solo se ensaya contra un
+clon desechable, comprobando usuarios y permisos originales iguales y que
+repetir la migración no cambia nada. No aplicada en producción en este cambio.

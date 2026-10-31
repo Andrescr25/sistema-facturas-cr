@@ -79,15 +79,15 @@ async function login({ usuario, password }) {
   // abría la tablet sin cobertura y el catálogo le decía "No tiene acceso a
   // esta pantalla", con los productos ya descargados en el dispositivo.
   //
-  // Meterlos acá no debilita nada: hoy los permisos por módulo son de
-  // interfaz, el backend no los exige en sus rutas (ver auth.middleware.js).
-  // La contra real es que quedan congelados hasta que el token se renueva:
-  // si se le quita un módulo a alguien, lo sigue viendo hasta su próximo
-  // ingreso. Se acepta a cambio de que la tablet funcione sin señal.
+  // Esta copia sirve solo al respaldo visual sin señal. requirePermiso relee
+  // la base y no confía en los roles/permisos de este token para autorizar.
+  // Sin red puede verse la copia anterior de módulos o de modulosOcultos;
+  // /auth/yo la actualiza al recargar con conexión. El token se renueva al
+  // ingresar, para conservar el respaldo de la tablet sin ampliar su acceso.
   const token = jwt.sign(
     {
       sub: String(row.id), usuario: row.usuario, nombre: row.nombre,
-      esAdmin: permisos.esAdmin, modulos: [...permisos.modulos]
+      esAdmin: permisos.esAdmin, modulos: [...permisos.modulos], modulosOcultos: permisos.modulosOcultos || []
     },
     secreto(),
     { expiresIn: VIGENCIA_TOKEN }
@@ -98,7 +98,7 @@ async function login({ usuario, password }) {
     usuario: {
       id: row.id, usuario: row.usuario, nombre: row.nombre,
       esAdmin: permisos.esAdmin,
-      modulos: [...permisos.modulos]
+      modulos: [...permisos.modulos], modulosOcultos: permisos.modulosOcultos || []
     }
   };
 }

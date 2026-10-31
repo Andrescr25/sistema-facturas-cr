@@ -22,7 +22,7 @@ function datosDelToken(token) {
     // no autorización: el servidor sigue siendo quien entrega o niega datos.
     return {
       id: carga.sub, usuario: carga.usuario, nombre: carga.nombre,
-      esAdmin: Boolean(carga.esAdmin), modulos: carga.modulos || []
+      esAdmin: Boolean(carga.esAdmin), modulos: carga.modulos || [], modulosOcultos: carga.modulosOcultos || []
     }
   } catch {
     return null
@@ -92,8 +92,13 @@ export function AuthProvider({ children }) {
     setUsuario(null)
   }, [])
 
+  // Guardar la ficha propia actualiza el menú sin cerrar y abrir sesión.
+  const actualizarUsuario = useCallback((datos) => {
+    setUsuario(actual => actual && String(actual.id) === String(datos.id) ? { ...actual, ...datos } : actual)
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ usuario, cargando, entrar, salir }}>
+    <AuthContext.Provider value={{ usuario, cargando, entrar, salir, actualizarUsuario }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1425,10 +1425,15 @@ verificarlo con copias locales y aplicar 072–075 antes de publicar, según
 AGENTS.md. [Validación y resultado](informes/cobros-safari-detalle-2026-10-30.md).
 
 
-## 2026-10-31 — «Mis ingresos» opcional en el menú del administrador
+## 2026-10-31 — Vista del administrador desde Usuarios y permisos
 
-El usuario: «dame la posibilidad como administrador de quitarme de la vista
-el modulo de mis ingresos ya que esto es para empleado». Se ofrece Ocultar /
-Mostrar Mis ingresos al pie del menú, junto al nombre; elección por usuario
-en el navegador, sin cambiar rol ni permisos de los empleados.
+Primero pide quitarse de la vista Mis ingresos. Corrige expresamente la
+propuesta del pie del menú: «eso es una solución muy mediocre, hazlo bien,
+haz que desde el modulo de usuarios y permisos, el admin pueda quitarse
+modulo, ahora esta bloqueado porque como soy admin tengo todo, pero quiero
+poder quitarme modulos de la vista que no usaría yo».
+
+Se usan las casillas existentes para elegir cualquier módulo visible del
+administrador, sin quitarle el rol. La elección se guarda en su cuenta,
+no como una opción local del navegador; se retira la implementación anterior.
 [Resultado](grafo/modulo/permisos.md).
