@@ -22,6 +22,25 @@ const LIMITES = { latMin: 8, latMax: 11.5, lngMin: -86.2, lngMax: -82.5 };
 /** El enlace de Maps de un punto exacto. */
 const enlaceDePunto = (lat, lng) => `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
 
+/** El punto marcado en el mapa, revisado, como enlace de Maps. También lo usa «Cliente nuevo». */
+function enlaceDeUbicacion(ubicacion) {
+  const lat = Number(ubicacion?.latitud), lng = Number(ubicacion?.longitud);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw httpError(400, 'Marcá el punto en el mapa.');
+  if (lat < LIMITES.latMin || lat > LIMITES.latMax || lng < LIMITES.lngMin || lng > LIMITES.lngMax) {
+    throw httpError(400, 'Ese punto queda fuera de Costa Rica: revisá el mapa.');
+  }
+  return enlaceDePunto(lat, lng);
+}
+
+/** Cada cuántos días se le visita: un entero de 1 a 365. */
+function rotacionValida(v) {
+  const n = Number(v);
+  if (v === null || v === '' || !Number.isInteger(n) || n < 1 || n > ROTACION_MAXIMA) {
+    throw httpError(400, `La rotación va de 1 a ${ROTACION_MAXIMA} días.`);
+  }
+  return n;
+}
+
 /**
  * @param {number|string} clienteId
  * @param {{rotacionDias?: number, ubicacion?: {latitud: number, longitud: number}}} datos
@@ -36,24 +55,11 @@ async function corregirFicha(clienteId, datos = {}, { usuarioId, rutasPermitidas
   }
 
   const cambios = {};
-  if (datos.rotacionDias !== undefined) {
-    const n = Number(datos.rotacionDias);
-    if (datos.rotacionDias === null || datos.rotacionDias === '' || !Number.isInteger(n) || n < 1 || n > ROTACION_MAXIMA) {
-      throw httpError(400, `La rotación va de 1 a ${ROTACION_MAXIMA} días.`);
-    }
-    cambios.rotacion_dias = n;
-  }
-  if (datos.ubicacion !== undefined) {
-    const lat = Number(datos.ubicacion?.latitud), lng = Number(datos.ubicacion?.longitud);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw httpError(400, 'Marcá el punto en el mapa.');
-    if (lat < LIMITES.latMin || lat > LIMITES.latMax || lng < LIMITES.lngMin || lng > LIMITES.lngMax) {
-      throw httpError(400, 'Ese punto queda fuera de Costa Rica: revisá el mapa.');
-    }
-    cambios.ubicacion_maps = enlaceDePunto(lat, lng);
-  }
+  if (datos.rotacionDias !== undefined) cambios.rotacion_dias = rotacionValida(datos.rotacionDias);
+  if (datos.ubicacion !== undefined) cambios.ubicacion_maps = enlaceDeUbicacion(datos.ubicacion);
   if (Object.keys(cambios).length === 0) throw httpError(400, 'No vino nada para cambiar.');
 
   return clientes.editarCliente(id, cambios, usuarioId);
 }
 
-module.exports = { corregirFicha, enlaceDePunto };
+module.exports = { corregirFicha, enlaceDePunto, enlaceDeUbicacion, rotacionValida };

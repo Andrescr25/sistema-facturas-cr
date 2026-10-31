@@ -20,7 +20,7 @@ const PIN = L.divIcon({
  * `vista` centra el mapa (al abrir, o al usar el GPS); `punto` es el marcador.
  * Se carga aparte (React.lazy): Leaflet no viaja con el resto de la aplicación.
  */
-export default function MapaUbicacion({ punto, vista, onCambiar }) {
+export default function MapaUbicacion({ punto, vista, onCambiar, alto = 'h-[55vh] min-h-[280px]' }) {
   const caja = useRef(null)
   const mapa = useRef(null)
   const marcador = useRef(null)
@@ -61,5 +61,5 @@ export default function MapaUbicacion({ punto, vista, onCambiar }) {
     }
   }, [punto])
 
-  return <div ref={caja} role="application" aria-label="Mapa para marcar la ubicación" className="h-[55vh] min-h-[280px] w-full rounded-xl" />
+  return <div ref={caja} role="application" aria-label="Mapa para marcar la ubicación" className={`${alto} w-full rounded-xl`} />
 }

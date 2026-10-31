@@ -15,6 +15,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const liquidacion = require('./liquidacion');
 const jornadas = require('./jornada.service');
+const { clientesNuevos } = require('./clientesNuevos');
 
 // Las tarifas, con sus nombres de la pantalla. Lo que no venga queda como estaba
 // (al crear, lo pone la base: 2 %, ₡2.000 y ₡5.000, lo que decidió el usuario).
@@ -112,13 +113,15 @@ async function quincenaDe(ficha, clave) {
   const anterior = liquidacion.quincenaAnterior(q);
   const dias = liquidacion.horasPorDia(await jornadas.jornadasEntre(ficha.usuarioId, q.desde, q.hasta));
   const minutos = dias.reduce((s, d) => s + d.minutos, 0);
+  const clientes = await clientesNuevos(ficha.usuarioId, q);
   return {
     periodo: {
       ...q, enCurso: q.clave === actual.clave,
       anterior: anterior.hasta >= ficha.desde ? anterior.clave : null,
       siguiente: q.clave === actual.clave ? null : liquidacion.quincenaSiguiente(q).clave
     },
-    dias, minutos, porHoras: liquidacion.montoPorHoras(minutos, ficha.tarifas.pagoHora)
+    dias, minutos, porHoras: liquidacion.montoPorHoras(minutos, ficha.tarifas.pagoHora),
+    clientesNuevos: { ...clientes, monto: liquidacion.montoPorCada(clientes.cuentan.length, ficha.tarifas.incentivoClienteNuevo) }
   };
 }
 
@@ -135,7 +138,8 @@ async function listar() {
   for (const fila of rows) {
     const ficha = comoFicha(fila);
     const { quincena, jornada } = await ingresosDe(ficha.usuarioId);
-    lista.push({ ...ficha, jornada, quincena: { periodo: quincena.periodo, minutos: quincena.minutos, porHoras: quincena.porHoras } });
+    const { periodo, minutos, porHoras, clientesNuevos: nuevos } = quincena;
+    lista.push({ ...ficha, jornada, quincena: { periodo, minutos, porHoras, clientesNuevos: { cuentan: nuevos.cuentan.length, esperando: nuevos.esperando.length, monto: nuevos.monto } } });
   }
   return lista;
 }

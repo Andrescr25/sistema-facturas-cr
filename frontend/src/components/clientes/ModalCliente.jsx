@@ -6,6 +6,7 @@ import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
 import CampoRotacion from './CampoRotacion'
 import { useSalirSinGuardar } from '../../hooks/useSalirSinGuardar'
+import { TIPOS_IDENTIFICACION, avisoIdentificacion as avisoDe } from '../../utils/identificacionCliente'
 
 /**
  * Crear o editar la ficha de un cliente.
@@ -32,19 +33,6 @@ const CAMPOS = [
 const NUMERICOS = new Set(['descuento_global', 'plazo_credito_id', 'limite_credito', 'ruta_id', 'orden_ruta', 'dia_visita', 'dia_entrega', 'rotacion_dias'])
 const CLASE_CAMPO = 'input min-h-12 w-full rounded-xl border border-neutro-300 text-base'
 
-// Las mismas reglas que `backend/src/modules/clientes/identificacion.js`. No se
-// valida el primer dígito de una cédula física: las cargadas empiezan con 1,
-// 2, 4, 5, 6, 8 y 9, así que "provincia del 1 al 7" dejaría fuera a ocho
-// clientes de verdad.
-const TIPOS = [
-  { valor: 'CF', texto: 'Cédula física', digitos: [9], soloNumeros: true },
-  { valor: 'CJ', texto: 'Cédula jurídica', digitos: [10], soloNumeros: true, empiezaCon: '3' },
-  { valor: 'DIMEX', texto: 'DIMEX', digitos: [11, 12], soloNumeros: true },
-  { valor: 'NITE', texto: 'NITE', digitos: [10], soloNumeros: true },
-  { valor: 'EXTRANJERO', texto: 'Pasaporte', digitos: null },
-  { valor: 'NO_CONTRIBUYENTE', texto: 'No contribuyente', digitos: null }
-]
-
 /** Los correos adicionales se escriben separados por coma y viajan como lista. */
 const aTexto = (v) => (Array.isArray(v) ? v.join(', ') : '')
 const aLista = (v) => String(v || '').split(',').map(s => s.trim()).filter(Boolean)
@@ -62,25 +50,6 @@ function listo(campo, v) {
   if (campo === 'descuento_global' && v === '') return 0
   if (NUMERICOS.has(campo)) return v === '' ? null : Number(v)
   return String(v).trim() === '' ? null : String(v).trim()
-}
-
-/**
- * Lo mismo que revisa el servidor, dicho antes de apretar Guardar. Está
- * escrito dos veces a propósito: el servidor es el que manda —una pantalla no
- * protege una base de datos— y esto es solo para no hacer ir y volver.
- */
-function avisoDe(tipo, identificacion) {
-  if (!tipo || !identificacion) return null
-  if (tipo.soloNumeros && !/^\d+$/.test(identificacion)) {
-    return `Una ${tipo.texto.toLowerCase()} son solo números.`
-  }
-  if (tipo.digitos && !tipo.digitos.includes(identificacion.length)) {
-    return `Una ${tipo.texto.toLowerCase()} tiene ${tipo.digitos.join(' o ')} dígitos; esta tiene ${identificacion.length}.`
-  }
-  if (tipo.empiezaCon && !identificacion.startsWith(tipo.empiezaCon)) {
-    return `Una ${tipo.texto.toLowerCase()} empieza con ${tipo.empiezaCon}.`
-  }
-  return null
 }
 
 function Etiqueta({ htmlFor, children, requerido }) {
@@ -125,7 +94,7 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
   const [valores, setValores] = useState(base)
   const cambiar = (campo) => (e) => setValores(prev => ({ ...prev, [campo]: e.target.value }))
 
-  const tipo = TIPOS.find(t => t.valor === valores.tipo_identificacion)
+  const tipo = TIPOS_IDENTIFICACION.find(t => t.valor === valores.tipo_identificacion)
   const identificacion = String(valores.identificacion).replace(/[\s-]/g, '')
   const avisoIdentificacion = avisoDe(tipo, identificacion)
 
@@ -221,7 +190,7 @@ export default function ModalCliente({ cliente, plazos, rutas = [], guardando, o
             <Etiqueta htmlFor="cliente-tipo_identificacion">Tipo de identificación</Etiqueta>
             <select id="cliente-tipo_identificacion" className={CLASE_CAMPO} value={valores.tipo_identificacion} onChange={cambiar('tipo_identificacion')}>
               <option value="">Sin definir</option>
-              {TIPOS.map(t => <option key={t.valor} value={t.valor}>{t.texto}</option>)}
+              {TIPOS_IDENTIFICACION.map(t => <option key={t.valor} value={t.valor}>{t.texto}</option>)}
             </select>
           </div>
           <div>

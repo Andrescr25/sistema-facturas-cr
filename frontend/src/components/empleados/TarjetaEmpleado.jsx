@@ -20,7 +20,7 @@ export default function TarjetaEmpleado({ empleado, onAbrir }) {
         <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
           <div><dt className="text-neutro-500">Horas de la quincena</dt><dd className="text-base font-bold text-neutro-900">{duracion(quincena.minutos)}</dd></div>
           <div><dt className="text-neutro-500">Ganado por horas</dt><dd className="text-base font-bold text-exito-700">{colones(quincena.porHoras)}</dd></div>
-          <div className="hidden sm:block"><dt className="text-neutro-500">Por hora</dt><dd className="text-base font-bold text-neutro-700">{colones(empleado.tarifas.pagoHora)}</dd></div>
+          <div><dt className="text-neutro-500">Clientes nuevos</dt><dd className="text-base font-bold text-exito-700">{colones(quincena.clientesNuevos.monto)}</dd></div>
         </dl>
       </div>
       <ChevronRight className="shrink-0 text-neutro-400" />

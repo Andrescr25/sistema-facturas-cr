@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { ArrowLeft, Settings2, Plus, Timer, Banknote, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Settings2, Plus, Timer, Banknote, AlertTriangle, UserPlus } from 'lucide-react'
 import Boton from '../ui/Boton'
 import TarjetasResumen from '../pagos/TarjetasResumen'
 import SelectorQuincena from '../ingresos/SelectorQuincena'
 import HorasDeLaQuincena from '../ingresos/HorasDeLaQuincena'
+import ClientesNuevos from '../ingresos/ClientesNuevos'
 import ModalEmpleado from './ModalEmpleado'
 import ModalJornada from './ModalJornada'
 import { useDetalleEmpleado } from '../../hooks/useDetalleEmpleado'
@@ -22,7 +23,9 @@ export default function DetalleEmpleado({ usuarioId, guardarFicha, onVolver }) {
 
   const tarjetas = q ? [
     { clave: 'horas', titulo: 'Horas trabajadas', icono: Timer, valor: duracion(q.minutos), tono: 'neutro' },
-    { clave: 'porhoras', titulo: 'Ganado por horas', icono: Banknote, valor: colones(q.porHoras), tono: 'exito', pie: `${colones(ficha.tarifas.pagoHora)} por hora` }
+    { clave: 'porhoras', titulo: 'Ganado por horas', icono: Banknote, valor: colones(q.porHoras), tono: 'exito', pie: `${colones(ficha.tarifas.pagoHora)} por hora` },
+    { clave: 'nuevos', titulo: 'Clientes nuevos', icono: UserPlus, valor: colones(q.clientesNuevos.monto), tono: 'exito',
+      pie: `${q.clientesNuevos.cuentan.length} con primera compra · ${q.clientesNuevos.esperando.length} por comprar` }
   ] : []
 
   return (
@@ -59,6 +62,7 @@ export default function DetalleEmpleado({ usuarioId, guardarFicha, onVolver }) {
             </div>
             <HorasDeLaQuincena dias={q.dias} onCorregir={setTramo} />
           </section>
+          <ClientesNuevos clientes={q.clientesNuevos} incentivo={ficha.tarifas.incentivoClienteNuevo} />
         </>
       )}
 

@@ -225,12 +225,26 @@ async function fichasConIdentificacion(identificacion, excepto = null) {
   };
 }
 
-async function crearCliente(datos, usuarioId) {
+/**
+ * @param {object} [opciones]  lo que pone el servidor, nunca la pantalla:
+ *   `captadoPor` quién lo consiguió (su incentivo, migración 073) e
+ *   `identificacionUnica` para rechazar una cédula que ya tiene ficha. Se
+ *   revisa DESPUÉS del candado de rutas, que toda alta toma: dos altas con la
+ *   misma cédula no pasan juntas.
+ */
+async function crearCliente(datos, usuarioId, { captadoPor = null, identificacionUnica = false } = {}) {
   const fila = validar(CAMPOS, datos, { crear: true });
   revisarIdentificacion(fila, fila);
+  if (captadoPor) { fila.captado_por = idValido(captadoPor); fila.captado_en = new Date(); }
 
   return enTransaccion(async (cliente) => {
     await bloquearRutasEn(cliente);
+    if (identificacionUnica) {
+      const { rows: [ya] } = await cliente.query(
+        `SELECT c.nombre, r.nombre AS ruta FROM cliente c LEFT JOIN ruta_cliente r ON r.id = c.ruta_id
+          WHERE c.identificacion = $1 ORDER BY c.activo DESC, c.id LIMIT 1`, [fila.identificacion]);
+      if (ya) throw httpError(409, `Esa identificación ya es de ${ya.nombre}${ya.ruta ? ` (ruta ${ya.ruta})` : ''}: no es un cliente nuevo.`);
+    }
     await revisarPlazo(cliente, fila.plazo_credito_id);
     const asignacion = await prepararAsignacionEn(cliente, fila);
     const columnas = Object.keys(fila);

@@ -1,10 +1,11 @@
-import { PiggyBank, Timer, Banknote, RefreshCw } from 'lucide-react'
+import { PiggyBank, Timer, Banknote, RefreshCw, UserPlus } from 'lucide-react'
 import EncabezadoPagina from '../components/ui/EncabezadoPagina'
 import Boton from '../components/ui/Boton'
 import TarjetasResumen from '../components/pagos/TarjetasResumen'
 import TarjetaJornada from '../components/ingresos/TarjetaJornada'
 import SelectorQuincena from '../components/ingresos/SelectorQuincena'
 import HorasDeLaQuincena from '../components/ingresos/HorasDeLaQuincena'
+import ClientesNuevos from '../components/ingresos/ClientesNuevos'
 import { useMisIngresos } from '../hooks/useMisIngresos'
 import { useJornada } from '../hooks/useJornada'
 import { colones } from '../utils/colones'
@@ -25,7 +26,9 @@ export default function MisIngresos() {
     { clave: 'horas', titulo: 'Horas trabajadas', icono: Timer, valor: duracion(q.minutos), tono: 'neutro',
       pie: jornada.estado?.abierta && q.periodo.enCurso ? 'La jornada abierta suma al terminarla' : `${conHoras} ${conHoras === 1 ? 'día' : 'días'} con horas` },
     { clave: 'porhoras', titulo: 'Ganado por horas', icono: Banknote, valor: colones(q.porHoras), tono: 'exito',
-      pie: `${colones(tarifas.pagoHora)} por hora` }
+      pie: `${colones(tarifas.pagoHora)} por hora` },
+    { clave: 'nuevos', titulo: 'Clientes nuevos', icono: UserPlus, valor: colones(q.clientesNuevos.monto), tono: 'exito',
+      pie: `${q.clientesNuevos.cuentan.length} con primera compra · ${q.clientesNuevos.esperando.length} por comprar` }
   ] : []
 
   return (
@@ -44,6 +47,7 @@ export default function MisIngresos() {
             <h2 className="flex items-center gap-2 text-lg font-bold text-neutro-900"><Timer size={18} className="text-primario-500" />Horas por día</h2>
             <HorasDeLaQuincena dias={q.dias} />
           </section>
+          <ClientesNuevos clientes={q.clientesNuevos} incentivo={tarifas.incentivoClienteNuevo} />
         </>
       )}
     </div>

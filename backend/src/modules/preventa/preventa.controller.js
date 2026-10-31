@@ -3,6 +3,7 @@ const { puedeHacer } = require('../usuarios/permisos.middleware');
 const { rutasDe } = require('../usuarios/rutasAsignadas');
 const visitas = require('./visitas');
 const { corregirFicha } = require('./fichaDesdeVisita');
+const { crearClienteNuevo } = require('./clienteNuevo');
 
 // Sin «Ver todas las rutas», solo las que se le asignaron en Usuarios (2026-10-29).
 const rutasPermitidas = async (req) => ((await puedeHacer(req, 'rutas-todas')) ? null : rutasDe(req.usuario.id));
@@ -26,3 +27,6 @@ exports.proximaVisita = (req, res) => responder(res, async () =>
 // Rotación y ubicación exacta desde la visita (2026-10-29), solo en clientes de sus rutas.
 exports.corregirFicha = (req, res) => responder(res, async () =>
   corregirFicha(req.params.id, req.body || {}, { usuarioId: req.usuario?.id, rutasPermitidas: await rutasPermitidas(req) }));
+// «Cliente nuevo» (2026-10-30): queda a su nombre para el incentivo, en una de sus rutas.
+exports.clienteNuevo = (req, res) => responder(res, async () =>
+  crearClienteNuevo(req.body || {}, { usuarioId: req.usuario?.id, rutasPermitidas: await rutasPermitidas(req) }));

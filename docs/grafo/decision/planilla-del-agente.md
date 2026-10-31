@@ -32,6 +32,19 @@ archivos:
   - frontend/src/utils/ingresosTexto.js
   - frontend/src/utils/fechaCR.js
   - backend/tests/jornadaEmpleado.test.js
+  - backend/migrations/independencia/073_cliente_captado_por.sql
+  - backend/src/modules/preventa/clienteNuevo.js
+  - backend/src/modules/preventa/fichaDesdeVisita.js
+  - backend/src/modules/clientes/clientes.service.js
+  - backend/src/modules/empleados/clientesNuevos.js
+  - frontend/src/components/preventa/ModalClienteNuevo.jsx
+  - frontend/src/components/preventa/ElegirPunto.jsx
+  - frontend/src/components/preventa/ElegirRotacion.jsx
+  - frontend/src/components/ingresos/ClientesNuevos.jsx
+  - frontend/src/hooks/useClienteNuevo.js
+  - frontend/src/utils/identificacionCliente.js
+  - frontend/src/pages/Preventa.jsx
+  - backend/tests/clienteNuevo.test.js
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/permisos]
 medido: 2026-10-30
@@ -85,3 +98,23 @@ es lo que ya se pagó (E4).
 - **Un usuario con jornadas no se borra**: las tablas no tienen ON DELETE, y
   borrar responde 409 «desactívelo».
 - Preventa le recuerda «Iniciar jornada» a quien tiene «Mis ingresos».
+
+## E2 (2026-10-30): «Cliente nuevo» desde Preventa — migración 073
+
+- **`cliente.captado_por` / `captado_en`**: quién lo registró y cuándo. Lo
+  pone el servidor (opción de `crearCliente`), nunca la pantalla.
+- **Más estricto que el alta de Clientes**, porque de esto sale plata: solo en
+  sus rutas y al final del orden; cédula de verdad (no la de mostrador
+  100000000 ni un dígito repetido); una cédula que ya tiene ficha se rechaza
+  diciendo de quién es. Clientes sigue sin exigir única (ahí se avisa: hay 139
+  fichas con la de mostrador). El chequeo va después del candado de rutas, que
+  toda alta toma: dos altas con la misma cédula no pasan juntas.
+- **La primera compra** (`clientesNuevos.js`) es su factura vigente más vieja
+  (emitida y no acreditada entera: `SIN_CREDITO_TOTAL`), la haga quien la haga;
+  cuenta en la quincena de esa fecha. Si se acredita entera, manda la
+  siguiente. Si ya compraba antes de que lo registrara, no es nuevo nunca.
+- Mientras no compra sale «cuenta cuando haga su primera compra»: es la lista
+  de a quién volver a visitar.
+- Una sola copia: el punto en el mapa (`ElegirPunto`), la rotación
+  (`ElegirRotacion`), la cédula (`utils/identificacionCliente.js`) y en el
+  servidor `enlaceDeUbicacion`/`rotacionValida` sirven a la ficha y al alta.

@@ -111,7 +111,8 @@ describe('la pantalla', () => {
   });
 
   test('el mapa se carga aparte, con OpenStreetMap y su atribución, y el marcador se arrastra', () => {
-    assert.match(leer('components', 'preventa', 'ModalUbicacionCliente.jsx'), /const MapaUbicacion = lazy\(\(\) => import\('\.\/MapaUbicacion'\)\)/);
+    assert.match(leer('components', 'preventa', 'ElegirPunto.jsx'), /const MapaUbicacion = lazy\(\(\) => import\('\.\/MapaUbicacion'\)\)/);
+    assert.match(leer('components', 'preventa', 'ModalUbicacionCliente.jsx'), /<ElegirPunto punto=\{punto\} onCambiar=\{setPunto\} \/>/);
     const m = leer('components', 'preventa', 'MapaUbicacion.jsx');
     assert.match(m, /L\.tileLayer\('https:\/\/tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png'/);
     assert.match(m, /attribution: '&copy; OpenStreetMap'/);
@@ -122,10 +123,10 @@ describe('la pantalla', () => {
   });
 
   test('«Usar mi ubicación» pone el punto con el GPS; sin GPS lo dice y se marca a mano', () => {
-    const u = leer('components', 'preventa', 'ModalUbicacionCliente.jsx');
+    const u = leer('components', 'preventa', 'ElegirPunto.jsx');
     assert.match(u, /const u = await tomarUbicacion\(\)/);
-    assert.match(u, /setPunto\(\{ lat: u\.latitud, lng: u\.longitud \}\)/);
+    assert.match(u, /onCambiar\(\{ lat: u\.latitud, lng: u\.longitud \}\)/);
     assert.match(u, /Marcá el punto a mano/);
-    assert.match(u, /disabled=\{!punto\}/);
+    assert.match(leer('components', 'preventa', 'ModalUbicacionCliente.jsx'), /disabled=\{!punto\}/);
   });
 });

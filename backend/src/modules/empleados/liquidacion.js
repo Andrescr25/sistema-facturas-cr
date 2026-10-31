@@ -75,6 +75,9 @@ function horasPorDia(jornadas) {
 /** Lo ganado por horas: minutos × tarifa por hora, a céntimos. */
 const montoPorHoras = (minutos, pagoHora) => dinero((Number(minutos) || 0) * (Number(pagoHora) || 0) / 60);
 
+/** Un monto fijo por cada uno: clientes nuevos × incentivo, días × gasolina. */
+const montoPorCada = (cantidad, tarifa) => dinero((Number(cantidad) || 0) * (Number(tarifa) || 0));
+
 module.exports = {
-  HORAS_MAXIMAS, dinero, quincenaDe, quincenaPorClave, quincenaAnterior, quincenaSiguiente, minutosDe, horasPorDia, montoPorHoras
+  HORAS_MAXIMAS, dinero, quincenaDe, quincenaPorClave, quincenaAnterior, quincenaSiguiente, minutosDe, horasPorDia, montoPorHoras, montoPorCada
 };
