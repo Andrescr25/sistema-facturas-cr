@@ -1423,3 +1423,12 @@ cobrar una factura. Se conserva el flujo de abonos y los importes guardados.
 commits pendientes de Empleados/Mis ingresos de Claude: revisar el conjunto,
 verificarlo con copias locales y aplicar 072–075 antes de publicar, según
 AGENTS.md. [Validación y resultado](informes/cobros-safari-detalle-2026-10-30.md).
+
+
+## 2026-10-31 — «Mis ingresos» opcional en el menú del administrador
+
+El usuario: «dame la posibilidad como administrador de quitarme de la vista
+el modulo de mis ingresos ya que esto es para empleado». Se ofrece Ocultar /
+Mostrar Mis ingresos al pie del menú, junto al nombre; elección por usuario
+en el navegador, sin cambiar rol ni permisos de los empleados.
+[Resultado](grafo/modulo/permisos.md).

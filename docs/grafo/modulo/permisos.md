@@ -22,9 +22,13 @@ archivos:
   - backend/tests/dobles/sinComentarios.js
   - backend/tests/permisosPrestados.test.js
   - frontend/src/components/usuarios/TableroPermisos.jsx
+  - frontend/src/components/Layout.jsx
+  - frontend/src/components/PieSesion.jsx
+  - frontend/src/hooks/useMenuIngresos.js
+  - backend/tests/menuIngresos.test.js
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/caja-general, modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
-medido: 2026-10-21
+medido: 2026-10-31
 ---
 
 `usuarios/modulos.js` es el registro: cada módulo declara sus `rutasApi`, y
@@ -246,3 +250,21 @@ cada agente. Desde el 2026-10-30 es «Su día» dentro de `empleados` y la
 migración 075 borró su permiso: una clave que ya no existe en `CLAVES` deja al
 usuario sin poder guardarse (`limpiarModulos` la rechaza). Ver
 [[decision/planilla-del-agente]].
+
+
+## Ocultar «Mis ingresos» en el menú del administrador — 2026-10-31
+
+El administrador puede ocultar o volver a mostrar ese enlace desde el pie
+de su barra lateral, junto a su nombre. La preferencia es visual y se guarda
+por ID de usuario en ese navegador (`useMenuIngresos`); no altera permisos,
+roles o datos de la planilla. `visibleEnMenu` aplica la preferencia solo al
+administrador y solo a `/ingresos`; `puedeVer` e `inicioDe` conservan su regla.
+Los empleados con permiso de Ingresos siguen viendo su módulo y no reciben
+ese control. El pie móvil y el de escritorio comparten el estado desde Layout.
+
+La elección persiste al recargar y se sincroniza entre pestañas; cambiar de
+usuario no hereda la del anterior. Si el navegador impide almacenamiento,
+la elección vale hasta recargar y la navegación continúa. Sin SQL ni llamadas
+para guardar datos. Tres regresiones de reglas y 56 comprobaciones de
+navegador Chromium/WebKit a390/1280px: ocultar/mostrar, persistencia,
+otra sesión, empleado, pestañas y ausencia de desborde/errores/escrituras.

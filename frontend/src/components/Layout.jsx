@@ -9,7 +9,8 @@ import InstallPWA from './InstallPWA'
 import SidebarNav from './SidebarNav'
 import PieSesion from './PieSesion'
 import { useAuth } from '../contexts/AuthContext'
-import { puedeVer } from '../utils/modulos'
+import { visibleEnMenu } from '../utils/modulos'
+import { useMenuIngresos } from '../hooks/useMenuIngresos'
 
 // Agrupado por flujo de negocio, no por orden de aparición: eran 17
 // entradas planas y no cabían en pantalla. Cada grupo se abre solo cuando
@@ -78,6 +79,7 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
   const { usuario } = useAuth()
+  const { ocultarMisIngresos, alternarMisIngresos } = useMenuIngresos(usuario)
 
   // El menú muestra únicamente lo que esta persona puede abrir. Es cosmética,
   // no seguridad: quien sepa la URL de la API la llama igual, y por eso el
@@ -89,7 +91,7 @@ export default function Layout({ children }) {
   const navegacionVisible = useMemo(() => {
     const visible = (item) => {
       if (item.soloAdmin) return Boolean(usuario?.esAdmin)
-      return puedeVer(usuario, item.href)
+      return visibleEnMenu(usuario, item.href, { ocultarMisIngresos })
     }
 
     return navigation
@@ -99,7 +101,7 @@ export default function Layout({ children }) {
         return hijos.length > 0 ? { ...item, children: hijos } : null
       })
       .filter(Boolean)
-  }, [usuario])
+  }, [usuario, ocultarMisIngresos])
 
   const isActive = (path) => location.pathname === path
 
@@ -135,7 +137,7 @@ export default function Layout({ children }) {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain barra-fina">
             <SidebarNav navigation={navegacionVisible} isActive={isActive} onNavigate={() => setSidebarOpen(false)} />
           </div>
-          <PieSesion onNavegar={() => setSidebarOpen(false)} />
+          <PieSesion onNavegar={() => setSidebarOpen(false)} ocultarMisIngresos={ocultarMisIngresos} onAlternarIngresos={alternarMisIngresos} />
         </div>
       </div>
 
@@ -148,7 +150,7 @@ export default function Layout({ children }) {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain barra-fina">
             <SidebarNav navigation={navegacionVisible} isActive={isActive} />
           </div>
-          <PieSesion />
+          <PieSesion ocultarMisIngresos={ocultarMisIngresos} onAlternarIngresos={alternarMisIngresos} />
         </div>
       </div>
 

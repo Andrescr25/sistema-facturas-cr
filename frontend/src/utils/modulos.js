@@ -130,6 +130,11 @@ export function puedeVer(usuario, ruta) {
   return (usuario.modulos || []).includes(clave)
 }
 
+/** Ocultar un enlace no quita acceso: el administrador conserva sus permisos. */
+export function visibleEnMenu(usuario, ruta, { ocultarMisIngresos = false } = {}) {
+  return puedeVer(usuario, ruta) && !(usuario.esAdmin && ruta === '/ingresos' && ocultarMisIngresos)
+}
+
 /**
  * La primera pantalla que esta persona puede ver: el inicio (Dashboard) si lo
  * tiene, y si no, su primer módulo en el orden del menú. Null si no ve ninguno.

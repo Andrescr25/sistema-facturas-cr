@@ -1348,3 +1348,14 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   y dejar lista la publicación por avance a main: 13 tablas y Caja conservadas.
 
 [Detalle](informes/cobros-safari-detalle-2026-10-30.md).
+
+
+### «Mis ingresos» opcional para el administrador — 2026-10-31
+
+- [x] Ocultar/mostrar desde el pie compartido del menú móvil y de escritorio.
+- [x] Preferencia por usuario/navegador, con persistencia y sincronización
+  entre pestañas, sin cambiar permisos ni afectar empleados.
+- [x] 62 pruebas correctas (módulos, tres regresiones puras, grafo y estructura);
+  56 comprobaciones Chromium/WebKit a390/1280px. Build y lint del cambio correctos.
+
+[Detalle](grafo/modulo/permisos.md).

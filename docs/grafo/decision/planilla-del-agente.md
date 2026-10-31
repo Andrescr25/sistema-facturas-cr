@@ -72,7 +72,7 @@ archivos:
   - backend/tests/seguimientoAgente.test.js
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/permisos]
-medido: 2026-10-30
+medido: 2026-10-31
 ---
 
 ## Qué pidió el usuario (2026-10-30)
@@ -252,3 +252,9 @@ nuevas nulas y huellas de las 13 tablas protegidas y Caja conservadas. Suite
 completa: 3.288 correctas/0 fallos y tres omisiones históricas; recorrido local
 independiente de estas pantallas: 117 comprobaciones correctas.
 [Registro](../../informes/cobros-safari-detalle-2026-10-30.md).
+
+
+2026-10-31: el administrador pide poder quitar de su vista «Mis ingresos»,
+porque es para el empleado. El enlace se oculta/muestra desde el pie del menú,
+como preferencia de ese usuario en ese navegador. No se cambia el permiso de
+Ingresos ni se oculta para empleados. [Regla](../modulo/permisos.md).
