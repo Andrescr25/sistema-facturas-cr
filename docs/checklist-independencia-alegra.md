@@ -1363,6 +1363,7 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   a390/1280px contra API/DB locales reales. Build y lint del cambio correctos.
 - [x] Recorrer suite completa y revalidar las dos aserciones sobre la vista
   anterior: 270 archivos, 3.301 correctas y3 omisiones históricas, sin fallos vigentes.
-- [ ] Aplicar 076 antes de publicar el código a main.
+- [x] Codex aplica 076 con respaldo y transacción (2026-10-31 15:37:28 CR);
+  nueva conexión READ ONLY confirma usuarios, roles, permisos y rutas conservados.
 
 [Detalle](grafo/modulo/permisos.md).

@@ -1437,3 +1437,8 @@ Se usan las casillas existentes para elegir cualquier módulo visible del
 administrador, sin quitarle el rol. La elección se guarda en su cuenta,
 no como una opción local del navegador; se retira la implementación anterior.
 [Resultado](grafo/modulo/permisos.md).
+
+
+2026-10-31: «subelo al main». Se publica la selección de módulos desde
+Usuarios y permisos con 076 aplicada antes, conservando roles y accesos.
+[Aplicación y verificación](grafo/modulo/permisos.md).

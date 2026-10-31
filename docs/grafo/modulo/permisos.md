@@ -309,6 +309,16 @@ no hubo cambios de aplicación posteriores al recorrido. Resultado vigente:
 suite original y revalidaciones conservada en
 `~/.local/share/sistema-facturas-cr/codex-vista-modulos-admin-20261031/`.
 
-**Para publicar:** aplicar 076 antes del código. Solo se ensaya contra un
-clon desechable, comprobando usuarios y permisos originales iguales y que
-repetir la migración no cambia nada. No aplicada en producción en este cambio.
+**Publicación autorizada por el usuario:** «subelo al main» (2026-10-31).
+Codex aplica 076 antes del código, a las 2026-10-31 15:37:28 CR, con respaldo privado y
+transacción única. Columnas anteriores de usuario, roles, permisos y rutas
+con huellas conservadas; la nueva columna es text[] NOT NULL con vacío por
+omisión, y todos conservan su vista inicial. Verificación posterior de solo
+lectura desde conexión nueva correcta. Sin pagos, usuarios o mensajes de
+prueba en producción. El ensayo se hizo solo en clon desechable; 13 pruebas
+específicas correctas contra el esquema recién creado.
+
+Respaldo, huellas y resultado real:
+`~/.local/share/sistema-facturas-cr/respaldos/20261031-vista-modulos-admin-codex/`.
+Si se revierte código, se conserva la columna aditiva y las elecciones que
+ya haya guardado el usuario. El código anterior la ignora.
