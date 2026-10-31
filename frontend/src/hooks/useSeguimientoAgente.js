@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { hoyEnCostaRica } from '../utils/fechaCR'
 
 /**
  * Seguimiento del agente (F5): a quién y qué día se mira, y lo que hizo.
- * Solo lecturas. Con un solo agente, entra directo a él.
+ * Solo lecturas. Con un solo agente, entra directo a él; desde Empleados
+ * llega con `?agente=` y abre ese.
  */
 export function useSeguimientoAgente() {
+  const [parametros] = useSearchParams()
   const [agentes, setAgentes] = useState([])
-  const [agenteId, setAgenteId] = useState('')
+  const [agenteId, setAgenteId] = useState(() => parametros.get('agente') || '')
   const [fecha, setFecha] = useState(hoyEnCostaRica())
   const [dia, setDia] = useState(null)
   const [cargando, setCargando] = useState(false)

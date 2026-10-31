@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ArrowLeft, Settings2, Plus, Timer, AlertTriangle, Banknote } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, Settings2, Plus, Timer, AlertTriangle, Banknote, Footprints } from 'lucide-react'
 import Boton from '../ui/Boton'
 import SelectorQuincena from '../ingresos/SelectorQuincena'
 import HorasDeLaQuincena from '../ingresos/HorasDeLaQuincena'
@@ -13,6 +14,8 @@ import ModalJornada from './ModalJornada'
 import ModalPagoEmpleado from './ModalPagoEmpleado'
 import PagosEmpleado from './PagosEmpleado'
 import { useDetalleEmpleado } from '../../hooks/useDetalleEmpleado'
+import { useAuth } from '../../contexts/AuthContext'
+import { puedeVer } from '../../utils/modulos'
 import { colones } from '../../utils/colones'
 import { nombreDelDia } from '../../utils/ingresosTexto'
 import { horaEnCostaRica, hoyEnCostaRica, fechaEnPalabras } from '../../utils/fechaCR'
@@ -29,6 +32,7 @@ const detalleDeQuincena = (q) => [
 /** Un empleado: lo que se le debe, la quincena con sus pagos, jornadas (con corregir), gasolina y clientes. */
 export default function DetalleEmpleado({ usuarioId, guardarFicha, onVolver }) {
   const d = useDetalleEmpleado(usuarioId)
+  const { usuario } = useAuth()
   const [editando, setEditando] = useState(false)
   const [tramo, setTramo] = useState(undefined)
   const [pagando, setPagando] = useState(null)
@@ -41,7 +45,14 @@ export default function DetalleEmpleado({ usuarioId, guardarFicha, onVolver }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Boton variante="fantasma" icono={ArrowLeft} onClick={onVolver}>Empleados</Boton>
-        {ficha && <Boton variante="secundario" icono={Settings2} onClick={() => setEditando(true)}>Tarifas</Boton>}
+        <div className="flex flex-wrap gap-2">
+          {ficha && puedeVer(usuario, '/seguimiento') && (
+            <Link to={`/seguimiento?agente=${usuarioId}`} className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-neutro-100 px-4 text-sm font-bold text-neutro-800 hover:bg-neutro-200">
+              <Footprints size={16} />Su día
+            </Link>
+          )}
+          {ficha && <Boton variante="secundario" icono={Settings2} onClick={() => setEditando(true)}>Tarifas</Boton>}
+        </div>
       </div>
       {d.error && <p role="alert" className="rounded-xl bg-peligro-50 p-4 text-sm text-peligro-700">{d.error}</p>}
       {d.cargando && !d.datos && <p role="status" className="p-5 text-neutro-500">Consultando…</p>}

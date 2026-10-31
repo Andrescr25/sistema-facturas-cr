@@ -39,3 +39,10 @@ export function lecturaDelGps(gps, ubicacionMaps) {
   const cuanto = metros < 1000 ? `${metros} m` : `${(metros / 1000).toLocaleString('es-CR', { maximumFractionDigits: 1 })} km`
   return { texto: `A ${cuanto} del cliente`, tono: metros > METROS_LEJOS ? 'alerta' : 'exito', mapa }
 }
+
+/** El GPS de una marca de jornada: no hay cliente contra quien medir (2026-10-30). */
+export function lecturaDeJornada(gps) {
+  if (gps?.estado === 'negada') return { texto: 'No dio permiso de ubicación', tono: 'alerta', mapa: null }
+  const mapa = mapaDe(gps)
+  return mapa ? { texto: 'Ubicación tomada', tono: 'exito', mapa } : { texto: 'El dispositivo no dio la ubicación', tono: 'alerta', mapa: null }
+}

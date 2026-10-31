@@ -1390,3 +1390,19 @@ caja»; próxima visita por defecto y personalizable («que el agente planifique
 bien cómo va a visitar»); GPS en cada acción. «Vamos poco a poco, función a
 función.» [Resultado](grafo/decision/agente-de-ventas-monitoreado.md). Después: «el agente ve solo sus facturas». Y: «perfecto, continúa — subamos a main hasta el final de todo». Luego: «ocupo que el agente pueda editar la rotación, pueda asignarle
 ubicación con punto exacto en el mapa».
+
+
+## 2026-10-30 — «Mis ingresos» del agente y «Empleados»
+
+El usuario: «ocupo que en la vista del agente salga un módulo que diga como
+"ingresos"… las horas que trabaja por día, cuánto de comisión ganó por mes (la
+comisión es el 2 % de ventas netas que este haga) y salga lo que gana por
+incentivo por cliente nuevo (son 2000 colones por cliente nuevo que consiga)…
+para motivarlo; y desde mi panel administrador ver qué hizo, cuántas horas,
+comisión, viáticos, el total que le debo; este módulo de mi lado se vería como
+empleados». Decidió: horas, «marca entrada y salida», y pago por hora
+trabajada; comisión «sin IVA, menos devoluciones»; cliente nuevo «con su
+primera compra»; «le pienso dar 5000 colones de gasolina ya que es en moto,
+entonces que ahí le salga si ya se lo pagué o no», «por cada día trabajado»;
+pago «quincenal»; los pagos, «como salida de caja».
+[Resultado](grafo/decision/planilla-del-agente.md).

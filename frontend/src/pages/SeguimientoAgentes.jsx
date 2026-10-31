@@ -1,4 +1,4 @@
-import { Footprints as IconoRecorrido, RefreshCw, Users, Receipt, CalendarClock, MapPinOff, AlertTriangle, ListOrdered, Banknote, PencilLine } from 'lucide-react'
+import { Footprints as IconoRecorrido, RefreshCw, Users, Receipt, CalendarClock, MapPinOff, AlertTriangle, ListOrdered, Banknote, PencilLine, Timer } from 'lucide-react'
 import { useSeguimientoAgente } from '../hooks/useSeguimientoAgente'
 import Boton from '../components/ui/Boton'
 import TarjetasResumen from '../components/pagos/TarjetasResumen'
@@ -6,6 +6,7 @@ import RecorridoAgente from '../components/seguimiento/RecorridoAgente'
 import PendientesAgente from '../components/seguimiento/PendientesAgente'
 import { colones } from '../utils/colones'
 import { hoyEnCostaRica } from '../utils/fechaCR'
+import { duracion } from '../utils/ingresosTexto'
 
 /**
  * Seguimiento de agentes (F5 del agente de ventas, 2026-10-29): el usuario
@@ -17,6 +18,9 @@ export default function SeguimientoAgentes() {
   const s = useSeguimientoAgente()
   const r = s.dia?.resumen
   const tarjetas = r ? [
+    // La jornada, si es empleado y la marcó (2026-10-30).
+    ...(r.jornada.tramos > 0 ? [{ clave: 'jornada', titulo: 'Jornada', icono: Timer, valor: duracion(r.jornada.minutos),
+      tono: r.jornada.sinSalida ? 'alerta' : 'neutro', pie: r.jornada.abierta ? 'Trabajando ahora' : r.jornada.sinSalida ? 'Quedó sin salida' : undefined }] : []),
     { clave: 'visitados', titulo: 'Clientes atendidos', icono: Users, valor: r.clientesVisitados, tono: 'neutro',
       pie: r.pendientes !== null ? `Le faltan ${r.pendientes} de hoy` : undefined },
     { clave: 'ventas', titulo: 'Facturas', icono: Receipt, valor: r.ventas, tono: 'exito', pie: colones(r.monto) },
@@ -34,7 +38,7 @@ export default function SeguimientoAgentes() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-neutro-900"><IconoRecorrido className="text-primario-500" />Seguimiento de agentes</h1>
-          <p className="mt-1 text-neutro-500">Qué hizo cada agente en el día, dónde y con qué resultado.</p>
+          <p className="mt-1 text-neutro-500">Qué hizo cada agente en el día, dónde y con qué resultado, y su jornada.</p>
         </div>
         <Boton variante="secundario" icono={RefreshCw} cargando={s.cargando} disabled={!s.agenteId} onClick={s.recargar}>Actualizar</Boton>
       </div>

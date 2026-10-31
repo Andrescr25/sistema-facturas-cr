@@ -8,6 +8,8 @@
  * · El recorrido: cada factura y cada «próxima visita», en orden de hora, con
  *   el GPS del momento (la distancia al cliente la calcula la pantalla con la
  *   ubicación de la ficha, la misma regla de «Cómo llegar»).
+ * · Su jornada, si es empleado (2026-10-30): cuándo inició y terminó, con el
+ *   GPS de cada marca, y las horas del día.
  * · Si el día es HOY, lo que le falta: los clientes de sus rutas que le tocan
  *   (atrasados u hoy, la misma agenda de Preventa) y todavía no visitó.
  *
@@ -20,18 +22,21 @@ const { hoyEnCostaRica, diasEntre } = require('../../utils/fechaCR');
 const { httpError, idValido } = require('../../utils/validacion');
 const { rutasDe, rutasPorUsuario } = require('../usuarios/rutasAsignadas');
 const preventa = require('../preventa/preventa.service');
+const { tramosDelDia } = require('../empleados/jornada.service');
+const { minutosDe } = require('../empleados/liquidacion');
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const num = (v) => (v === null || v === undefined ? null : Number(v));
 const gps = (r) => ({ estado: r.ubicacion_estado || null, latitud: num(r.latitud), longitud: num(r.longitud), precision: num(r.precision_m) });
 
-/** A quiénes se les puede dar seguimiento: quien atiende rutas o anotó visitas en los últimos 90 días. */
+/** A quiénes se les puede dar seguimiento: quien atiende rutas, anotó visitas en los últimos 90 días o es empleado activo. */
 async function agentes() {
   const { rows } = await query(
     `SELECT u.id, u.nombre, u.usuario, u.activo FROM usuario u
       WHERE NOT u.es_admin
         AND (EXISTS (SELECT 1 FROM usuario_ruta ur WHERE ur.usuario_id = u.id)
-          OR EXISTS (SELECT 1 FROM visita v WHERE v.usuario_id = u.id AND v.fecha >= CURRENT_DATE - 90))
+          OR EXISTS (SELECT 1 FROM visita v WHERE v.usuario_id = u.id AND v.fecha >= CURRENT_DATE - 90)
+          OR EXISTS (SELECT 1 FROM empleado e WHERE e.usuario_id = u.id AND e.activo))
       ORDER BY u.activo DESC, lower(u.nombre), u.id`);
   const rutas = await rutasPorUsuario();
   return rows.map(u => ({ ...u, rutas: rutas.get(u.id) || [] }));
@@ -98,7 +103,16 @@ async function dia({ usuarioId, fecha } = {}) {
         AND b.creado_en::date = $2::date AND (b.cambios ? 'rotacion_dias' OR b.cambios ? 'ubicacion_maps')
       ORDER BY b.creado_en, b.id`, [id, elDia]);
 
+  // La jornada (E5 de la planilla, 2026-10-30): cuándo empezó y terminó, y dónde.
+  const tramos = await tramosDelDia(id, elDia);
+  const jornada = (t, evento) => ({
+    tipo: 'jornada', hora: evento === 'entrada' ? t.horaInicio : t.horaFin, momento: evento === 'entrada' ? t.momentoInicio : t.momentoFin,
+    jornada: { id: t.id, evento, estado: t.estado, aMano: t.aMano, correccion: t.correccion, minutos: minutosDe(t) },
+    gps: t.aMano ? null : (evento === 'entrada' ? t.gpsInicio : t.gpsFin)
+  });
+
   const recorrido = [
+    ...tramos.flatMap(t => [jornada(t, 'entrada'), ...(t.fin ? [jornada(t, 'salida')] : [])]),
     ...fichas.map(f => ({
       tipo: 'ficha', hora: f.hora, momento: f.momento,
       cliente: { id: Number(f.entidad_id), nombre: f.cliente_nombre, ubicacionMaps: f.ubicacion_maps },
@@ -141,7 +155,11 @@ async function dia({ usuarioId, fecha } = {}) {
       fueraDeVisita: recorrido.filter(p => p.tipo === 'venta' && !p.desdeVisita).length,
       // Lo que cobró (cuando cobre: hoy su usuario no tiene «Cobrar al facturar»).
       cobrado: Math.round(recorrido.filter(p => p.tipo === 'cobro' && !p.cobro.anulado).reduce((s, p) => s + p.cobro.monto, 0) * 100) / 100,
-      pendientes: pendientes ? pendientes.length : null
+      pendientes: pendientes ? pendientes.length : null,
+      jornada: {
+        tramos: tramos.length, minutos: tramos.reduce((s, t) => s + minutosDe(t), 0),
+        abierta: tramos.some(t => t.estado === 'abierta'), sinSalida: tramos.filter(t => t.estado === 'sin_salida').length
+      }
     },
     recorrido,
     pendientes

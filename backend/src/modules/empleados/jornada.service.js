@@ -61,6 +61,20 @@ async function jornadasEntre(usuarioId, desde, hasta) {
   return rows.map(comoJornada);
 }
 
+/**
+ * Los tramos de un día para el recorrido de Seguimiento (E5): con la hora
+ * escrita y el momento en hora de Costa Rica SIN zona, el mismo formato que
+ * traen las facturas y visitas del recorrido, para que se ordenen juntos.
+ */
+async function tramosDelDia(usuarioId, dia) {
+  const { rows } = await query(
+    `SELECT ${COLUMNAS},
+            to_char(j.inicio AT TIME ZONE ${CR}, 'HH24:MI') AS hora_inicio, j.inicio AT TIME ZONE ${CR} AS momento_inicio,
+            to_char(j.fin AT TIME ZONE ${CR}, 'HH24:MI') AS hora_fin, j.fin AT TIME ZONE ${CR} AS momento_fin
+       ${DESDE} WHERE j.usuario_id = $1 AND j.fecha = $2::date AND j.estado <> 'anulada' ORDER BY j.inicio, j.id`, [usuarioId, dia]);
+  return rows.map(f => ({ ...comoJornada(f), horaInicio: f.hora_inicio, momentoInicio: f.momento_inicio, horaFin: f.hora_fin, momentoFin: f.momento_fin }));
+}
+
 /** La jornada abierta y las que quedaron sin salida en las últimas semanas. */
 async function estadoDe(usuarioId) {
   const id = idValido(usuarioId);
@@ -218,4 +232,4 @@ async function agregar(usuarioId, datos = {}, agregaId) {
   });
 }
 
-module.exports = { SIN_FICHA, jornadasEntre, estadoDe, iniciar, terminar, corregir, agregar };
+module.exports = { SIN_FICHA, jornadasEntre, tramosDelDia, estadoDe, iniciar, terminar, corregir, agregar };

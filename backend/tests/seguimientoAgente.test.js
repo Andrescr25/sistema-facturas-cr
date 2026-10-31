@@ -122,7 +122,8 @@ describe('el día del agente — contra PostgreSQL local', () => {
 
   test('el resumen cuenta bien, y le falta solo el cliente que no visitó', async () => {
     const d = await seguimiento.dia({ usuarioId: agente });
-    assert.deepEqual(d.resumen, { clientesVisitados: 3, ventas: 2, monto: 452, sinVenta: 1, fichasCorregidas: 0, sinGps: 1, fueraDeVisita: 1, cobrado: 0, pendientes: 1 });
+    assert.deepEqual(d.resumen, { clientesVisitados: 3, ventas: 2, monto: 452, sinVenta: 1, fichasCorregidas: 0, sinGps: 1, fueraDeVisita: 1, cobrado: 0, pendientes: 1,
+      jornada: { tramos: 0, minutos: 0, abierta: false, sinSalida: 0 } });
     assert.deepEqual(d.pendientes.map(c => c.nombre), ['ZZ F5 Sin visitar']);
     assert.equal(d.pendientes[0].estado, 'atrasado');
   });

@@ -60,6 +60,12 @@ archivos:
   - frontend/src/components/caja-general/MovimientosCaja.jsx
   - frontend/src/components/cuentas-por-cobrar/PanelCierreCaja.jsx
   - backend/tests/pagosEmpleado.test.js
+  - backend/src/modules/seguimiento/seguimiento.service.js
+  - frontend/src/components/seguimiento/RecorridoAgente.jsx
+  - frontend/src/pages/SeguimientoAgentes.jsx
+  - frontend/src/hooks/useSeguimientoAgente.js
+  - frontend/src/utils/seguimientoAgente.js
+  - backend/tests/seguimientoJornada.test.js
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/permisos]
 medido: 2026-10-30
@@ -176,4 +182,23 @@ es lo que ya se pagó (E4).
 - **Anular un pago** es solo de administrador (`ACCIONES_ADMIN`
   `anular-pago-empleado`): es plata que ya salió de caja. Pide motivo y va a
   la bitácora.
+
+## E5 (2026-10-30): la jornada en «Seguimiento de agentes» — sin migración
+
+- El recorrido del día trae «Inició la jornada» y «Terminó la jornada · 2 h»
+  con el GPS de cada marca (o «agregada/corregida por…» si la tocó quien lleva
+  Empleados; la agregada a mano no tiene GPS). La anulada no sale.
+- **El momento va en hora de Costa Rica SIN zona** (`tramosDelDia`), como las
+  facturas y visitas del recorrido: si fuera con zona, en un servidor en UTC
+  (Render) se ordenaría seis horas corrido. La prueba corre también con TZ=UTC.
+- El resumen suma la tarjeta «Jornada» (horas del día, si quedó sin salida).
+- Un empleado activo sale en la lista de agentes aunque no tenga rutas, y
+  desde Empleados «Su día» abre Seguimiento en ese agente (`?agente=`).
+
+## Para publicar
+
+Las migraciones 072, 073 y 074 van ANTES del código en producción, en ese
+orden (la 074 recrea `movimiento_caja`: comparar antes su definición en
+producción con la de la 027). Después, el usuario crea la ficha de empleado
+del agente en «Empleados» y le da el módulo «Mis ingresos».
 
