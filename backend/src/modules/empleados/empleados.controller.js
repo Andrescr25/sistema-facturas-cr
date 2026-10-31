@@ -20,3 +20,4 @@ exports.corregirJornada = (req, res) => responder(res, () => jornadas.corregir(r
 exports.pagarQuincena = (req, res) => responder(res, () => servicio.pagarQuincena(req.params.usuarioId, req.body || {}, req.usuario?.id));
 exports.pagarGasolina = (req, res) => responder(res, () => servicio.pagarGasolina(req.params.usuarioId, req.body || {}, req.usuario?.id));
 exports.anularPago = (req, res) => responder(res, () => servicio.anularPago(req.params.id, req.body || {}, req.usuario?.id));
+exports.dia = (req, res) => responder(res, () => servicio.diaDe(req.params.usuarioId, req.query.fecha));

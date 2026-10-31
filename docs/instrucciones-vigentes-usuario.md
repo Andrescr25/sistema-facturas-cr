@@ -1408,4 +1408,6 @@ pago «quincenal»; los pagos, «como salida de caja».
 [Resultado](grafo/decision/planilla-del-agente.md). Después, al verla:
 «el diseño de "mis ingresos" los datos están muy dispersos y toda la
 información viene en una sola hoja; proponme un mejor diseño… que sea más
-fácil para el empleado». Eligió «tarjetas → detalle».
+fácil para el empleado». Eligió «tarjetas → detalle». Y de su lado: «en mi vista de admin veo
+todo muy desordenado, ajústalo también; y el seguimiento de agente, pónmelo
+dentro de empleados».

@@ -164,7 +164,7 @@ describe('la pantalla', () => {
       assert.match(leer(...archivo), /<ComisionDelMes comision=\{q\.comision\} \/>/, archivo.join('/'));
     }
     assert.match(leer('pages', 'MisIngresos.jsx'), /<TotalQuincena quincena=\{q\} deuda=\{d\.deuda\}/);
-    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /<ResumenQuincena quincena=\{q\}/);
+    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /<TotalQuincena quincena=\{q\} deuda=\{d\.datos\.deuda\} onElegir=\{d\.setPeriodo\} para="administrador"/);
   });
 
   test('«Mis ingresos»: arriba la jornada y el total; cada tarjeta abre su detalle, que va en la dirección', () => {

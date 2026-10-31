@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import {
   Home, FileText, Users, TrendingUp, DollarSign, Link2, Printer, Settings,
   Menu, X, CreditCard, ClipboardList, Boxes, Image, Wallet, PieChart,
-  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck, History, CalendarDays, Tablet, Footprints, PiggyBank, Briefcase
+  Repeat, Landmark, UserCircle, ShoppingCart, Truck, LineChart, ShieldCheck, History, CalendarDays, Tablet, PiggyBank, Briefcase
 } from 'lucide-react'
 import InstallPWA from './InstallPWA'
 import SidebarNav from './SidebarNav'
@@ -27,7 +27,6 @@ const navigation = [
       { name: 'Facturas en Bodega', href: '/facturas-bodega', icon: ClipboardList },
       { name: 'Clientes', href: '/clientes', icon: UserCircle },
       { name: 'Preventa', href: '/preventa', icon: CalendarDays },
-      { name: 'Seguimiento de agentes', href: '/seguimiento', icon: Footprints },
       { name: 'Mis ingresos', href: '/ingresos', icon: PiggyBank },
       { name: 'Carga y Entregas', href: '/entregas', icon: Truck },
       { name: 'Cuentas por Cobrar', href: '/cuentas-por-cobrar', icon: Wallet },

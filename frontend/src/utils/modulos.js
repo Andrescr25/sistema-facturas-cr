@@ -20,7 +20,6 @@ export const MODULOS = [
   { clave: 'facturas-bodega', nombre: 'Facturas en Bodega', grupo: 'Ventas', ruta: '/facturas-bodega' },
   { clave: 'clientes', nombre: 'Clientes', grupo: 'Ventas', ruta: '/clientes' },
   { clave: 'preventa', nombre: 'Preventa', grupo: 'Ventas', ruta: '/preventa' },
-  { clave: 'seguimiento-agentes', nombre: 'Seguimiento de agentes', grupo: 'Ventas', ruta: '/seguimiento' },
   { clave: 'ingresos', nombre: 'Mis ingresos', grupo: 'Ventas', ruta: '/ingresos' },
   { clave: 'entregas', nombre: 'Carga y Entregas', grupo: 'Ventas', ruta: '/entregas' },
   { clave: 'cuentas-por-cobrar', nombre: 'Cuentas por Cobrar', grupo: 'Ventas', ruta: '/cuentas-por-cobrar' },

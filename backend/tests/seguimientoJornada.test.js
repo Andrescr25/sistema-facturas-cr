@@ -44,8 +44,18 @@ describe('la jornada en el seguimiento — contra PostgreSQL local', () => {
 
   after(async () => { if (db) { await db.query('ROLLBACK'); await db.end(); } });
 
-  test('un empleado sin rutas también sale en la lista de agentes', async () => {
-    assert.ok((await seguimiento.agentes()).some(a => a.id === agente));
+  test('el día se abre desde Empleados, y solo el de un empleado', async () => {
+    assert.equal((await empleados.diaDe(agente)).agente.id, agente);
+    const otro = (await db.query(`INSERT INTO usuario (usuario, nombre, password_hash, activo, es_admin) VALUES ('zz-sin-ficha-dia', 'ZZ', 'zz', TRUE, FALSE) RETURNING id`)).rows[0].id;
+    await assert.rejects(empleados.diaDe(otro), (e) => e.status === 404);
+  });
+
+  test('la 075 borra el permiso del módulo que ya no existe, y se puede correr dos veces', async () => {
+    await db.query(`INSERT INTO usuario_modulo (usuario_id, modulo) VALUES ($1, 'seguimiento-agentes')`, [agente]);
+    const sql = fs.readFileSync(path.join(__dirname, '..', 'migrations', 'independencia', '075_seguimiento_en_empleados.sql'), 'utf8');
+    await db.query(sql); await db.query(sql);
+    const { rows } = await db.query(`SELECT 1 FROM usuario_modulo WHERE modulo = 'seguimiento-agentes'`);
+    assert.equal(rows.length, 0);
   });
 
   test('entrada, la factura y la salida, en orden de hora y con el GPS de cada marca', async () => {
@@ -91,8 +101,8 @@ describe('la pantalla', () => {
     assert.match(r, /Terminó la jornada · \$\{duracion\(p\.jornada\.minutos\)\}/);
   });
 
-  test('desde Empleados se abre el día de ese agente', () => {
-    assert.match(leer('hooks', 'useSeguimientoAgente.js'), /useState\(\(\) => parametros\.get\('agente'\) \|\| ''\)/);
-    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /to=\{`\/seguimiento\?agente=\$\{usuarioId\}`\}/);
+  test('el día va dentro de la ficha del empleado', () => {
+    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /\{ver === 'dia' && <DiaDelEmpleado usuarioId=\{usuarioId\} \/>\}/);
+    assert.match(leer('hooks', 'useDiaDelEmpleado.js'), /api\.get\(`\/empleados\/\$\{usuarioId\}\/dia`, \{ params: \{ fecha \} \}\)/);
   });
 });

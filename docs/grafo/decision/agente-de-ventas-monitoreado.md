@@ -54,9 +54,6 @@ archivos:
   - frontend/src/utils/fechaCR.js
   - backend/tests/visitasDelAgente.test.js
   - backend/src/modules/seguimiento/seguimiento.service.js
-  - backend/src/modules/seguimiento/seguimiento.routes.js
-  - frontend/src/pages/SeguimientoAgentes.jsx
-  - frontend/src/hooks/useSeguimientoAgente.js
   - frontend/src/utils/seguimientoAgente.js
   - frontend/src/components/seguimiento/RecorridoAgente.jsx
   - frontend/src/components/seguimiento/PendientesAgente.jsx
@@ -190,6 +187,13 @@ se arma sin señal. Una página web no puede seguir al agente todo el día: solo
 pregunta dónde está en cada acción.
 
 ## F5 (2026-10-29): Seguimiento de agentes
+
+**Desde el 2026-10-30 está dentro de «Empleados»** (el usuario: «el seguimiento
+de agente, pónmelo dentro de empleados»): «Su día» en la ficha de cada
+empleado, con el permiso `empleados` (`GET /empleados/:usuarioId/dia`). El
+módulo aparte, su menú y `/api/seguimiento` se quitaron, y la migración 075
+borró su permiso. Ver [[decision/planilla-del-agente]]. Lo de abajo es cómo
+nació.
 
 Módulo propio `seguimiento-agentes` (`/seguimiento`, menú Ventas; el
 administrador lo ve por su rol y se le puede dar a un supervisor). Sin SQL:

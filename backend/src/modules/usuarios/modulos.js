@@ -67,15 +67,6 @@ const MODULOS = [
     rutasApi: ['/preventa']
   },
   {
-    clave: 'seguimiento-agentes',
-    nombre: 'Seguimiento de agentes',
-    grupo: 'Ventas',
-    ruta: '/seguimiento',
-    // Qué hizo cada agente en el día: facturas, visitas y su GPS (2026-10-29).
-    // Solo lecturas; un administrador lo ve por su rol.
-    rutasApi: ['/seguimiento']
-  },
-  {
     clave: 'ingresos',
     nombre: 'Mis ingresos',
     grupo: 'Ventas',
@@ -237,7 +228,9 @@ const MODULOS = [
     ruta: '/empleados',
     // La planilla (2026-10-30): tarifas, jornadas, lo ganado y lo que se le debe
     // a cada empleado. El usuario: «desde mi panel administrador ver qué hizo,
-    // cuántas horas, comisión, viáticos, el total que le debo».
+    // cuántas horas, comisión, viáticos, el total que le debo». Y el día de cada
+    // uno (recorrido, ventas, GPS): «el seguimiento de agente, pónmelo dentro de
+    // empleados» — fue el módulo `seguimiento-agentes` hasta la migración 075.
     rutasApi: ['/empleados']
   },
 

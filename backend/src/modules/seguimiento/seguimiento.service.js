@@ -1,5 +1,7 @@
 /**
- * Seguimiento del agente de ventas (F5, 2026-10-29): qué hizo un día.
+ * Seguimiento del agente de ventas (F5, 2026-10-29): qué hizo un día. Desde
+ * la 075 (2026-10-30) se abre dentro de «Empleados», en la ficha de cada uno:
+ * `empleados.service.diaDe` lo llama y el permiso es el de Empleados.
  *
  * El usuario: «quiero tenerlo completamente monitoreado». Todo sale de lo que
  * ya queda guardado —las facturas que creó (`factura.creado_por`) y sus visitas
@@ -20,7 +22,7 @@
 const { query } = require('../../../config/database');
 const { hoyEnCostaRica, diasEntre } = require('../../utils/fechaCR');
 const { httpError, idValido } = require('../../utils/validacion');
-const { rutasDe, rutasPorUsuario } = require('../usuarios/rutasAsignadas');
+const { rutasDe } = require('../usuarios/rutasAsignadas');
 const preventa = require('../preventa/preventa.service');
 const { tramosDelDia } = require('../empleados/jornada.service');
 const { minutosDe } = require('../empleados/liquidacion');
@@ -28,19 +30,6 @@ const { minutosDe } = require('../empleados/liquidacion');
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const num = (v) => (v === null || v === undefined ? null : Number(v));
 const gps = (r) => ({ estado: r.ubicacion_estado || null, latitud: num(r.latitud), longitud: num(r.longitud), precision: num(r.precision_m) });
-
-/** A quiénes se les puede dar seguimiento: quien atiende rutas, anotó visitas en los últimos 90 días o es empleado activo. */
-async function agentes() {
-  const { rows } = await query(
-    `SELECT u.id, u.nombre, u.usuario, u.activo FROM usuario u
-      WHERE NOT u.es_admin
-        AND (EXISTS (SELECT 1 FROM usuario_ruta ur WHERE ur.usuario_id = u.id)
-          OR EXISTS (SELECT 1 FROM visita v WHERE v.usuario_id = u.id AND v.fecha >= CURRENT_DATE - 90)
-          OR EXISTS (SELECT 1 FROM empleado e WHERE e.usuario_id = u.id AND e.activo))
-      ORDER BY u.activo DESC, lower(u.nombre), u.id`);
-  const rutas = await rutasPorUsuario();
-  return rows.map(u => ({ ...u, rutas: rutas.get(u.id) || [] }));
-}
 
 /** Los clientes que le tocan hoy (atrasados u hoy) en sus rutas y todavía no visitó. */
 async function pendientesDeHoy(usuarioId, visitados) {
@@ -166,4 +155,4 @@ async function dia({ usuarioId, fecha } = {}) {
   };
 }
 
-module.exports = { agentes, dia };
+module.exports = { dia };

@@ -241,5 +241,8 @@ con `puedeHacer(req, clave)`; la pantalla, con `puedeAccion`. En el tablero
 salen debajo de su módulo y se van con él. Ver
 [[decision/agente-de-ventas-monitoreado]].
 
-`seguimiento-agentes` (2026-10-29): módulo de solo lectura con lo que hizo cada
-agente; ver [[decision/agente-de-ventas-monitoreado]].
+`seguimiento-agentes` (2026-10-29) fue un módulo de solo lectura con lo que hizo
+cada agente. Desde el 2026-10-30 es «Su día» dentro de `empleados` y la
+migración 075 borró su permiso: una clave que ya no existe en `CLAVES` deja al
+usuario sin poder guardarse (`limpiarModulos` la rechaza). Ver
+[[decision/planilla-del-agente]].

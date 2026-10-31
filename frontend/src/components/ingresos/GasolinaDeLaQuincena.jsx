@@ -12,7 +12,7 @@ const corta = (f) => fechaEnPalabras(f, { weekday: 'short', day: 'numeric', mont
  * de gasolina ya que es en moto, que ahí le salga si ya se lo pagué o no».
  * Con `onPagar`, se marcan los días pendientes y se pagan juntos.
  */
-export default function GasolinaDeLaQuincena({ gasolina, onPagar }) {
+export default function GasolinaDeLaQuincena({ gasolina, onPagar, titulo = 'Gasolina' }) {
   const [elegidos, setElegidos] = useState([])
   const pendientes = gasolina.dias.filter(d => !d.pagada)
   // Lo marcado que sigue pendiente: después de pagar, lo pagado sale solo.
@@ -23,7 +23,7 @@ export default function GasolinaDeLaQuincena({ gasolina, onPagar }) {
   return (
     <section aria-label="Gasolina" className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-neutro-900"><Fuel size={18} className="text-primario-500" />Gasolina</h2>
+        <h2 className="flex items-center gap-2 text-lg font-bold text-neutro-900"><Fuel size={18} className="text-primario-500" />{titulo}</h2>
         {onPagar && pendientes.length > 0 && (
           <Boton variante="secundario" disabled={!marcados.length} onClick={() => onPagar(marcados.map(d => d.fecha), monto)}>
             {marcados.length ? `Pagar ${marcados.length} ${marcados.length === 1 ? 'día' : 'días'} · ${colones(monto)}` : 'Marcá los días a pagar'}

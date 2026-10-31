@@ -46,7 +46,6 @@ archivos:
   - frontend/src/pages/Preventa.jsx
   - backend/tests/clienteNuevo.test.js
   - backend/src/modules/empleados/ventasNetas.js
-  - frontend/src/components/ingresos/ResumenQuincena.jsx
   - frontend/src/components/ingresos/ComisionDelMes.jsx
   - backend/tests/comisionEmpleado.test.js
   - backend/migrations/independencia/074_pago_empleado.sql
@@ -62,12 +61,15 @@ archivos:
   - backend/tests/pagosEmpleado.test.js
   - backend/src/modules/seguimiento/seguimiento.service.js
   - frontend/src/components/seguimiento/RecorridoAgente.jsx
-  - frontend/src/pages/SeguimientoAgentes.jsx
-  - frontend/src/hooks/useSeguimientoAgente.js
   - frontend/src/utils/seguimientoAgente.js
   - backend/tests/seguimientoJornada.test.js
   - frontend/src/components/ingresos/TotalQuincena.jsx
   - frontend/src/components/ingresos/TarjetaIngreso.jsx
+  - backend/migrations/independencia/075_seguimiento_en_empleados.sql
+  - frontend/src/components/empleados/DiaDelEmpleado.jsx
+  - frontend/src/hooks/useDiaDelEmpleado.js
+  - frontend/src/pages/Empleados.jsx
+  - backend/tests/seguimientoAgente.test.js
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/permisos]
 medido: 2026-10-30
@@ -156,8 +158,8 @@ es lo que ya se pagó (E4).
 - **Gasolina**: un monto por día con alguna jornada que no se anuló (también
   la que quedó sin salida: ese día salió a trabajar).
 - **Total de la quincena** = horas + clientes nuevos + gasolina + (comisión
-  del mes, en la 2.ª). En grande, con cada parte y su cuenta
-  (`ResumenQuincena`); el mismo componente para el agente y para Empleados.
+  del mes, en la 2.ª). En grande, con cada parte y su cuenta (hoy:
+  `TotalQuincena` y una tarjeta por parte, ver más abajo).
 
 ## E4 (2026-10-30): pagos, caja y «le debo» — migración 074
 
@@ -194,8 +196,7 @@ es lo que ya se pagó (E4).
   facturas y visitas del recorrido: si fuera con zona, en un servidor en UTC
   (Render) se ordenaría seis horas corrido. La prueba corre también con TZ=UTC.
 - El resumen suma la tarjeta «Jornada» (horas del día, si quedó sin salida).
-- Un empleado activo sale en la lista de agentes aunque no tenga rutas, y
-  desde Empleados «Su día» abre Seguimiento en ese agente (`?agente=`).
+- (Ese mismo día el seguimiento pasó a estar dentro de Empleados: ver abajo.)
 
 ## «Mis ingresos»: tarjetas → detalle (2026-10-30)
 
@@ -210,12 +211,35 @@ gasolina van juntas, día por día. El detalle va en la dirección (`?ver=`):
 el «atrás» del teléfono vuelve al inicio. La tarjeta de pagos muestra el
 último pago, no una deuda: lo que se le debe ya está en «Por cobrar», y dos
 cifras de deuda en la misma pantalla se contradecían a la vista.
-Empleados (administrador) sigue con su detalle completo.
+## «Empleados»: el mismo orden, y el seguimiento adentro (2026-10-30)
+
+El usuario: «en mi vista de admin veo todo muy desordenado, ajústalo también;
+y el seguimiento de agente, pónmelo dentro de empleados».
+- La ficha del empleado va como «Mis ingresos»: arriba quién es (trabajando
+  o no, su tarifa) y la quincena (`TotalQuincena para="administrador"`, con
+  «Pagar quincena» adentro); abajo tarjetas: Su día, Jornadas y gasolina,
+  Clientes nuevos, Comisión y Pagos («Le debo»). Cada una abre su detalle.
+  Empleado y parte abierta van en la dirección (`?empleado=&ver=`).
+- «Jornadas y gasolina»: arriba solo los días de gasolina POR PAGAR (para
+  marcarlos y pagarlos); abajo cada día con sus tramos, «Corregir» y si su
+  gasolina ya se pagó.
+- **«Su día»** es lo que era «Seguimiento de agentes» (`DiaDelEmpleado`): la
+  jornada, el recorrido con GPS, el resumen y lo que le falta hoy. Se pide en
+  `GET /empleados/:usuarioId/dia`, solo de quien tiene ficha, con el permiso
+  `empleados`. El módulo `seguimiento-agentes`, su menú, su página y
+  `/api/seguimiento` se quitaron (un prefijo sin dueño quedaría abierto a
+  cualquier sesión). La migración 075 borra su permiso, sin repartir
+  «Empleados» en su lugar: ese permiso también paga. `/seguimiento` lleva a
+  Empleados. Quien no es empleado ya no tiene seguimiento: el agente se da de
+  alta en Empleados.
+- La tarjeta de la lista: «Le debo» y «Lleva en la quincena» en grande; horas,
+  comisión y clientes nuevos en una línea.
 
 ## Para publicar
 
-Las migraciones 072, 073 y 074 van ANTES del código en producción, en ese
-orden (la 074 recrea `movimiento_caja`: comparar antes su definición en
-producción con la de la 027). Después, el usuario crea la ficha de empleado
+Las migraciones 072, 073, 074 y 075 van ANTES del código en producción, en
+ese orden (la 074 recrea `movimiento_caja`: comparar antes su definición en
+producción con la de la 027; antes de la 075, ver quién tenía
+`seguimiento-agentes`). Después, el usuario crea la ficha de empleado
 del agente en «Empleados» y le da el módulo «Mis ingresos».
 

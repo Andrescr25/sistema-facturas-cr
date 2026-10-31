@@ -23,7 +23,6 @@ import GestionCatalogo from './pages/GestionCatalogo'
 import CatalogoAgente from './pages/CatalogoAgente'
 import Clientes from './pages/Clientes'
 import Preventa from './pages/Preventa'
-import SeguimientoAgentes from './pages/SeguimientoAgentes'
 import MisIngresos from './pages/MisIngresos'
 import Empleados from './pages/Empleados'
 import Entregas from './pages/Entregas'
@@ -129,7 +128,8 @@ function App() {
               <Route path="/caja-general" element={<CajaGeneral />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/preventa" element={<Preventa />} />
-              <Route path="/seguimiento" element={<SeguimientoAgentes />} />
+              {/* «Seguimiento de agentes» vive dentro de Empleados desde el 2026-10-30. */}
+              <Route path="/seguimiento" element={<Navigate to="/empleados" replace />} />
               <Route path="/ingresos" element={<MisIngresos />} />
               <Route path="/empleados" element={<Empleados />} />
               <Route path="/entregas" element={<Entregas />} />

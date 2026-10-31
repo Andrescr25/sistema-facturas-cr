@@ -18,6 +18,7 @@ const jornadas = require('./jornada.service');
 const { clientesNuevos } = require('./clientesNuevos');
 const { ventasNetas } = require('./ventasNetas');
 const pagos = require('./pagosEmpleado.service');
+const seguimiento = require('../seguimiento/seguimiento.service');
 
 // Las tarifas, con sus nombres de la pantalla. Lo que no venga queda como estaba
 // (al crear, lo pone la base: 2 %, ₡2.000 y ₡5.000, lo que decidió el usuario).
@@ -212,6 +213,12 @@ async function listar() {
   return lista;
 }
 
+/** Lo que hizo un empleado un día (el seguimiento): solo de quien tiene ficha. */
+async function diaDe(usuarioId, fecha) {
+  const ficha = await fichaDe(usuarioId);
+  return seguimiento.dia({ usuarioId: ficha.usuarioId, fecha });
+}
+
 // Los pagos leen la quincena con la misma cuenta que se muestra.
 const leerParaPagar = async (usuarioId, clave) => {
   const ficha = await fichaDe(usuarioId);
@@ -221,4 +228,4 @@ const pagarQuincena = (usuarioId, datos, registradoPor) => pagos.pagarQuincena(u
 const pagarGasolina = (usuarioId, datos, registradoPor) =>
   pagos.pagarGasolina(usuarioId, datos, registradoPor, leerParaPagar, (dia) => liquidacion.quincenaDe(dia).clave);
 
-module.exports = { usuariosSinFicha, crear, actualizar, fichaDe, ingresosDe, listar, pagarQuincena, pagarGasolina, anularPago: pagos.anular };
+module.exports = { usuariosSinFicha, crear, actualizar, fichaDe, ingresosDe, listar, diaDe, pagarQuincena, pagarGasolina, anularPago: pagos.anular };

@@ -150,27 +150,26 @@ describe('el día del agente — contra PostgreSQL local', () => {
     await assert.rejects(seguimiento.dia({ usuarioId: 999999999 }), (e) => e.status === 404);
   });
 
-  test('la lista de agentes trae a quien atiende rutas, con sus rutas', async () => {
-    const a = (await seguimiento.agentes()).find(x => x.id === agente);
-    assert.deepEqual(a.rutas.map(r => r.nombre), ['ZZ Ruta F5']);
-  });
 });
 
 describe('permiso y pantalla', () => {
-  test('/seguimiento es de su propio módulo, «Seguimiento de agentes»', () => {
-    const { clasificarRuta, MODULOS } = require('../src/modules/usuarios/modulos');
-    assert.equal(clasificarRuta('/seguimiento/dia').clave, 'seguimiento-agentes');
-    assert.ok(MODULOS.some(m => m.clave === 'seguimiento-agentes' && m.ruta === '/seguimiento'));
+  // 2026-10-30, el usuario: «el seguimiento de agente, pónmelo dentro de
+  // empleados». Ya no es un módulo aparte: el día se pide en /empleados.
+  test('el día es de Empleados; /seguimiento ya no tiene dueño ni se monta', () => {
+    const { moduloDeRuta, MODULOS } = require('../src/modules/usuarios/modulos');
+    assert.equal(moduloDeRuta('/empleados/5/dia'), 'empleados');
+    assert.ok(!MODULOS.some(m => m.clave === 'seguimiento-agentes'));
+    assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /\/api\/seguimiento/);
   });
 
-  test('está en el menú, en la app y en el espejo de módulos', () => {
-    assert.match(leer('components', 'Layout.jsx'), /\{ name: 'Seguimiento de agentes', href: '\/seguimiento', icon: Footprints \}/);
-    assert.match(leer('App.jsx'), /<Route path="\/seguimiento" element=\{<SeguimientoAgentes \/>\} \/>/);
-    assert.match(leer('utils', 'modulos.js'), /clave: 'seguimiento-agentes'/);
+  test('no está en el menú ni en el espejo; la dirección vieja lleva a Empleados', () => {
+    assert.doesNotMatch(leer('components', 'Layout.jsx'), /Seguimiento de agentes/);
+    assert.doesNotMatch(leer('utils', 'modulos.js'), /seguimiento-agentes/);
+    assert.match(leer('App.jsx'), /<Route path="\/seguimiento" element=\{<Navigate to="\/empleados" replace \/>\} \/>/);
   });
 
   test('la pantalla muestra el recorrido con la lectura del GPS y lo que le falta', () => {
     assert.match(leer('components', 'seguimiento', 'RecorridoAgente.jsx'), /const gps = cobro \|\| ficha \? null : lecturaDelGps\(p\.gps, p\.cliente\.ubicacionMaps\)/);
-    assert.match(leer('pages', 'SeguimientoAgentes.jsx'), /<PendientesAgente pendientes=\{s\.dia\.pendientes\} \/>/);
+    assert.match(leer('components', 'empleados', 'DiaDelEmpleado.jsx'), /<PendientesAgente pendientes=\{s\.dia\.pendientes\} \/>/);
   });
 });
