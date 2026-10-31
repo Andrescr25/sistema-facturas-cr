@@ -45,6 +45,10 @@ archivos:
   - frontend/src/utils/identificacionCliente.js
   - frontend/src/pages/Preventa.jsx
   - backend/tests/clienteNuevo.test.js
+  - backend/src/modules/empleados/ventasNetas.js
+  - frontend/src/components/ingresos/ResumenQuincena.jsx
+  - frontend/src/components/ingresos/ComisionDelMes.jsx
+  - backend/tests/comisionEmpleado.test.js
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/permisos]
 medido: 2026-10-30
@@ -118,3 +122,21 @@ es lo que ya se pagó (E4).
 - Una sola copia: el punto en el mapa (`ElegirPunto`), la rotación
   (`ElegirRotacion`), la cédula (`utils/identificacionCliente.js`) y en el
   servidor `enlaceDeUbicacion`/`rotacionValida` sirven a la ficha y al alta.
+
+## E3 (2026-10-30): comisión, gasolina y el total de la quincena — sin migración
+
+- **Ventas netas** (`ventasNetas.js`): `factura.subtotal` (sin IVA, después de
+  descuentos) de lo que facturó él (`creado_por`), emitido, desde su ficha
+  (`empleado.desde`: lo de antes no le comisiona). Menos lo que acredita una
+  nota vigente sobre esas facturas, sin IVA: monto aplicado × subtotal /
+  total de la nota (la nota guarda las dos cosas, como la factura). Resta en
+  el mes de la NOTA. Una factura anulada no suma ni resta.
+- **Comisión** = netas × porcentaje (2 %), por mes. Si las devoluciones pasan
+  las ventas, 0, y no descuenta de otro mes. Se ve en la 1.ª quincena («se
+  paga con la 2.ª») y entra al total en la 2.ª.
+- **Gasolina**: un monto por día con alguna jornada que no se anuló (también
+  la que quedó sin salida: ese día salió a trabajar).
+- **Total de la quincena** = horas + clientes nuevos + gasolina + (comisión
+  del mes, en la 2.ª). En grande, con cada parte y su cuenta
+  (`ResumenQuincena`); el mismo componente para el agente y para Empleados.
+

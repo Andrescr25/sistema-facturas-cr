@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { ArrowLeft, Settings2, Plus, Timer, Banknote, AlertTriangle, UserPlus } from 'lucide-react'
+import { ArrowLeft, Settings2, Plus, Timer, AlertTriangle } from 'lucide-react'
 import Boton from '../ui/Boton'
-import TarjetasResumen from '../pagos/TarjetasResumen'
 import SelectorQuincena from '../ingresos/SelectorQuincena'
 import HorasDeLaQuincena from '../ingresos/HorasDeLaQuincena'
 import ClientesNuevos from '../ingresos/ClientesNuevos'
+import ResumenQuincena from '../ingresos/ResumenQuincena'
+import ComisionDelMes from '../ingresos/ComisionDelMes'
 import ModalEmpleado from './ModalEmpleado'
 import ModalJornada from './ModalJornada'
 import { useDetalleEmpleado } from '../../hooks/useDetalleEmpleado'
-import { colones } from '../../utils/colones'
-import { duracion, nombreDelDia } from '../../utils/ingresosTexto'
+import { nombreDelDia } from '../../utils/ingresosTexto'
 import { horaEnCostaRica } from '../../utils/fechaCR'
 
 /** Un empleado: lo de la quincena, sus jornadas (con corregir) y sus tarifas. */
@@ -20,13 +20,6 @@ export default function DetalleEmpleado({ usuarioId, guardarFicha, onVolver }) {
   const ficha = d.datos?.ficha
   const q = d.datos?.quincena
   const jornada = d.datos?.jornada
-
-  const tarjetas = q ? [
-    { clave: 'horas', titulo: 'Horas trabajadas', icono: Timer, valor: duracion(q.minutos), tono: 'neutro' },
-    { clave: 'porhoras', titulo: 'Ganado por horas', icono: Banknote, valor: colones(q.porHoras), tono: 'exito', pie: `${colones(ficha.tarifas.pagoHora)} por hora` },
-    { clave: 'nuevos', titulo: 'Clientes nuevos', icono: UserPlus, valor: colones(q.clientesNuevos.monto), tono: 'exito',
-      pie: `${q.clientesNuevos.cuentan.length} con primera compra · ${q.clientesNuevos.esperando.length} por comprar` }
-  ] : []
 
   return (
     <div className="space-y-5">
@@ -54,7 +47,8 @@ export default function DetalleEmpleado({ usuarioId, guardarFicha, onVolver }) {
             </p>
           ))}
           <SelectorQuincena periodo={q.periodo} onElegir={d.setPeriodo} />
-          <TarjetasResumen compacta tarjetas={tarjetas} />
+          <ResumenQuincena quincena={q} tarifas={ficha.tarifas} titulo={q.periodo.enCurso ? 'Lleva ganado en esta quincena' : 'Ganado en la quincena'} />
+          <ComisionDelMes comision={q.comision} />
           <section aria-label="Jornadas" className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-lg font-bold text-neutro-900"><Timer size={18} className="text-primario-500" />Jornadas</h3>

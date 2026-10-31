@@ -16,6 +16,7 @@ const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const liquidacion = require('./liquidacion');
 const jornadas = require('./jornada.service');
 const { clientesNuevos } = require('./clientesNuevos');
+const { ventasNetas } = require('./ventasNetas');
 
 // Las tarifas, con sus nombres de la pantalla. Lo que no venga queda como estaba
 // (al crear, lo pone la base: 2 %, ₡2.000 y ₡5.000, lo que decidió el usuario).
@@ -101,9 +102,10 @@ async function actualizar(usuarioId, datos = {}, editaId) {
 }
 
 /**
- * Lo de una quincena: las horas día por día y lo ganado por horas. La que
- * está corriendo, si no se pide otra. `anterior`/`siguiente` para recorrerlas,
- * sin pasar de hoy ni de antes de su ficha.
+ * Lo de una quincena: horas día por día, clientes nuevos, gasolina y la
+ * comisión de su mes (se suma al total solo en la 2.ª quincena; en la 1.ª se
+ * muestra cómo va). La que está corriendo, si no se pide otra.
+ * `anterior`/`siguiente` para recorrerlas, sin pasar de hoy ni de antes de su ficha.
  */
 async function quincenaDe(ficha, clave) {
   const actual = liquidacion.quincenaDe(hoyEnCostaRica());
@@ -114,14 +116,31 @@ async function quincenaDe(ficha, clave) {
   const dias = liquidacion.horasPorDia(await jornadas.jornadasEntre(ficha.usuarioId, q.desde, q.hasta));
   const minutos = dias.reduce((s, d) => s + d.minutos, 0);
   const clientes = await clientesNuevos(ficha.usuarioId, q);
+  const t = ficha.tarifas;
+  const fechasGasolina = liquidacion.diasConGasolina(dias);
+  const mes = liquidacion.mesDe(q);
+  const ventas = await ventasNetas(ficha.usuarioId, mes, ficha.desde);
+  const comision = {
+    ...mes, ...ventas, porcentaje: t.comisionPorcentaje, monto: liquidacion.comisionDe(ventas.netas, t.comisionPorcentaje),
+    enEstaQuincena: q.numero === 2, enCurso: hoyEnCostaRica() <= mes.hasta
+  };
+  const montos = {
+    porHoras: liquidacion.montoPorHoras(minutos, t.pagoHora),
+    clientesNuevos: liquidacion.montoPorCada(clientes.cuentan.length, t.incentivoClienteNuevo),
+    gasolina: liquidacion.montoPorCada(fechasGasolina.length, t.gasolinaDiaria),
+    comision: comision.enEstaQuincena ? comision.monto : 0
+  };
   return {
     periodo: {
       ...q, enCurso: q.clave === actual.clave,
       anterior: anterior.hasta >= ficha.desde ? anterior.clave : null,
       siguiente: q.clave === actual.clave ? null : liquidacion.quincenaSiguiente(q).clave
     },
-    dias, minutos, porHoras: liquidacion.montoPorHoras(minutos, ficha.tarifas.pagoHora),
-    clientesNuevos: { ...clientes, monto: liquidacion.montoPorCada(clientes.cuentan.length, ficha.tarifas.incentivoClienteNuevo) }
+    dias, minutos, porHoras: montos.porHoras,
+    clientesNuevos: { ...clientes, monto: montos.clientesNuevos },
+    gasolina: { dias: fechasGasolina, porDia: t.gasolinaDiaria, monto: montos.gasolina },
+    comision,
+    total: liquidacion.dinero(montos.porHoras + montos.clientesNuevos + montos.gasolina + montos.comision)
   };
 }
 
@@ -138,8 +157,13 @@ async function listar() {
   for (const fila of rows) {
     const ficha = comoFicha(fila);
     const { quincena, jornada } = await ingresosDe(ficha.usuarioId);
-    const { periodo, minutos, porHoras, clientesNuevos: nuevos } = quincena;
-    lista.push({ ...ficha, jornada, quincena: { periodo, minutos, porHoras, clientesNuevos: { cuentan: nuevos.cuentan.length, esperando: nuevos.esperando.length, monto: nuevos.monto } } });
+    const { periodo, minutos, porHoras, clientesNuevos: nuevos, gasolina, comision, total } = quincena;
+    lista.push({ ...ficha, jornada, quincena: {
+      periodo, minutos, porHoras, total,
+      clientesNuevos: { cuentan: nuevos.cuentan.length, esperando: nuevos.esperando.length, monto: nuevos.monto },
+      gasolina: { dias: gasolina.dias.length, monto: gasolina.monto },
+      comision: { nombre: comision.nombre, netas: comision.netas, monto: comision.monto, enEstaQuincena: comision.enEstaQuincena }
+    } });
   }
   return lista;
 }

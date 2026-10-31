@@ -8,6 +8,9 @@
  * · Se paga por QUINCENA: del 1 al 15 y del 16 a fin de mes (calendario de
  *   Costa Rica).
  *
+ * · Comisión: «2 % de ventas netas», por MES; entra entera en la 2.ª quincena.
+ * · ₡2.000 por cliente nuevo y ₡5.000 de gasolina por día trabajado.
+ *
  * Todo se calcula al leer, de lo que quedó guardado: ninguna cuenta se guarda
  * en una columna, porque así es como queda desactualizada sin que nadie lo note.
  */
@@ -78,6 +81,22 @@ const montoPorHoras = (minutos, pagoHora) => dinero((Number(minutos) || 0) * (Nu
 /** Un monto fijo por cada uno: clientes nuevos × incentivo, días × gasolina. */
 const montoPorCada = (cantidad, tarifa) => dinero((Number(cantidad) || 0) * (Number(tarifa) || 0));
 
+/** El mes de una quincena: su comisión se calcula entera y se paga con la 2.ª. */
+function mesDe(q) {
+  const [anio, mes] = q.mes.split('-').map(Number);
+  return { mes: q.mes, desde: `${q.mes}-01`, hasta: `${q.mes}-${dos(ultimoDia(anio, mes))}`, nombre: `${MESES[mes - 1]} ${anio}` };
+}
+
+/**
+ * Comisión = ventas netas × porcentaje, a céntimos. Si un mes las devoluciones
+ * pasan las ventas, queda en 0: no descuenta de otro mes.
+ */
+const comisionDe = (netas, porcentaje) => dinero(Math.max(0, Number(netas) || 0) * (Number(porcentaje) || 0) / 100);
+
+/** Los días con gasolina: los que tienen al menos una jornada que no se anuló. */
+const diasConGasolina = (dias) => dias.filter(d => d.tramos.some(t => t.estado !== 'anulada')).map(d => d.fecha);
+
 module.exports = {
-  HORAS_MAXIMAS, dinero, quincenaDe, quincenaPorClave, quincenaAnterior, quincenaSiguiente, minutosDe, horasPorDia, montoPorHoras, montoPorCada
+  HORAS_MAXIMAS, dinero, quincenaDe, quincenaPorClave, quincenaAnterior, quincenaSiguiente, minutosDe, horasPorDia, montoPorHoras, montoPorCada,
+  mesDe, comisionDe, diasConGasolina
 };
