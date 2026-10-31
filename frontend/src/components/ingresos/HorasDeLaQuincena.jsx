@@ -1,9 +1,10 @@
-import { CalendarDays, MapPin, PencilLine } from 'lucide-react'
+import { CalendarDays, MapPin, PencilLine, Fuel } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import Boton from '../ui/Boton'
 import Vacio from '../ui/Vacio'
 import { duracion, nombreDelDia, ESTADOS_JORNADA } from '../../utils/ingresosTexto'
-import { horaEnCostaRica } from '../../utils/fechaCR'
+import { horaEnCostaRica, fechaEnPalabras } from '../../utils/fechaCR'
+import { colones } from '../../utils/colones'
 import { mapaDe } from '../../utils/seguimientoAgente'
 
 function Punto({ gps, etiqueta }) {
@@ -13,12 +14,23 @@ function Punto({ gps, etiqueta }) {
   return <span className="text-alerta-700">{etiqueta}: {gps.estado === 'negada' ? 'sin permiso de ubicación' : 'sin ubicación'}</span>
 }
 
+function Gasolina({ dia }) {
+  if (!dia) return null
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-neutro-600">
+      <Fuel size={14} className="shrink-0 text-neutro-400" />Gasolina {colones(dia.monto)}
+      {dia.pagada ? <Insignia tono="exito">Pagada {fechaEnPalabras(dia.pagadoEl, { day: 'numeric', month: 'short' })}</Insignia> : <Insignia tono="alerta">Pendiente</Insignia>}
+    </p>
+  )
+}
+
 /**
  * Las horas de una quincena, día por día y tramo por tramo (2026-10-30). La
  * ve el empleado en «Mis ingresos» y el administrador en «Empleados»: con
- * `onCorregir`, cada tramo se puede corregir o anular.
+ * `onCorregir`, cada tramo se puede corregir o anular. Con `gasolina`, cada
+ * día dice también su gasolina y si ya se pagó: las dos cosas van por día.
  */
-export default function HorasDeLaQuincena({ dias, onCorregir }) {
+export default function HorasDeLaQuincena({ dias, onCorregir, gasolina }) {
   if (!dias.length) return <Vacio icono={CalendarDays} titulo="Sin jornadas en esta quincena" descripcion="Cada día que se marque la jornada aparece acá con sus horas." />
   return (
     <ol className="space-y-3">
@@ -28,6 +40,7 @@ export default function HorasDeLaQuincena({ dias, onCorregir }) {
             <h3 className="font-bold text-neutro-900 first-letter:uppercase">{nombreDelDia(d.fecha)}</h3>
             <span className="text-lg font-bold text-primario-700">{duracion(d.minutos)}</span>
           </div>
+          <Gasolina dia={gasolina?.dias.find(g => g.fecha === d.fecha)} />
           <ul className="mt-2 space-y-2">
             {d.tramos.map(t => {
               const estado = ESTADOS_JORNADA[t.estado] || ESTADOS_JORNADA.cerrada

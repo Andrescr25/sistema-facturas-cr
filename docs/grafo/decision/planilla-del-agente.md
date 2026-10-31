@@ -66,6 +66,8 @@ archivos:
   - frontend/src/hooks/useSeguimientoAgente.js
   - frontend/src/utils/seguimientoAgente.js
   - backend/tests/seguimientoJornada.test.js
+  - frontend/src/components/ingresos/TotalQuincena.jsx
+  - frontend/src/components/ingresos/TarjetaIngreso.jsx
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/permisos]
 medido: 2026-10-30
@@ -194,6 +196,21 @@ es lo que ya se pagó (E4).
 - El resumen suma la tarjeta «Jornada» (horas del día, si quedó sin salida).
 - Un empleado activo sale en la lista de agentes aunque no tenga rutas, y
   desde Empleados «Su día» abre Seguimiento en ese agente (`?agente=`).
+
+## «Mis ingresos»: tarjetas → detalle (2026-10-30)
+
+El usuario, al verla: «los datos están muy dispersos y toda la información
+viene en una sola hoja». De tres propuestas eligió «tarjetas → detalle», la
+forma de Cuentas por Cobrar. Arriba lo de cada día: la jornada y lo ganado en
+la quincena (`TotalQuincena`: con las flechas de la quincena, «Te pagaron» y
+«Por cobrar», y lo que se debe de OTRAS quincenas si hay). Abajo una tarjeta
+grande por parte (`TarjetaIngreso`): Horas, Gasolina, Clientes nuevos,
+Comisión y Mis pagos; tocarla abre su detalle con «← Mis ingresos». Horas y
+gasolina van juntas, día por día. El detalle va en la dirección (`?ver=`):
+el «atrás» del teléfono vuelve al inicio. La tarjeta de pagos muestra el
+último pago, no una deuda: lo que se le debe ya está en «Por cobrar», y dos
+cifras de deuda en la misma pantalla se contradecían a la vista.
+Empleados (administrador) sigue con su detalle completo.
 
 ## Para publicar
 

@@ -159,12 +159,20 @@ describe('la pantalla', () => {
   const FRONT = path.join(__dirname, '..', '..', 'frontend', 'src');
   const leer = (...p) => sinComentarios(fs.readFileSync(path.join(FRONT, ...p), 'utf8'));
 
-  test('el resumen y la comisión son los mismos para el empleado y para Empleados', () => {
+  test('la comisión es la misma para el empleado y para Empleados; cada uno con su resumen', () => {
     for (const archivo of [['pages', 'MisIngresos.jsx'], ['components', 'empleados', 'DetalleEmpleado.jsx']]) {
-      const c = leer(...archivo);
-      assert.match(c, /<ResumenQuincena quincena=\{q\}/, archivo.join('/'));
-      assert.match(c, /<ComisionDelMes comision=\{q\.comision\} \/>/, archivo.join('/'));
+      assert.match(leer(...archivo), /<ComisionDelMes comision=\{q\.comision\} \/>/, archivo.join('/'));
     }
+    assert.match(leer('pages', 'MisIngresos.jsx'), /<TotalQuincena quincena=\{q\} deuda=\{d\.deuda\}/);
+    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /<ResumenQuincena quincena=\{q\}/);
+  });
+
+  test('«Mis ingresos»: arriba la jornada y el total; cada tarjeta abre su detalle, que va en la dirección', () => {
+    const m = leer('pages', 'MisIngresos.jsx');
+    assert.match(m, /const SECCIONES = \['dias', 'clientes', 'comision', 'pagos'\]/);
+    assert.match(m, /setParametros\(seccion \? \{ ver: seccion \} : \{\}\)/);
+    for (const s of ['dias', 'clientes', 'comision', 'pagos']) assert.match(m, new RegExp(`onClick=\\{\\(\\) => abrir\\('${s}'\\)\\}`), s);
+    assert.match(m, /onClick=\{\(\) => abrir\(null\)\}>Mis ingresos<\/Boton>/);
   });
 
   test('en la 1.ª quincena la comisión se muestra aparte y dice cuándo se paga', () => {

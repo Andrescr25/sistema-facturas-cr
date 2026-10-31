@@ -295,7 +295,7 @@ describe('la pantalla', () => {
   });
 
   test('las horas por día son las mismas para el empleado y para Empleados, que además corrige', () => {
-    assert.match(leer('pages', 'MisIngresos.jsx'), /<HorasDeLaQuincena dias=\{q\.dias\} \/>/);
+    assert.match(leer('pages', 'MisIngresos.jsx'), /<HorasDeLaQuincena dias=\{q\.dias\} gasolina=\{q\.gasolina\} \/>/);
     assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /<HorasDeLaQuincena dias=\{q\.dias\} onCorregir=\{setTramo\} \/>/);
   });
 });

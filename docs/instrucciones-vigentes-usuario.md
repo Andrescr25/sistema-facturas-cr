@@ -1405,4 +1405,7 @@ trabajada; comisión «sin IVA, menos devoluciones»; cliente nuevo «con su
 primera compra»; «le pienso dar 5000 colones de gasolina ya que es en moto,
 entonces que ahí le salga si ya se lo pagué o no», «por cada día trabajado»;
 pago «quincenal»; los pagos, «como salida de caja».
-[Resultado](grafo/decision/planilla-del-agente.md).
+[Resultado](grafo/decision/planilla-del-agente.md). Después, al verla:
+«el diseño de "mis ingresos" los datos están muy dispersos y toda la
+información viene en una sola hoja; proponme un mejor diseño… que sea más
+fácil para el empleado». Eligió «tarjetas → detalle».

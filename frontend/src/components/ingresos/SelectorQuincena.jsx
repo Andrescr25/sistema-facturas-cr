@@ -4,10 +4,13 @@ import { fechaEnPalabras } from '../../utils/fechaCR'
 
 const corta = (f) => fechaEnPalabras(f, { day: 'numeric', month: 'short' })
 
-/** Recorrer las quincenas: la anterior y la siguiente las dice el servidor. */
-export default function SelectorQuincena({ periodo, onElegir }) {
+/**
+ * Recorrer las quincenas: la anterior y la siguiente las dice el servidor.
+ * `sinTarjeta`: va dentro de otra tarjeta (el total de «Mis ingresos»).
+ */
+export default function SelectorQuincena({ periodo, onElegir, sinTarjeta = false }) {
   return (
-    <div className="card flex items-center justify-between gap-2 p-3">
+    <div className={`flex items-center justify-between gap-2 ${sinTarjeta ? '' : 'card p-3'}`}>
       <Boton variante="fantasma" icono={ChevronLeft} disabled={!periodo.anterior} onClick={() => onElegir(periodo.anterior)} aria-label="Quincena anterior" />
       <div className="min-w-0 text-center">
         <p className="font-bold text-neutro-900">{periodo.nombre}</p>
