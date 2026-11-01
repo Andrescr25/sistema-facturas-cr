@@ -144,7 +144,8 @@ describe('la pantalla', () => {
 
   test('«Cliente nuevo» sale con una ruta elegida y fuera de una visita', () => {
     const p = leer('pages', 'Preventa.jsx');
-    assert.match(p, /\{ruta && !agenda\.seleccionId && <Boton icono=\{UserPlus\} onClick=\{\(\) => setNuevo\(true\)\}>Cliente nuevo<\/Boton>\}/);
+    assert.match(p, /\{!clienteAbierto && \(/);
+    assert.match(p, /\{ruta && <Boton icono=\{UserPlus\} onClick=\{\(\) => setNuevo\(true\)\}>Cliente nuevo<\/Boton>\}/);
     assert.match(leer('hooks', 'useClienteNuevo.js'), /api\.post\('\/preventa\/clientes', datos\)/);
   });
 

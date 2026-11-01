@@ -280,7 +280,7 @@ describe('la pantalla', () => {
   });
 
   test('Preventa recuerda iniciar la jornada solo a quien mantiene visible «Mis ingresos»', async () => {
-    assert.match(leer('pages', 'Preventa.jsx'), /\{visibleEnMenu\(usuario, '\/ingresos'\) && !agenda\.seleccionId && <RecordatorioJornada \/>\}/);
+    assert.match(leer('pages', 'Preventa.jsx'), /\{visibleEnMenu\(usuario, '\/ingresos'\) && !clienteAbierto && <RecordatorioJornada \/>\}/);
     const { visibleEnMenu } = await import('../../frontend/src/utils/modulos.js');
     assert.equal(visibleEnMenu({ modulos: ['ingresos'] }, '/ingresos'), true);
     assert.equal(visibleEnMenu({ esAdmin: true, modulosOcultos: ['ingresos'] }, '/ingresos'), false);

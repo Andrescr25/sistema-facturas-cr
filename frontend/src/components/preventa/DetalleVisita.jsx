@@ -27,7 +27,7 @@ const TONO = {
  *
  * «Próxima visita» (F4): si no compró, el motivo y para cuándo queda.
  */
-export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita, alGuardarFicha }) {
+export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita, alGuardarFicha, vista = 'ruta' }) {
   const [proxima, setProxima] = useState(false)
   // Rotación y punto exacto en el mapa, desde la visita (2026-10-29).
   const [editando, setEditando] = useState(null) // 'rotacion' | 'ubicacion'
@@ -38,11 +38,11 @@ export default function DetalleVisita({ cliente, hoy, volver, alGuardarVisita, a
   const llegar = enlacesParaLlegar(cliente.ubicacion_maps)
   const contactos = contactosDe(cliente)
   const ruta = cliente.ruta?.id ? `&ruta=${cliente.ruta.id}` : ''
-  const facturar = () => navigate(`/facturacion?cliente=${cliente.id}&desde=preventa${ruta}`)
+  const facturar = () => navigate(`/facturacion?cliente=${cliente.id}&desde=preventa${ruta}&vista=${vista}`)
 
   return (
     <div className="space-y-5">
-      <Boton variante="secundario" icono={ArrowLeft} onClick={volver}>Volver a la agenda</Boton>
+      <Boton variante="secundario" icono={ArrowLeft} onClick={volver}>{vista === 'dia' ? 'Volver a mi día' : 'Volver a la agenda'}</Boton>
 
       <div className="card p-5 sm:p-7">
         <h2 className="break-words text-2xl font-bold text-neutro-900">{cliente.nombre}</h2>

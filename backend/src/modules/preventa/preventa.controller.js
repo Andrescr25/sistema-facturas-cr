@@ -4,6 +4,7 @@ const { rutasDe } = require('../usuarios/rutasAsignadas');
 const visitas = require('./visitas');
 const { corregirFicha } = require('./fichaDesdeVisita');
 const { crearClienteNuevo } = require('./clienteNuevo');
+const plan = require('./planDelDia');
 
 // Sin «Ver todas las rutas», solo las que se le asignaron en Usuarios (2026-10-29).
 const rutasPermitidas = async (req) => ((await puedeHacer(req, 'rutas-todas')) ? null : rutasDe(req.usuario.id));
@@ -30,3 +31,9 @@ exports.corregirFicha = (req, res) => responder(res, async () =>
 // «Cliente nuevo» (2026-10-30): queda a su nombre para el incentivo, en una de sus rutas.
 exports.clienteNuevo = (req, res) => responder(res, async () =>
   crearClienteNuevo(req.body || {}, { usuarioId: req.usuario?.id, rutasPermitidas: await rutasPermitidas(req) }));
+// «Mi día» (2026-11-01): el plan de visitas de hoy. Siempre el de su sesión.
+exports.plan = (req, res) => responder(res, () => plan.planDe(req.usuario?.id));
+exports.agregarAlPlan = (req, res) => responder(res, async () =>
+  plan.agregar(req.usuario?.id, req.body?.clienteIds, { rutasPermitidas: await rutasPermitidas(req) }));
+exports.quitarDelPlan = (req, res) => responder(res, () => plan.quitar(req.usuario?.id, req.params.clienteId));
+exports.ordenarPlan = (req, res) => responder(res, () => plan.ordenar(req.usuario?.id, req.body?.clienteIds));

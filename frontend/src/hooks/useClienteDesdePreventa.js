@@ -19,6 +19,8 @@ export function useClienteDesdePreventa({ clientes, clienteSeleccionado, selecci
   const [parametros] = useSearchParams()
   const id = Number(parametros.get('cliente')) || null
   const ruta = parametros.get('ruta')
+  // De qué pestaña de Preventa salió («Mi día» o «Toda la ruta»), para volver a ella.
+  const vista = parametros.get('vista')
   const [noEsta, setNoEsta] = useState(false)
   const [ubicacion, setUbicacion] = useState(null)
   const hecho = useRef(false)
@@ -46,7 +48,7 @@ export function useClienteDesdePreventa({ clientes, clienteSeleccionado, selecci
   return {
     desdePreventa,
     visita,
-    volverA: `/preventa${ruta ? `?ruta=${encodeURIComponent(ruta)}` : ''}`,
+    volverA: `/preventa?${new URLSearchParams({ ...(ruta ? { ruta } : {}), ...(vista === 'ruta' ? { vista } : {}) })}`,
     clienteNoEsta: noEsta
   }
 }

@@ -67,7 +67,7 @@ describe('cómo contactarlo', () => {
 describe('la pantalla', () => {
   test('la visita ofrece Facturar (con el cliente y la ruta en la dirección) solo a quien tiene Facturación', () => {
     const d = leer('components', 'preventa', 'DetalleVisita.jsx');
-    assert.match(d, /navigate\(`\/facturacion\?cliente=\$\{cliente\.id\}&desde=preventa\$\{ruta\}`\)/);
+    assert.match(d, /navigate\(`\/facturacion\?cliente=\$\{cliente\.id\}&desde=preventa\$\{ruta\}&vista=\$\{vista\}`\)/);
     assert.match(d, /\{puedeVer\(usuario, '\/facturacion'\) && \(/);
     assert.match(d, /Abrir en Maps/);
     assert.match(d, /\{llegar\.waze && /);
@@ -82,7 +82,8 @@ describe('la pantalla', () => {
   test('Preventa guarda la ruta en la dirección, para volver donde estaba', () => {
     const h = leer('hooks', 'useAgendaPreventa.js');
     assert.match(h, /useState\(\(\) => parametros\.get\('ruta'\) \|\| ''\)/);
-    assert.match(h, /if \(\(parametros\.get\('ruta'\) \|\| ''\) !== rutaId\) setParametros\(rutaId \? \{ ruta: rutaId \} : \{\}, \{ replace: true \}\)/);
+    assert.match(h, /if \(\(parametros\.get\('ruta'\) \|\| ''\) === rutaId\) return/);
+    assert.match(h, /if \(rutaId\) nuevos\.set\('ruta', rutaId\); else nuevos\.delete\('ruta'\)/);
   });
 
   test('Facturación elige el cliente que llega de Preventa, una vez, y ofrece volver', () => {

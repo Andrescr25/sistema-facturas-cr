@@ -28,9 +28,15 @@ export function useAgendaPreventa() {
     setFiltros({ estado: 'todos', buscar: '' })
   }, [])
 
-  // La dirección sigue a la ruta elegida, a mano o sola (la única del agente).
+  // La dirección sigue a la ruta elegida, a mano o sola (la única del agente),
+  // sin tocar lo demás que lleve (la pestaña de Preventa, `vista`).
   useEffect(() => {
-    if ((parametros.get('ruta') || '') !== rutaId) setParametros(rutaId ? { ruta: rutaId } : {}, { replace: true })
+    if ((parametros.get('ruta') || '') === rutaId) return
+    setParametros(actuales => {
+      const nuevos = new URLSearchParams(actuales)
+      if (rutaId) nuevos.set('ruta', rutaId); else nuevos.delete('ruta')
+      return nuevos
+    }, { replace: true })
   }, [rutaId, parametros, setParametros])
 
   useEffect(() => {

@@ -1442,3 +1442,14 @@ no como una opción local del navegador; se retira la implementación anterior.
 2026-10-31: «subelo al main». Se publica la selección de módulos desde
 Usuarios y permisos con 076 aplicada antes, conservando roles y accesos.
 [Aplicación y verificación](grafo/modulo/permisos.md).
+
+
+## 2026-11-01 — «Mi día» en Preventa
+
+El usuario: «mejoremos el módulo de preventa; acá el agente de ventas quiero
+que pueda organizar mejor cuál cliente quiere visitar primero, o sea quiero
+que este módulo de preventa sea más dinámico, que el agente lo edite a su
+gusto». Eligió: un plan por día con clientes de todas sus rutas; que el agente
+también pueda guardar su orden como el de su ruta; atajos «Orden de la ruta» y
+«Mapa del día». «Dale sí, en developer.»
+[Resultado](grafo/decision/mi-dia-en-preventa.md).
