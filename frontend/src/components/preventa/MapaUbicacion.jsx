@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { crearMapa } from './mapaBase'
 
 // El marcador se dibuja acá (SVG): las imágenes por defecto de Leaflet no
 // sobreviven al empaquetado y el pin salía roto.
@@ -14,8 +14,7 @@ const PIN = L.divIcon({
 /**
  * El mapa para marcar el punto exacto del local (2026-10-29: «que pueda
  * asignarle ubicación con punto exacto en el mapa»). Tocar el mapa pone el
- * marcador; arrastrarlo lo ajusta. Mosaicos de OpenStreetMap: no piden llave,
- * pero sí internet.
+ * marcador; arrastrarlo lo ajusta. El mapa y sus mosaicos salen de mapaBase.js.
  *
  * `vista` centra el mapa (al abrir, o al usar el GPS); `punto` es el marcador.
  * Se carga aparte (React.lazy): Leaflet no viaja con el resto de la aplicación.
@@ -28,15 +27,10 @@ export default function MapaUbicacion({ punto, vista, onCambiar, alto = 'h-[55vh
   alCambiar.current = onCambiar
 
   useEffect(() => {
-    const m = L.map(caja.current, { zoomControl: true, attributionControl: true })
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; OpenStreetMap'
-    }).addTo(m)
+    const { mapa: m, quitar } = crearMapa(caja.current)
     m.on('click', (e) => alCambiar.current({ lat: e.latlng.lat, lng: e.latlng.lng }))
     mapa.current = m
-    // Dentro del modal el tamaño final llega un instante después.
-    const t = setTimeout(() => m.invalidateSize(), 60)
-    return () => { clearTimeout(t); m.remove(); mapa.current = null; marcador.current = null }
+    return () => { quitar(); mapa.current = null; marcador.current = null }
   }, [])
 
   useEffect(() => {

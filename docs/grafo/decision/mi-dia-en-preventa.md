@@ -22,6 +22,10 @@ archivos:
   - backend/tests/planDelDia.test.js
   - backend/src/modules/rutas/rutas.service.js
   - frontend/src/components/preventa/ModalOrdenDeRuta.jsx
+  - frontend/src/components/preventa/ModalMapaDelDia.jsx
+  - frontend/src/components/preventa/MapaDelDia.jsx
+  - frontend/src/components/preventa/mapaBase.js
+  - frontend/src/components/preventa/MapaUbicacion.jsx
 aristas:
   relacionado: [modulo/preventa-agenda, decision/agente-de-ventas-monitoreado, decision/planilla-del-agente]
 medido: 2026-11-01
@@ -84,4 +88,21 @@ urgentes primero»). Se construye por partes: 1 «Mi día» · 2 orden de la rut
 - El botón solo sale si guardar cambiaría alguna ruta (`difiereDeLaRuta`:
   dentro de una misma ruta, los del día no van en su orden). Mezclar rutas en
   el día no cambia ninguna.
+
+## 3 (2026-11-01): «Mapa del día» — sin migración
+
+- Botón «Mapa del día» en «Mi día»: un modal con el mapa (Leaflet, se carga
+  aparte) y los clientes del día numerados en el orden del plan, unidos por una
+  línea punteada en ese orden. Verde el que ya visitó; oscuro el siguiente; el
+  elegido con anillo. Arranca mostrando el siguiente.
+- Tocar un número muestra ese cliente abajo con «Ver visita» (cierra el mapa y
+  abre su visita), Waze y Maps. El elegido y el siguiente van encima de los que
+  caen en el mismo punto (`zIndexOffset`); acercando el mapa se separan.
+- Los que no tienen ubicación se nombran aparte («Sin ubicación marcada»),
+  tocables para ir a su visita y marcarla (`puntosDelDia` en utils/planDelDia.js
+  usa `coordenadasDe`, la misma regla de «Cómo llegar»).
+- **Una sola copia del mapa base** (`mapaBase.js`: el mapa con los mosaicos de
+  OpenStreetMap y su atribución) para el de la ubicación y el del día. La línea
+  toma el color de la paleta con una clase (`stroke-neutro-500`), que en SVG
+  manda sobre el color que pone Leaflet.
 

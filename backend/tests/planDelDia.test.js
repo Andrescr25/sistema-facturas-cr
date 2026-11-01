@@ -181,6 +181,28 @@ describe('la pantalla', () => {
     assert.equal(difiereDeLaRuta([x(1, 7, 2), x(2, 7, 1)]), true);
   });
 
+  test('«Mapa del día»: cada uno con su número del plan; los que no tienen ubicación, aparte', async () => {
+    const { puntosDelDia } = await import(path.join(FRONT, 'utils', 'planDelDia.js'));
+    const x = (id, enlace, atendido = null) => ({ cliente: { id, nombre: `C${id}`, ubicacion_maps: enlace }, atendido });
+    const { conPunto, sinPunto } = puntosDelDia([
+      x(1, 'https://www.google.com/maps?q=10.056900,-84.435100', { como: 'venta' }),
+      x(2, null),
+      x(3, 'https://www.google.com/maps?q=10.060300,-84.428700'),
+      x(4, 'https://maps.app.goo.gl/sin-coordenadas')
+    ]);
+    assert.deepEqual(conPunto.map(p => [p.numero, p.id, p.atendido, p.lat]), [[1, 1, true, 10.0569], [3, 3, false, 10.0603]]);
+    assert.deepEqual(sinPunto.map(p => [p.numero, p.id]), [[2, 2], [4, 4]]);
+  });
+
+  test('el mapa se carga aparte, numera en orden, une con una línea de la paleta y tocar un número lo elige', () => {
+    assert.match(leer('components', 'preventa', 'ModalMapaDelDia.jsx'), /const MapaDelDia = lazy\(\(\) => import\('\.\/MapaDelDia'\)\)/);
+    const m = leer('components', 'preventa', 'MapaDelDia.jsx');
+    assert.match(m, /crearMapa\(caja\.current\)/);
+    assert.match(m, /className: 'stroke-neutro-500'/);
+    assert.match(m, /\.on\('click', \(\) => alElegir\.current\(p\.id\)\)/);
+    assert.match(leer('components', 'preventa', 'PlanDelDia.jsx'), /\{total > 0 && <Boton variante="secundario" icono=\{IconoMapa\} onClick=\{\(\) => setConMapa\(true\)\}>Mapa del día<\/Boton>\}/);
+  });
+
   test('Preventa abre en «Mi día»; «Toda la ruta» es la agenda de siempre', () => {
     const p = leer('pages', 'Preventa.jsx');
     assert.match(p, /const vista = parametros\.get\('vista'\) === 'ruta' \? 'ruta' : 'dia'/);

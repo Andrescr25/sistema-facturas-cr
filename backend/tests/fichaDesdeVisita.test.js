@@ -113,9 +113,12 @@ describe('la pantalla', () => {
   test('el mapa se carga aparte, con OpenStreetMap y su atribución, y el marcador se arrastra', () => {
     assert.match(leer('components', 'preventa', 'ElegirPunto.jsx'), /const MapaUbicacion = lazy\(\(\) => import\('\.\/MapaUbicacion'\)\)/);
     assert.match(leer('components', 'preventa', 'ModalUbicacionCliente.jsx'), /<ElegirPunto punto=\{punto\} onCambiar=\{setPunto\} \/>/);
+    // Los mosaicos y su atribución, una sola vez para los mapas de Preventa (2026-11-01).
+    const base = leer('components', 'preventa', 'mapaBase.js');
+    assert.match(base, /L\.tileLayer\('https:\/\/tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png'/);
+    assert.match(base, /attribution: '&copy; OpenStreetMap'/);
     const m = leer('components', 'preventa', 'MapaUbicacion.jsx');
-    assert.match(m, /L\.tileLayer\('https:\/\/tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png'/);
-    assert.match(m, /attribution: '&copy; OpenStreetMap'/);
+    assert.match(m, /const \{ mapa: m, quitar \} = crearMapa\(caja\.current\)/);
     assert.match(m, /draggable: true/);
     assert.match(m, /m\.on\('click'/);
     const pkg = JSON.parse(fs.readFileSync(path.join(FRONT, '..', 'package.json'), 'utf8'));

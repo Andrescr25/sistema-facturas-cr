@@ -1,3 +1,5 @@
+import { coordenadasDe } from './visitaPreventa.js'
+
 /**
  * «Mi día» (2026-11-01): las cuentas de la pantalla del plan de visitas.
  * Puras, para probarlas sin navegador.
@@ -46,4 +48,21 @@ export function difiereDeLaRuta(clientes) {
     ultimo.set(ruta, cliente.ordenRuta)
     return antes !== undefined && cliente.ordenRuta < antes
   })
+}
+
+/**
+ * Los del día en el mapa (parte 3, «Mapa del día»): cada uno con su número del
+ * plan y su punto, si la ficha tiene coordenadas. Los que no, aparte: así el
+ * agente sabe a quién marcarle la ubicación desde la visita.
+ */
+export function puntosDelDia(clientes) {
+  const conPunto = []
+  const sinPunto = []
+  clientes.forEach((x, i) => {
+    const punto = coordenadasDe(x.cliente.ubicacion_maps)
+    const base = { numero: i + 1, id: x.cliente.id, nombre: x.cliente.nombre, atendido: Boolean(x.atendido) }
+    if (punto) conPunto.push({ ...base, ...punto })
+    else sinPunto.push(base)
+  })
+  return { conPunto, sinPunto }
 }

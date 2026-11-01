@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { GripVertical, ArrowUp, ArrowDown, X, Plus, Navigation, MapPin, CheckCircle2, CalendarClock, ChevronRight, ListChecks, ListOrdered, Save } from 'lucide-react'
+import { GripVertical, ArrowUp, ArrowDown, X, Plus, Navigation, MapPin, CheckCircle2, CalendarClock, ChevronRight, ListChecks, ListOrdered, Save, Map as IconoMapa } from 'lucide-react'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
 import ListaOrdenable from './ListaOrdenable'
 import ModalAgregarAlPlan from './ModalAgregarAlPlan'
 import ModalOrdenDeRuta from './ModalOrdenDeRuta'
+import ModalMapaDelDia from './ModalMapaDelDia'
 import { visitaEnPalabras } from '../../utils/rotacionTexto'
 import { enlacesParaLlegar } from '../../utils/visitaPreventa'
 import { fechaEnPalabras } from '../../utils/fechaCR'
@@ -27,11 +28,12 @@ function Atendido({ atendido }) {
  *
  * Parte 2: «Orden de la ruta» vuelve el día al orden de sus rutas, y «Guardar
  * como orden de mi ruta» pasa el orden de su día a la ruta (el usuario decidió
- * que el agente también puede cambiarla).
+ * que el agente también puede cambiarla). Parte 3: «Mapa del día».
  */
 export default function PlanDelDia({ dia, rutas, rutaActual, onVer }) {
   const [agregando, setAgregando] = useState(false)
   const [guardandoRuta, setGuardandoRuta] = useState(false)
+  const [conMapa, setConMapa] = useState(false)
   const [aviso, setAviso] = useState('')
   const { plan } = dia
   if (!plan) return <p role="status" className="p-5 text-neutro-500">{dia.error || 'Armando tu día…'}</p>
@@ -77,6 +79,7 @@ export default function PlanDelDia({ dia, rutas, rutaActual, onVer }) {
       </div>
       <div className="flex flex-wrap gap-2">
         <Boton variante="secundario" icono={Plus} onClick={() => setAgregando(true)} disabled={dia.guardando}>Agregar clientes</Boton>
+        {total > 0 && <Boton variante="secundario" icono={IconoMapa} onClick={() => setConMapa(true)}>Mapa del día</Boton>}
         {total > 1 && (
           <Boton variante="secundario" icono={ListOrdered} disabled={dia.guardando || estaEnOrdenDeRuta(plan.clientes, rutas)}
             onClick={() => { setAviso(''); dia.ordenar(ordenDeRuta(plan.clientes, rutas).map(x => x.cliente.id)) }}>Orden de la ruta</Boton>
@@ -132,6 +135,7 @@ export default function PlanDelDia({ dia, rutas, rutaActual, onVer }) {
         <p className="text-sm text-neutro-500">Sacaste de tu día: {plan.quitados.map(q => q.nombre).join(', ')}. Para volver a ponerlos, «Agregar clientes».</p>
       )}
 
+      {conMapa && <ModalMapaDelDia clientes={plan.clientes} siguiente={plan.siguiente} onVer={(id) => { setConMapa(false); onVer(id) }} onCerrar={() => setConMapa(false)} />}
       {guardandoRuta && <ModalOrdenDeRuta clientes={plan.clientes} onGuardar={guardarEnRuta} onCerrar={() => setGuardandoRuta(false)} />}
       {agregando && (
         <ModalAgregarAlPlan rutas={rutas} rutaInicial={rutaActual} enPlan={enPlan} hoy={plan.hoy}
