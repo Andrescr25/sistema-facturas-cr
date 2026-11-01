@@ -12,5 +12,6 @@ router.get('/plan', controlador.plan);
 router.post('/plan/clientes', controlador.agregarAlPlan);
 router.delete('/plan/clientes/:clienteId', controlador.quitarDelPlan);
 router.put('/plan/orden', controlador.ordenarPlan);
+router.post('/plan/orden-de-ruta', controlador.guardarOrdenDeRuta);
 
 module.exports = router;

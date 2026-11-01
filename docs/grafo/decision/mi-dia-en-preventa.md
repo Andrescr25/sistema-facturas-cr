@@ -20,6 +20,8 @@ archivos:
   - frontend/src/hooks/useClienteDesdePreventa.js
   - frontend/src/utils/planDelDia.js
   - backend/tests/planDelDia.test.js
+  - backend/src/modules/rutas/rutas.service.js
+  - frontend/src/components/preventa/ModalOrdenDeRuta.jsx
 aristas:
   relacionado: [modulo/preventa-agenda, decision/agente-de-ventas-monitoreado, decision/planilla-del-agente]
 medido: 2026-11-01
@@ -65,3 +67,21 @@ urgentes primero»). Se construye por partes: 1 «Mi día» · 2 orden de la rut
   con `touch-none` y desplazamiento automático en los bordes. El arrastre HTML5
   de Clientes → Rutas no funciona en pantallas táctiles. Las flechas siguen.
 - «Cliente nuevo» registrado desde «Mi día» entra al plan.
+
+## 2 (2026-11-01): «Orden de la ruta» y «Guardar como orden de mi ruta» — sin migración
+
+- **«Orden de la ruta»** (`ordenDeRuta` en utils/planDelDia.js): el día ruta
+  por ruta (en el orden de la lista de rutas, el mismo con que se arma solo) y
+  por `orden_ruta`; sin ruta o sin lugar, al final. Se guarda como cualquier
+  orden del día. Apagado si ya está así.
+- **«Guardar como orden de mi ruta»** (`POST /preventa/plan/orden-de-ruta`):
+  en cada ruta con clientes en su día, esos clientes toman los lugares que YA
+  ocupaban en la ruta, en el orden del día; los demás no se mueven
+  (`ordenConElDia`). Va por `rutas.service.reordenarRuta` (el de Clientes →
+  Rutas): control de versión y bitácora `ordenar` a nombre del agente. Solo
+  sus rutas (o todas con «Ver todas las rutas»); una ruta ajena, 403. Una ruta
+  que ya estaba así no se toca. Antes de guardar, un modal muestra cómo queda.
+- El botón solo sale si guardar cambiaría alguna ruta (`difiereDeLaRuta`:
+  dentro de una misma ruta, los del día no van en su orden). Mezclar rutas en
+  el día no cambia ninguna.
+

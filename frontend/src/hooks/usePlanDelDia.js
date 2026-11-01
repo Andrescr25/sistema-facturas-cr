@@ -53,8 +53,25 @@ export function usePlanDelDia() {
     setPlan(p => ({ ...p, clientes }))
     enviar(() => api.put('/preventa/plan/orden', { clienteIds: clientes.map(x => x.cliente.id) }), 'No se pudo guardar el orden.')
   }
+  // «Orden de la ruta» (parte 2): el día entero en otro orden.
+  const ordenar = (clienteIds) => enviar(() => api.put('/preventa/plan/orden', { clienteIds }), 'No se pudo guardar el orden.')
   const agregar = (clienteIds) => enviar(() => api.post('/preventa/plan/clientes', { clienteIds }), 'No se pudieron agregar.')
   const quitar = (clienteId) => enviar(() => api.delete(`/preventa/plan/clientes/${clienteId}`), 'No se pudo quitar.')
 
-  return { plan, cargando, guardando, error, recargar, mover, agregar, quitar }
+  /** «Guardar como orden de mi ruta»: devuelve las rutas que cambiaron, o null si no se pudo. */
+  const guardarEnRuta = async () => {
+    setGuardando(true); setError('')
+    try {
+      const { data } = await api.post('/preventa/plan/orden-de-ruta')
+      setPlan(data.data.plan)
+      return data.data.rutas
+    } catch (e) {
+      setError(mensaje(e, 'No se pudo guardar el orden de la ruta.'))
+      return null
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return { plan, cargando, guardando, error, recargar, mover, ordenar, agregar, quitar, guardarEnRuta }
 }

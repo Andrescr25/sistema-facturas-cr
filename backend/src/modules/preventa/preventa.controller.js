@@ -37,3 +37,6 @@ exports.agregarAlPlan = (req, res) => responder(res, async () =>
   plan.agregar(req.usuario?.id, req.body?.clienteIds, { rutasPermitidas: await rutasPermitidas(req) }));
 exports.quitarDelPlan = (req, res) => responder(res, () => plan.quitar(req.usuario?.id, req.params.clienteId));
 exports.ordenarPlan = (req, res) => responder(res, () => plan.ordenar(req.usuario?.id, req.body?.clienteIds));
+// «Guardar como orden de mi ruta» (parte 2): el orden de su día pasa a sus rutas.
+exports.guardarOrdenDeRuta = (req, res) => responder(res, async () =>
+  plan.guardarComoOrdenDeRuta(req.usuario?.id, { rutasPermitidas: await rutasPermitidas(req) }));

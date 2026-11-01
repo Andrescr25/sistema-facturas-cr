@@ -131,6 +131,22 @@ describe('el plan del día — contra PostgreSQL local', () => {
     assert.equal(rows.length, 0);
   });
 
+  test('«Guardar como orden de mi ruta»: los del día toman los lugares que ya tenían, en el orden del día; los demás no se mueven', async () => {
+    assert.deepEqual(plan.ordenConElDia([1, 2, 3, 4], [4, 2]), [1, 4, 3, 2]);
+    assert.deepEqual(plan.ordenConElDia([1, 2, 3], [9, 3, 1]), [3, 2, 1], 'el que no es de la ruta no cuenta');
+    assert.deepEqual(plan.ordenConElDia([1, 2, 3], []), [1, 2, 3]);
+    // El día va [B atrasado, A próximo, A hoy, A atrasado]; la ruta A era hoy(1), atrasado(2), próximo(3), sin rotación(4).
+    await assert.rejects(plan.guardarComoOrdenDeRuta(agente, { rutasPermitidas: [rutaB] }), (e) => e.status === 403 && /ZZ Plan A no es una de tus rutas/.test(e.message));
+    const r = await plan.guardarComoOrdenDeRuta(agente, { rutasPermitidas: [rutaA, rutaB] });
+    assert.deepEqual(r.rutas.map(x => x.nombre), ['ZZ Plan A'], 'la B ya estaba así: no se toca');
+    const { rows } = await db.query('SELECT id FROM cliente WHERE ruta_id = $1 ORDER BY orden_ruta', [rutaA]);
+    assert.deepEqual(rows.map(x => x.id), [c.proximoA, c.hoyA, c.atrasadoA, c.sinRotacionA]);
+    const { rows: [b] } = await db.query(`SELECT accion, usuario_id FROM bitacora_cambio WHERE entidad = 'ruta_cliente' AND entidad_id = $1 ORDER BY id DESC LIMIT 1`, [String(rutaA)]);
+    assert.deepEqual([b.accion, b.usuario_id], ['ordenar', agente]);
+    assert.equal(r.plan.clientes.find(x => x.cliente.id === c.proximoA).cliente.ordenRuta, 1, 'el día ya trae el lugar nuevo');
+    assert.deepEqual((await plan.guardarComoOrdenDeRuta(agente, { rutasPermitidas: [rutaA, rutaB] })).rutas, [], 'otra vez: nada que cambiar');
+  });
+
   test('el controlador lee siempre el plan de la sesión, y agregar respeta sus rutas', async () => {
     const r = respuesta();
     await controlador.plan({ usuario: { id: String(agente) }, query: { usuarioId: String(sinRutas) } }, r);
@@ -153,6 +169,18 @@ describe('la pantalla', () => {
     assert.deepEqual(moverEn([1, 2, 3], 0, 9), [1, 2, 3], 'fuera de la lista no mueve');
   });
 
+  test('«Orden de la ruta»: ruta por ruta y por su lugar; y cuándo guardar cambiaría una ruta', async () => {
+    const { ordenDeRuta, estaEnOrdenDeRuta, difiereDeLaRuta } = await import(path.join(FRONT, 'utils', 'planDelDia.js'));
+    const x = (id, ruta, ordenRuta, nombre = `C${id}`) => ({ cliente: { id, nombre, ruta: ruta ? { id: ruta } : null, ordenRuta } });
+    const rutas = [{ id: 7 }, { id: 3 }];
+    const dia = [x(1, 3, 1), x(2, 7, 2), x(3, null, null), x(4, 7, 1), x(5, 3, null, 'A')];
+    assert.deepEqual(ordenDeRuta(dia, rutas).map(y => y.cliente.id), [4, 2, 1, 5, 3]);
+    assert.equal(estaEnOrdenDeRuta(dia, rutas), false);
+    assert.equal(estaEnOrdenDeRuta(ordenDeRuta(dia, rutas), rutas), true);
+    assert.equal(difiereDeLaRuta([x(1, 7, 1), x(2, 3, 5), x(3, 7, 2)]), false, 'mezclar rutas no cambia ninguna');
+    assert.equal(difiereDeLaRuta([x(1, 7, 2), x(2, 7, 1)]), true);
+  });
+
   test('Preventa abre en «Mi día»; «Toda la ruta» es la agenda de siempre', () => {
     const p = leer('pages', 'Preventa.jsx');
     assert.match(p, /const vista = parametros\.get\('vista'\) === 'ruta' \? 'ruta' : 'dia'/);
@@ -165,6 +193,13 @@ describe('la pantalla', () => {
     assert.match(l, /touch-none/);
     assert.match(l, /onPointerDown: empezar\(i\)/);
     assert.match(l, /setPointerCapture/);
+  });
+
+  test('«Guardar como orden de mi ruta» muestra cómo queda antes de guardar, y solo sale si cambiaría algo', () => {
+    const p = leer('components', 'preventa', 'PlanDelDia.jsx');
+    assert.match(p, /\{difiereDeLaRuta\(plan\.clientes\) && \(/);
+    assert.match(p, /<ModalOrdenDeRuta clientes=\{plan\.clientes\} onGuardar=\{guardarEnRuta\}/);
+    assert.match(leer('hooks', 'usePlanDelDia.js'), /api\.post\('\/preventa\/plan\/orden-de-ruta'\)/);
   });
 
   test('al volver de Facturar vuelve a la pestaña de donde salió', () => {

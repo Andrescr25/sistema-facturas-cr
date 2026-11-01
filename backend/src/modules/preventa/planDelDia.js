@@ -14,6 +14,8 @@
  * · Visitado = ese día le facturó o le marcó «próxima visita». Se lee de sus
  *   facturas y visitas, no se guarda acá.
  * · Solo hoy se edita: un día no pasa al siguiente.
+ * · «Guardar como orden de mi ruta» (parte 2; el usuario decidió que el agente
+ *   también puede cambiar el orden de sus rutas): ver `guardarComoOrdenDeRuta`.
  */
 const { pool, query } = require('../../../config/database');
 const { httpError, idValido } = require('../../utils/validacion');
@@ -22,6 +24,7 @@ const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { rutasDe } = require('../usuarios/rutasAsignadas');
 const { listarRutasActuales } = require('../rutas/rutaActual.service');
 const preventa = require('./preventa.service');
+const rutas = require('../rutas/rutas.service');
 
 const PARA_PROPONER = ['atrasado', 'hoy'];
 
@@ -160,4 +163,50 @@ async function ordenar(usuarioId, clienteIds) {
   return leer(id, hoy);
 }
 
-module.exports = { planDe, agregar, quitar, ordenar };
+/**
+ * El orden nuevo de una ruta: los clientes que están en su día toman los
+ * lugares que YA ocupaban en la ruta, en el orden de su día; los demás no se
+ * mueven. Así guardar su día no desarma la ruta de los que no visitó.
+ * @param {number[]} miembros  la ruta entera, en su orden
+ * @param {number[]} enDia     los de su día que son de esa ruta, en el orden del día
+ */
+function ordenConElDia(miembros, enDia) {
+  const delDia = enDia.filter(id => miembros.includes(id));
+  const lugares = miembros.map((id, i) => (delDia.includes(id) ? i : -1)).filter(i => i >= 0);
+  const nuevo = [...miembros];
+  lugares.forEach((lugar, k) => { nuevo[lugar] = delDia[k]; });
+  return nuevo;
+}
+
+/**
+ * «Guardar como orden de mi ruta»: pasa el orden de su día a cada ruta que
+ * tenga clientes en él. Solo sus rutas (o todas, con «Ver todas las rutas»).
+ * Va por el mismo `reordenarRuta` de Clientes → Rutas: control de versión y
+ * bitácora a su nombre. Las rutas que ya estaban en ese orden no se tocan.
+ */
+async function guardarComoOrdenDeRuta(usuarioId, { rutasPermitidas = null } = {}) {
+  const id = idValido(usuarioId);
+  const hoy = hoyEnCostaRica();
+  const { clientes } = await leer(id, hoy);
+  const porRuta = new Map();
+  for (const { cliente } of clientes) {
+    if (!cliente.ruta?.id) continue;
+    if (!porRuta.has(cliente.ruta.id)) porRuta.set(cliente.ruta.id, { nombre: cliente.ruta.nombre, ids: [] });
+    porRuta.get(cliente.ruta.id).ids.push(cliente.id);
+  }
+  if (!porRuta.size) throw httpError(400, 'Tu día no tiene clientes de una ruta.');
+  const ajena = rutasPermitidas && [...porRuta.entries()].find(([rutaId]) => !rutasPermitidas.includes(rutaId));
+  if (ajena) throw httpError(403, `${ajena[1].nombre} no es una de tus rutas: su orden no lo podés cambiar.`);
+  const guardadas = [];
+  for (const [rutaId, { ids }] of porRuta) {
+    const ruta = await rutas.obtenerRuta(rutaId);
+    const miembros = ruta.clientes.map(c => c.id);
+    const nuevo = ordenConElDia(miembros, ids);
+    if (nuevo.every((x, i) => x === miembros[i])) continue;
+    await rutas.reordenarRuta(rutaId, { clienteIds: nuevo, version: ruta.version }, id);
+    guardadas.push({ id: rutaId, nombre: ruta.nombre });
+  }
+  return { rutas: guardadas, plan: await leer(id, hoy) };
+}
+
+module.exports = { planDe, agregar, quitar, ordenar, ordenConElDia, guardarComoOrdenDeRuta };

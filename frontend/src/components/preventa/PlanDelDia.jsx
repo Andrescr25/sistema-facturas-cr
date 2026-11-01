@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { GripVertical, ArrowUp, ArrowDown, X, Plus, Navigation, MapPin, CheckCircle2, CalendarClock, ChevronRight, ListChecks } from 'lucide-react'
+import { GripVertical, ArrowUp, ArrowDown, X, Plus, Navigation, MapPin, CheckCircle2, CalendarClock, ChevronRight, ListChecks, ListOrdered, Save } from 'lucide-react'
 import Boton from '../ui/Boton'
 import Insignia from '../ui/Insignia'
 import ListaOrdenable from './ListaOrdenable'
 import ModalAgregarAlPlan from './ModalAgregarAlPlan'
+import ModalOrdenDeRuta from './ModalOrdenDeRuta'
 import { visitaEnPalabras } from '../../utils/rotacionTexto'
 import { enlacesParaLlegar } from '../../utils/visitaPreventa'
 import { fechaEnPalabras } from '../../utils/fechaCR'
+import { ordenDeRuta, estaEnOrdenDeRuta, difiereDeLaRuta } from '../../utils/planDelDia'
 
 const ENLACE = 'inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-white/80 px-3 text-sm font-bold text-primario-800 ring-1 ring-inset ring-primario-200 hover:bg-white'
 
@@ -22,9 +24,15 @@ function Atendido({ atendido }) {
  * arrastra con el dedo (o con las flechas), saca a quien no va a ver y agrega
  * de cualquiera de sus rutas. Al facturarle o marcarle «próxima visita» queda
  * tachado solo: lo dice el servidor, que lo lee de lo que hizo.
+ *
+ * Parte 2: «Orden de la ruta» vuelve el día al orden de sus rutas, y «Guardar
+ * como orden de mi ruta» pasa el orden de su día a la ruta (el usuario decidió
+ * que el agente también puede cambiarla).
  */
 export default function PlanDelDia({ dia, rutas, rutaActual, onVer }) {
   const [agregando, setAgregando] = useState(false)
+  const [guardandoRuta, setGuardandoRuta] = useState(false)
+  const [aviso, setAviso] = useState('')
   const { plan } = dia
   if (!plan) return <p role="status" className="p-5 text-neutro-500">{dia.error || 'Armando tu día…'}</p>
 
@@ -32,6 +40,11 @@ export default function PlanDelDia({ dia, rutas, rutaActual, onVer }) {
   const total = plan.clientes.length
   const llegar = siguiente ? enlacesParaLlegar(siguiente.cliente.ubicacion_maps) : null
   const enPlan = new Set(plan.clientes.map(x => x.cliente.id))
+  const guardarEnRuta = async () => {
+    const cambiadas = await dia.guardarEnRuta()
+    setGuardandoRuta(false)
+    if (cambiadas) setAviso(cambiadas.length ? `Listo: ${cambiadas.map(r => r.nombre).join(' y ')} quedó en el orden de tu día.` : 'Tu ruta ya estaba en ese orden.')
+  }
 
   return (
     <div className="space-y-4">
@@ -61,8 +74,18 @@ export default function PlanDelDia({ dia, rutas, rutaActual, onVer }) {
             </div>
           )}
         </div>
-        <Boton variante="secundario" icono={Plus} onClick={() => setAgregando(true)} disabled={dia.guardando}>Agregar clientes</Boton>
       </div>
+      <div className="flex flex-wrap gap-2">
+        <Boton variante="secundario" icono={Plus} onClick={() => setAgregando(true)} disabled={dia.guardando}>Agregar clientes</Boton>
+        {total > 1 && (
+          <Boton variante="secundario" icono={ListOrdered} disabled={dia.guardando || estaEnOrdenDeRuta(plan.clientes, rutas)}
+            onClick={() => { setAviso(''); dia.ordenar(ordenDeRuta(plan.clientes, rutas).map(x => x.cliente.id)) }}>Orden de la ruta</Boton>
+        )}
+        {difiereDeLaRuta(plan.clientes) && (
+          <Boton variante="secundario" icono={Save} disabled={dia.guardando} onClick={() => { setAviso(''); setGuardandoRuta(true) }}>Guardar como orden de mi ruta</Boton>
+        )}
+      </div>
+      {aviso && <p role="status" className="rounded-xl bg-exito-50 p-3 text-sm font-semibold text-exito-800">{aviso}</p>}
 
       {total === 0 ? (
         <div className="card p-8 text-center">
@@ -109,6 +132,7 @@ export default function PlanDelDia({ dia, rutas, rutaActual, onVer }) {
         <p className="text-sm text-neutro-500">Sacaste de tu día: {plan.quitados.map(q => q.nombre).join(', ')}. Para volver a ponerlos, «Agregar clientes».</p>
       )}
 
+      {guardandoRuta && <ModalOrdenDeRuta clientes={plan.clientes} onGuardar={guardarEnRuta} onCerrar={() => setGuardandoRuta(false)} />}
       {agregando && (
         <ModalAgregarAlPlan rutas={rutas} rutaInicial={rutaActual} enPlan={enPlan} hoy={plan.hoy}
           onAgregar={dia.agregar} onCerrar={() => setAgregando(false)} />
