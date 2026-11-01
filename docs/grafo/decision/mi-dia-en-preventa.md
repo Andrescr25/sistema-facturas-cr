@@ -26,6 +26,10 @@ archivos:
   - frontend/src/components/preventa/MapaDelDia.jsx
   - frontend/src/components/preventa/mapaBase.js
   - frontend/src/components/preventa/MapaUbicacion.jsx
+  - backend/src/modules/seguimiento/seguimiento.service.js
+  - frontend/src/components/empleados/DiaDelEmpleado.jsx
+  - frontend/src/components/empleados/PlanDelDiaEmpleado.jsx
+  - backend/tests/seguimientoAgente.test.js
 aristas:
   relacionado: [modulo/preventa-agenda, decision/agente-de-ventas-monitoreado, decision/planilla-del-agente]
 medido: 2026-11-01
@@ -105,4 +109,15 @@ urgentes primero»). Se construye por partes: 1 «Mi día» · 2 orden de la rut
   OpenStreetMap y su atribución) para el de la ubicación y el del día. La línea
   toma el color de la paleta con una clase (`stroke-neutro-500`), que en SVG
   manda sobre el color que pone Leaflet.
+
+## 4 (2026-11-01): su plan en «Su día» (Empleados) — sin migración
+
+- `seguimiento.dia` trae `plan`: lo que quedó guardado ese día, leído con
+  `planGuardado` (NO lo arma: mirar el día de un agente no le crea un plan).
+  Cada planeado con su número, su ruta y qué pasó (venta o próxima visita, con
+  la hora): con las horas se ve si siguió su orden. Aparte, a quién sacó
+  (`quitados`) y a quién visitó fuera del plan (los visitados del recorrido
+  que no están en él). Sin plan ese día: `null` («Ese día no armó su plan»).
+- `resumen.plan`: planeados, visitados, quitados y fuera del plan; la tarjeta
+  «Plan del día» (visitados de planeados) en «Su día».
 

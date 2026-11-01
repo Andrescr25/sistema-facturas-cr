@@ -12,6 +12,8 @@
  *   ubicación de la ficha, la misma regla de «Cómo llegar»).
  * · Su jornada, si es empleado (2026-10-30): cuándo inició y terminó, con el
  *   GPS de cada marca, y las horas del día.
+ * · Su plan del día, si armó «Mi día» (2026-11-01): qué planeó, qué visitó y a
+ *   qué hora, a quién sacó y a quién visitó fuera del plan.
  * · Si el día es HOY, lo que le falta: los clientes de sus rutas que le tocan
  *   (atrasados u hoy, la misma agenda de Preventa) y todavía no visitó.
  *
@@ -26,6 +28,7 @@ const { rutasDe } = require('../usuarios/rutasAsignadas');
 const preventa = require('../preventa/preventa.service');
 const { tramosDelDia } = require('../empleados/jornada.service');
 const { minutosDe } = require('../empleados/liquidacion');
+const { planGuardado } = require('../preventa/planDelDia');
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const num = (v) => (v === null || v === undefined ? null : Number(v));
@@ -132,6 +135,16 @@ async function dia({ usuarioId, fecha } = {}) {
   const visitados = new Set(recorrido.filter(p => p.tipo === 'venta' || p.tipo === 'proxima_visita').map(p => p.cliente.id));
   const pendientes = elDia === hoy ? await pendientesDeHoy(id, visitados) : null;
 
+  // «Mi día» (parte 4): lo que planeó contra lo que hizo. Solo se lee.
+  const guardado = await planGuardado(id, elDia);
+  const plan = guardado && {
+    clientes: guardado.clientes.map((x, i) => ({ numero: i + 1, id: x.cliente.id, nombre: x.cliente.nombre, ruta: x.cliente.ruta?.nombre || null, atendido: x.atendido })),
+    quitados: guardado.quitados,
+    fueraDelPlan: [...visitados].filter(cid => !guardado.clientes.some(x => x.cliente.id === cid))
+      .map(cid => ({ id: cid, nombre: recorrido.find(p => p.cliente?.id === cid).cliente.nombre })),
+    visitados: guardado.visitados
+  };
+
   return {
     fecha: elDia, hoy, agente,
     resumen: {
@@ -148,10 +161,12 @@ async function dia({ usuarioId, fecha } = {}) {
       jornada: {
         tramos: tramos.length, minutos: tramos.reduce((s, t) => s + minutosDe(t), 0),
         abierta: tramos.some(t => t.estado === 'abierta'), sinSalida: tramos.filter(t => t.estado === 'sin_salida').length
-      }
+      },
+      plan: plan ? { planeados: plan.clientes.length, visitados: plan.visitados, quitados: plan.quitados.length, fueraDelPlan: plan.fueraDelPlan.length } : null
     },
     recorrido,
-    pendientes
+    pendientes,
+    plan
   };
 }
 

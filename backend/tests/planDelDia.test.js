@@ -13,7 +13,7 @@ const path = require('path');
 const { sinComentarios } = require('./dobles/sinComentarios');
 
 describe('el plan del día — contra PostgreSQL local', () => {
-  let db, plan, visitas, facturas, controlador, agente, otro, sinRutas, rutaA, rutaB, rutaAjena, producto, c, hoy, fechas;
+  let db, plan, visitas, facturas, controlador, seguimiento, agente, otro, sinRutas, rutaA, rutaB, rutaAjena, producto, c, hoy, fechas;
   const ids = (p) => p.clientes.map(x => x.cliente.id);
   const respuesta = () => { const r = {}; r.set = () => r; r.status = (x) => { r.estado = x; return r; }; r.json = (b) => { r.cuerpo = b; return r; }; return r; };
 
@@ -32,6 +32,7 @@ describe('el plan del día — contra PostgreSQL local', () => {
     visitas = require('../src/modules/preventa/visitas');
     facturas = require('../src/modules/facturacion/facturaPropia.service');
     controlador = require('../src/modules/preventa/preventa.controller');
+    seguimiento = require('../src/modules/seguimiento/seguimiento.service');
     fechas = require('../src/utils/fechaCR');
     hoy = fechas.hoyEnCostaRica();
 
@@ -155,6 +156,23 @@ describe('el plan del día — contra PostgreSQL local', () => {
     await controlador.agregarAlPlan({ usuario: { id: agente }, permisos: { esAdmin: false, modulos: new Set(['preventa']) }, body: { clienteIds: [c.ajeno] } }, r2);
     assert.equal(r2.estado, 403);
   });
+  test('«Su día» (Empleados) trae su plan: qué visitó y a qué hora, a quién sacó y a quién visitó fuera del plan', async () => {
+    await plan.quitar(agente, c.atrasadoA);
+    await facturas.crearFactura({ clienteId: c.sinRotacionA, clienteNombre: 'ZZ Plan Sin rotación A',
+      items: [{ productoId: producto, price: 1000, quantity: 1, discount: 0, descuentoBase: 0 }] }, agente);
+    const d = await seguimiento.dia({ usuarioId: agente });
+    assert.deepEqual(d.plan.clientes.map(x => [x.numero, x.id, x.atendido?.como ?? null]),
+      [[1, c.atrasadoB, 'proxima_visita'], [2, c.proximoA, 'venta'], [3, c.hoyA, null]]);
+    assert.match(d.plan.clientes[1].atendido.hora, /^\d{2}:\d{2}$/);
+    assert.deepEqual(d.plan.quitados.map(x => x.id), [c.atrasadoA]);
+    assert.deepEqual(d.plan.fueraDelPlan.map(x => x.nombre), ['ZZ Plan Sin rotación A']);
+    assert.deepEqual(d.resumen.plan, { planeados: 3, visitados: 2, quitados: 1, fueraDelPlan: 1 });
+    const sinPlan = await seguimiento.dia({ usuarioId: sinRutas });
+    assert.equal(sinPlan.plan, null);
+    assert.equal(sinPlan.resumen.plan, null);
+    const { rows } = await db.query('SELECT 1 FROM plan_visita WHERE usuario_id = $1', [sinRutas]);
+    assert.equal(rows.length, 0, 'mirarlo no le arma el plan');
+  });
 });
 
 describe('la pantalla', () => {
@@ -222,6 +240,11 @@ describe('la pantalla', () => {
     assert.match(p, /\{difiereDeLaRuta\(plan\.clientes\) && \(/);
     assert.match(p, /<ModalOrdenDeRuta clientes=\{plan\.clientes\} onGuardar=\{guardarEnRuta\}/);
     assert.match(leer('hooks', 'usePlanDelDia.js'), /api\.post\('\/preventa\/plan\/orden-de-ruta'\)/);
+  });
+
+  test('en «Su día» de Empleados, el plan va antes del recorrido', () => {
+    assert.match(leer('components', 'empleados', 'DiaDelEmpleado.jsx'), /<PlanDelDiaEmpleado plan=\{s\.dia\.plan\} \/>/);
+    assert.match(leer('components', 'empleados', 'PlanDelDiaEmpleado.jsx'), /Ese día no armó su plan en «Mi día»/);
   });
 
   test('al volver de Facturar vuelve a la pestaña de donde salió', () => {

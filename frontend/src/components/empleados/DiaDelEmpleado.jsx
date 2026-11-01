@@ -1,8 +1,9 @@
-import { Footprints, RefreshCw, Users, Receipt, CalendarClock, MapPinOff, AlertTriangle, ListOrdered, Banknote, PencilLine, Timer } from 'lucide-react'
+import { Footprints, RefreshCw, Users, Receipt, CalendarClock, MapPinOff, AlertTriangle, ListOrdered, Banknote, PencilLine, Timer, ListChecks } from 'lucide-react'
 import Boton from '../ui/Boton'
 import TarjetasResumen from '../pagos/TarjetasResumen'
 import RecorridoAgente from '../seguimiento/RecorridoAgente'
 import PendientesAgente from '../seguimiento/PendientesAgente'
+import PlanDelDiaEmpleado from './PlanDelDiaEmpleado'
 import { useDiaDelEmpleado } from '../../hooks/useDiaDelEmpleado'
 import { colones } from '../../utils/colones'
 import { duracion } from '../../utils/ingresosTexto'
@@ -12,7 +13,8 @@ import { hoyEnCostaRica } from '../../utils/fechaCR'
  * Su día (F5 del agente, 2026-10-29; dentro de Empleados desde el 2026-10-30:
  * «el seguimiento de agente, pónmelo dentro de empleados»). Lo que hizo un día:
  * su jornada, cuánto vendió, a quién visitó, quién no compró y por qué, dónde
- * estaba en cada acción y —si es hoy— qué le falta.
+ * estaba en cada acción y —si es hoy— qué le falta. Y su plan del día («Mi
+ * día», 2026-11-01): qué planeó y qué hizo de eso.
  */
 export default function DiaDelEmpleado({ usuarioId }) {
   const s = useDiaDelEmpleado(usuarioId)
@@ -20,6 +22,9 @@ export default function DiaDelEmpleado({ usuarioId }) {
   const tarjetas = r ? [
     ...(r.jornada.tramos > 0 ? [{ clave: 'jornada', titulo: 'Jornada', icono: Timer, valor: duracion(r.jornada.minutos),
       tono: r.jornada.sinSalida ? 'alerta' : 'neutro', pie: r.jornada.abierta ? 'Trabajando ahora' : r.jornada.sinSalida ? 'Quedó sin salida' : undefined }] : []),
+    ...(r.plan ? [{ clave: 'plan', titulo: 'Plan del día', icono: ListChecks, valor: `${r.plan.visitados} de ${r.plan.planeados}`,
+      tono: r.plan.visitados === r.plan.planeados ? 'exito' : 'neutro',
+      pie: [r.plan.quitados ? `sacó ${r.plan.quitados}` : '', r.plan.fueraDelPlan ? `${r.plan.fueraDelPlan} fuera del plan` : ''].filter(Boolean).join(' · ') || undefined }] : []),
     { clave: 'visitados', titulo: 'Clientes atendidos', icono: Users, valor: r.clientesVisitados, tono: 'neutro',
       pie: r.pendientes !== null ? `Le faltan ${r.pendientes} de hoy` : undefined },
     { clave: 'ventas', titulo: 'Facturas', icono: Receipt, valor: r.ventas, tono: 'exito', pie: colones(r.monto) },
@@ -52,6 +57,7 @@ export default function DiaDelEmpleado({ usuarioId }) {
               <AlertTriangle size={16} />Hay acciones sin ubicación: revisá si dio permiso de ubicación en su teléfono.
             </p>
           )}
+          <PlanDelDiaEmpleado plan={s.dia.plan} />
           <h3 className="flex items-center gap-2 text-base font-bold text-neutro-900"><ListOrdered size={18} className="text-primario-500" />Recorrido del día</h3>
           <RecorridoAgente recorrido={s.dia.recorrido} />
           <PendientesAgente pendientes={s.dia.pendientes} />

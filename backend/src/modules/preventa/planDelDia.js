@@ -91,6 +91,15 @@ async function leer(usuarioId, fecha) {
   };
 }
 
+/**
+ * El plan que quedó guardado un día, SIN armarlo (parte 4: «Su día» en
+ * Empleados). Null si ese día no abrió «Mi día».
+ */
+async function planGuardado(usuarioId, fecha) {
+  const { rows: [hay] } = await query('SELECT 1 FROM plan_visita WHERE usuario_id = $1 AND fecha = $2 LIMIT 1', [usuarioId, fecha]);
+  return hay ? leer(usuarioId, fecha) : null;
+}
+
 /** Su plan de hoy; la primera vez del día, se arma solo. */
 async function planDe(usuarioId) {
   const id = idValido(usuarioId);
@@ -209,4 +218,4 @@ async function guardarComoOrdenDeRuta(usuarioId, { rutasPermitidas = null } = {}
   return { rutas: guardadas, plan: await leer(id, hoy) };
 }
 
-module.exports = { planDe, agregar, quitar, ordenar, ordenConElDia, guardarComoOrdenDeRuta };
+module.exports = { planDe, planGuardado, agregar, quitar, ordenar, ordenConElDia, guardarComoOrdenDeRuta };
