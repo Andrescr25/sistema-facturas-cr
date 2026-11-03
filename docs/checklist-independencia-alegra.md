@@ -1367,3 +1367,16 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   nueva conexión READ ONLY confirma usuarios, roles, permisos y rutas conservados.
 
 [Detalle](grafo/modulo/permisos.md).
+
+
+### Relevo de anzuelos Favarcia — 2026-11-03
+
+- [x] Recuperar la aprobación «subamos todo a prod» y el cierre real de Claude:
+  código053fb2e publicado y datos aplicados; no repetir el lote.
+- [x] Lectura actual confirma29fichas/26relaciones y los25márgenes con costo
+  en30% o más;376sin costo y377provisional conservados.
+- [x] Preparar26PNG originales y carga con respaldo/verificación de hashes,
+  sin nuevas migraciones ni datos de prueba en producción.
+- [ ] Obtener sesión válida del administrador y completar/verificar26fotos.
+
+[Detalle](informes/anzuelos-favarcia-2026-11-03.md).

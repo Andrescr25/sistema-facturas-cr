@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Gestión de Catálogo — el rediseño de main, sobre el maestro propio
 estado: vigente
 archivos:
+  - docs/informes/anzuelos-favarcia-2026-11-03.md
   - backend/src/modules/productos/proformaCatalogo.service.js
   - backend/src/utils/baseEnTransaccion.js
   - backend/scripts/catalogo/aplicar-proforma.js
@@ -53,7 +54,7 @@ aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/supplier-product-mapping]
   reemplaza: [decision/cambio-de-categoria-en-segundo-plano]
   relacionado: [modulo/marcas-catalogo, modulo/rentabilidad, tabla/venta-linea, modulo/catalogo-agente, decision/orden-canonico-compartido, decision/permisos-por-prefijo-mas-especifico, leccion/precio-sin-iva-costo-con-iva, leccion/ids-propios-y-de-alegra-no-se-mezclan, tabla/alegra-products-cache]
-medido: 2026-10-28
+medido: 2026-11-03
 ---
 
 QUÉ ES
@@ -313,3 +314,15 @@ quedan en MAYÚSCULAS y sin tildes en las vocales; la Ñ se conserva. El
 ajuste usa nombres actuales y el corrector existente con plan/respaldo,
 conservando medidas, precios y demás campos. No modifica títulos de marca
 ni documentos del proveedor. Ver el informe de nombres del 25/10.
+
+
+## Ordenar pesca con el proveedor Favarcia — 2026-11-03
+
+Trabajo por familias con copia local y revisión del usuario. Tras aprobar
+«subamos todo a prod», Claude aplica el lote de anzuelos y publica 053fb2e.
+Codex releva la operación: lectura actual confirma las 29 fichas y26relaciones
+sin diferencias respecto al cierre de Claude;25activos con costo tienen
+margen mínimo30%. No se reaplica el lote. Quedan26fotos por el servicio existente,
+con respaldo de archivos, identidad por código y verificación de bytes.
+La sesión local fue rechazada; se requiere autenticación real del usuario.
+[Alcance, salvedades y estado](../../informes/anzuelos-favarcia-2026-11-03.md).

@@ -1471,3 +1471,13 @@ Y sobre la lista de Gestión de Catálogo, donde los nombres largos del proveedo
 se cortaban: «no lo hagamos en 2 renglones, sino haz el tamaño de la letra un
 poco más pequeño, y si es mucha descripción, ahí sí 2 renglones».
 [Resultado](grafo/modulo/gestion-catalogo.md).
+
+
+### 2026-11-03 — Cierre del lote de anzuelos Favarcia
+
+En el trabajo de Claude el usuario revisa los anzuelos por caja y margen30%,
+y autoriza «perfecto, subamos todo a prod». Claude publica053fb2e y aplica los
+datos con respaldo; al agotarse su sesión quedan pendientes26fotografías.
+El usuario pide a Codex continuar ese trabajo. Se conserva lo ya aplicado y
+se completa solo el envío de las fotos por la API, con autenticación real.
+[Relevo y estado](informes/anzuelos-favarcia-2026-11-03.md).
