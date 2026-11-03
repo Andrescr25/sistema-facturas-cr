@@ -1382,3 +1382,17 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   Cuatro recorridos Chromium/WebKit:104imágenes correctas.
 
 [Detalle](informes/anzuelos-favarcia-2026-11-03.md).
+
+
+### Triple3/0 Favarcia7413455 — 2026-11-03
+
+- [x] Buscar código y medida en catálogo, relaciones, buzón y compras propias:
+  no se encuentra costo. Conservar la lista anterior376/377pendiente.
+- [x] Ensayo local con ROLLBACK,48pruebas de servicios y respaldo del alta;
+  crear4367inactivo,con referencia/relación,subcategoría y caja25,precio pendiente.
+  Se conservan huellas de nueve tablas de datos anteriores.
+- [ ] Completar foto por API con sesión del administrador y verificar.
+- [ ] Confirmar costos7413455,7413180y7413120con Favarcia antes de completar
+  los precios pendientes; no copiar el de otras medidas.
+
+[Detalle](informes/anzuelos-favarcia-2026-11-03.md).

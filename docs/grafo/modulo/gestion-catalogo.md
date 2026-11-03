@@ -328,3 +328,12 @@ El usuario inicia sesión real y Codex completa las26fotos (2026-11-03 15:50:49 
 GET200 y hashes iguales a las fuentes, otros campos conservados y26bitácoras.
 Nueva conexión READ ONLY y104lecturas visuales Chromium/WebKit correctas.
 [Alcance, salvedades y estado](../../informes/anzuelos-favarcia-2026-11-03.md).
+
+
+2026-11-03, adición7413455: el usuario aporta triple3/0 y pide darlo de alta.
+Búsqueda en catálogo, buzón y compras no encuentra la medida ni costo propio.
+Se crea4367con relación/caja25 y descripción de costo pendiente; queda inactivo
+hasta fijar costo/precio, sin inventar valores de otra medida. Ensayo con
+ROLLBACK y48pruebas de servicios correctas; fuente de foto lista para subir
+con sesión real. Los tres códigos a cotizar y el cierre real se registran en
+[el mismo informe](../../informes/anzuelos-favarcia-2026-11-03.md).

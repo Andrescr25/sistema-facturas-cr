@@ -82,3 +82,53 @@ Fuera de Git, sin credenciales:
 El maestro de producto, los documentos y sus relaciones se siguen leyendo
 por ID propio. No se ejecutan nuevas migraciones, limpieza semanal ni envíos
 de mensajes para esta continuación.
+
+
+## Presentación añadida después: código 7413455
+
+El usuario aporta la foto del triple Mustad 3/0, serie 9430DS 5X, caja de 25,
+y pide agregarlo; si no se encuentra costo, se le informa junto con los
+anteriores para consultarlo al proveedor. La búsqueda exacta de código y
+por variantes de medida/nombre no encuentra producto, relación ni factura
+del buzón. Tampoco existe en compra_linea, incluidas compras registradas
+sin factura electrónica. El catálogo aportado no contiene precios.
+
+Codex crea la ficha 4367 «ANZUELO TRIPLE 3/0 ESTAÑADO 9430DS 5X 25 PZAS»
+con referencia 7413455, categoría/subcategoría e impuesto de la misma familia.
+Se vincula a Favarcia por cédula 3101008166 y código 7413455; la unidad propia
+es una caja de 25 y el factor se deja en 1/25, como en las presentaciones del
+lote. No se mueve una relación existente ni se reutiliza el costo de otra medida.
+
+El costo y el precio están pendientes; el esquema usa 0 como ausencia de costo
+al crear. La ficha queda inactiva para impedir una venta sin precio. La
+descripción deja constancia de la consulta pendiente y la meta del 30 %, que
+solo se calculará cuando llegue un costo confirmado. No se crean compras,
+pagos, ventas, historial de costo ni movimientos de inventario por darla de alta.
+
+El alta compone los servicios existentes de producto, estado, subcategoría
+y mapeo, con SAVEPOINT dentro de una transacción única. Se respalda antes de
+escribir y se comparan las huellas de nueve tablas: producto/mapeos anteriores
+y datos de compras/ventas/pagos/inventario quedan iguales. Ensayo local con
+ROLLBACK correcto y 48 pruebas de los servicios implicados pasan; no hay nuevo
+código de aplicación ni migraciones. Una conexión nueva READ ONLY confirma
+una sola ficha y relación del código, inactiva, sin documentos ni costo inventado.
+
+**Foto preparada:** PNG original de 7413455, verificado contra el catálogo;
+la carga por la API espera la sesión del administrador en la nueva ventana.
+El perfil privado del navegador conserva la sesión normal que el usuario
+inicie, para poder trabajar las siguientes fichas sin pedir un login por
+cada producto; el guion no exporta JWT/contraseñas a registros de operación.
+
+### Costos que debe confirmar Favarcia
+
+| Código Favarcia | Presentación | Situación |
+| --- | --- | --- |
+| 7413455 | Triple 3/0, 9430DS 5X, caja de 25 | No existe costo propio registrado; ficha 4367 pendiente. |
+| 7413180 | Mustad No.16, 2330DT, caja de 100 | Ficha 376 sin costo confirmado. |
+| 7413120 | Mustad No.4, 2330DT, caja de 100 | Ficha 377 tiene costo provisional del No.5; falta el suyo. |
+
+Pedir costo por caja y confirmar si incluye IVA. La confirmación puede ser
+una cotización del proveedor: no se requiere inventar una compra para fijarlo.
+Respaldo del alta: `~/.local/share/sistema-facturas-cr/respaldos/20261103-alta-anzuelo-7413455-codex/`.
+Búsquedas, plan, fuente, ensayo y verificaciones:
+`~/.local/share/sistema-facturas-cr/codex-anzuelo-7413455-20261103/`.

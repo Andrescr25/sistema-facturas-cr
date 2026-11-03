@@ -1481,3 +1481,10 @@ datos con respaldo; al agotarse su sesión quedan pendientes26fotografías.
 El usuario pide a Codex continuar ese trabajo. Se conserva lo ya aplicado y
 se completa solo el envío de las fotos por la API, con autenticación real.
 [Relevo y estado](informes/anzuelos-favarcia-2026-11-03.md).
+
+
+2026-11-03, después del cierre: el usuario adjunta el triple3/0Favarcia7413455,
+«agregalo, sino encunetras el costo, me dices para pedirselo al proveedor,
+al igual que los otros productos». Se busca costo propio y,al no existir,
+se crea ficha pendiente de costo/precio,fuera de venta; no se usan costos de
+otra medida. [Resultado y lista a cotizar](informes/anzuelos-favarcia-2026-11-03.md).
