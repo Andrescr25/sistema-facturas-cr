@@ -324,5 +324,7 @@ Codex releva la operación: lectura actual confirma las 29 fichas y26relaciones
 sin diferencias respecto al cierre de Claude;25activos con costo tienen
 margen mínimo30%. No se reaplica el lote. Quedan26fotos por el servicio existente,
 con respaldo de archivos, identidad por código y verificación de bytes.
-La sesión local fue rechazada; se requiere autenticación real del usuario.
+El usuario inicia sesión real y Codex completa las26fotos (2026-11-03 15:50:49 CR);
+GET200 y hashes iguales a las fuentes, otros campos conservados y26bitácoras.
+Nueva conexión READ ONLY y104lecturas visuales Chromium/WebKit correctas.
 [Alcance, salvedades y estado](../../informes/anzuelos-favarcia-2026-11-03.md).

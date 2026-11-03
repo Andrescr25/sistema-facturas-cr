@@ -50,8 +50,23 @@ los bytes por SHA-256 y que los demás campos de cada producto se conserven.
 Guarda progreso por producto para evitar repetir una sustitución ya confirmada.
 Cualquier fallo se detiene y requiere revisar el estado antes de reanudar.
 
-**Estado del relevo:** fotografías listas; falta autenticación válida del
-administrador en la ventana abierta. No se atribuye como terminado el envío.
+**Cierre confirmado — 2026-11-03 15:50:49 CR:** el usuario inicia sesión y Codex completa
+las 26 fotografías por la API normal. Cada descarga pública devuelve 200 y
+su SHA-256 coincide con el PNG de origen. Los demás campos de cada ficha se
+conservan, incluidos precios, costos, nombres, estado y referencias.
+
+Una conexión nueva y de solo lectura confirma las 26 rutas y las 26 entradas
+de bitácora con motivo foto y la cuenta administradora autenticada (ID 4).
+El respaldo conserva las 24 imágenes anteriores y las fichas anteriores;
+dos productos carecían de foto. Para revertir una sustitución se sube su
+archivo respaldado por la misma API; no se guarda una ruta a un archivo que
+el servicio ya eliminó. Una descarga de los originales no altera productos.
+
+Verificación de las fotos públicas en Chromium y WebKit a 390 y 1280 px:
+26 imágenes decodifican en cada uno de los cuatro recorridos (104 lecturas),
+sin desborde. Evidencia visual revisada con los nombres y medidas del lote.
+La ventana y la sesión temporal propias se cierran al terminar; no se
+conservan tokens ni contraseñas. El lote de datos de Claude no se repitió.
 
 ## Respaldo y evidencia
 
@@ -61,7 +76,8 @@ Fuera de Git, sin credenciales:
   antes/después del lote aplicado por Claude y lista de fotos pendientes.
 - `~/.local/share/sistema-facturas-cr/codex-relevo-favarcia-20261103/`:
   auditoría de solo lectura, copias de las 26 fuentes, hashes y ejecución del
-  cierre de fotos. Los resultados reales se registran cuando la API confirme.
+  cierre de fotos. Resultados reales: fotos-resultado.json, verificacion-final.json y
+  fotos-navegador.json; respaldo-fotos/ conserva las sustituciones.
 
 El maestro de producto, los documentos y sus relaciones se siguen leyendo
 por ID propio. No se ejecutan nuevas migraciones, limpieza semanal ni envíos

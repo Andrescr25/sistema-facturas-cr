@@ -1377,6 +1377,8 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   en30% o más;376sin costo y377provisional conservados.
 - [x] Preparar26PNG originales y carga con respaldo/verificación de hashes,
   sin nuevas migraciones ni datos de prueba en producción.
-- [ ] Obtener sesión válida del administrador y completar/verificar26fotos.
+- [x] Usuario inicia sesión; Codex completa26fotos (2026-11-03 15:50:49 CR),
+  respaldos24previas, hashes idénticos, demás campos y26bitácoras verificados.
+  Cuatro recorridos Chromium/WebKit:104imágenes correctas.
 
 [Detalle](informes/anzuelos-favarcia-2026-11-03.md).
