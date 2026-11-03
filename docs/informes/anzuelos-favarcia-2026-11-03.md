@@ -134,3 +134,73 @@ una cotización del proveedor: no se requiere inventar una compra para fijarlo.
 Respaldo del alta: `~/.local/share/sistema-facturas-cr/respaldos/20261103-alta-anzuelo-7413455-codex/`.
 Búsquedas, plan, fuente, ensayo y verificaciones:
 `~/.local/share/sistema-facturas-cr/codex-anzuelo-7413455-20261103/`.
+
+## Marcas de anzuelos por serie — 2026-11-03
+
+El usuario limita expresamente la reorganización de marcas a **Anzuelos**;
+el resto del catálogo queda conservado. Las agrupaciones anteriores mezclaban
+la serie 2330DT con una supuesta «serie E» y dejaban casi todos los triples
+sueltos. Se reutilizan los servicios de marcas y sus portadas, sin cambiar
+código de aplicación ni necesitar una migración.
+
+| Marca | ID | Presentaciones | Visibles |
+| --- | --- | --- | --- |
+| Mustad · Anzuelos 2330DT | 105 | 13 | 13 |
+| Mustad · Triples 7794DS 3X | 104 | 4 | 4 |
+| Mustad · Triples 9430DS 5X | 117 | 7 | 6 |
+| Mustad · Triples 3551DS para mar | 118 | 2 | 2 |
+
+Se retira solo la marca106; sus cuatro medidas activas pasan a2330DT y su
+ficha antigua inactiva370 queda suelta. Los antiguos103/107 sin modelo
+confirmado también quedan sueltos e inactivos. El35647RB111, una presentación
+distinta, conserva su tarjeta individual. No se borran productos. La nueva
+ficha4367 pertenece a9430DS, conservando su estado inactivo y costo/precio
+pendientes. En total, ambos catálogos muestran26anzuelos activos:25en estas
+cuatro marcas y el35647RBindividual.
+
+**Aplicación real:** Codex, 2026-11-03 16:41:54 CR, una transacción que compone
+`marcas.guardar/eliminar` mediante el ayudante existente de SAVEPOINTs.
+19productos cambian de agrupación; el resto de sus campos, las marcas y
+productos fuera de Anzuelos y las huellas de ocho tablas de relaciones,
+documentos, pagos e inventario se conservan. Primero se ensaya en un clon
+desechable con ROLLBACK. Una conexión nueva READ ONLY confirma el resultado.
+
+Cuatro portadas ilustrativas creadas con la herramienta integrada `image_gen`
+(habilidad `imagegen`), usando fotos de los respectivos modelos como referencia.
+Fondo uniforme, sin rótulos, medidas, cuadrículas ni márgenes añadidos. El
+anzuelo2330DT va vertical para conservarlo entero junto a sus13filas.
+Las imágenes individuales del proveedor permanecen intactas en la vista previa.
+La API de marcas optimiza las portadas a WebP de667×1000px:19.662,26.142,
+35.030y38.462bytes;119.296bytes en total. GET200 y hashes de descarga registrados.
+Se utiliza la sesión normal del administrador; no se exportan credenciales.
+
+Los cuatro PNG finales y los prompts exactos se conservan en la carpeta
+ignorada `backend/scripts/salida/portadas-anzuelos-20261103/` del worktree
+de Codex; `archivos.json` relaciona cada archivo, modelo, huella y prompt.
+Los archivos publicados viven en el almacenamiento propio bajo `/archivos/marcas/`.
+
+Verificación:33pruebas dirigidas de marcas, PostgreSQL, disco, ambos DTO y
+agrupación, sin omisiones ni fallos. Lecturas públicas reales confirman26ids
+en cada catálogo, las cuatro marcas con imagen y la exclusión del4367inactivo.
+El respaldo anterior y el resultado de la transacción están en
+`~/.local/share/sistema-facturas-cr/respaldos/20261103-marcas-anzuelos-codex/`;
+plan, portadas, búsquedas y verificaciones en
+`~/.local/share/sistema-facturas-cr/codex-marcas-ordenadas-20261103/`.
+Los tres costos de la sección anterior siguen pendientes del proveedor.
+
+En el recorrido aparece una diferencia de formato que impedía el orden
+numérico:«NO.10» frente a«NO. 4». Se uniforma solo el espacio tras«NO.» en
+siete nombres de2330DT usando el corrector existente, con plan previo,
+respaldo, bloqueo y bitácora. No cambia medidas, referencias ni documentos.
+Ensayo local con ROLLBACK e idempotencia correctos; sus7pruebas PostgreSQL
+pasan, además de las33anteriores. Otra conexión READ ONLY confirma los
+siete nombres esperados y conserva los demás campos del catálogo.
+
+Recorrido visual:36comprobaciones de portadas a390/768/1280px:agente y portal
+en Chromium, portal en WebKit. Sin imágenes rotas, desbordamientos ni erroresJS;
+2330DT muestra4…16 y la vista previa conserva la foto individual. El portal
+usa su búsqueda real; el navegador temporal del agente recibe solo los26DTO
+reales ya comprobados, para evitar descargar miles de fotos ajenas al alcance.
+Las solicitudes de escritura están bloqueadas en ese navegador; no hay
+pedidos, mensajes ni movimientos de prueba. Grafo/estructura:23correctas.
+El clon desechable se elimina después de las comprobaciones.

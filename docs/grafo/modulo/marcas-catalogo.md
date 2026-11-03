@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Marcas del catálogo — foto general y presentaciones con vista previa
 estado: vigente
 archivos:
+  - docs/informes/anzuelos-favarcia-2026-11-03.md
   - frontend/src/hooks/useListaCatalogo.js
   - backend/src/modules/productos/taxonomia.service.js
   - backend/src/modules/productos/nombresCatalogo.service.js
@@ -39,7 +40,7 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria]
   relacionado: [modulo/portal-clientes, modulo/gestion-catalogo, modulo/catalogo-agente, decision/orden-canonico-compartido, leccion/fotos-del-catalogo-en-la-tablet, leccion/precio-sin-iva-costo-con-iva, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-28
+medido: 2026-11-03
 ---
 
 ## La foto de marca es una portada — 2026-10-22
@@ -198,3 +199,17 @@ quedan en MAYÚSCULAS y sin tildes en las vocales; la Ñ se conserva. El
 ajuste usa nombres actuales y el corrector existente con plan/respaldo,
 conservando medidas, precios y demás campos. No modifica títulos de marca
 ni documentos del proveedor. Ver el informe de nombres del 25/10.
+
+
+2026-11-03: el usuario acota la limpieza de marcas a Anzuelos. Se conserva
+el resto del catálogo. 2330DT reúne las13medidas; la marca «serie E» se
+retira sin borrar productos. Los triples se separan por7794DS3X,9430DS5X y
+3551DSpara mar;35647RB conserva su tarjeta individual. Cuatro portadas
+ilustrativas optimizadas por la API existente, sin modificar las fotos de
+producto ni costos/precios/estados;4367sigue inactivo hasta confirmar costo.
+Plan con comprobación del estado anterior, ensayo con ROLLBACK, respaldo y
+bitácora; conexión nueva READ ONLY y ambos DTO públicos verificados.
+El recorrido detecta«NO.10» y«NO. 4» en2330DT:se uniforma el espacio de
+siete nombres mediante el corrector existente para ordenar4…16. Plan,
+respaldo,ROLLBACK e idempotencia verificados; costos/medidas se conservan.
+[Alcance, portadas y evidencia](../../informes/anzuelos-favarcia-2026-11-03.md).

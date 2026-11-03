@@ -338,3 +338,10 @@ ROLLBACK y48pruebas de servicios correctas; foto subida con sesión real y
 GET200 con hash idéntico, tras el aviso «listo» del usuario. Queda solo confirmar
 costo/precio para habilitar la venta. Los tres códigos a cotizar se registran en
 [el mismo informe](../../informes/anzuelos-favarcia-2026-11-03.md).
+
+En el mismo trabajo, el usuario pide corregir marcas y después limita el
+alcance a Anzuelos. Cuatro agrupaciones por serie de Mustad con portada
+propia; se retira la supuesta «serie E», se conservan los demás campos y
+el resto de las marcas. Ensayo desechable, respaldo, bitácora y comprobación
+READ ONLY de las fichas y DTO reales; no necesita código nuevo ni SQL.
+Ver [[modulo/marcas-catalogo]] y el informe enlazado.

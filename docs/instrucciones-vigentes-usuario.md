@@ -1488,3 +1488,11 @@ se completa solo el envío de las fotos por la API, con autenticación real.
 al igual que los otros productos». Se busca costo propio y,al no existir,
 se crea ficha pendiente de costo/precio,fuera de venta; no se usan costos de
 otra medida. [Resultado y lista a cotizar](informes/anzuelos-favarcia-2026-11-03.md).
+
+
+2026-11-03, marcas: después de pedir ordenarlas, completar fotos y retirar
+las que no tienen sentido, el usuario precisa «espera, enfoquemonos ahora
+solo en anzuelos». El alcance vigente es la subcategoría Anzuelos: agrupar
+por modelo real de Mustad, corregir la separación falsa por «serie E» y
+añadir sus portadas; conservar las demás marcas y los costos pendientes.
+[Resultado](informes/anzuelos-favarcia-2026-11-03.md).

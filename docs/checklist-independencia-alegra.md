@@ -1396,4 +1396,19 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
 - [ ] Confirmar costos7413455,7413180y7413120con Favarcia antes de completar
   los precios pendientes; no copiar el de otras medidas.
 
+### Ordenar marcas solo de Anzuelos — 2026-11-03
+
+- [x] Revisar agrupaciones y modelos; limitar el cambio a Anzuelos por
+  instrucción posterior del usuario, conservando el resto del catálogo.
+- [x] Ensayar con ROLLBACK y aplicar con respaldo:2330DT,7794DS3X,9430DS5X y
+  3551DSpara mar. Retirar solo «serie E», conservando productos e historia.
+- [x] Completar cuatro portadas por API, WebP liviano con descarga verificada;
+  conservar fotos individuales y estado inactivo del4367pendiente de costo.
+- [x] 33pruebas de marcas/PostgreSQL/disco/agrupación; nueva conexión READ ONLY
+  y ambos catálogos públicos con26anzuelos activos y las cuatro marcas.
+- [x] Uniformar el espacio tras«NO.» en7nombres2330DT para el orden4…16:
+  plan/respaldo,ensayoROLLBACK,idempotencia,7pruebas y lectura nueva correctos.
+- [x] 36comprobaciones visuales de portadas y vistas previas a390/768/1280px;
+  agente/portal en Chromium y portal en WebKit. Grafo/estructura:23correctas.
+
 [Detalle](informes/anzuelos-favarcia-2026-11-03.md).
