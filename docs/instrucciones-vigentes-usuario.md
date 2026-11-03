@@ -1467,3 +1467,7 @@ primero piensa en cómo hacerlo, si no, me ayudas para ir haciéndolo juntos poc
 a poco». Y después: «agrégame un filtro en Gestión de Catálogo que diga
 rotación baja o nula, dentro de donde están los otros filtros».
 [Resultado del filtro](grafo/modulo/gestion-catalogo.md).
+Y sobre la lista de Gestión de Catálogo, donde los nombres largos del proveedor
+se cortaban: «no lo hagamos en 2 renglones, sino haz el tamaño de la letra un
+poco más pequeño, y si es mucha descripción, ahí sí 2 renglones».
+[Resultado](grafo/modulo/gestion-catalogo.md).

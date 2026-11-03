@@ -164,6 +164,18 @@ plana trae como mucho 1000 (`LIMITE_POR_FILTRO`); si llega a esa cifra,
 `ResultadosBusqueda` lo dice («hay más: afiná con el buscador o el
 proveedor») — antes cualquier filtro se cortaba en silencio.
 
+## El nombre en la fila: letra más chica y 2 renglones — 2026-11-03
+
+Al ordenar el catálogo con los nombres del proveedor («ANZUELO P/PESCA NO.10
+MUSTAD 2330DT CAJA 100 PZAS») la fila cortaba el nombre en un renglón y se
+perdía justo lo que distingue un producto de otro. El usuario: «no lo hagamos
+en 2 renglones, sino haz el tamaño de la letra un poco más pequeño, y si es
+mucha descripción, ahí sí 2 renglones». En `FilaProducto` el nombre va en
+`text-sm` con `sm:line-clamp-2` (3 renglones solo en el teléfono, donde en 2 no
+cabe). Para que quepa, la fila se pone horizontal recién desde `xl` y las
+acciones van solo con ícono hasta `2xl`: medido con los 27 anzuelos, ningún
+nombre queda cortado de 390 a 1920 px.
+
 ## Agregar una marca: el código que sigue se cuenta en el maestro
 
 "Agregar marcas" abre el formulario con el código siguiente de la serie
