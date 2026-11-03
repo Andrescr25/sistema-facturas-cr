@@ -1497,6 +1497,18 @@ por modelo real de Mustad, corregir la separación falsa por «serie E» y
 añadir sus portadas; conservar las demás marcas y los costos pendientes.
 [Resultado](informes/anzuelos-favarcia-2026-11-03.md).
 
+
+### 2026-11-03 — Señuelos y engañadores Favarcia
+
+El usuario aporta `catalogo_pesca.pdf` y pide corregir todas las descripciones
+e imágenes de señuelos/engañadores y fijar30% de margen. Autoriza retirar las
+fichas sin código de proveedor. Después confirma que las fotos de7427325y
+7427768están equivocadas; no se conservan como si fueran correctas. Para
+7427625/LF012-10elige conservar la ficha pendiente de costo, no retirarla ni
+asignarle un costo supuesto. Se mantiene su preferencia de nombres en
+MAYÚSCULAS, sin tildes en vocales y conservandoÑ.
+[Resultado y pendientes](informes/senuelos-favarcia-2026-11-03.md).
+
 2026-11-03, cotización recibida: el usuario confirma los costos de7413455,
 7413180y7413120por las cajas indicadas, IVA incluido. Se completa el costo
 propio y el precio con la regla vigente de margen30% de anzuelos;4367deja

@@ -40,12 +40,23 @@ test('presentaciones: fracciones, medidas mixtas, decimales y alfabeto español'
 
 test('IVA real y ofertas: no se descuenta dos veces una baja de precio', async () => {
   const { precioCatalogoAgente } = await cargar('precioCatalogoAgente.js');
-  for (const tarifa of [0,1,2,4,8,13]) {
+  for (const [tarifa, conIva, conDescuento] of [[0,100,90],[1,101,90.9],[2,102,91.8],[4,104,93.6],[8,108,97.2],[13,113,101.7]]) {
     const p={price:[{price:100}],tax:[{percentage:tarifa}]};
-    assert.equal(precioCatalogoAgente(p).final,100*(1+tarifa/100));
+    assert.equal(precioCatalogoAgente(p).final,conIva);
     assert.equal(precioCatalogoAgente({...p,precioAntes:200}).final,precioCatalogoAgente(p).final);
-    assert.equal(precioCatalogoAgente({...p,descuentoPorcentaje:10,precioAntes:200}).final,100*(1+tarifa/100)*.9);
+    assert.equal(precioCatalogoAgente({...p,descuentoPorcentaje:10,precioAntes:200}).final,conDescuento);
   }
+});
+
+test('el agente y clientes coinciden al redondear medios colones y descuentos', async () => {
+  const { precioCatalogoAgente } = await cargar('precioCatalogoAgente.js');
+  const { colones } = await cargar('colones.js');
+  const { precioConImpuesto } = require('../src/modules/catalogo-clientes/precio');
+  const p = { price: [{ price: 1650 }], tax: [{ percentage: 13 }] };
+  assert.equal(precioCatalogoAgente(p).final, 1864.5);
+  assert.equal(colones(precioCatalogoAgente(p).final), '₡1.865');
+  assert.equal(precioCatalogoAgente(p).final, precioConImpuesto(1650, 13));
+  assert.equal(precioCatalogoAgente({ ...p, descuentoPorcentaje: 33.33 }).final, 1243.06);
 });
 
 test('Gestión ordena dentro de cada marca conservando los lugares de otras marcas y sueltos', async () => {

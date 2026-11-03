@@ -4,6 +4,10 @@ tipo: modulo
 titulo: Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar
 estado: vigente
 archivos:
+  - docs/informes/senuelos-favarcia-2026-11-03.md
+  - frontend/src/utils/precioCatalogoAgente.js
+  - frontend/src/utils/moneda.js
+  - backend/tests/marcasCatalogo.test.js
   - frontend/src/utils/proporcionImagenCategoria.js
   - backend/tests/proporcionImagenCategoria.test.js
   - backend/src/modules/productos/categorias.imagen.optimizar.js
@@ -47,10 +51,17 @@ archivos:
 aristas:
   depende_de: [tabla/subcategoria, tabla/categoria-config, tabla/venta-linea, tabla/producto-nuevo-catalogo]
   relacionado: [modulo/marcas-catalogo, modulo/gestion-catalogo, modulo/portal-clientes, decision/orden-canonico-compartido, leccion/dos-clases-de-oferta, leccion/fotos-del-catalogo-en-la-tablet, leccion/cache-con-ids-propios-no-borra-pendientes, leccion/lo-publico-no-lleva-costo-ni-margen]
-medido: 2026-10-25
+medido: 2026-11-03
 ---
 
 ## Vigencia desde el 2026-10-20
+
+2026-11-03: al revisar los señuelos, un precio de1.650másIVA13% se mostraba
+como₡1.864en agente y₡1.865en clientes por la cola decimal binaria.
+`precioCatalogoAgente` reutiliza `redondearDinero` a céntimos antes de dar
+formato, también en descuentos. Tarjeta, marca y vista previa usan ese
+ayudante; regresión contra el importe del servidor y descuento fraccionario.
+[Evidencia](../../informes/senuelos-favarcia-2026-11-03.md).
 
 Se retiraron los selectores/asignaciones de semana y el enlace de compras
 a órdenes desde Revisión de precios. La ruta actual y próxima visita siguen

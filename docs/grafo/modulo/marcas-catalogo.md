@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Marcas del catálogo — foto general y presentaciones con vista previa
 estado: vigente
 archivos:
+  - docs/informes/senuelos-favarcia-2026-11-03.md
   - docs/informes/anzuelos-favarcia-2026-11-03.md
   - frontend/src/hooks/useListaCatalogo.js
   - backend/src/modules/productos/taxonomia.service.js
@@ -44,6 +45,13 @@ medido: 2026-11-03
 ---
 
 ## La foto de marca es una portada — 2026-10-22
+
+2026-11-03: el cálculo común de precios redondea a céntimos antes del
+formato y tras el descuento, reutilizando `redondearDinero`. El caso real
+de los señuelos (1.650sinIVA13% →1.864,50) deja de mostrar₡1.864en el
+agente frente a₡1.865en clientes. Misma regla para presentación y vista
+previa; sin cambiar el precio almacenado ni las agrupaciones.
+[Verificación](../../informes/senuelos-favarcia-2026-11-03.md).
 
 Pedido del usuario: «la foto de marca es una foto con fondo, todo llamativo…
 no una card más de producto, sino una portada para dar a presentar los

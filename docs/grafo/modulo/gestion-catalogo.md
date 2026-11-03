@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Gestión de Catálogo — el rediseño de main, sobre el maestro propio
 estado: vigente
 archivos:
+  - docs/informes/senuelos-favarcia-2026-11-03.md
   - docs/informes/anzuelos-favarcia-2026-11-03.md
   - backend/src/modules/productos/proformaCatalogo.service.js
   - backend/src/utils/baseEnTransaccion.js
@@ -354,3 +355,11 @@ sin crear compras ni tocar costo histórico, documentos, inventario o marcas.
 Ensayo localROLLBACK,61pruebas y lectura nuevaREADONLY correctos. Ya no hay
 cotizaciones pendientes en ese lote. Los importes y el respaldo quedan en
 [el informe](../../informes/anzuelos-favarcia-2026-11-03.md).
+
+2026-11-03, segunda familia: el usuario solicita corregir todos los señuelos
+y engañadores del PDF con margen30%. Codex aplica40nombres y39costos/precios
+identificados por compra propia;38fotos auténticas y cuatro bajas conservan
+documentos e historia. El usuario conservaLF012-10pendiente de costo y
+confirma equivocadas las fotos7427325/7427768: quedan vacías, sin inventar
+sustitutas. No se reorganizan otras familias ni marcas.
+[Fuente, verificación y pendientes](../../informes/senuelos-favarcia-2026-11-03.md).

@@ -1384,6 +1384,32 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
 [Detalle](informes/anzuelos-favarcia-2026-11-03.md).
 
 
+### Señuelos y engañadores Favarcia — 2026-11-03
+
+- [x] Revisar44fichas por código/modelo/color/empaque contra el PDF y compras
+  propias. No usar una foto parecida ni el costo de otro producto.
+- [x] Ensayo final localROLLBACK y87pruebas dirigidas correctas; respaldo de
+  datos y44fotos antes del cambio real.
+- [x] Aplicar40nombres,39costos/precios con margen mínimo30% y cuatro bajas;
+  conservar documentos/inventario/relaciones y otras marcas/fichas.
+- [x] Cargar38fotos auténticas porAPIcon sesión real;GET200yhashes idénticos.
+  Retirar las dos fotos equivocadas confirmadas por el usuario.
+- [x] Nueva conexiónREADONLY:84bitácoras,38historiales y demás campos
+  conservados; ambasAPIpúblicas devuelven40activos y los cuatro retirados no.
+- [x] Portal realChromium/WebKit390/1280:160comprobaciones; agente corregido
+  en build local con respuestas capturadas:80comprobaciones correctas.
+- [x] Corregir el redondeo de medios colones del agente con el ayudante
+  monetario existente y regresión sobre el caso1.650másIVA13%.
+- [x] Suite completa local:272archivos,3.327correctas,sin fallos y las tres
+  omisiones históricas del ensayo de corte;build/lint correctos.
+- [ ] Confirmar costo conIVAde7427625/LF012-10; el usuario conserva la ficha
+  pendiente con foto/nombre corregidos y precio anterior.
+- [ ] Recibir fotos auténticas de7427325/HB202-02y7427768/camarón5piezas;
+  se conservan activos, sin publicar las imágenes equivocadas.
+
+[Alcance y respaldo](informes/senuelos-favarcia-2026-11-03.md).
+
+
 ### Triple3/0 Favarcia7413455 — 2026-11-03
 
 - [x] Buscar código y medida en catálogo, relaciones, buzón y compras propias:
