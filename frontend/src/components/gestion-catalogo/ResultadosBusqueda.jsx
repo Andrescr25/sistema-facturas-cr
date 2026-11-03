@@ -6,11 +6,13 @@ import FilaProducto from './FilaProducto'
  * Buscar en todo el catálogo (por texto, por proveedor o las dos): una lista
  * plana, como hace el catálogo del agente al buscar. Cada fila dice en qué
  * categoría y subcategoría está, porque acá no hay agrupado que lo diga.
+ * Si llega a `tope`, la lista quedó cortada y se dice (2026-11-03).
  */
 export default function ResultadosBusqueda({
   busqueda,
   proveedorNombre = '',
   resultados,
+  tope,
   loading,
   alternar,
   estaSeleccionado,
@@ -56,6 +58,11 @@ export default function ResultadosBusqueda({
           {resultados.length} resultado{resultados.length === 1 ? '' : 's'}{descripcion}
         </h3>
       </div>
+      {tope && resultados.length >= tope && (
+        <p role="status" className="border-b border-alerta-200 bg-alerta-50 px-5 py-3 text-sm font-semibold text-alerta-800">
+          Se muestran los primeros {tope}: hay más. Afiná con el buscador o el proveedor para ver el resto.
+        </p>
+      )}
       <div className="divide-y divide-neutro-100">
         {resultados.map((p) => (
           <FilaProducto

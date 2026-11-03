@@ -66,6 +66,8 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
   const [recargarNonce, setRecargarNonce] = useState(0)
 
   const busquedaActiva = !categoriaActiva && (busqueda.trim().length > 0 || Boolean(proveedor) || estado !== 'activos')
+  // Cuántos trae como mucho la lista plana: si llega a esa cifra, quedó cortada.
+  const tope = proveedor || estado !== 'activos' ? LIMITE_POR_FILTRO : LIMITE_BUSQUEDA_GLOBAL
   const idPedidoRef = useRef(0)
 
   const categoria = useMemo(
@@ -104,7 +106,7 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
               buscar: busqueda.trim(),
               proveedor,
               estado,
-              limite: proveedor || estado !== 'activos' ? LIMITE_POR_FILTRO : LIMITE_BUSQUEDA_GLOBAL
+              limite: tope
             }
           })
 
@@ -197,7 +199,7 @@ export function useListaCatalogo({ arbol, categoriaActiva, subFoco }) {
   }, [])
 
   return {
-    busqueda, setBusqueda, busquedaActiva,
+    busqueda, setBusqueda, busquedaActiva, tope,
     proveedor, setProveedor, proveedores,
     estado, setEstado,
     filtroTexto, setFiltroTexto,

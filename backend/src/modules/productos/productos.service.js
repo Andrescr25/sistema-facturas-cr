@@ -21,6 +21,8 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, texto, numero, booleano, validar, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
+const { SQL_ROTACION_MENSUAL } = require('../ventas/rotacion');
+const { ROTACION_BAJA } = require('../precios/motor');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const LIMITE_MAXIMO = 100;
@@ -134,9 +136,15 @@ function normalizarFila(fila) {
 
 /**
  * @param {object} filtros
- * @param {'activos'|'ocultos'|'inactivos'|'vendibles'|'todos'} filtros.estado
+ * @param {'activos'|'ocultos'|'inactivos'|'vendibles'|'todos'|'rotacion_baja'} filtros.estado
  *   `activos` es lo que muestran los catálogos (activo y sin ocultar);
  *   `vendibles` es todo lo que se puede facturar: activo, oculto o no.
+ *   `rotacion_baja` (2026-11-03, el usuario: «rotación baja o nula», para
+ *   ordenar el catálogo): los que están a la venta y en los últimos 30 días
+ *   vendieron menos de `ROTACION_BAJA` unidades, ninguna incluida. Es la misma
+ *   rotación que muestra la fila (`SQL_ROTACION_MENSUAL`) y el mismo corte con
+ *   que el motor de precios dice «se vende poco». Van primero los que no
+ *   vendieron nada: si la lista llega al tope, lo que queda afuera es lo menos urgente.
  */
 async function listarProductos({ buscar = '', categoriaId, proveedor = '', sinImagen = false, estado = 'activos', pagina = 1, limite = 30 } = {}) {
   const where = [];
@@ -148,8 +156,11 @@ async function listarProductos({ buscar = '', categoriaId, proveedor = '', sinIm
     case 'ocultos': where.push('p.activo = TRUE AND p.oculto = TRUE'); break;
     case 'inactivos': where.push('p.activo = FALSE'); break;
     case 'vendibles': where.push(VENDIBLE); break;
+    case 'rotacion_baja':
+      where.push(`p.activo = TRUE AND p.oculto = FALSE AND p.id NOT IN (SELECT producto_id FROM rot WHERE unidades_mes >= ${ROTACION_BAJA})`);
+      break;
     case 'todos': break;
-    default: throw httpError(400, 'Estado: tiene que ser activos, ocultos, inactivos, vendibles o todos.');
+    default: throw httpError(400, 'Estado: tiene que ser activos, ocultos, inactivos, vendibles, rotacion_baja o todos.');
   }
 
   for (const palabra of normalizar(buscar).split(/\s+/).filter(Boolean).slice(0, 8)) {
@@ -178,10 +189,13 @@ async function listarProductos({ buscar = '', categoriaId, proveedor = '', sinIm
   const pag = Math.max(parseInt(pagina, 10) || 1, 1);
   const filtro = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
+  // La rotación se calcula una vez (no por fila) y solo cuando el filtro la pide.
+  const porRotacion = estado === 'rotacion_baja';
   const { rows } = await pool.query(
-    `${SELECT_VISTA.replace('SELECT p.*,', 'SELECT p.*, COUNT(*) OVER() AS total,')}
+    `${porRotacion ? `WITH rot AS MATERIALIZED (${SQL_ROTACION_MENSUAL})` : ''}
+     ${SELECT_VISTA.replace('SELECT p.*,', 'SELECT p.*, COUNT(*) OVER() AS total,')}
      ${filtro}
-     ORDER BY lower(p.nombre), p.id
+     ORDER BY ${porRotacion ? 'COALESCE((SELECT unidades_mes FROM rot WHERE rot.producto_id = p.id), 0),' : ''} lower(p.nombre), p.id
      LIMIT ${agregar(lim)} OFFSET ${agregar((pag - 1) * lim)}`,
     params
   );

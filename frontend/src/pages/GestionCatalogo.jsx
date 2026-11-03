@@ -49,7 +49,10 @@ const CATEGORIAS = {
 const ESTADOS = [
   { valor: 'activos', texto: 'A la venta' },
   { valor: 'ocultos', texto: 'Ocultos de los catálogos' },
-  { valor: 'inactivos', texto: 'Dados de baja' }
+  { valor: 'inactivos', texto: 'Dados de baja' },
+  // A la venta, con menos de 3 unidades vendidas en los últimos 30 días (el
+  // servidor decide el corte; 2026-11-03, para ordenar el catálogo).
+  { valor: 'rotacion_baja', texto: 'Rotación baja o nula' }
 ]
 
 /**
@@ -307,6 +310,7 @@ export default function GestionCatalogo() {
               busqueda={lista.busqueda || ESTADOS.find((e) => e.valor === lista.estado)?.texto}
               proveedorNombre={nombreProveedor}
               resultados={lista.resultados}
+              tope={lista.tope}
               loading={lista.loading}
               alternar={seleccion.alternar}
               estaSeleccionado={seleccion.estaSeleccionado}

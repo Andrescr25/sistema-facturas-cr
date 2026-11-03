@@ -1453,3 +1453,17 @@ gusto». Eligió: un plan por día con clientes de todas sus rutas; que el agent
 también pueda guardar su orden como el de su ruta; atajos «Orden de la ruta» y
 «Mapa del día». «Dale sí, en developer.»
 [Resultado](grafo/decision/mi-dia-en-preventa.md).
+
+
+## 2026-11-03 — Ordenar el catálogo; filtro «Rotación baja o nula»
+
+El usuario: «ahora la prioridad máxima es ordenar el catálogo; actualmente hay
+muchos errores y con esto perdemos dinero. El administrador de antes compraba
+el mismo producto a muchos proveedores, esto hacía que el precio fluctuara
+mucho, además que muchas de esas compras no llegaban al sistema porque no eran
+electrónicas. El catálogo que te adjunté es mi mejor proveedor de pesca:
+ayúdame a acomodar descripciones acorde a las del proveedor e imágenes;
+primero piensa en cómo hacerlo, si no, me ayudas para ir haciéndolo juntos poco
+a poco». Y después: «agrégame un filtro en Gestión de Catálogo que diga
+rotación baja o nula, dentro de donde están los otros filtros».
+[Resultado del filtro](grafo/modulo/gestion-catalogo.md).

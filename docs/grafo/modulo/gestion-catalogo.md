@@ -21,6 +21,8 @@ archivos:
   - frontend/src/pages/GestionCatalogo.jsx
   - frontend/src/hooks/useTaxonomiaCatalogo.js
   - frontend/src/hooks/useListaCatalogo.js
+  - frontend/src/components/gestion-catalogo/ResultadosBusqueda.jsx
+  - backend/tests/rotacionBajaCatalogo.test.js
   - frontend/src/hooks/useAccionesLote.js
   - frontend/src/hooks/useFichaProducto.js
   - backend/tests/taxonomiaCatalogo.test.js
@@ -144,6 +146,23 @@ los dos módulos borrados en vez de `taxonomiaTablas.js`. El helper nuevo
 conservaba la conexión falsa de un caso anterior y la prueba real fallaba
 con un id inexistente. Se limpia la dependencia actual antes de cada caso
 y al montar PostgreSQL; no se cambió el servicio para ocultar ese fallo.
+
+## Filtro «Rotación baja o nula» — 2026-11-03
+
+El usuario, para ordenar el catálogo: «agrégame un filtro en Gestión de
+Catálogo que diga rotación baja o nula, dentro de donde están los otros
+filtros: a la venta, ocultos del catálogo…». Es una opción más del selector de
+estado (`estado=rotacion_baja` en `/maestro/buscar` → `listarProductos`): los
+que están A LA VENTA (activos y sin ocultar) que en los últimos 30 días
+vendieron menos de 3 unidades, ninguna incluida. Es la rotación que muestra
+cada fila (`SQL_ROTACION_MENSUAL`, calculada una vez en un `WITH … MATERIALIZED`)
+y el corte `ROTACION_BAJA` del motor de precios («se vende poco»), importado,
+no copiado. Se combina con el buscador y el proveedor.
+
+Van primero los que no vendieron nada y después los de 1 o 2 unidades. La lista
+plana trae como mucho 1000 (`LIMITE_POR_FILTRO`); si llega a esa cifra,
+`ResultadosBusqueda` lo dice («hay más: afiná con el buscador o el
+proveedor») — antes cualquier filtro se cortaba en silencio.
 
 ## Agregar una marca: el código que sigue se cuenta en el maestro
 
