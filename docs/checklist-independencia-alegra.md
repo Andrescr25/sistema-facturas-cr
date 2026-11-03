@@ -1393,8 +1393,8 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   Se conservan huellas de nueve tablas de datos anteriores.
 - [x] Foto vinculada por API con sesión real (2026-11-03 16:26:05 CR), GET 200 y
   SHA-256 idéntico a la fuente; ficha completa e inactiva hasta confirmar precio.
-- [ ] Confirmar costos7413455,7413180y7413120con Favarcia antes de completar
-  los precios pendientes; no copiar el de otras medidas.
+- [x] Usuario confirma costos7413455,7413180y7413120por caja con IVA incluido.
+  Aplicados con margen30%,redondeo/respaldo e historial;4367activo y visible.
 
 ### Ordenar marcas solo de Anzuelos — 2026-11-03
 
@@ -1410,5 +1410,16 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   plan/respaldo,ensayoROLLBACK,idempotencia,7pruebas y lectura nueva correctos.
 - [x] 36comprobaciones visuales de portadas y vistas previas a390/768/1280px;
   agente/portal en Chromium y portal en WebKit. Grafo/estructura:23correctas.
+
+### Costos confirmados del lote de Anzuelos — 2026-11-03
+
+- [x] Costos propios confirmados para4367/376/377,caja25/100,IVA real y factores
+  conservados; retirar el aviso pendiente y activar4367al fijar su precio.
+- [x] EnsayoROLLBACK y61pruebas dirigidas. Aplicar mediante servicios existentes
+  en una transacción:4bitácoras,3precios históricos y nueve huellas conservadas.
+- [x] Nueva conexiónREADONLY y ambas API reales:27anzuelos activos y los tres
+  precios/fotos/marcas esperados. No quedan costos pendientes en este lote.
+- [x] Doce comprobaciones de lista/vista previa en Chromium/WebKit390/1280px:
+  precios y fotos correctos, sin erroresJS, desbordes ni escrituras de prueba.
 
 [Detalle](informes/anzuelos-favarcia-2026-11-03.md).

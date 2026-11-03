@@ -345,3 +345,12 @@ propia; se retira la supuesta «serie E», se conservan los demás campos y
 el resto de las marcas. Ensayo desechable, respaldo, bitácora y comprobación
 READ ONLY de las fichas y DTO reales; no necesita código nuevo ni SQL.
 Ver [[modulo/marcas-catalogo]] y el informe enlazado.
+
+Después, el usuario confirma los costos por caja con IVA de7413455,7413180y
+7413120. Se actualizan4367/376/377con el margen30% y redondeo hacia arriba del
+lote;4367se activa al tener precio/costo y se retira su aviso de pendiente.
+Tres historiales de precio y cuatro bitácoras por los servicios existentes;
+sin crear compras ni tocar costo histórico, documentos, inventario o marcas.
+Ensayo localROLLBACK,61pruebas y lectura nuevaREADONLY correctos. Ya no hay
+cotizaciones pendientes en ese lote. Los importes y el respaldo quedan en
+[el informe](../../informes/anzuelos-favarcia-2026-11-03.md).

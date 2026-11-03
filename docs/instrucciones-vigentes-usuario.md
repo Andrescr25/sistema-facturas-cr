@@ -1496,3 +1496,10 @@ solo en anzuelos». El alcance vigente es la subcategoría Anzuelos: agrupar
 por modelo real de Mustad, corregir la separación falsa por «serie E» y
 añadir sus portadas; conservar las demás marcas y los costos pendientes.
 [Resultado](informes/anzuelos-favarcia-2026-11-03.md).
+
+2026-11-03, cotización recibida: el usuario confirma los costos de7413455,
+7413180y7413120por las cajas indicadas, IVA incluido. Se completa el costo
+propio y el precio con la regla vigente de margen30% de anzuelos;4367deja
+de estar pendiente y se habilita al tener precio confirmado. La cotización
+actualiza catálogo, no acredita una compra ni un pago.
+[Resultado](informes/anzuelos-favarcia-2026-11-03.md).

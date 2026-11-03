@@ -121,7 +121,7 @@ El perfil privado del navegador conserva la sesión normal que el usuario
 inicie, para poder trabajar las siguientes fichas sin pedir un login por
 cada producto; el guion no exporta JWT/contraseñas a registros de operación.
 
-### Costos que debe confirmar Favarcia
+### Consulta inicial de costos a Favarcia — resuelta posteriormente
 
 | Código Favarcia | Presentación | Situación |
 | --- | --- | --- |
@@ -129,8 +129,9 @@ cada producto; el guion no exporta JWT/contraseñas a registros de operación.
 | 7413180 | Mustad No.16, 2330DT, caja de 100 | Ficha 376 sin costo confirmado. |
 | 7413120 | Mustad No.4, 2330DT, caja de 100 | Ficha 377 tiene costo provisional del No.5; falta el suyo. |
 
-Pedir costo por caja y confirmar si incluye IVA. La confirmación puede ser
-una cotización del proveedor: no se requiere inventar una compra para fijarlo.
+Se solicita costo por caja y si incluye IVA. El usuario los confirma después;
+ver el cierre al final del informe. La confirmación es una cotización del
+proveedor: no se necesita registrar una compra para fijarlos.
 Respaldo del alta: `~/.local/share/sistema-facturas-cr/respaldos/20261103-alta-anzuelo-7413455-codex/`.
 Búsquedas, plan, fuente, ensayo y verificaciones:
 `~/.local/share/sistema-facturas-cr/codex-anzuelo-7413455-20261103/`.
@@ -204,3 +205,42 @@ reales ya comprobados, para evitar descargar miles de fotos ajenas al alcance.
 Las solicitudes de escritura están bloqueadas en ese navegador; no hay
 pedidos, mensajes ni movimientos de prueba. Grafo/estructura:23correctas.
 El clon desechable se elimina después de las comprobaciones.
+
+## Costos confirmados por el usuario y cierre de pendientes — 2026-11-03
+
+El usuario aporta los tres costos **por caja con IVA incluido**. Se identifican
+las fichas por el código de Favarcia y su cédula, no por referencias internas
+parecidas. Tarifa vigente13%; factores1/25y1/100 conservados. Se reutilizan
+`precioSinImpuesto`, `precioConImpuesto` y los servicios de edición/estado
+de Gestión de Catálogo. El margen sigue siendo30% sobre venta, con los mismos
+escalones hacia arriba del lote anterior:25colones bajo10.000y100desde allí.
+
+| Código Favarcia | Producto propio | Caja | Costo con IVA | Precio sin IVA | Precio con IVA | Margen real |
+| --- | --- | --- | --- | --- | --- | --- |
+| 7413455 | 4367 · Triple3/0 9430DS5X | 25 | ₡6.215,00 | ₡7.875,00 | ₡8.898,75 | 30,16% |
+| 7413180 | 376 · MustadNo.16 2330DT | 100 | ₡1.695,00 | ₡2.150,00 | ₡2.429,50 | 30,23% |
+| 7413120 | 377 · MustadNo.4 2330DT | 100 | ₡10.735,00 | ₡13.600,00 | ₡15.368,00 | 30,15% |
+
+Las tres fichas quedan activas y visibles. El4367se habilita después de fijar
+costo y precio; su descripción deja de anunciar un costo pendiente. Se conservan
+nombres, imágenes, marcas, relaciones, factores, clasificación e impuestos.
+El costo provisional delNo.4queda sustituido por el costo propio confirmado.
+**Ya no quedan costos pendientes en este lote de anzuelos.**
+
+Codex aplica una sola transacción real (2026-11-03 17:02:30 CR), respaldada antes del primer cambio,
+con tres ediciones y una activación:4bitácoras y3entradas de precio histórico
+con costo sin IVA y margen. Las otras fichas/marcas y las huellas de nueve
+tablas de relaciones, compras, ventas, pagos, inventario y costo histórico
+se conservan. La cotización no crea compras ni movimientos fiscales o de stock.
+Una conexión nueva READ ONLY comprueba los datos confirmados.
+
+Ensayo local con ROLLBACK en clon desechable y61pruebas de producto, activación,
+renovación del catálogo, impuestos y margen correctas, sin fallos/omisiones.
+La consulta pública de cada catálogo devuelve27anzuelos activos y los tres
+precios/fotos/marcas esperados;9430DSpasa de6a7presentaciones visibles.
+Doce comprobaciones visuales Chromium/WebKit a390/1280px confirman los tres
+precios en lista y vista previa, las fotos originales y ausencia de desbordes
+o erroresJS. Todas las solicitudes de escritura del navegador están bloqueadas.
+Respaldo:`~/.local/share/sistema-facturas-cr/respaldos/20261103-costos-anzuelos-confirmados-codex/`.
+Plan/cotización, ensayo y verificaciones:
+`~/.local/share/sistema-facturas-cr/codex-costos-anzuelos-20261103/`.

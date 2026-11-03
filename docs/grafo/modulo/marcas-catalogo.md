@@ -213,3 +213,9 @@ El recorrido detecta«NO.10» y«NO. 4» en2330DT:se uniforma el espacio de
 siete nombres mediante el corrector existente para ordenar4…16. Plan,
 respaldo,ROLLBACK e idempotencia verificados; costos/medidas se conservan.
 [Alcance, portadas y evidencia](../../informes/anzuelos-favarcia-2026-11-03.md).
+
+Confirmación posterior del usuario: los tres costos pendientes llegan con
+IVA incluido por caja. El4367ya tiene costo/precio y está activo;9430DS5X
+muestra sus7medidas. Las otras dos fichas reciben su costo confirmado y el
+mismo margen30%. Marcas, portadas y nombres se conservan. Este cierre
+sustituye el estado «4367inactivo hasta costo» descrito arriba; ver el informe.
