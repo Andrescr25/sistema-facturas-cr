@@ -334,6 +334,7 @@ Nueva conexión READ ONLY y104lecturas visuales Chromium/WebKit correctas.
 Búsqueda en catálogo, buzón y compras no encuentra la medida ni costo propio.
 Se crea4367con relación/caja25 y descripción de costo pendiente; queda inactivo
 hasta fijar costo/precio, sin inventar valores de otra medida. Ensayo con
-ROLLBACK y48pruebas de servicios correctas; fuente de foto lista para subir
-con sesión real. Los tres códigos a cotizar y el cierre real se registran en
+ROLLBACK y48pruebas de servicios correctas; foto subida con sesión real y
+GET200 con hash idéntico, tras el aviso «listo» del usuario. Queda solo confirmar
+costo/precio para habilitar la venta. Los tres códigos a cotizar se registran en
 [el mismo informe](../../informes/anzuelos-favarcia-2026-11-03.md).

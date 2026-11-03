@@ -113,8 +113,10 @@ ROLLBACK correcto y 48 pruebas de los servicios implicados pasan; no hay nuevo
 código de aplicación ni migraciones. Una conexión nueva READ ONLY confirma
 una sola ficha y relación del código, inactiva, sin documentos ni costo inventado.
 
-**Foto preparada:** PNG original de 7413455, verificado contra el catálogo;
-la carga por la API espera la sesión del administrador en la nueva ventana.
+**Foto confirmada — 2026-11-03 16:26:05 CR:** el usuario inicia sesión y la API vincula
+el PNG original de 7413455 a la ficha 4367. Su descarga pública devuelve 200
+y SHA-256 idéntico a la fuente. El alta queda completa; solo falta confirmar
+costo y precio para habilitar la venta.
 El perfil privado del navegador conserva la sesión normal que el usuario
 inicie, para poder trabajar las siguientes fichas sin pedir un login por
 cada producto; el guion no exporta JWT/contraseñas a registros de operación.

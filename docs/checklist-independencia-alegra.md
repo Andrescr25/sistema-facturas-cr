@@ -1391,7 +1391,8 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
 - [x] Ensayo local con ROLLBACK,48pruebas de servicios y respaldo del alta;
   crear4367inactivo,con referencia/relación,subcategoría y caja25,precio pendiente.
   Se conservan huellas de nueve tablas de datos anteriores.
-- [ ] Completar foto por API con sesión del administrador y verificar.
+- [x] Foto vinculada por API con sesión real (2026-11-03 16:26:05 CR), GET 200 y
+  SHA-256 idéntico a la fuente; ficha completa e inactiva hasta confirmar precio.
 - [ ] Confirmar costos7413455,7413180y7413120con Favarcia antes de completar
   los precios pendientes; no copiar el de otras medidas.
 
