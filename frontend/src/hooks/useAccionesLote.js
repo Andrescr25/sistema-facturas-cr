@@ -1,15 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import api from '../services/api'
 
 const plural = (n, uno, varios) => (n === 1 ? uno : varios)
 
 /**
- * Las acciones que mueven productos de lugar, sobre el maestro propio.
- *
- * En `main` cambiar de categoría escribe en Alegra (~3 s por producto) y es
- * un trabajo de fondo que se sondea. Acá las tres acciones son un UPDATE en
- * la base propia y vuelven en el momento, así que no hay trabajo ni panel de
- * avance: `trabajo` queda siempre en null y BarraLote no lo muestra.
+ * Acciones sobre la selección, confirmadas en una petición al maestro propio.
  *
  * Siguen siendo acciones DISTINTAS por lo que le pasa al producto: mover a
  * subcategoría lo deja en su categoría; cambiar de categoría lo manda a "Sin
@@ -17,10 +12,13 @@ const plural = (n, uno, varios) => (n === 1 ? uno : varios)
  *
  * Los ids son los PROPIOS del producto (`producto.id`).
  */
-export function useAccionesLote({ arbol, patchProducto, quitarProductos, recargarArbol, recargarLista, mostrarToast }) {
+export function useAccionesLote({ arbol, patchProducto, quitarProductos, recargarArbol, recargarLista, mostrarToast, confirm }) {
   const [moviendo, setMoviendo] = useState(false)
+  const enCurso = useRef(false)
 
   const conMovimiento = useCallback(async (trabajo, mensajeError) => {
+    if (enCurso.current) return false
+    enCurso.current = true
     setMoviendo(true)
     try {
       return await trabajo()
@@ -29,6 +27,7 @@ export function useAccionesLote({ arbol, patchProducto, quitarProductos, recarga
       mostrarToast('error', error.response?.data?.message || mensajeError)
       return false
     } finally {
+      enCurso.current = false
       setMoviendo(false)
     }
   }, [mostrarToast])
@@ -74,13 +73,34 @@ export function useAccionesLote({ arbol, patchProducto, quitarProductos, recarga
     }, 'No se pudo mover la subcategoría.')
   }, [recargarArbol, recargarLista, mostrarToast, conMovimiento])
 
+  const cambiarEstado = useCallback(async (ids, accion) => {
+    if (!ids.length || enCurso.current || !['ocultar', 'desactivar'].includes(accion)) return false
+    const ocultar = accion === 'ocultar'
+    const aprobado = await confirm(
+      ocultar
+        ? `${ids.length} ${plural(ids.length, 'producto dejará', 'productos dejarán')} de verse en los catálogos de clientes y del agente. Podrás seguir facturando los que estén activos.`
+        : `${ids.length} ${plural(ids.length, 'producto se retirará', 'productos se retirarán')} de la venta y de los catálogos. Sus facturas, compras e historial se conservan.`,
+      { title: ocultar ? 'Ocultar del catálogo' : 'Desactivar productos', confirmLabel: ocultar ? 'Ocultar' : 'Desactivar', variant: ocultar ? 'default' : 'danger' }
+    )
+    if (!aprobado) return false
+    return conMovimiento(async () => {
+      const { data } = await api.patch('/maestro/lote/estado', { productoIds: ids, ...(ocultar ? { oculto: true } : { activo: false }) })
+      const actualizados = data.data.actualizados
+      mostrarToast('success', actualizados
+        ? `${actualizados} ${plural(actualizados, 'producto', 'productos')} ${ocultar ? 'fuera del catálogo' : plural(actualizados, 'desactivado', 'desactivados')}.`
+        : 'Los productos ya tenían ese estado.')
+      // Releer conserva el filtro de ocultos/inactivos; no se quitan a ciegas.
+      recargarLista()
+      recargarArbol()
+      return true
+    }, 'No se pudo cambiar el estado del lote.')
+  }, [confirm, conMovimiento, mostrarToast, recargarLista, recargarArbol])
+
   return {
     moviendo,
-    trabajo: null,
-    ocupado: moviendo,
     moverASubcategoria,
     cambiarCategoria,
     moverSubcategoria,
-    cerrarTrabajo: () => {}
+    cambiarEstado
   }
 }

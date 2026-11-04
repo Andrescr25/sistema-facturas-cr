@@ -23,6 +23,7 @@ const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { SQL_ROTACION_MENSUAL } = require('../ventas/rotacion');
 const { ROTACION_BAJA } = require('../precios/motor');
+const { cambiosDeEstado, accionDeEstado } = require('./estadoProducto');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const LIMITE_MAXIMO = 100;
@@ -289,12 +290,9 @@ async function tarifaDe(ejecutor, impuestoId) {
 }
 
 /** Activar/desactivar (sale de la venta) u ocultar/mostrar (sale de los catálogos). */
-async function cambiarEstadoProducto(id, { activo, oculto } = {}, usuarioId) {
+async function cambiarEstadoProducto(id, datos = {}, usuarioId) {
   const n = idValido(id);
-  const cambios = {};
-  if (activo !== undefined) cambios.activo = booleano(activo, 'Activo');
-  if (oculto !== undefined) cambios.oculto = booleano(oculto, 'Oculto');
-  if (Object.keys(cambios).length === 0) throw httpError(400, 'Hay que indicar activo u oculto.');
+  const cambios = cambiosDeEstado(datos);
 
   return enTransaccion(async (cliente) => {
     const { rows: previas } = await cliente.query('SELECT * FROM producto WHERE id = $1 FOR UPDATE', [n]);
@@ -308,9 +306,7 @@ async function cambiarEstadoProducto(id, { activo, oculto } = {}, usuarioId) {
       `UPDATE producto SET ${columnas.map((c, i) => `${c} = $${i + 1}`).join(', ')}, actualizado_en = CURRENT_TIMESTAMP WHERE id = $${columnas.length + 1} RETURNING *`,
       [...columnas.map(c => reales[c]), n]
     );
-    const accion = 'activo' in reales
-      ? (reales.activo ? 'activar' : 'desactivar')
-      : (reales.oculto ? 'ocultar' : 'mostrar');
+    const accion = accionDeEstado(antes, rows[0]);
     await registrarCambio(cliente, { entidad: 'producto', entidadId: n, accion, antes: sinTiempos(antes), despues: sinTiempos(rows[0]), usuarioId });
     return obtenerCon(cliente, n);
   });

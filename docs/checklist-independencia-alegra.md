@@ -1449,3 +1449,26 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   precios y fotos correctos, sin erroresJS, desbordes ni escrituras de prueba.
 
 [Detalle](informes/anzuelos-favarcia-2026-11-03.md).
+
+
+### Selección de productos y portadas de marcas — 2026-11-03
+
+- [x] Añadir Ocultar del catálogo y Desactivar a la barra de selección, con
+  confirmación, alcance claro y selección conservada si falla.
+- [x] Reutilizar validación y bitácora; lote atómico de hasta 1.000 productos
+  en cinco consultas, con idempotencia y permisos existentes. Sin SQL nuevo.
+- [x] Verificar con PostgreSQL desechable y suite completa: 273 archivos,
+  3.336 correctas, cero fallos y tres omisiones históricas.
+- [x] Recorrer selección en Chromium/WebKit a 390/1280 px: cancelar, ocultar,
+  desactivar, cambiar filtros, espera y fallo sin perder selección.
+- [x] Conservar las 32 portadas existentes y generar las 29 faltantes con
+  referencia real, herramienta integrada y prompts guardados. WebP de hasta
+  107 KiB; fotos individuales y miembros de cada marca conservados.
+- [x] Revisar las 61 marcas: 366 comprobaciones en ambos catálogos. Cargar
+  las 29 portadas por API con respaldo, hashes y lectura independiente:
+  32 portadas y 2.210 productos conservados; exactamente 29 bitácoras.
+- [x] Preparar entrega verificada, con build, lint, estructura/grafo y sin
+  migraciones; comprobar Render al publicar y registrar responsable/commit
+  en la memoria compartida de publicaciones.
+
+[Alcance, recursos y comprobaciones](informes/catalogo-lote-portadas-2026-11-03.md).

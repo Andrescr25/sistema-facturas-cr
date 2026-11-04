@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { registrarCambio, diferencias } = require('../src/utils/bitacora');
+const { registrarCambio, registrarCambios, diferencias } = require('../src/utils/bitacora');
 
 /**
  * La bitácora reemplaza el historial que hoy lleva Alegra. Tiene que decir
@@ -85,6 +85,32 @@ test('el usuario del token llega como texto y se guarda como número', async () 
     );
   }
   assert.equal(db.consultas.length, 1, 'con un usuario inválido no se escribe nada');
+});
+
+test('el lote conserva las reglas individuales con un solo INSERT y sin ediciones vacías', async () => {
+  const db = ejecutorDoble();
+  await registrarCambios(db, [
+    { entidad: 'producto', entidadId: 1, accion: 'ocultar', antes: { oculto: false }, despues: { oculto: true }, usuarioId: '4' },
+    { entidad: 'producto', entidadId: 2, accion: 'editar', antes: { precio: 1 }, despues: { precio: 2 }, motivo: 'precio corregido' },
+    { entidad: 'producto', entidadId: 3, accion: 'editar', antes: { precio: 1 }, despues: { precio: 1 } }
+  ]);
+  assert.equal(db.consultas.length, 1);
+  const filas = JSON.parse(db.consultas[0].params[0]);
+  assert.equal(filas.length, 2);
+  assert.deepEqual(filas.map(f => [f.entidad_id, f.usuario_id, f.cambios]), [['1', 4, null], ['2', null, { precio: [1, 2] }]]);
+  assert.deepEqual(filas[0].antes, { oculto: false });
+  assert.deepEqual(filas[0].despues, { oculto: true });
+  assert.equal(filas[1].motivo, 'precio corregido');
+});
+
+test('un lote inválido no inserta las primeras líneas y un lote vacío no consulta', async () => {
+  const db = ejecutorDoble();
+  await assert.rejects(registrarCambios(db, [
+    { entidad: 'producto', entidadId: 1, accion: 'ocultar' },
+    { entidad: 'producto', entidadId: 2, accion: 'ocultar', usuarioId: 'x' }
+  ]), /usuarioId inválido/);
+  assert.deepEqual(await registrarCambios(db, []), []);
+  assert.deepEqual(db.consultas, []);
 });
 
 test('guarda de verdad contra la base local', { skip: !process.env.PROBAR_BASE_LOCAL }, async () => {

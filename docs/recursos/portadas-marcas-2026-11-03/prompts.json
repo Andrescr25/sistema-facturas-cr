@@ -1,0 +1,499 @@
+[
+  {
+    "id": 60,
+    "nombre": "Bolsa Manilla Blanca China",
+    "productoReferencia": 241,
+    "archivo": "60-bolsa-manilla-blanca-china.webp",
+    "sha256": "7a1f65b1edf8efa991c29022dd9d4959284a78372b9a1904f7954e381dd05ead",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 90254,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: a vertical 2:3 full-bleed photographic brand cover in a Costa Rican wholesale catalogue, not an individual SKU photo. Reference image is the actual white translucent plastic T-shirt carry bag sold in this group. Preserve the recognisable bag shape, two long handles, central opening, fine plastic texture and neutral white colour. Remove all measurement arrows and all dimension text from the reference. Create one beautiful realistic hero carry bag standing naturally on a clean warm stone shop counter, a few matching folded bags beside its base, softly blurred small grocery shop background. Soft warm daylight, refined commercial photography, premium but believable. The main bag fills about 70% of the portrait while remaining fully inside the frame with generous safety on every edge. Background extends to all edges, no border, no inset frame, no white bands, no lettering, no slogans, no logos, no watermark, no people, no groceries inside the bag, no claims about sizes. Sharp details on the bag, quiet background. This is the cover for 'Bolsa Manilla Blanca China'; the UI provides the name, so add no typography.",
+    "referenciaFuente": {
+      "productoId": 241,
+      "url": "/archivos/productos/241-1792687765392-b27e1c0d.png",
+      "sha256": "8afac036bd721de31e99059f84831dcddb36fb3bf7ccd79b05ae658f7ef0b2d3"
+    }
+  },
+  {
+    "id": 61,
+    "nombre": "Bolsa Manilla Blanca Salva",
+    "productoReferencia": 250,
+    "archivo": "61-bolsa-manilla-blanca-salva.webp",
+    "sha256": "038b24786ccb7b71c9911a461dab488dfd6abf7dcaa077fd2657f8215046da25",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 67996,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Milky white smooth T-shirt plastic carry bag with two handles, same smooth non-embossed film as reference. Scene/backdrop: Neat wooden packing counter in a bright corner shop, daylight from a side window, softly blurred shelves. Constraints: No dotted texture, remove measurements and arrows; a few folded matching bags at base. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 250,
+      "url": "/archivos/productos/250-1792683826077-4760e39d.png",
+      "sha256": "089840f045d5aa282a6db99650b9cf75f83b4f4b6d73ed9beaf67ec235719548"
+    }
+  },
+  {
+    "id": 62,
+    "nombre": "Bolsa Manilla Color Nacional",
+    "productoReferencia": 258,
+    "archivo": "62-bolsa-manilla-color-nacional.webp",
+    "sha256": "e59dcbbd185dbb43fbad95f83a1b73520cf2d9659d28570088af9ebeea86406f",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 42766,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Blue plastic T-shirt carrier bag matching the reference blue colour and long handle shape. Scene/backdrop: Light stone shop counter with warm morning light, subtly blurred shop interior and potted plant in the distance. Constraints: Remove measurements and arrows. Blue is representative; no writing about colour or sizes. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 258,
+      "url": "/archivos/productos/258-1792683196507-93017461.jpg",
+      "sha256": "0f43af88177a5fb21d92517f9cdefd3d5ca4a04ae95a09c1a8560e45a129a107"
+    }
+  },
+  {
+    "id": 63,
+    "nombre": "Bolsa por Kilo Transparente",
+    "productoReferencia": 245,
+    "archivo": "63-bolsa-por-kilo-transparente.webp",
+    "sha256": "d825d1c03d47210673ac6fbef6d1b20ca7b2a883e67282628b42ee7760c0baa5",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 97824,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: A small fan of flat clear rectangular plastic packaging bags, no handles, matching the actual reference. Scene/backdrop: Clean wooden packing table at a small food shop, softly blurred shelving and gentle daylight. Constraints: Reveal transparent film edges and realistic glossy highlights, no filled bags, no handles. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 245,
+      "url": "/archivos/productos/245-1791696724071-0f304159.png",
+      "sha256": "6204072466b1908933006f492f0f2c98a881bc10427b483d6e6ee1f67cbec6a3"
+    }
+  },
+  {
+    "id": 64,
+    "nombre": "Bolsa Transparente por Kilo Nacional",
+    "productoReferencia": 295,
+    "archivo": "64-bolsa-transparente-por-kilo-nacional.webp",
+    "sha256": "70785fa7488c062bc9148a401415dff2591df874c631d0ca94b49171473e07e6",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 82862,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: A tidy fan and short stack of transparent rectangular plastic bags, identical clear material to reference. Scene/backdrop: Pale stone work surface in a bright packaging shop, muted warm background, sunlight from the side. Constraints: No handles, no added printing or labels, do not claim dimensions or strength. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 295,
+      "url": "/archivos/productos/295-1791696725724-747d2bce.png",
+      "sha256": "6204072466b1908933006f492f0f2c98a881bc10427b483d6e6ee1f67cbec6a3"
+    }
+  },
+  {
+    "id": 65,
+    "nombre": "Bolsa Transparente Salvadoreña",
+    "productoReferencia": 285,
+    "archivo": "65-bolsa-transparente-salvadorena.webp",
+    "sha256": "59071d53cd60007133fb75a56b8cee7dffc75929ddba986535e07d415f61fac7",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 44784,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Plain clear rectangular plastic bags with a sealed base and open top, matching reference. Scene/backdrop: Clean pale oak packing counter with a small stack and one open bag held up naturally by its own folds, warm soft light. Constraints: Remove all dimension arrows and numbers. No handles, no labels, do not add contents. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 285,
+      "url": "/archivos/productos/285-1791696725332-7c6f3809.png",
+      "sha256": "040c123b867ca8c0f912fbe2e06e47bbff8090ecb4bb8b0fe3e6a31d05130de1"
+    }
+  },
+  {
+    "id": 66,
+    "nombre": "Envase con Tapa",
+    "productoReferencia": 847,
+    "archivo": "66-envase-con-tapa.webp",
+    "sha256": "bb7249a5330eb99eb54b4de4a89d631fc2c3f0554ebd5d5e76d61ddeab95d927",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 41452,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: White translucent round plastic food storage tub with matching snug lid, same profile and rim as reference. Scene/backdrop: Tidy bright kitchen worktop with soft natural daylight and quiet warm neutral background. Constraints: Show one closed tub and a matching open one behind, no food covering the product. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 847,
+      "url": "/archivos/productos/847-1791696743877-73adf864.png",
+      "sha256": "791377a3ae9a5bd13eb14717c45a6b2c488971286340cf7cce7958983d3aa2de"
+    }
+  },
+  {
+    "id": 67,
+    "nombre": "Vaso de Cartón",
+    "productoReferencia": 2106,
+    "archivo": "67-vaso-de-carton.webp",
+    "sha256": "4905c2b4aaf2e691512c0eba3a8e3351d896e2b5df62b6ef8cc625b4952e3719",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 51562,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Plain unprinted kraft-brown paper drink cup matching the actual reference, with rolled rim. Scene/backdrop: Warm cafe counter with blurred coffee equipment in background and soft morning window light. Constraints: One main cup plus a short matching nested stack, no lid or sleeve if not in reference, no added logo. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 2106,
+      "url": "/archivos/productos/2106-1791696781463-4ea8385b.jpg",
+      "sha256": "775180c30cf458cde0fb444be03c5a6fe0d3d6c91dad805ec605694a11b75805"
+    }
+  },
+  {
+    "id": 68,
+    "nombre": "Vaso Desechable Link",
+    "productoReferencia": 2109,
+    "archivo": "68-vaso-desechable-link.webp",
+    "sha256": "9122154376969dd93e97ee434a9e0e7e636c5a5888e6fdba7b192f5a6d7cb3c5",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 43734,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Transparent disposable drinking cups from the reference LINK pack, thin fluted clear plastic. Scene/backdrop: Clean bright refreshment counter, warm daylight, subtly blurred neutral kitchen background. Constraints: Show a few empty matching cups and a short nested stack; no invented packaging artwork or labels. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "promptRevision": "Edit only the product arrangement in this catalogue cover. REMOVE the entire large wrapped LINK package and EVERY printed label, number and measurement. Keep the same bright warm kitchen, countertop, lighting and transparent fluted disposable cups. Arrange three empty clear cups with a short neat stack of the identical cups behind. There must be absolutely NO plastic outer wrapping bag, NO logos, NO readable text, NO quantities and NO beverage filling. Preserve the product cup type. The cover represents all sizes, so it cannot advertise a particular size or pack count. Portrait 2:3 full bleed, product fully framed, no borders.",
+    "referenciaFuente": {
+      "productoId": 2109,
+      "url": "/archivos/productos/2109-1791696781600-8da6b962.jpg",
+      "sha256": "45fbfcd6e44c550d9518280ae6103c68dae3d0104b86f5c026bb2182d03a72d8"
+    }
+  },
+  {
+    "id": 69,
+    "nombre": "Amarra Plástica",
+    "productoReferencia": 89,
+    "archivo": "69-amarra-plastica.webp",
+    "sha256": "39f8486406624e8f263a1beae5b9b4a2ae4d497e7580c029fd29bd3aa7618840",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 109568,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Black nylon ratcheting cable ties with small rectangular locking heads, matching the actual reference. Scene/backdrop: Neat electrical workshop bench with a carefully bundled cable in soft focus behind, warm daylight. Constraints: Remove original crop frame and x100 writing. Main ties loose and clearly visible; correct one-way locking heads, no cable clips. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 89,
+      "url": "/archivos/productos/89-1791696719154-733fdc3d.jpg",
+      "sha256": "bd3f4717d052f2e06a774e32373d56af5338d812a8129f4a6e420cd9c29cf8d8"
+    }
+  },
+  {
+    "id": 75,
+    "nombre": "Separador de Cerámica Masaca",
+    "productoReferencia": 1804,
+    "archivo": "75-separador-de-ceramica-masaca.webp",
+    "sha256": "a7ecda8759a89f5f1b59d43c5bc4cfc52235a8b04ec41877f6c34f8e3aca142d",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 84814,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Small white cross-shaped plastic tile spacers with four equal arms, same geometry as reference. Scene/backdrop: Clean ceramic tiling work area with a few neutral grey square tiles and visible straight grout gaps, warm side light. Constraints: Hero loose spacers in foreground, one correctly placed between four tiles in background. No dimensions or labels. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1804,
+      "url": "/archivos/productos/1804-1791696772612-30d72243.jpg",
+      "sha256": "391f9557dbf3501f76dc755705fabc3123b17face1afa8ccd70191efe8229337"
+    }
+  },
+  {
+    "id": 91,
+    "nombre": "Cinta de enmascarar",
+    "productoReferencia": 1323,
+    "archivo": "91-cinta-de-enmascarar.webp",
+    "sha256": "9990e1178207fd8e5f90b0da6c77a34e38820ff1686b0d1058bd12f6e73264ee",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 72842,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Pale cream paper masking tape roll with the physical shape and material from reference. Scene/backdrop: Clean painting workbench with an unfinished wood edge and softly blurred paint tools in background, warm daylight. Constraints: Do not add any label or printed measurements; a short tape end may show, never duct tape. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1323,
+      "url": "/archivos/productos/1323-1793229836091-bb062a1a.png",
+      "sha256": "65aef80e0a4c8dc4bb0746af58eda62f53ab3c30cd8673377daab72ed2e7162e"
+    }
+  },
+  {
+    "id": 92,
+    "nombre": "Candela de Cumpleaños",
+    "productoReferencia": 466,
+    "archivo": "92-candela-de-cumpleanos.webp",
+    "sha256": "b8d9182d3c187c62e950c33f1f1e24d789f340e478c994aca4257a3d17ace590",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 52918,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: White number-shaped birthday candle with colourful small decoration and red outline, like the number zero in reference. Scene/backdrop: A simple birthday table with a softly blurred unbranded cake and warm pale decorations. Constraints: Keep the candle shape real, no extra fingers, no people, no packaging, no readable text or made-up logos, unlit wick. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 466,
+      "url": "/archivos/productos/466-1791696730889-571a9de8.png",
+      "sha256": "17ffc92ccaebd76d3eb8150f514b4f964676f1165576e06ed178d41ea1f8a41e"
+    }
+  },
+  {
+    "id": 93,
+    "nombre": "Llanta de Bici",
+    "productoReferencia": 1211,
+    "archivo": "93-llanta-de-bici.webp",
+    "sha256": "0e20e4350b5542ba20424838929f852910f49533b5a66418530aca3ca404a7ab",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 97638,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Black bicycle tyre with the knobby tread and rounded rubber profile from the reference. Scene/backdrop: Clean bicycle workshop near an open doorway with soft green park background, natural daylight. Constraints: Tyre fully visible as main hero, no invented brand logos or sizing text. Remove the floating logo header from source. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1211,
+      "url": "/archivos/productos/1211-1791696755418-341641db.png",
+      "sha256": "4410c1bdd95f011349e80cc69f918fda12d1f0a8f686ba8de36c719ff7820597"
+    }
+  },
+  {
+    "id": 94,
+    "nombre": "Neumático Kenda para Bici",
+    "productoReferencia": 1374,
+    "archivo": "94-neumatico-kenda-para-bici.webp",
+    "sha256": "08bfa87c019ed00a027255ca7ee29f2a5b999843cef0bec681a251485e0d437c",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 89372,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Black bicycle inner tube with a single narrow valve stem, representative of reference Kenda bicycle tube. Scene/backdrop: Neat bicycle service workbench with a softly blurred bicycle wheel in background, warm natural light. Constraints: Hero coiled inner tube without invented box or labels; one valve stem only, realistic rubber, not a motorcycle tyre. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1374,
+      "url": "/archivos/productos/1374-1793250605626-cfa7dea9.png",
+      "sha256": "3833090fa167bfeceb6c04a538237b0821b16765250e4d849f3b4fbd0d78bb51"
+    }
+  },
+  {
+    "id": 95,
+    "nombre": "Neumático Kenda para Moto",
+    "productoReferencia": 1355,
+    "archivo": "95-neumatico-kenda-para-moto.webp",
+    "sha256": "fd87adf7cca3af5d92f619a906a12f28373326110ffac83357ddef95672aa885",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 62906,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Black motorcycle inner tube with a standard metal valve, representative of the actual Kenda motorcycle tube reference. Scene/backdrop: Clean motorcycle maintenance bench, soft-focus motorcycle wheel in distance, gentle warm side light. Constraints: Show the thicker rolled motorcycle tube, no invented packaging or dimensional labels; one valve stem. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1355,
+      "url": "/archivos/productos/1355-1793251227304-8fa4c82f.png",
+      "sha256": "ba37e5fc77fa73b8c3058444880c5c38b7a0adf5b2c2012e575c2ca9137be480"
+    }
+  },
+  {
+    "id": 96,
+    "nombre": "Rodamientos Vini",
+    "productoReferencia": 1710,
+    "archivo": "96-rodamientos-vini.webp",
+    "sha256": "023da474badb98ea6c838e7ed4b04a11eb03a6c24942bf41fc5ae1f6691822e4",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 67640,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Two sealed metal ball bearings with black rubber seals, matching reference radial bearing geometry. Scene/backdrop: Clean brushed metal workbench with a softly blurred motorcycle workshop behind, warm side light and subtle cool reflections. Constraints: Preserve actual circular race and centre hole; no exposed balls if reference is sealed, no engraved brands or size numbers. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1710,
+      "url": "/archivos/productos/1710-1791696769680-4a4e7cef.jpg",
+      "sha256": "598a083c77d0bdfdfaee9772258bd1f639e92d8e55b0f3e285b2798005e2655e"
+    }
+  },
+  {
+    "id": 98,
+    "nombre": "Lámina Fusible",
+    "productoReferencia": 1125,
+    "archivo": "98-lamina-fusible.webp",
+    "sha256": "2233ca3f4ef1323a944788e22db2daa3eab9f6e125aa57d26e7ddf771e247a23",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 60328,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Two flat metal fusible links matching the exact narrow metal profiles and forked terminal ends in the reference. Scene/backdrop: Clean dark slate electrical service bench with subdued out-of-focus wiring and a small fuse holder in background. Constraints: Faithfully preserve reference shapes, no spanners, no plastic automotive blade fuses, no invented amperage numbers or labels. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1125,
+      "url": "/archivos/productos/1125-1791696752139-56ab3565.jpg",
+      "sha256": "f0f18552b8d93fb54fbb8bb686984d4713477b02595a9c30b41e9a2344e4fbcb"
+    }
+  },
+  {
+    "id": 99,
+    "nombre": "Splitter de TV",
+    "productoReferencia": 1867,
+    "archivo": "99-splitter-de-tv.webp",
+    "sha256": "444944442217deec33d099d6117acbf49e988a8abd5974558ca7d612e9dedbe2",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 62620,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Small rectangular silver coaxial television signal splitter with its F-type threaded connectors matching reference. Scene/backdrop: Clean light wood media installation bench, soft-focus coaxial cable in background, natural daylight. Constraints: Preserve two output connectors and single input connector from this reference, do not add ports; no invented printed technical ratings. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "promptRevision": "Edit only the white printed label on the metal splitter. Erase ALL text, digits, symbols, certification marks and ratings from the white rectangular face label, leaving a clean blank matte white label with natural original texture and the metal frame. Keep the metal splitter exactly the same, with exactly three threaded connectors in the same arrangement, same screws and mounting ears, same perspective, countertop, background, lighting and portrait framing. Do not add or remove any connector. NO text, numbers, logos or borders anywhere. This is a generic cover for multiple splitter variants.",
+    "referenciaFuente": {
+      "productoId": 1867,
+      "url": "/archivos/productos/1867-1791696774637-51e84fae.jpg",
+      "sha256": "8f83aebaa704cb1ea9f43518dbe3aeab8a9a222afcb2b647d22e04097ba64a99"
+    }
+  },
+  {
+    "id": 100,
+    "nombre": "Macetero con Plato",
+    "productoReferencia": 1276,
+    "archivo": "100-macetero-con-plato.webp",
+    "sha256": "949e9dbcd71ec0cf2ca7abd53467d7b5d142b2d308c4fb7a9b1c4389746b7ef5",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 64334,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Terracotta-coloured plastic round flower pot with rolled lip and matching shallow saucer, same shape as reference. Scene/backdrop: Warm sunlit patio potting bench with out-of-focus green leaves and a pale wall. Constraints: Main empty pot and matching saucer clearly visible, no plant hiding the rim, no unrequested designs or labels. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1276,
+      "url": "/archivos/productos/1276-1791696757384-ce55a0a6.jpg",
+      "sha256": "53a38e205aaea7483e606a7d16cfece8a2da9bac84c7ba425e1f8fe8cc4d1f8e"
+    }
+  },
+  {
+    "id": 101,
+    "nombre": "Taza Hermética",
+    "productoReferencia": 1934,
+    "archivo": "101-taza-hermetica.webp",
+    "sha256": "4ff7f15d412104c5b33d190729873cc1919cd6407148bf420a25a690a27c8298",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 49084,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Lime-green round plastic food bowl with pale translucent snap-on lid, matching actual reference. Scene/backdrop: Bright tidy home kitchen on a warm pale stone counter, soft window light. Constraints: Hero closed bowl, preserve closure rim and side tab, no invented handle, no contents or labels. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1934,
+      "url": "/archivos/productos/1934-1791696776559-c8872b0b.jpg",
+      "sha256": "65ece798bce81a8200d9bc542f2f738970be301cef7592a97e3367ad4924e271"
+    }
+  },
+  {
+    "id": 102,
+    "nombre": "Tina",
+    "productoReferencia": 1968,
+    "archivo": "102-tina.webp",
+    "sha256": "fb09eeb9c212364e6701ad9a9a9678865417b84654e4e2369d26360bdbb49ba1",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 44654,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Turquoise round plastic washing basin with the two small side grips and wide lip shown in reference. Scene/backdrop: Bright clean laundry corner with tiled neutral wall softly out of focus and warm natural light. Constraints: Show empty basin fully, preserve proportions and grip shape, no lid, no bucket handle, no text. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1968,
+      "url": "/archivos/productos/1968-1791696777593-80b4f252.jpg",
+      "sha256": "b66b6efd9ca11d396dcbbe9c845a1de15c7c93f8ab887988f48095173e3d81af"
+    }
+  },
+  {
+    "id": 103,
+    "nombre": "Cremera",
+    "productoReferencia": 646,
+    "archivo": "103-cremera.webp",
+    "sha256": "8ab60cef7f4ee974483dd20bc1b6ab7916ac781bfcf40e7bce8a01e55b14c90a",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 50768,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Round dark blue plastic food tub with white screw-style lid and the small white decorative pattern in reference. Scene/backdrop: Clean home kitchen counter with soft warm daylight and quiet neutral background. Constraints: Preserve low round proportions, blue sides, white lid and subtle white pattern; no imaginary labels or brand text. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 646,
+      "url": "/archivos/productos/646-1791696737027-f1c2cdde.jpg",
+      "sha256": "a0a5ce929d0c7619e8dbae661adf65d7b1ad1aa46b4633c1be56b8cab7ea21c1"
+    }
+  },
+  {
+    "id": 107,
+    "nombre": "Cuerda de Pescar",
+    "productoReferencia": 695,
+    "archivo": "107-cuerda-de-pescar.webp",
+    "sha256": "ee9f853340cb2118efe082d1bd6752bc0b8911f71a757b8a267d6f36ed9580cd",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 85024,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Clear fishing monofilament wound on a round translucent spool, matching reference spool and transparent line. Scene/backdrop: Clean wooden fishing tackle bench by a softly blurred calm lakeside, warm early morning light. Constraints: Actual spool proportions; no newly generated labels, no readable line strength or length. A little clear line catches side light. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 695,
+      "url": "/archivos/productos/695-1791696738736-5a168fed.jpg",
+      "sha256": "bf1ad72b0b451de4a20f7383bd523ebd7e044f58f986641b08a441fd7e410c02"
+    }
+  },
+  {
+    "id": 108,
+    "nombre": "Cuerda Multicolor",
+    "productoReferencia": 676,
+    "archivo": "108-cuerda-multicolor.webp",
+    "sha256": "7e619c04fef77fb6ce0d618aa3e190abbb6848279c1b62d4ec4f16a70361ba28",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 98860,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Multicolour fishing line wound on its round spool, as the reference line and spool. Scene/backdrop: Weathered but tidy wooden tackle table with softly blurred river bank and warm dawn light. Constraints: Show the distinct subtle colours in wound line, no invented label or numerical length, no hooks prominently added. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "promptRevision": "Edit only the green front label of the fishing-line spool. Preserve only the existing manufacturer name 'Araty' and series name 'Superflex', with the same lettering style, dark green background and yellow subtle graphic lines. REMOVE every other letter, word, emblem, number, barcode, rating, diameter, weight and length: especially 0,30 mm, 19,9 kg, 100 m and 110 yds. Leave the rest of that label a simple elegant deep green. Keep the physical clear spool, multicolour wound fishing line, central hole, realistic shape, wooden table, water, sunrise and framing EXACTLY unchanged. No added logos, no new claims, no captions, no border.",
+    "referenciaFuente": {
+      "productoId": 676,
+      "url": "/archivos/productos/676-1791696738058-959443eb.png",
+      "sha256": "816d00962351c8386986457b288a8595713093a2511e580082d95a499d8e57cf"
+    }
+  },
+  {
+    "id": 109,
+    "nombre": "Cuerda Spider Roja",
+    "productoReferencia": 719,
+    "archivo": "109-cuerda-spider-roja.webp",
+    "sha256": "e8e0be31924abd78c81b7f4294ea99a38ef61b6c270166396f38994e993a0fe9",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 79890,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Red fishing line wound on a round translucent spool, matching the actual red Spider line reference. Scene/backdrop: Clean fishing tackle bench near water, dark muted blue background and warm soft side light. Constraints: Keep clearly red wound line and single spool form, no spider drawings or invented branding, no new strength or length labels. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "promptRevision": "Edit only the front label of the red fishing-line spool. Preserve the existing manufacturer's name 'Araty' and the series name 'RED SPIDER' on the green/red label. REMOVE ALL other words, manufacturing symbols, barcode, digits, ratings and especially '300m'. Use clean plain white space in the lower label without any printing. The photo is a cover for multiple variants and cannot show one length or diameter. Keep the spool's physical shape, red wound line, colours, table, background, lighting and portrait framing EXACTLY unchanged. No extra logos, words, features, or borders.",
+    "referenciaFuente": {
+      "productoId": 719,
+      "url": "/archivos/productos/719-1791696739485-9bd07be7.png",
+      "sha256": "65d432ba90dc62d219dae7dca7e42e3c67c8f6c99ba99858531c1488438d2f61"
+    }
+  },
+  {
+    "id": 110,
+    "nombre": "Nylon Monofilamento",
+    "productoReferencia": 1386,
+    "archivo": "110-nylon-monofilamento.webp",
+    "sha256": "4bf30f931c4034d06d5d8ea1b67571e28dd814442de3bdc14d21ac4f077f0b9f",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 82030,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Clear nylon monofilament wound on a black cylindrical spool with black end flanges, same form as reference. Scene/backdrop: Warm wood fishing preparation bench with soft-focus waterfront in the background, natural side light. Constraints: Keep black spool and nearly clear wound line, no colourful braided line, no printed numbers or specifications. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1386,
+      "url": "/archivos/productos/1386-1791696760397-f766f377.png",
+      "sha256": "421dd02cb990916ceed313f0653c8288f1911f824204818139a1c78c97c1817e"
+    }
+  },
+  {
+    "id": 111,
+    "nombre": "Plomadas",
+    "productoReferencia": 1597,
+    "archivo": "111-plomadas.webp",
+    "sha256": "9505a66d7d3b727a5249457cfd8329b2f904eae50ff7aa0250f0c1958513d0e7",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 96000,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Small metallic oval fishing sinker with an axial through-hole and cast lead texture matching reference. Scene/backdrop: Dark navy fishing tackle surface with softly blurred calm water background, gentle directional light. Constraints: Main sinker shown close and sharp, two matching sinkers subtly behind, no hooks added; remove weight text and all labels. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 1597,
+      "url": "/archivos/productos/1597-1793253817134-0009a0c6.png",
+      "sha256": "705a27ed07e9e7b58cbf10ea95fbe26ac5d9525fbafc3c071bfc1a4d7a353e7e"
+    }
+  },
+  {
+    "id": 115,
+    "nombre": "Espejo",
+    "productoReferencia": 884,
+    "archivo": "115-espejo.webp",
+    "sha256": "0b13bb668e429d9c360e5f376b3983fd91f107022b3c550e1ee7fc10344c4486",
+    "ancho": 667,
+    "alto": 1000,
+    "bytes": 59782,
+    "herramienta": "image_gen integrada",
+    "promptInicial": "Use case: product-mockup. Asset type: portrait 2:3 photographic brand cover for a modern Costa Rican wholesale catalogue. Input image is the real product reference, not a layout to keep. Subject: Small round handheld mirrors with bright red and blue plastic frames and small hanging tabs, matching reference. Scene/backdrop: Clean warm vanity surface with a pale neutral wall, soft window daylight and quiet decor in blur. Constraints: Show actual reflective mirror glass, preserve simple circular frames and hanging tab, no invented handle, no people reflected, no text. Premium believable commercial photography, detailed product, soft natural light, uncluttered background with gentle depth. Product fully inside the frame with generous safe margins on every edge; fills about 65–75 percent of the portrait. Background extends to every edge. No borders, no inset frames, no white bands, no typography, no watermarks, no people, no made-up logos, no prices or measurements. The website displays the name and exact presentations separately. Preserve actual materials, key geometry and representative colours; never invent features or packaging claims.",
+    "referenciaFuente": {
+      "productoId": 884,
+      "url": "/archivos/productos/884-1791696744891-2e30384b.jpg",
+      "sha256": "3bd3d376f28ad61332e8e68c4445ee12a301be21bd4edd0c4fa2616cde8c2db8"
+    }
+  }
+]

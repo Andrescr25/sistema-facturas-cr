@@ -47,6 +47,7 @@ routes.get('/buscar', controller.buscar);
 routes.get('/categorias/:id/productos', controller.productosDeCategoria);
 routes.put('/lote/subcategoria', controller.loteSubcategoria);
 routes.put('/lote/categoria', controller.loteCategoria);
+routes.patch('/lote/estado', controller.loteEstado);
 routes.post('/subcategorias', controller.crearSubcategoria);
 routes.put('/subcategorias-orden', controller.reordenarSubcategorias);
 routes.put('/subcategorias/:id', controller.renombrarSubcategoria);

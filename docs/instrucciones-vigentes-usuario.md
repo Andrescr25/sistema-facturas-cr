@@ -1509,6 +1509,18 @@ asignarle un costo supuesto. Se mantiene su preferencia de nombres en
 MAYÚSCULAS, sin tildes en vocales y conservandoÑ.
 [Resultado y pendientes](informes/senuelos-favarcia-2026-11-03.md).
 
+
+### 2026-11-03 — Selección de productos y todas las portadas de marcas
+
+El usuario solicita desactivar u ocultar productos desde la selección de
+Gestión de Catálogo, junto a mover/cambiar categoría. También autoriza crear
+las portadas de todas las marcas y comprobar que queden bien. Al consultar
+el alcance confirma **conservar las buenas y completar las faltantes**:
+32portadas existentes se conservan y se crean29para completar las61marcas.
+Esto amplía el alcance anterior, que se limitaba a las marcas de anzuelos.
+No solicita cambiar productos, nombres, precios ni miembros de las marcas.
+[Resultado y estado](informes/catalogo-lote-portadas-2026-11-03.md).
+
 2026-11-03, cotización recibida: el usuario confirma los costos de7413455,
 7413180y7413120por las cajas indicadas, IVA incluido. Se completa el costo
 propio y el precio con la regla vigente de margen30% de anzuelos;4367deja

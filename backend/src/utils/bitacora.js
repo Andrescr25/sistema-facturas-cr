@@ -1,8 +1,8 @@
 /**
  * Bitácora de cambios: quién cambió qué y cuándo.
  *
- * Alegra lleva hoy el historial de cada producto y documento. Al editar en
- * nuestra base eso se pierde si no se guarda acá. Toda operación que cree,
+ * El maestro propio conserva el historial de cada producto y documento en
+ * esta tabla. Toda operación que cree,
  * edite, desactive o anule algo registra una línea.
  *
  * Recibe el `ejecutor` (el pool o el cliente de una transacción) para que la
@@ -42,11 +42,8 @@ function aUsuarioId(valor) {
   return n;
 }
 
-/**
- * @param {{query: Function}} ejecutor pool de pg o cliente de una transacción
- * @returns {Promise<number|null>} id de la línea, o null si una edición no cambió nada
- */
-async function registrarCambio(ejecutor, {
+/** Validar todo antes de enviar un INSERT, tanto individual como en lote. */
+function entradaDeCambio({
   entidad, entidadId, accion, antes = null, despues = null, usuarioId = null, motivo = null
 }) {
   if (!entidad || entidadId === undefined || entidadId === null || entidadId === '' || !accion) {
@@ -62,19 +59,43 @@ async function registrarCambio(ejecutor, {
     if (Object.keys(cambios).length === 0) return null;
   }
 
+  return { entidad, entidad_id: String(entidadId), accion, antes, despues, cambios, usuario_id: usuario, motivo };
+}
+
+/** @returns {Promise<number|null>} id de la línea, o null si no hubo edición. */
+async function registrarCambio(ejecutor, datos) {
+  const fila = entradaDeCambio(datos);
+  if (!fila) return null;
   const r = await ejecutor.query(
     `INSERT INTO bitacora_cambio (entidad, entidad_id, accion, antes, despues, cambios, usuario_id, motivo)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id`,
     [
-      entidad, String(entidadId), accion,
-      antes === null ? null : JSON.stringify(antes),
-      despues === null ? null : JSON.stringify(despues),
-      cambios === null ? null : JSON.stringify(cambios),
-      usuario, motivo
+      fila.entidad, fila.entidad_id, fila.accion,
+      fila.antes === null ? null : JSON.stringify(fila.antes),
+      fila.despues === null ? null : JSON.stringify(fila.despues),
+      fila.cambios === null ? null : JSON.stringify(fila.cambios),
+      fila.usuario_id, fila.motivo
     ]
   );
   return Number(r.rows[0].id);
 }
 
-module.exports = { registrarCambio, diferencias, CAMPOS_IGNORADOS };
+/** Una ida a la base para todo el lote, con las mismas reglas que una ficha. */
+async function registrarCambios(ejecutor, entradas) {
+  if (!Array.isArray(entradas)) throw new Error('bitácora: hace falta una lista de cambios');
+  const filas = entradas.map(entradaDeCambio).filter(Boolean);
+  if (!filas.length) return [];
+  const r = await ejecutor.query(
+    `INSERT INTO bitacora_cambio (entidad, entidad_id, accion, antes, despues, cambios, usuario_id, motivo)
+     SELECT entidad, entidad_id, accion, antes, despues, cambios, usuario_id, motivo
+       FROM jsonb_to_recordset($1::jsonb) AS fila(
+         entidad text, entidad_id text, accion text, antes jsonb, despues jsonb,
+         cambios jsonb, usuario_id integer, motivo text)
+     RETURNING id`,
+    [JSON.stringify(filas)]
+  );
+  return r.rows.map(fila => Number(fila.id));
+}
+
+module.exports = { registrarCambio, registrarCambios, diferencias, CAMPOS_IGNORADOS };

@@ -4,6 +4,12 @@ tipo: modulo
 titulo: Gestión de Catálogo — el rediseño de main, sobre el maestro propio
 estado: vigente
 archivos:
+  - docs/informes/catalogo-lote-portadas-2026-11-03.md
+  - backend/src/modules/productos/estadoProducto.js
+  - backend/src/utils/bitacora.js
+  - backend/tests/estadoLoteCatalogo.test.js
+  - backend/tests/bitacora.test.js
+  - frontend/src/components/gestion-catalogo/BarraLote.jsx
   - docs/informes/senuelos-favarcia-2026-11-03.md
   - docs/informes/anzuelos-favarcia-2026-11-03.md
   - backend/src/modules/productos/proformaCatalogo.service.js
@@ -72,8 +78,8 @@ LO QUE CAMBIA RESPECTO DE `main`
   carga mientras `main` siga clasificando allá.
 - Todo va por `/maestro/*` (`taxonomia.service.js`): árbol, productos de una
   categoría, búsqueda, lotes y subcategorías. Cambiar de categoría es un
-  UPDATE inmediato; allá es un trabajo de fondo que le escribe a Alegra (por
-  eso `useAccionesLote` devuelve `trabajo: null` siempre).
+  UPDATE inmediato. El antiguo panel de trabajos de Alegra se retira el
+  2026-11-03: ninguna acción actual lo abría.
 - La ficha es la de esta rama (`ModalProducto` + `useFichaProducto`): CABYS,
   impuesto, unidad, medicamento, ocultar y dar de baja. Los ocultos y los
   dados de baja no cuentan en las tarjetas —el agente tampoco los ve— y se
@@ -137,6 +143,16 @@ y con PostgreSQL desechable/multipart en `imagenCategoriaLocal.test.js`,
 incluyendo reproducir el 503 y recuperar la misma subida al aplicar SQL 055.
 
 LO QUE SOLO SE VE CONTRA UNA BASE
+
+2026-11-03: la selección permite **Ocultar del catálogo** y **Desactivar**.
+Ocultar conserva la venta de los activos; desactivar los retira. Confirmación
+con alcance/cantidad, controles bloqueados y selección conservada al fallar.
+Cambiar filtros limpia la selección anterior. Se retira el panel de trabajos
+de Alegra cuyo estado siempre era nulo. `PATCH /maestro/lote/estado`, bajo el
+mismo permiso, confirma hasta1000ids en una transacción y cinco consultas,
+incluida bitácora individual de los cambios reales en un solo INSERT.
+Ficha/lote comparten validación; un id ausente o fallo revierte todo.
+[Pruebas y alcance](../../informes/catalogo-lote-portadas-2026-11-03.md).
 
 Mover una subcategoría falló la primera vez con "inconsistent types deduced
 for parameter $2": el mismo parámetro en el SET y en una subconsulta. Los

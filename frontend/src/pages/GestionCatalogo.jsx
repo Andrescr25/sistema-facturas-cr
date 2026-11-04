@@ -97,7 +97,7 @@ export default function GestionCatalogo() {
   useEffect(() => {
     seleccion.limpiar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoriaActiva, subFoco, lista.busquedaActiva])
+  }, [categoriaActiva, subFoco, lista.busquedaActiva, lista.busqueda, lista.proveedor, lista.estado, lista.filtroTexto, lista.soloSinImagen])
 
   // En la cuadrícula, "Sin foto" también filtra los resultados de búsqueda.
   useEffect(() => {
@@ -120,7 +120,8 @@ export default function GestionCatalogo() {
     quitarProductos: lista.quitarProductos,
     recargarArbol: taxonomia.recargarArbol,
     recargarLista: lista.recargar,
-    mostrarToast
+    mostrarToast,
+    confirm
   })
 
   const totales = useMemo(() => arbol.reduce((t, c) => ({
@@ -183,6 +184,10 @@ export default function GestionCatalogo() {
     )
     if (!ok) return
     if (await acciones.cambiarCategoria(ids, destino)) seleccion.limpiar()
+  }
+
+  const cambiarEstadoDeSeleccion = async (accion) => {
+    if (await acciones.cambiarEstado([...seleccion.seleccionados], accion)) seleccion.limpiar()
   }
 
   const eliminarSubcategoria = (id) =>
@@ -389,10 +394,10 @@ export default function GestionCatalogo() {
           subsDeLaCategoria={lista.subsOrdenadas}
           otrasCategorias={otrasCategorias}
           moviendo={acciones.moviendo}
-          trabajo={acciones.trabajo}
           onMoverASubcategoria={moverSeleccionASubcategoria}
           onCambiarCategoria={cambiarCategoriaDeSeleccion}
-          onCerrarTrabajo={acciones.cerrarTrabajo}
+          onOcultar={() => cambiarEstadoDeSeleccion('ocultar')}
+          onDesactivar={() => cambiarEstadoDeSeleccion('desactivar')}
           onLimpiar={seleccion.limpiar}
         />
       )}

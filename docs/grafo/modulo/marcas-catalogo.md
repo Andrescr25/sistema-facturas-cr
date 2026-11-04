@@ -4,6 +4,8 @@ tipo: modulo
 titulo: Marcas del catálogo — foto general y presentaciones con vista previa
 estado: vigente
 archivos:
+  - docs/informes/catalogo-lote-portadas-2026-11-03.md
+  - docs/recursos/portadas-marcas-2026-11-03/prompts.json
   - docs/informes/senuelos-favarcia-2026-11-03.md
   - docs/informes/anzuelos-favarcia-2026-11-03.md
   - frontend/src/hooks/useListaCatalogo.js
@@ -45,6 +47,18 @@ medido: 2026-11-03
 ---
 
 ## La foto de marca es una portada — 2026-10-22
+
+2026-11-03: el usuario amplía el alcance a las portadas de todas las marcas
+y confirma conservar las buenas. Se revisan 61: 32 existentes conservadas y
+29 nuevas ilustrativas mediante `image_gen`, referenciadas a sus productos,
+sin alterar imágenes individuales, grupos, precios ni estados. Se usa la
+optimización/subida existente, WebP 667×1000 de hasta 107 KiB; los archivos y
+prompts exactos quedan en el repositorio. Las 29 se cargan por API con sesión
+real, respaldo y hashes verificados. Lectura independiente confirma los
+2.210 productos, las 32 portadas previas y subcategorías intactos, con
+exactamente 29 bitácoras. Recorrido local: 366 comprobaciones de las 61 marcas
+en ambos catálogos, Chromium/WebKit, móvil y escritorio.
+[Alcance, imágenes y verificación](../../informes/catalogo-lote-portadas-2026-11-03.md).
 
 2026-11-03: el cálculo común de precios redondea a céntimos antes del
 formato y tras el descuento, reutilizando `redondearDinero`. El caso real

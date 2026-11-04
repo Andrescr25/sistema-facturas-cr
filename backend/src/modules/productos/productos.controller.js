@@ -70,6 +70,7 @@ module.exports = {
   buscar: (req, res) => responder(res, taxonomia.buscar(req.query), 'buscar'),
   loteSubcategoria: (req, res) => responder(res, taxonomia.asignarSubcategoria(req.body, usuario(req)), 'lote subcategoría'),
   loteCategoria: (req, res) => responder(res, taxonomia.cambiarCategoria(req.body, usuario(req)), 'lote categoría'),
+  loteEstado: (req, res) => responder(res, taxonomia.cambiarEstadoEnLote(req.body, usuario(req)), 'estado del lote'),
   crearSubcategoria: (req, res) => responder(res, taxonomia.crearSubcategoria(req.body), 'crear subcategoría', 201),
   renombrarSubcategoria: (req, res) => responder(res, taxonomia.renombrarSubcategoria(req.params.id, req.body), 'renombrar subcategoría'),
   reordenarSubcategorias: (req, res) => responder(res, taxonomia.reordenarSubcategorias(req.body), 'ordenar subcategorías'),

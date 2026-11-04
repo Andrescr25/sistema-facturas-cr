@@ -2,11 +2,9 @@
  * Categorías, subcategorías y acciones en lote de Gestión de Catálogo, sobre
  * el maestro propio (`producto`).
  *
- * Es el mismo rediseño que en `main` (categorías como tarjetas, subcategorías
- * adentro, mover de a muchos) pero sin la caché de Alegra: allá la
- * subcategoría cuelga de `alegra_products_cache` y cambiar de categoría es un
- * trabajo de fondo que le escribe a Alegra producto por producto. Acá las dos
- * cosas son un UPDATE sobre `producto`, en el momento.
+ * Categorías como tarjetas y subcategorías adentro, con operaciones en lote
+ * sobre `producto`. Cada operación se confirma completa en una transacción;
+ * no abre un trabajo de fondo ni depende del catálogo anterior de Alegra.
  *
  * `subcategoria` y `categoria_config` son tablas locales en las dos ramas,
  * colgadas del NOMBRE de la categoría. Crear, renombrar y ordenar
@@ -20,7 +18,7 @@
  */
 
 const { pool } = require('../../../config/database');
-const { registrarCambio } = require('../../utils/bitacora');
+const { registrarCambio, registrarCambios } = require('../../utils/bitacora');
 const { httpError, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
@@ -28,6 +26,7 @@ const { clasificarProducto } = require('../precios/auditoria');
 const tablas = require('./taxonomiaTablas');
 const { SQL_ROTACION_MENSUAL } = require('../ventas/rotacion');
 const { listarProductos } = require('./productos.service');
+const { cambiosDeEstado, accionDeEstado } = require('./estadoProducto');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -193,6 +192,35 @@ async function buscar({ buscar: texto = '', proveedor = '', sinImagen = false, e
 
 // ─── Acciones en lote ─────────────────────────────────────────────────────
 
+/** Ocultar no desactiva: el lote cambia exclusivamente las banderas pedidas. */
+async function cambiarEstadoEnLote({ productoIds, ...datos } = {}, usuarioId) {
+  const ids = idsDeLote(productoIds).sort((a, b) => a - b);
+  const cambios = cambiosDeEstado(datos);
+  const columnas = Object.keys(cambios);
+  return enTransaccion(async cliente => {
+    // Orden estable: dos selecciones superpuestas no se bloquean en orden inverso.
+    const { rows: anteriores } = await cliente.query(
+      'SELECT id, activo, oculto FROM producto WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE', [ids]
+    );
+    if (anteriores.length !== ids.length) throw httpError(404, 'Algún producto no existe. Actualizá la lista.');
+    const { rows: actualizados } = await cliente.query(
+      `UPDATE producto SET ${columnas.map((c, i) => `${c} = $${i + 1}`).join(', ')}, actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = ANY($${columnas.length + 1}::int[])
+          AND (${columnas.map((c, i) => `${c} IS DISTINCT FROM $${i + 1}`).join(' OR ')})
+        RETURNING id, activo, oculto`,
+      [...columnas.map(c => cambios[c]), ids]
+    );
+    const porId = new Map(anteriores.map(p => [p.id, p]));
+    await registrarCambios(cliente, actualizados.map(p => ({
+      entidad: 'producto', entidadId: p.id, accion: accionDeEstado(porId.get(p.id), p),
+      antes: { activo: porId.get(p.id).activo, oculto: porId.get(p.id).oculto },
+      despues: { activo: p.activo, oculto: p.oculto }, usuarioId,
+      motivo: 'selección de Gestión de Catálogo'
+    })));
+    return { actualizados: actualizados.length, productoIds: ids, estado: cambios };
+  });
+}
+
 /**
  * Ponerle (o quitarle) la subcategoría a varios productos de una vez.
  *
@@ -245,8 +273,7 @@ async function asignarSubcategoria({ productoIds, subcategoriaId } = {}, usuario
 }
 
 /**
- * Cambiar de categoría a varios productos. En `main` es un trabajo de fondo
- * que le escribe a Alegra uno por uno (~3 s cada uno); acá es un UPDATE.
+ * Cambiar de categoría a varios productos con un UPDATE propio.
  *
  * La subcategoría se suelta: la de antes es de la otra categoría. Llegan a
  * "Sin clasificar" de la nueva, que es donde alguien los va a acomodar.
@@ -358,6 +385,7 @@ module.exports = {
   buscar,
   asignarSubcategoria,
   cambiarCategoria,
+  cambiarEstadoEnLote,
   moverSubcategoria,
   crearSubcategoria,
   reordenarSubcategorias,
