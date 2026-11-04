@@ -74,3 +74,32 @@ test('una familia vacía no crea un salto a una fila inexistente', async () => {
   assert.equal(inicioPorFamilia.get(0), 0);
   assert.equal(filas.length, 1);
 });
+
+for (const columnas of [2, 3, 4]) test(`una marca de 25 productos usa su propia fila sin perder fichas o familias, ${columnas} columnas`, async () => {
+  const { filasDelCatalogo, anchoEnFila } = await cargar();
+  const extensa = { ...marca(25), presentaciones: Array.from({ length: 25 }, (_, id) => ({ id })) };
+  const familias = [
+    { nombre: 'Herramientas', productos: [{ id: 1 }, extensa, marca(2), { id: 2 }, { id: 3 }] },
+    { nombre: 'Pesca', productos: [{ id: 4 }] },
+  ];
+  const { filas, grupos, inicioPorFamilia } = filasDelCatalogo([], familias, columnas);
+  assert.equal(anchoEnFila(extensa, columnas), columnas);
+  assert.deepEqual(filas.find(f => f.productos.includes(extensa)).productos, [extensa]);
+  assert.deepEqual(filas.flatMap(f => f.productos).map(p => p.id).sort(), [1, 2, 3, 4, 'M2', 'M25'].sort());
+  assert.ok(filas.every(f => f.productos.reduce((n, p) => n + anchoEnFila(p, columnas), 0) <= columnas));
+  for (let i = 0; i < grupos.length; i++) assert.ok(filas[inicioPorFamilia.get(i)].productos.includes(grupos[i].productos[0]));
+  assert.ok(filas.findIndex(f => f.productos.some(p => p.id === 4)) > filas.findIndex(f => f.productos.includes(extensa)));
+});
+
+test('al cargar una quinta presentación cambia el ancho, sin reordenar marcas ni mutar sus productos', async () => {
+  const { filasDelCatalogo, anchoEnFila } = await cargar();
+  const corta = { ...marca(1), presentaciones: [1, 2, 3, 4] };
+  const extensa = { ...corta, presentaciones: [...corta.presentaciones, 5] };
+  const otra = marca(2);
+  const antes = JSON.stringify([corta, extensa, otra]);
+  assert.equal(anchoEnFila(corta, 4), 2);
+  assert.equal(anchoEnFila(extensa, 4), 4);
+  assert.deepEqual(filasDelCatalogo([corta, otra], null, 4).filas.map(f => f.productos.map(p => p.id)), [['M1', 'M2']]);
+  assert.deepEqual(filasDelCatalogo([extensa, otra], null, 4).filas.map(f => f.productos.map(p => p.id)), [['M1'], ['M2']]);
+  assert.equal(JSON.stringify([corta, extensa, otra]), antes);
+});

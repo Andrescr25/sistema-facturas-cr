@@ -1472,3 +1472,17 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   en la memoria compartida de publicaciones.
 
 [Alcance, recursos y comprobaciones](informes/catalogo-lote-portadas-2026-11-03.md).
+
+
+### Portadas sin recorte en marcas extensas — 2026-11-03
+
+- [x] Conservar la proporción de todas las fotos y evitar que otra tarjeta
+  estire la imagen de las marcas cortas.
+- [x] Marcas con cinco o más presentaciones: cabecera compacta, fila completa,
+  una columna móvil y dos en escritorio; sin ocultar productos.
+- [x] Compartir el criterio de extensión; regresión de filas, destinos de
+  familias y carga de la quinta presentación. Sin SQL o consultas nuevas.
+- [ ] Cerrar recorrido de las 61 marcas, proporciones/carga lenta/carrito y
+  suite completa; preparar entrega y confirmar Render al publicar.
+
+[Alcance y comprobaciones](informes/portadas-marcas-proporcion-2026-11-03.md).

@@ -1,9 +1,12 @@
+import { esMarcaExtensa } from './marcasCatalogo.js'
+
 /**
- * La portada de una marca ocupa dos casillas (la fila entera en tablet y
- * teléfono): es la presentación de sus productos, no una tarjeta más
- * (pedido del usuario, 2026-10-22). Las demás fichas, una.
+ * Marcas cortas: dos casillas; extensas: fila completa para presentar la lista
+ * en dos columnas sin alargar la foto. Las demás fichas ocupan una casilla.
  */
-export const anchoEnFila = (producto, columnas) => (producto?.esMarca ? Math.min(2, columnas) : 1)
+export const anchoEnFila = (producto, columnas) => (producto?.esMarca
+  ? esMarcaExtensa(producto.presentaciones?.length) ? columnas : Math.min(2, columnas)
+  : 1)
 
 /**
  * Conserva el orden y llena las filas incluso si cambia la subcategoría
@@ -30,6 +33,7 @@ export function filasDelCatalogo(productos, familias, columnas) {
       fichas.push(pendientes.shift())
     }
     for (let k = 0; ocupadas < columnas && k < pendientes.length && pendientes[k].familia === pendientes[0].familia; k++) {
+      if (pendientes[k].producto.esMarca) continue // No adelantar otra marca para rellenar.
       if (ancho(pendientes[k]) > columnas - ocupadas) continue
       ocupadas += ancho(pendientes[k])
       fichas.push(...pendientes.splice(k--, 1))

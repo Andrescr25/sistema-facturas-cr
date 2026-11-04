@@ -2,19 +2,23 @@ import { ChevronRight, Plus } from 'lucide-react'
 import PortadaMarca from '../catalogo/PortadaMarca'
 import InputCantidad from './InputCantidad'
 import { formatearColones } from '../../utils/catalogoClientesUtils'
+import { esMarcaExtensa } from '../../utils/marcasCatalogo'
 
 /** Cada control compra el producto propio, nunca el id de la marca. */
 export default function MarcaProductos({ grupo, carrito, onCambiar, onAbrir }) {
+  const extensa = esMarcaExtensa(grupo.presentaciones.length)
+  const encabezado = 'items-center justify-between px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-neutro-400 sm:px-5'
   return (
     <PortadaMarca marca={grupo.marca} cantidad={grupo.presentaciones.length} className="col-span-full">
-      <div className="flex items-center justify-between border-t border-neutro-100 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-neutro-400 sm:px-5">
-        <span>Presentación</span><span>Precio con IVA</span>
+      <div className={`grid border-t border-neutro-100 ${extensa ? 'sm:grid-cols-2' : ''}`}>
+        <div className={`flex ${encabezado}`}><span>Presentación</span><span>Precio con IVA</span></div>
+        {extensa && <div className={`hidden sm:flex ${encabezado}`}><span>Presentación</span><span>Precio con IVA</span></div>}
       </div>
-      <ul className="divide-y divide-neutro-100">
+      <ul className={extensa ? 'grid sm:grid-cols-2' : 'divide-y divide-neutro-100'}>
         {grupo.presentaciones.map(p => {
           const cantidad = carrito[p.id]?.cantidad || 0
           return (
-            <li key={p.id} className={cantidad > 0 ? 'bg-cliente-50/50' : ''}>
+            <li key={p.id} className={`${cantidad > 0 ? 'bg-cliente-50/50' : ''} ${extensa ? 'border-t border-neutro-100 sm:odd:border-r' : ''}`}>
               <button type="button" onClick={() => onAbrir(p.id, p)} aria-label={`Ver ${p.nombre}`}
                 className="flex min-h-14 w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-neutro-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cliente-500 sm:px-5">
                 <span className="min-w-0 flex-1 break-words text-xs font-semibold leading-5 text-neutro-800 sm:text-sm">{p.nombre}</span>

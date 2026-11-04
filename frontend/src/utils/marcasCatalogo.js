@@ -1,6 +1,9 @@
 const alfabeto = new Intl.Collator('es', { numeric: true, sensitivity: 'base' })
 const nombreDe = p => String(p.name || p.nombre || '').trim().normalize('NFC')
 
+/** Cabecera compacta y lista ancha para evitar una columna de foto interminable. */
+export const esMarcaExtensa = cantidad => cantidad > 4
+
 function partesDe(nombre) {
   return (nombre.match(/\d+(?:[.,]\d+)?(?:\s+\d+\/\d+|\/\d+)?|[^\d]+/g) || []).map(parte => {
     if (!/^\d/.test(parte)) return parte

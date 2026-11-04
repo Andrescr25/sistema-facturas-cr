@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Marcas del catálogo — foto general y presentaciones con vista previa
 estado: vigente
 archivos:
+  - docs/informes/portadas-marcas-proporcion-2026-11-03.md
   - docs/informes/catalogo-lote-portadas-2026-11-03.md
   - docs/recursos/portadas-marcas-2026-11-03/prompts.json
   - docs/informes/senuelos-favarcia-2026-11-03.md
@@ -46,6 +47,17 @@ aristas:
 medido: 2026-11-03
 ---
 
+## Portada completa y marcas extensas — 2026-11-03
+
+El usuario pide corregir el recorte cuando una marca tiene muchos productos.
+`PortadaMarca` muestra la imagen en su proporción natural, sin estirarla con
+la lista ni con otra tarjeta de la fila. Desde cinco presentaciones usa una
+cabecera compacta (foto y título), con la lista debajo en una columna móvil
+y dos en escritorio. En el agente ocupa toda su fila; los grupos cortos
+conservan dos casillas. El criterio vive en `esMarcaExtensa` y lo comparten
+portada, filas y ambos catálogos. Las fotos existentes no necesitan otra carga.
+[Formato, regresión y verificación](../../informes/portadas-marcas-proporcion-2026-11-03.md).
+
 ## La foto de marca es una portada — 2026-10-22
 
 2026-11-03: el usuario amplía el alcance a las portadas de todas las marcas
@@ -82,7 +94,7 @@ Vista previa: la MARCA es el título y el producto va abajo con su precio
 («hazlo al revés sino confunde»). Un producto sin marca conserva su nombre
 de título.
 
-Corrección posterior del mismo día: el usuario compara aldabas (cinco
+Corrección del 22/10, sustituida por el formato del 03/11: el usuario compara aldabas (cinco
 presentaciones) y llantas (dos) y pide quitar las franjas de la portada. El
 tope de22rem dejaba la foto pequeña dentro de un panel que crecía con la
 lista. Ahora el panel reserva la proporción ancho/alto guardada al subir la

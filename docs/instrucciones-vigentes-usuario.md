@@ -1527,3 +1527,12 @@ propio y el precio con la regla vigente de margen30% de anzuelos;4367deja
 de estar pendiente y se habilita al tener precio confirmado. La cotización
 actualiza catálogo, no acredita una compra ni un pago.
 [Resultado](informes/anzuelos-favarcia-2026-11-03.md).
+
+
+### 2026-11-03 — Portadas de marcas con muchos productos
+
+El usuario detecta que la lista larga estira y recorta la portada y permite
+adaptar el formato. La implementación usa cabecera compacta desde cinco
+presentaciones, lista debajo y dos columnas en escritorio; todas las fotos
+conservan su proporción. Es un ajuste de presentación, sin volver a generar
+ni subir imágenes. [Formato y pruebas](informes/portadas-marcas-proporcion-2026-11-03.md).

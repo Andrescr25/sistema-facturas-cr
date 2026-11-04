@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Portal — carrito, cuenta y pedidos con ids propios; facturar crea una factura propia
 estado: vigente
 archivos:
+  - docs/informes/portadas-marcas-proporcion-2026-11-03.md
   - docs/informes/marcas-clientes-2026-10-24.md
   - backend/src/utils/marcaPublica.js
   - backend/tests/catalogoClientesMarcas.test.js
@@ -191,3 +192,11 @@ franjas ni duplicado desenfocado. No hay animaciones que retengan scroll ni
 dependencias nuevas. Ambos builds siguen separados. Sin migración nueva;
 SQL064 ya está aplicada, no repetirla. Pruebas y alcance en
 [el informe](../../informes/marcas-clientes-2026-10-24.md).
+
+
+2026-11-03, portadas: las marcas con cinco o más presentaciones usan cabecera
+compacta y lista debajo a todo el ancho, con dos columnas desde 640 px. La
+imagen completa conserva su proporción y no se estira con los productos.
+El criterio se comparte con el armado de filas del agente. Vista previa y
+controles existentes se conservan; sin otra consulta ni migración. Ver
+[[modulo/marcas-catalogo]] y el informe de proporciones enlazado.

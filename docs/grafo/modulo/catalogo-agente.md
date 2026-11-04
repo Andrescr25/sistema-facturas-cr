@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar
 estado: vigente
 archivos:
+  - docs/informes/portadas-marcas-proporcion-2026-11-03.md
   - docs/informes/senuelos-favarcia-2026-11-03.md
   - frontend/src/utils/precioCatalogoAgente.js
   - frontend/src/utils/moneda.js
@@ -398,3 +399,11 @@ La ampliación se publica a main por Codex como continuación del catálogo,
 con suite completa local:239 archivos,2941 correctas,0fallos y3 omisiones
 históricas, conservando el inventario de la copia. No viajan migraciones ni
 commits nuevos de otro agente. Vista local5173/3000 actualizada.
+
+
+2026-11-03, portadas: las marcas con cinco o más presentaciones usan cabecera
+compacta y lista debajo a todo el ancho, con dos columnas desde 640 px. La
+imagen completa conserva su proporción y no se estira con los productos.
+El criterio se comparte con el armado de filas del agente. Vista previa y
+controles existentes se conservan; sin otra consulta ni migración. Ver
+[[modulo/marcas-catalogo]] y el informe de proporciones enlazado.
