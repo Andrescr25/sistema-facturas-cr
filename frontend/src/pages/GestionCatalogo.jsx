@@ -22,6 +22,7 @@ import ModalSugerirImagen from '../components/ModalSugerirImagen'
 import TablaCatalogo from '../components/configuracion/TablaCatalogo'
 import ModalElementoCatalogo from '../components/configuracion/ModalElementoCatalogo'
 import { urlArchivo } from '../utils/urlArchivo'
+import { compararSubcategorias } from '../utils/catalogoAgentePersonalizacion'
 
 const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`
 
@@ -145,6 +146,11 @@ export default function GestionCatalogo() {
       ? arbol.filter((c) => c.sinImagen > 0)
       : arbol
   const otrasCategorias = arbol.filter((c) => c.name !== categoriaActiva)
+  // Desde una búsqueda o un filtro la selección puede ser de varias categorías:
+  // la barra ofrece todas las subcategorías, agrupadas por categoría.
+  const subsPorCategoria = useMemo(() => arbol
+    .filter((c) => c.subcategorias.length > 0)
+    .map((c) => ({ ...c, subcategorias: [...c.subcategorias].sort(compararSubcategorias) })), [arbol])
 
   const entrar = (nombre, foco) => {
     // Con un atajo de arriba elegido, se entra directo a lo pendiente.
@@ -172,7 +178,7 @@ export default function GestionCatalogo() {
   }
 
   const moverSeleccionASubcategoria = async (subcategoriaId) => {
-    const ok = await acciones.moverASubcategoria([...seleccion.seleccionados], subcategoriaId)
+    const ok = await acciones.moverASubcategoria([...seleccion.seleccionados], subcategoriaId, { conCategoria: !categoriaActiva })
     if (ok) seleccion.limpiar()
   }
 
@@ -392,6 +398,7 @@ export default function GestionCatalogo() {
           cantidad={seleccion.cantidad}
           enBusqueda={!categoriaActiva}
           subsDeLaCategoria={lista.subsOrdenadas}
+          subsPorCategoria={subsPorCategoria}
           otrasCategorias={otrasCategorias}
           moviendo={acciones.moviendo}
           onMoverASubcategoria={moverSeleccionASubcategoria}

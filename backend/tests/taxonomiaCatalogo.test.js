@@ -121,6 +121,37 @@ describe('acciones en lote', () => {
     assert.ok(!log.some((l) => /^UPDATE producto/.test(l.sql)));
   });
 
+  // Desde una búsqueda o un filtro (2026-11-03): la subcategoría se elige agrupada por categoría.
+  const conCategoriaPvc = (sql, params) => {
+    if (/FROM categoria_producto WHERE nombre = \$1/.test(sql)) return { rows: [{ id: 14 }] };
+    if (/FROM categoria_producto WHERE id = \$1/.test(sql)) return { rows: [{ id: 14, nombre: 'Productos de PVC', activo: true }] };
+    return responder(sql, params);
+  };
+
+  test('con conCategoria, el de otra categoría pasa a la de la subcategoría en el MISMO UPDATE, y la bitácora lo dice', async () => {
+    const { servicio, log } = montar(conCategoriaPvc);
+    const r = await servicio.asignarSubcategoria({ productoIds: [1, 2], subcategoriaId: 9, conCategoria: true }, 4);
+    const updates = log.filter((l) => /^UPDATE producto/.test(l.sql));
+    assert.equal(updates.length, 1);
+    assert.match(updates[0].sql, /categoria_id = \$3, subcategoria_id = \$2/);
+    assert.deepEqual(updates[0].params, [[1, 2], 9, 14]);
+    assert.deepEqual(r.categoria, { id: 14, nombre: 'Productos de PVC' });
+    const bitacora = log.filter((l) => /INSERT INTO bitacora_cambio/.test(l.sql)).map((l) => l.params.join('|'));
+    assert.equal(bitacora.length, 2);
+    assert.ok(bitacora.some((b) => b.includes('{"categoria_id":8,"subcategoria_id":null}') && b.includes('{"categoria_id":14,"subcategoria_id":9}')),
+      'el bombillo queda con su categoría de antes y la nueva');
+    assert.ok(bitacora.some((b) => b.includes('{"subcategoria_id":null}') && b.includes('{"subcategoria_id":9}')), 'el codo solo cambia de subcategoría');
+  });
+
+  test('conCategoria tiene que ser true de verdad: un "true" de texto sigue rechazando sin escribir', async () => {
+    const { servicio, log } = montar(conCategoriaPvc);
+    await assert.rejects(
+      () => servicio.asignarSubcategoria({ productoIds: [1, 2], subcategoriaId: 9, conCategoria: 'true' }, 4),
+      (e) => e.status === 400 && /BOMBILLO LED/.test(e.message)
+    );
+    assert.ok(!log.some((l) => /^UPDATE producto/.test(l.sql)));
+  });
+
   test('clasificar es UN solo UPDATE, con los productos tomados con bloqueo', async () => {
     const { servicio, log } = montar(responder);
     const r = await servicio.asignarSubcategoria({ productoIds: [1, 1], subcategoriaId: 9 }, 4);

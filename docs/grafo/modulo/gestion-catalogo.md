@@ -154,6 +154,18 @@ incluida bitácora individual de los cambios reales en un solo INSERT.
 Ficha/lote comparten validación; un id ausente o fallo revierte todo.
 [Pruebas y alcance](../../informes/catalogo-lote-portadas-2026-11-03.md).
 
+Ese mismo día el usuario aclaró: «que también me saliera una opción para
+desactivar, NO que me quitaras la posibilidad de cambiar de subcategoría ahí
+mismo». En una búsqueda o un filtro (p. ej. «Rotación baja o nula») la barra
+nunca había tenido «Mover a subcategoría»: decía «entrá a su categoría». Desde
+entonces `BarraLote` lo muestra SIEMPRE: dentro de una categoría, sus
+subcategorías; en búsqueda o filtro, todas, agrupadas por categoría
+(`<optgroup>`). Elegir una de otra categoría manda `conCategoria: true` a
+`PUT /maestro/lote/subcategoria`, y `asignarSubcategoria` pasa esos productos a
+la categoría de la subcategoría en el MISMO UPDATE, con bitácora de categoría
+y subcategoría. Sin esa bandera (o con un "true" de texto) sigue rechazando un
+producto de otra categoría.
+
 Mover una subcategoría falló la primera vez con "inconsistent types deduced
 for parameter $2": el mismo parámetro en el SET y en una subconsulta. Los
 dobles no lo ven; por eso `taxonomiaCatalogo.test.js` tiene pruebas contra la

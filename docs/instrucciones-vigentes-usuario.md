@@ -1536,3 +1536,13 @@ adaptar el formato. La implementación usa cabecera compacta desde cinco
 presentaciones, lista debajo y dos columnas en escritorio; todas las fotos
 conservan su proporción. Es un ajuste de presentación, sin volver a generar
 ni subir imágenes. [Formato y pruebas](informes/portadas-marcas-proporcion-2026-11-03.md).
+
+
+### 2026-11-03 — Mover a subcategoría desde la selección, junto a desactivar
+
+El usuario: «antes yo había pedido que donde hacía check a los productos y me
+salía la opción de cambiar categoría o subcategoría, también me saliera una
+opción para desactivar los productos; NO que me quitaras la posibilidad de
+cambiar de subcategoría ahí mismo». La barra de la selección ofrece siempre
+mover a subcategoría (en búsquedas y filtros, todas agrupadas por categoría),
+cambiar de categoría, ocultar y desactivar. [Cómo funciona](grafo/modulo/gestion-catalogo.md).

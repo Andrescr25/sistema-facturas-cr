@@ -13,11 +13,18 @@ const SELECT = 'min-w-0 flex-1 rounded-xl border border-neutro-200 bg-neutro-50 
  * vocabularioDiseno.test.js).
  *
  * Mover, ocultar del catálogo y retirar de la venta son acciones distintas.
+ *
+ * «Mover a subcategoría» está SIEMPRE (pedido del usuario, 2026-11-03: que
+ * desactivar se sumara sin quitar «cambiar de subcategoría ahí mismo»).
+ * Dentro de una categoría lista las suyas; desde una búsqueda o un filtro,
+ * todas, agrupadas por categoría: elegir una de otra categoría trae ahí los
+ * productos seleccionados.
  */
 export default function BarraLote({
   cantidad,
   enBusqueda,
   subsDeLaCategoria,
+  subsPorCategoria,
   otrasCategorias,
   moviendo,
   onMoverASubcategoria,
@@ -41,19 +48,23 @@ export default function BarraLote({
             </button>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            {!enBusqueda && (
-              <select
-                value=""
-                disabled={moviendo}
-                aria-label="Mover selección a subcategoría"
-                onChange={(e) => onMoverASubcategoria(e.target.value === '__sin__' ? null : e.target.value)}
-                className={SELECT}
-              >
-                <option value="" disabled>Mover a subcategoría…</option>
-                {subsDeLaCategoria.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                <option value="__sin__">— Sin clasificar —</option>
-              </select>
-            )}
+            <select
+              value=""
+              disabled={moviendo}
+              aria-label="Mover selección a subcategoría"
+              onChange={(e) => onMoverASubcategoria(e.target.value === '__sin__' ? null : e.target.value)}
+              className={SELECT}
+            >
+              <option value="" disabled>Mover a subcategoría…</option>
+              {enBusqueda
+                ? subsPorCategoria.map((c) => (
+                  <optgroup key={c.id} label={c.nombreVisible}>
+                    {c.subcategorias.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                  </optgroup>
+                ))
+                : subsDeLaCategoria.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              <option value="__sin__">— Sin clasificar —</option>
+            </select>
             <select
               value=""
               disabled={moviendo}
@@ -68,9 +79,6 @@ export default function BarraLote({
               {otrasCategorias.map((c) => <option key={c.id} value={c.id}>{c.nombreVisible}</option>)}
             </select>
           </div>
-          {enBusqueda && (
-            <p className="mt-2 text-xs text-neutro-500">Para moverlos a una subcategoría, entrá a su categoría.</p>
-          )}
           <div className="mt-3 grid grid-cols-1 gap-2 border-t border-neutro-100 pt-3 sm:grid-cols-2">
             <Boton variante="secundario" icono={EyeOff} disabled={moviendo} onClick={onOcultar} className="min-h-11">
               Ocultar del catálogo

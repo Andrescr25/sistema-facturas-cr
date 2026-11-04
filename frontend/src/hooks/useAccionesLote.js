@@ -32,16 +32,24 @@ export function useAccionesLote({ arbol, patchProducto, quitarProductos, recarga
     }
   }, [mostrarToast])
 
-  const moverASubcategoria = useCallback((ids, subcategoriaId) => {
+  /**
+   * `conCategoria`: la selección viene de una búsqueda o un filtro, donde la
+   * subcategoría se elige agrupada por categoría; los de otra categoría pasan
+   * a la de la subcategoría en el mismo cambio.
+   */
+  const moverASubcategoria = useCallback((ids, subcategoriaId, { conCategoria = false } = {}) => {
     if (ids.length === 0) return Promise.resolve(false)
     return conMovimiento(async () => {
-      await api.put('/maestro/lote/subcategoria', { productoIds: ids, subcategoriaId: subcategoriaId || null })
-      const sub = subcategoriaId
-        ? arbol.flatMap((c) => c.subcategorias).find((s) => s.id === Number(subcategoriaId))
+      await api.put('/maestro/lote/subcategoria', {
+        productoIds: ids, subcategoriaId: subcategoriaId || null, ...(conCategoria ? { conCategoria: true } : {})
+      })
+      const categoria = subcategoriaId
+        ? arbol.find((c) => c.subcategorias.some((s) => s.id === Number(subcategoriaId)))
         : null
+      const sub = categoria ? categoria.subcategorias.find((s) => s.id === Number(subcategoriaId)) : null
       const puesta = sub ? { id: sub.id, nombre: sub.nombre } : null
-      ids.forEach((id) => patchProducto(id, { subcategoria: puesta }))
-      mostrarToast('success', `${ids.length} ${plural(ids.length, 'producto movido', 'productos movidos')} a ${sub ? `"${sub.nombre}"` : 'Sin clasificar'}.`)
+      ids.forEach((id) => patchProducto(id, { subcategoria: puesta, ...(conCategoria && categoria ? { category: categoria.name } : {}) }))
+      mostrarToast('success', `${ids.length} ${plural(ids.length, 'producto movido', 'productos movidos')} a ${sub ? `"${sub.nombre}"${conCategoria ? ` (${categoria.nombreVisible})` : ''}` : 'Sin clasificar'}.`)
       recargarArbol()
       return true
     }, 'No se pudo mover el lote.')

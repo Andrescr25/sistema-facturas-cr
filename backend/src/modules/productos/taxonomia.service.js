@@ -227,8 +227,14 @@ async function cambiarEstadoEnLote({ productoIds, ...datos } = {}, usuarioId) {
  * TODOS TIENEN QUE SER DE LA CATEGORÍA DE ESA SUBCATEGORÍA: sin esta regla,
  * un id mandado a mano marcaba un bombillo como "Sanitario" y el catálogo
  * quedaba peor ordenado que antes. Un solo UPDATE, no uno por fila.
+ *
+ * Salvo con `conCategoria: true`, que manda la selección hecha desde una
+ * búsqueda o un filtro: ahí se eligió categoría Y subcategoría a la vista
+ * (agrupadas en el selector), y los de otra categoría pasan a la de la
+ * subcategoría en el mismo UPDATE (pedido del usuario, 2026-11-03: «cambiar
+ * de subcategoría ahí mismo»).
  */
-async function asignarSubcategoria({ productoIds, subcategoriaId } = {}, usuarioId) {
+async function asignarSubcategoria({ productoIds, subcategoriaId, conCategoria = false } = {}, usuarioId) {
   const ids = idsDeLote(productoIds);
   const destino = subcategoriaId === null || subcategoriaId === undefined || subcategoriaId === ''
     ? null
@@ -236,7 +242,7 @@ async function asignarSubcategoria({ productoIds, subcategoriaId } = {}, usuario
 
   return enTransaccion(async (cliente) => {
     const { rows: productos } = await cliente.query(
-      `SELECT p.id, p.nombre, p.subcategoria_id, c.nombre AS categoria
+      `SELECT p.id, p.nombre, p.categoria_id, p.subcategoria_id, c.nombre AS categoria
          FROM producto p LEFT JOIN categoria_producto c ON c.id = p.categoria_id
         WHERE p.id = ANY($1::int[]) FOR UPDATE OF p`,
       [ids]
@@ -244,31 +250,48 @@ async function asignarSubcategoria({ productoIds, subcategoriaId } = {}, usuario
     if (productos.length !== ids.length) throw httpError(404, 'Algún producto no existe.');
 
     let sub = null;
+    let categoria = null;
     if (destino !== null) {
       const { rows } = await cliente.query('SELECT id, categoria, nombre, activo FROM subcategoria WHERE id = $1', [destino]);
       sub = rows[0];
       if (!sub) throw httpError(404, 'No existe esa subcategoría.');
       const ajenos = productos.filter((p) => p.categoria !== sub.categoria);
-      if (ajenos.length) {
+      if (ajenos.length && conCategoria !== true) {
         throw httpError(400,
           `${ajenos.length === 1 ? `"${ajenos[0].nombre}" no es` : `${ajenos.length} productos no son`} de ${sub.categoria}: ` +
           `"${sub.nombre}" es una subcategoría de esa categoría.`);
       }
+      if (ajenos.length) {
+        const { rows: [c] } = await cliente.query('SELECT id FROM categoria_producto WHERE nombre = $1', [sub.categoria]);
+        if (!c) throw httpError(404, `No existe la categoría de "${sub.nombre}".`);
+        categoria = await categoriaActiva(cliente, c.id);
+      }
     }
 
-    const { rowCount } = await cliente.query(
-      `UPDATE producto SET subcategoria_id = $2, actualizado_en = CURRENT_TIMESTAMP
-        WHERE id = ANY($1::int[]) AND subcategoria_id IS DISTINCT FROM $2`,
-      [ids, destino]
-    );
+    const { rowCount } = categoria
+      ? await cliente.query(
+        `UPDATE producto SET categoria_id = $3, subcategoria_id = $2, actualizado_en = CURRENT_TIMESTAMP
+          WHERE id = ANY($1::int[]) AND (subcategoria_id IS DISTINCT FROM $2 OR categoria_id IS DISTINCT FROM $3)`,
+        [ids, destino, categoria.id])
+      : await cliente.query(
+        `UPDATE producto SET subcategoria_id = $2, actualizado_en = CURRENT_TIMESTAMP
+          WHERE id = ANY($1::int[]) AND subcategoria_id IS DISTINCT FROM $2`,
+        [ids, destino]);
 
-    for (const p of productos.filter((x) => x.subcategoria_id !== destino)) {
+    for (const p of productos) {
+      const mudado = categoria && p.categoria_id !== categoria.id;
+      if (!mudado && p.subcategoria_id === destino) continue;
       await registrarCambio(cliente, {
         entidad: 'producto', entidadId: p.id, accion: 'editar',
-        antes: { subcategoria_id: p.subcategoria_id }, despues: { subcategoria_id: destino }, usuarioId
+        antes: mudado ? { categoria_id: p.categoria_id, subcategoria_id: p.subcategoria_id } : { subcategoria_id: p.subcategoria_id },
+        despues: mudado ? { categoria_id: categoria.id, subcategoria_id: destino } : { subcategoria_id: destino }, usuarioId
       });
     }
-    return { actualizados: rowCount, subcategoria: sub ? { id: sub.id, nombre: sub.nombre } : null };
+    return {
+      actualizados: rowCount,
+      subcategoria: sub ? { id: sub.id, nombre: sub.nombre } : null,
+      ...(categoria ? { categoria: { id: categoria.id, nombre: categoria.nombre } } : {})
+    };
   });
 }
 
