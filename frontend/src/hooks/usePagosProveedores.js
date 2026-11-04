@@ -3,12 +3,16 @@ import {
   getPagosProveedores,
   registrarPagoProveedor,
   anularPagoProveedor,
+  getChequesPendientes,
+  registrarChequeProveedor,
+  confirmarChequeProveedor,
+  anularChequeProveedor,
   getProveedoresConCuentas,
   getSaldosAFavor,
   aplicarNotaACuenta,
   eliminarNotaCredito
 } from '../services/pagosProveedoresService'
-import { formatCurrency } from '../utils/pagosProveedoresUtils'
+import { formatCurrency, formatDate } from '../utils/pagosProveedoresUtils'
 import { useToast } from './useToast'
 
 /**
@@ -91,10 +95,33 @@ export function usePagosProveedores(initialFilters = {}) {
     setFilters({ ...defaultFilters })
   }, [])
 
-  /** Registrar un pago sobre una factura. Devuelve true si quedó. */
+  // --- Cheques a fecha (078): anotados, todavía no son pagos ---
+  const [cheques, setCheques] = useState([])
+
+  const cargarCheques = useCallback(async () => {
+    try {
+      const data = await getChequesPendientes()
+      if (data.success) setCheques(data.data || [])
+    } catch (err) {
+      console.error('Error cargando los cheques a fecha:', err)
+    }
+  }, [])
+
+  useEffect(() => { cargarCheques() }, [cargarCheques])
+
+  /**
+   * Registrar un pago sobre una o varias facturas. Devuelve true si quedó.
+   * Con `fechaCobro` es un cheque a fecha: queda anotado y la factura se sigue debiendo.
+   */
   const handleRegistrarPago = useCallback(async (cuentaId, datos) => {
     setProcesandoId(cuentaId)
     try {
+      if (datos.fechaCobro) {
+        await registrarChequeProveedor(datos)
+        await Promise.all([loadCuentas(filters), cargarCheques()])
+        showToast(`Cheque anotado para el ${formatDate(datos.fechaCobro)}: la factura sigue pendiente hasta que confirmes el cobro`, 'success')
+        return true
+      }
       await registrarPagoProveedor(datos)
       await loadCuentas(filters)
       showToast('Pago registrado', 'success')
@@ -105,7 +132,38 @@ export function usePagosProveedores(initialFilters = {}) {
     } finally {
       setProcesandoId(null)
     }
-  }, [filters, loadCuentas, showToast])
+  }, [filters, loadCuentas, cargarCheques, showToast])
+
+  /** Se cobró: se registra el pago con el día en que salió del banco. */
+  const handleConfirmarCheque = useCallback(async (cheque, fecha) => {
+    setProcesandoId(`cheque-${cheque.id}`)
+    try {
+      await confirmarChequeProveedor(cheque.id, fecha)
+      await Promise.all([loadCuentas(filters), cargarCheques()])
+      showToast(`Cheque #${cheque.numero} cobrado: ${formatCurrency(cheque.monto)} salió de Caja General`, 'success')
+      return true
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Error confirmando el cheque', 'error')
+      return false
+    } finally {
+      setProcesandoId(null)
+    }
+  }, [filters, loadCuentas, cargarCheques, showToast])
+
+  const handleAnularCheque = useCallback(async (cheque, motivo) => {
+    setProcesandoId(`cheque-${cheque.id}`)
+    try {
+      await anularChequeProveedor(cheque.id, motivo)
+      await Promise.all([loadCuentas(filters), cargarCheques()])
+      showToast(`Cheque #${cheque.numero} anulado: la factura vuelve a quedar por pagar`, 'success')
+      return true
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Error anulando el cheque', 'error')
+      return false
+    } finally {
+      setProcesandoId(null)
+    }
+  }, [filters, loadCuentas, cargarCheques, showToast])
 
   /** Anular un pago con su motivo. El saldo de la factura vuelve solo. */
   const handleAnularPago = useCallback(async (cuentaId, pagoId, motivo) => {
@@ -202,7 +260,10 @@ export function usePagosProveedores(initialFilters = {}) {
     registrarPago: handleRegistrarPago,
     anularPago: handleAnularPago,
     procesandoId,
-    reload: () => { loadCuentas(filters); cargarSaldosAFavor() },
+    reload: () => { loadCuentas(filters); cargarSaldosAFavor(); cargarCheques() },
+    cheques,
+    confirmarCheque: handleConfirmarCheque,
+    anularCheque: handleAnularCheque,
     toasts,
     removeToast,
 

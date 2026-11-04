@@ -7,6 +7,8 @@ import HojaModal from '../pagos/HojaModal'
 import ResumenSaldo from '../pagos/ResumenSaldo'
 import OpcionesPago from '../pagos/OpcionesPago'
 import TablaProductosFactura from '../pagos/TablaProductosFactura'
+import FilaCheque from './FilaCheque'
+import { esCheque, esChequeAFecha, fechaMaximaPago, saldoLibre } from '../../utils/chequeAFecha'
 
 /**
  * Pagarle a un proveedor.
@@ -21,10 +23,19 @@ import TablaProductosFactura from '../pagos/TablaProductosFactura'
  * Misma hoja que Cuentas por Cobrar: el saldo grande arriba y las dos
  * tarjetas grandes de decisión. Lo propio de pagar se conserva: las notas de
  * crédito del proveedor.
+ *
+ * CHEQUE A FECHA (078): con Cheque y una fecha futura no se paga: se anota el
+ * cheque, la factura se sigue debiendo con su nota, y se confirma el cobro
+ * cuando sale del banco. Lo que ya cubre un cheque no se ofrece para pagar.
  */
 
-export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago, onAnularPago, onCerrar }) {
+export default function ModalDetalleCuenta({
+  cuenta, cheques = [], procesando, procesandoId, onRegistrarPago, onAnularPago, onConfirmarCheque, onAnularCheque, onCerrar
+}) {
   const yaPagada = cuenta.estado === 'PAGADA'
+  const hoy = hoyEnCostaRica()
+  const disponible = saldoLibre(cuenta)
+  const cubierta = !yaPagada && disponible <= 0
 
   const [seleccion, setSeleccion] = useState(yaPagada ? null : 'total')
   const [monto, setMonto] = useState('')
@@ -50,8 +61,9 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
   const faltaReferencia = Boolean(metodo?.pideReferencia) && !referencia.trim()
   const pagarTodo = seleccion === 'total'
   const montoInvalido = !pagarTodo &&
-    (!monto || Number(monto) <= 0 || Number(monto) > cuenta.saldoPendiente)
-  const incompleto = !metodoPagoId || faltaReferencia
+    (!monto || Number(monto) <= 0 || Number(monto) > disponible)
+  const aFecha = esChequeAFecha(metodo, fecha, hoy)
+  const incompleto = !metodoPagoId || faltaReferencia || !fecha || fecha > fechaMaximaPago(metodo, hoy)
 
   const handleRegistrar = async () => {
     if (montoInvalido || incompleto) return
@@ -62,7 +74,7 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
         : { cuentaPorPagarId: cuenta.id, monto: Number(monto) }],
       metodoPagoId,
       referencia: referencia.trim() || null,
-      fecha
+      ...(aFecha ? { fechaCobro: fecha } : { fecha })
     })
     if (exito) onCerrar()
   }
@@ -233,10 +245,28 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
         </div>
       )}
 
-      {!yaPagada && (
+      {cheques.length > 0 && (
+        <div>
+          <h4 className="mb-2 text-sm font-semibold text-neutro-600">Cheques a fecha, pendientes de confirmación</h4>
+          <div className="space-y-2">
+            {cheques.map((c) => (
+              <FilaCheque key={c.id} cheque={c} procesando={procesandoId === `cheque-${c.id}`}
+                onConfirmar={onConfirmarCheque} onAnular={onAnularCheque} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cubierta && (
+        <div className="rounded-xl border border-primario-200 bg-primario-50 px-4 py-3 text-sm text-primario-800">
+          <strong>Todo el saldo está cubierto por cheques a fecha.</strong> Confirmá el cobro cuando salga del banco, o anulá el cheque si no se va a cobrar.
+        </div>
+      )}
+
+      {!yaPagada && !cubierta && (
         <>
           <OpcionesPago
-            saldo={cuenta.saldoPendiente}
+            saldo={disponible}
             seleccion={seleccion}
             onSeleccionar={setSeleccion}
             etiquetaTotal="Pagar todo el saldo"
@@ -258,14 +288,14 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
                       value={monto}
                       onChange={(e) => setMonto(e.target.value)}
                       min="0"
-                      max={cuenta.saldoPendiente}
+                      max={disponible}
                       step="0.01"
                       placeholder="0,00"
                       className="input h-12 w-full pl-10 text-lg"
                       autoFocus
                     />
                   </div>
-                  <p className="mt-1.5 text-xs text-neutro-400">Máximo: {formatCurrency(cuenta.saldoPendiente)}</p>
+                  <p className="mt-1.5 text-xs text-neutro-400">Máximo: {formatCurrency(disponible)}</p>
                   {montoInvalido && monto !== '' && (
                     <p className="mt-1.5 text-sm font-medium text-peligro-600">
                       El monto debe ser mayor a ₡0 y no superar el saldo pendiente.
@@ -286,7 +316,12 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
                 </label>
                 <select
                   value={metodoPagoId ?? ''}
-                  onChange={(e) => { setMetodoPagoId(Number(e.target.value)); setReferencia('') }}
+                  onChange={(e) => {
+                    const id = Number(e.target.value)
+                    setMetodoPagoId(id); setReferencia('')
+                    // Solo un cheque puede llevar fecha futura.
+                    if (!esCheque(metodos.find((m) => m.id === id)) && fecha > hoy) setFecha(hoy)
+                  }}
                   className="input h-12 w-full text-base"
                 >
                   <option value="" disabled>Elegí el método…</option>
@@ -301,7 +336,7 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
                     type="text"
                     value={referencia}
                     onChange={(e) => setReferencia(e.target.value)}
-                    placeholder={`Referencia de la ${metodo.nombre.toLowerCase()}…`}
+                    placeholder={esCheque(metodo) ? 'Número del cheque…' : `Referencia de la ${metodo.nombre.toLowerCase()}…`}
                     maxLength={60}
                     className="input mt-2 h-12 w-full text-base"
                   />
@@ -311,15 +346,20 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
               <div>
                 <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutro-700">
                   <CalendarDays size={16} className="text-neutro-400" />
-                  Fecha del pago
+                  {esCheque(metodo) ? 'Fecha del cheque' : 'Fecha del pago'}
                 </label>
                 <input
                   type="date"
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
-                  max={hoyEnCostaRica()}
+                  max={fechaMaximaPago(metodo, hoy)}
                   className="input h-12 w-full text-base"
                 />
+                {aFecha && (
+                  <p className="mt-2 rounded-xl border border-primario-200 bg-primario-50 px-3 py-2 text-sm text-primario-800">
+                    <strong>Cheque a fecha.</strong> No se descuenta todavía: la factura sigue pendiente con la nota «cheque para el {formatDate(fecha)}», y la confirmás cuando se cobre.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -335,7 +375,8 @@ export default function ModalDetalleCuenta({ cuenta, procesando, onRegistrarPago
               {procesando ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
               {procesando
                 ? 'Guardando…'
-                : pagarTodo ? `Pagar ${formatCurrency(cuenta.saldoPendiente)}` : 'Registrar abono'}
+                : aFecha ? `Anotar cheque para el ${formatDate(fecha)}`
+                  : pagarTodo ? `Pagar ${formatCurrency(disponible)}` : 'Registrar abono'}
             </button>
           )}
         </>

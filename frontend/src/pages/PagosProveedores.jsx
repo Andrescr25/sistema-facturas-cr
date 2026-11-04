@@ -13,7 +13,9 @@ import ModalPagoVarias from '../components/pagos/ModalPagoVarias'
 import BarraSeleccion from '../components/pagos/BarraSeleccion'
 import SaldosAFavor from '../components/pagos-proveedores/SaldosAFavor'
 import ModalAplicarNota from '../components/pagos-proveedores/ModalAplicarNota'
+import ChequesPorCobrar from '../components/pagos-proveedores/ChequesPorCobrar'
 import { agruparPorContraparte, formatCurrency } from '../utils/pagos'
+import { notaCheques, saldoLibre } from '../utils/chequeAFecha'
 
 /**
  * Facturas de proveedores por pagar.
@@ -56,7 +58,8 @@ export default function PagosProveedores() {
     proveedoresDisponibles, registrarPago, anularPago, procesandoId, reload,
     toasts, removeToast,
     saldosAFavor, totalAFavor, loadingFavor, cargarSaldosAFavor,
-    handleAplicarNota, handleEliminarNota, eliminandoNota
+    handleAplicarNota, handleEliminarNota, eliminandoNota,
+    cheques, confirmarCheque, anularCheque
   } = usePagosProveedores()
 
   const [proveedorActivoId, setProveedorActivoId] = useState(null)
@@ -141,6 +144,8 @@ export default function PagosProveedores() {
     nota: c.creditoAplicado > 0
       ? `Nota de crédito −${formatCurrency(c.creditoAplicado)} (original ${formatCurrency(c.montoTotal)})`
       : null,
+    // Cheque a fecha sin confirmar (078): se sigue debiendo, con su nota.
+    aviso: notaCheques(c.chequesPendientes),
     original: c
   }))
 
@@ -160,6 +165,8 @@ export default function PagosProveedores() {
       {!proveedorActivo && (
         <>
           <TarjetasResumen tarjetas={tarjetas} filtros={filters} setFiltros={setFilters} />
+
+          <ChequesPorCobrar cheques={cheques} procesandoId={procesandoId} onConfirmar={confirmarCheque} onAnular={anularCheque} />
 
           <SaldosAFavor
             grupos={saldosAFavor}
@@ -256,16 +263,18 @@ export default function PagosProveedores() {
         <ModalPagoVarias
           sentido="salida"
           titulo={proveedorActivo.nombre}
+          // Lo que ya cubre un cheque a fecha no se vuelve a pagar.
           facturas={proveedorActivo.facturas
-            .filter((c) => elegidas.has(c.id))
-            .map((c) => ({ id: c.id, numero: c.numeroConsecutivo, saldo: c.saldoPendiente }))}
+            .filter((c) => elegidas.has(c.id) && saldoLibre(c) > 0)
+            .map((c) => ({ id: c.id, numero: c.numeroConsecutivo, saldo: saldoLibre(c) }))}
           procesando={procesandoId === 'varias'}
-          onRegistrar={async ({ lineas, metodoPagoId, referencia, fecha }) => {
+          permiteChequeAFecha
+          onRegistrar={async ({ lineas, metodoPagoId, referencia, fecha, aFecha }) => {
             const ok = await registrarPago('varias', {
               aplicaciones: lineas.map((l) => (l.todo
                 ? { cuentaPorPagarId: l.id, pagarTodo: true }
                 : { cuentaPorPagarId: l.id, monto: l.monto })),
-              metodoPagoId, referencia, fecha
+              metodoPagoId, referencia, ...(aFecha ? { fechaCobro: fecha } : { fecha })
             })
             if (ok) setElegidas(new Set())
             return ok
@@ -277,9 +286,13 @@ export default function PagosProveedores() {
       {cuentaSeleccionada && (
         <ModalDetalleCuenta
           cuenta={cuentaSeleccionada}
+          cheques={cheques.filter((ch) => ch.facturas.some((f) => f.cuentaPorPagarId === cuentaSeleccionada.id))}
           procesando={procesandoId === cuentaSeleccionada.id}
+          procesandoId={procesandoId}
           onRegistrarPago={registrarPago}
           onAnularPago={anularPago}
+          onConfirmarCheque={confirmarCheque}
+          onAnularCheque={anularCheque}
           onCerrar={() => setCuentaSeleccionadaId(null)}
         />
       )}

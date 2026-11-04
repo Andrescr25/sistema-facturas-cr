@@ -24,6 +24,30 @@ export async function anularPagoProveedor(pagoId, motivo) {
   return response.data
 }
 
+// --- Cheques a fecha (078): todavía no son pagos ---
+
+export async function getChequesPendientes() {
+  const response = await api.get('/pagos-proveedores/cheques')
+  return response.data
+}
+
+/** { aplicaciones, metodoPagoId, referencia (número), fechaCobro, observaciones? } */
+export async function registrarChequeProveedor(datos) {
+  const response = await api.post('/pagos-proveedores/cheques', datos)
+  return response.data
+}
+
+/** Se cobró: ahí sí se registra el pago, con el día en que salió del banco. */
+export async function confirmarChequeProveedor(chequeId, fecha) {
+  const response = await api.post(`/pagos-proveedores/cheques/${chequeId}/confirmar`, { fecha })
+  return response.data
+}
+
+export async function anularChequeProveedor(chequeId, motivo) {
+  const response = await api.post(`/pagos-proveedores/cheques/${chequeId}/anular`, { motivo })
+  return response.data
+}
+
 
 export async function getProveedoresConCuentas() {
   const response = await api.get('/pagos-proveedores/proveedores')

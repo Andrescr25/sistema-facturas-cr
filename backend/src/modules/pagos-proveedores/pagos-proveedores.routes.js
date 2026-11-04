@@ -19,6 +19,10 @@ router.delete('/notas-credito/:id', pagosProveedoresController.eliminarNotaCredi
 router.patch('/notas-credito/:id/inventario', pagosProveedoresController.marcarInventarioRevisado);
 router.post('/pagos', pagosProveedoresController.registrarPago);
 router.post('/pagos/:id/anular', pagosProveedoresController.anularPago);
+router.get('/cheques', pagosProveedoresController.listarCheques);
+router.post('/cheques', pagosProveedoresController.registrarCheque);
+router.post('/cheques/:id/confirmar', pagosProveedoresController.confirmarCheque);
+router.post('/cheques/:id/anular', pagosProveedoresController.anularCheque);
 router.patch('/:id', pagosProveedoresController.actualizarCuenta);
 
 module.exports = router;

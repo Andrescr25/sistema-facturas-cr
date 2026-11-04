@@ -1546,3 +1546,14 @@ opción para desactivar los productos; NO que me quitaras la posibilidad de
 cambiar de subcategoría ahí mismo». La barra de la selección ofrece siempre
 mover a subcategoría (en búsquedas y filtros, todas agrupadas por categoría),
 cambiar de categoría, ocultar y desactivar. [Cómo funciona](grafo/modulo/gestion-catalogo.md).
+
+
+### 2026-11-03 — Cheques a fecha en Pagos a Proveedores
+
+El usuario: «hay algunos pagos que hago con cheque porque así el proveedor me
+da 30 días; pongo el cheque con fecha dentro de un mes. Cuando el tipo de pago
+sea cheque y ponga fecha dentro de 30 días, que este pago no me lo quite de una,
+sino que me salga una nota como cheque para x fecha, pendiente de confirmación».
+Eligió confirmarlo él («Confirmar cobro»), no que se dé por cobrado solo al
+llegar la fecha. [Cómo funciona](grafo/tabla/cuentas-por-pagar.md).
+

@@ -19,6 +19,9 @@
  * 5. SALE DE CAJA GENERAL, siempre (decisión del usuario, 2026-09-23): no hay
  *    cajas separadas. El método dice cómo se pagó; la cuenta es una sola. El
  *    movimiento aparece en la vista `movimiento_caja` con sus facturas.
+ * 6. LO QUE CUBRE UN CHEQUE A FECHA sin confirmar (migración 078,
+ *    `chequesProveedor.service.js`) no se vuelve a pagar: todavía se debe,
+ *    pero ya tiene con qué pagarse.
  */
 
 const { pool } = require('../../../config/database');
@@ -28,6 +31,7 @@ const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const { idCajaGeneral, metodoDePago } = require('../../utils/cajaGeneral');
 const { leerIdempotencia, pagoPrevio } = require('./pagoProveedorIdempotencia');
+const { pendientesPorCuenta } = require('./chequesPendientes');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 const dinero = (v) => Math.round((Number(v) || 0) * 100) / 100;
@@ -128,10 +132,13 @@ function prepararRegistroPago(datos, usuarioId) {
   return { aplicaciones, metodoId, fecha, intento };
 }
 
-async function registrarPagoEn(cliente, datos = {}, usuarioId = null, preparado = prepararRegistroPago(datos, usuarioId), opciones = {}) {
-  const { aplicaciones, metodoId, fecha, intento } = preparado;
-  const previo = await pagoPrevio(cliente, intento);
-  if (previo) return { ...previo, monto: num(previo.monto), existente: true };
+/**
+ * Toma CON BLOQUEO las facturas y decide cuánto va a cada una. Una sola copia
+ * para el pago y para el cheque a fecha: las mismas facturas del mismo
+ * proveedor, ya registradas como compra, y nunca más de lo que falta fuera de
+ * los cheques a fecha sin confirmar.
+ */
+async function facturasAPagar(cliente, aplicaciones) {
   const ids = aplicaciones.map((a) => a.id);
   // El bloqueo va sobre las filas de la tabla; la vista se lee DESPUÉS,
   // ya con las facturas tomadas.
@@ -158,18 +165,32 @@ async function registrarPagoEn(cliente, datos = {}, usuarioId = null, preparado 
   }
 
   const saldos = await saldosDeCuentas(ids, cliente);
+  const enCheques = await pendientesPorCuenta(ids, cliente);
   const detalle = aplicaciones.map((a) => {
     const cuenta = porId.get(a.id);
     const saldo = saldos.get(a.id)?.saldo ?? 0;
     if (saldo <= 0) throw httpError(409, `La factura ${cuenta.numero_consecutivo} ya no tiene saldo pendiente.`);
-    const monto = a.pagarTodo ? saldo : a.monto;
-    if (monto > saldo + 0.01) {
-      throw httpError(400,
-        `El pago de ₡${monto} supera el saldo de la factura ${cuenta.numero_consecutivo}, que es ₡${saldo}.`);
+    const cheque = enCheques.get(a.id)?.total || 0;
+    const libre = dinero(saldo - cheque);
+    if (libre <= 0) {
+      throw httpError(409, `La factura ${cuenta.numero_consecutivo} ya está cubierta por un cheque a fecha sin confirmar.`);
+    }
+    const monto = a.pagarTodo ? libre : a.monto;
+    if (monto > libre + 0.01) {
+      throw httpError(400, cheque > 0
+        ? `₡${monto} supera lo que falta de la factura ${cuenta.numero_consecutivo} fuera del cheque a fecha, que es ₡${libre}.`
+        : `El pago de ₡${monto} supera el saldo de la factura ${cuenta.numero_consecutivo}, que es ₡${saldo}.`);
     }
     return { cuenta, monto: dinero(monto), saldoAntes: saldo };
   });
-  const total = dinero(detalle.reduce((s, d) => s + d.monto, 0));
+  return { cuentas, proveedorId, detalle, total: dinero(detalle.reduce((s, d) => s + d.monto, 0)) };
+}
+
+async function registrarPagoEn(cliente, datos = {}, usuarioId = null, preparado = prepararRegistroPago(datos, usuarioId), opciones = {}) {
+  const { aplicaciones, metodoId, fecha, intento } = preparado;
+  const previo = await pagoPrevio(cliente, intento);
+  if (previo) return { ...previo, monto: num(previo.monto), existente: true };
+  const { cuentas, proveedorId, detalle, total } = await facturasAPagar(cliente, aplicaciones);
 
   const cuentaDineroId = await idCajaGeneral(cliente);
 
@@ -268,6 +289,7 @@ async function anularPago(id, { motivo } = {}, usuarioId = null) {
 module.exports = {
   saldosDeCuentas,
   pagosDeCuentas,
+  facturasAPagar,
   registrarPago,
   registrarPagoEn,
   anularPago,

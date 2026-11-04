@@ -2,6 +2,7 @@ const { query } = require('../config/database');
 const notasCreditoService = require('./notasCreditoService');
 const pagosProveedor = require('../src/modules/pagos-proveedores/pagosProveedor.service');
 const lectura = require('../src/modules/pagos-proveedores/cuentasPorPagar.lectura');
+const { pendientesPorCuenta } = require('../src/modules/pagos-proveedores/chequesPendientes');
 
 /**
  * Cuentas por pagar: la lista de lo que se le debe a cada proveedor.
@@ -197,15 +198,20 @@ class PagosProveedoresService {
     // poder EXPLICAR el número: sin mostrar la nota o el pago, una factura
     // de ₡60.000 que aparece con saldo ₡30.000 se lee como un error.
     const ids = data.map((c) => c.id);
-    const [notasPorCuenta, pagosPorCuenta] = await Promise.all([
+    const [notasPorCuenta, pagosPorCuenta, chequesPorCuenta] = await Promise.all([
       notasCreditoService.listarPorCuentas(ids),
-      pagosProveedor.pagosDeCuentas(ids)
+      pagosProveedor.pagosDeCuentas(ids),
+      pendientesPorCuenta(ids)
     ]);
     for (const cuenta of data) {
       const notas = notasPorCuenta.get(cuenta.id) || [];
       cuenta.notasCredito = notas;
       cuenta.creditoAplicado = notas.reduce((suma, n) => suma + n.monto, 0);
       cuenta.pagos = pagosPorCuenta.get(cuenta.id) || [];
+      // Cheques a fecha sin confirmar (078): la factura se sigue debiendo,
+      // pero eso ya tiene con qué pagarse y no se vuelve a pagar.
+      cuenta.chequesPendientes = chequesPorCuenta.get(cuenta.id)?.cheques || [];
+      cuenta.enCheques = chequesPorCuenta.get(cuenta.id)?.total || 0;
     }
 
     const resumen = this.calcularResumen(data);

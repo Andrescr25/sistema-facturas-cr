@@ -6,6 +6,7 @@
 const pagosProveedoresService = require('../../../services/pagosProveedoresService');
 const notasCreditoService = require('../../../services/notasCreditoService');
 const pagosProveedor = require('./pagosProveedor.service');
+const cheques = require('./chequesProveedor.service');
 
 /**
  * GET /pagos-proveedores
@@ -129,6 +130,28 @@ async function anularPago(req, res) {
   }
 }
 
+// ==================== Cheques a fecha (078) ====================
+
+/** Responde lo que devuelva `trabajo`, o el error con su estado. */
+const responderCheque = (trabajo, estado, mensaje) => async (req, res) => {
+  try {
+    res.status(estado).json({ success: true, data: await trabajo(req) });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
+    console.error(`❌ ${mensaje}:`, error);
+    res.status(500).json({ success: false, message: mensaje });
+  }
+};
+
+/** GET /pagos-proveedores/cheques: los que faltan confirmar. */
+const listarCheques = responderCheque(() => cheques.chequesPendientes(), 200, 'Error leyendo los cheques a fecha');
+/** POST /pagos-proveedores/cheques  { aplicaciones, metodoPagoId, referencia, fechaCobro, observaciones? } */
+const registrarCheque = responderCheque((req) => cheques.registrarCheque(req.body || {}, req.usuario?.id), 201, 'Error anotando el cheque a fecha');
+/** POST /pagos-proveedores/cheques/:id/confirmar  { fecha? } */
+const confirmarCheque = responderCheque((req) => cheques.confirmarCheque(req.params.id, req.body || {}, req.usuario?.id), 200, 'Error confirmando el cheque');
+/** POST /pagos-proveedores/cheques/:id/anular  { motivo } */
+const anularCheque = responderCheque((req) => cheques.anularCheque(req.params.id, req.body || {}, req.usuario?.id), 200, 'Error anulando el cheque');
+
 // ==================== Notas de crédito ====================
 
 /**
@@ -245,6 +268,10 @@ module.exports = {
   actualizarCuenta,
   registrarPago,
   anularPago,
+  listarCheques,
+  registrarCheque,
+  confirmarCheque,
+  anularCheque,
   listarNotasHuerfanas,
   listarSaldosAFavor,
   listarCandidatas,

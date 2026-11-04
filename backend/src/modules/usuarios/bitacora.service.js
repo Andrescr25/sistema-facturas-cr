@@ -38,6 +38,7 @@ const ENTIDADES = {
   cotizacion: 'Cotización',
   pago: 'Cobro',
   pago_proveedor: 'Pago a proveedor',
+  cheque_proveedor: 'Cheque a fecha',
   cierre_caja: 'Cierre de caja',
   compra: 'Compra',
   empresa: 'Datos de la empresa',

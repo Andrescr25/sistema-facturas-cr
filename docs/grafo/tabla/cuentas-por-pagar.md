@@ -13,6 +13,13 @@ archivos:
   - backend/src/modules/pagos-proveedores/pagoProveedorIdempotencia.js
   - backend/src/modules/pagos-proveedores/cuentasPorPagar.lectura.js
   - backend/tests/cuentaPorPagarSinFactura.test.js
+  - backend/migrations/independencia/078_cheque_a_fecha.sql
+  - backend/src/modules/pagos-proveedores/chequesProveedor.service.js
+  - backend/src/modules/pagos-proveedores/chequesPendientes.js
+  - frontend/src/utils/chequeAFecha.js
+  - frontend/src/components/pagos-proveedores/ChequesPorCobrar.jsx
+  - backend/tests/chequesProveedor.test.js
+  - backend/tests/chequeAFechaPantalla.test.js
 aristas:
   vive_en: [modulo/compras]
   depende_de: [tabla/facturas-proveedores, tabla/compra]
@@ -70,3 +77,21 @@ leen y se anotan con `pg` (`cuentasPorPagar.lectura.js`): una cuenta sin
 factura sale con `facturaId` null, sin productos, y con el número de la propia
 cuenta. Una prueba impide que vuelva a haber una lectura de `cuentas_por_pagar`
 con Prisma.
+
+CHEQUES A FECHA (078, 2026-11-03). El usuario paga algunas facturas con un
+cheque fechado para dentro de un mes («así el proveedor me da 30 días») y
+pidió que «no me lo quite de una, sino que me salga una nota como cheque para
+x fecha, pendiente de confirmación»; eligió confirmarlo él. Con método Cheque
+y fecha FUTURA (hasta 180 días) no se registra un pago: se anota en
+`cheque_proveedor` + `cheque_proveedor_cuenta`, fuera de `pago_proveedor`, así
+que el saldo, `movimiento_caja`, el cierre y el reporte del contador no lo ven.
+La factura se sigue debiendo con su nota, y lo que el cheque cubre no se vuelve
+a pagar: `facturasAPagar` (una sola copia para el pago y el cheque) descuenta
+los cheques sin confirmar (`chequesPendientes.js`). «Confirmar cobro» marca
+`confirmado_en` y registra el pago de siempre con `registrarPagoEn` en la misma
+transacción, con el día en que salió del banco (por omisión el del cheque, u
+hoy si se cobró antes); el cheque queda colgado de `pago_id`. Anular no borra
+(motivo); uno confirmado se deshace anulando su pago. El modal de varias
+facturas, compartido con Cuentas por Cobrar y Gastos, solo lo permite con
+`permiteChequeAFecha` (Pagos a Proveedores).
+

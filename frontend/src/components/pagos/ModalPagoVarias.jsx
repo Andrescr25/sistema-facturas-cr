@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { CalendarDays, CheckCircle2, CreditCard, Loader2, Wallet } from 'lucide-react'
 import HojaModal from './HojaModal'
-import { formatCurrency } from '../../utils/pagos'
+import { formatCurrency, formatDate } from '../../utils/pagos'
 import { useOpcionesPago } from '../../hooks/useOpcionesPago'
 import { hoyEnCostaRica } from '../../utils/fechaCR'
+import { esCheque, esChequeAFecha, fechaMaximaPago } from '../../utils/chequeAFecha'
 
 /**
  * Cobrar o pagar VARIAS facturas de la misma contraparte en un solo
@@ -15,11 +16,15 @@ import { hoyEnCostaRica } from '../../utils/fechaCR'
  * se manda como "todo": el servidor relee el saldo CON BLOQUEO y cobra/paga
  * ese, así no queda un resto de céntimos si alguien la tocó mientras tanto.
  *
+ * Con `permiteChequeAFecha` (solo Pagos a Proveedores, migración 078), un
+ * Cheque puede llevar fecha futura: entonces no se paga, se anota el cheque y
+ * `onRegistrar` recibe `aFecha: true`.
+ *
  * @param {'entrada'|'salida'} sentido
  * @param {Array<{id, numero, saldo}>} facturas
- * @param {(datos: {lineas: Array<{id, monto, todo}>, metodoPagoId, referencia, fecha}) => Promise<boolean>} onRegistrar
+ * @param {(datos: {lineas: Array<{id, monto, todo}>, metodoPagoId, referencia, fecha, aFecha}) => Promise<boolean>} onRegistrar
  */
-export default function ModalPagoVarias({ sentido, titulo, facturas, procesando, onRegistrar, onCerrar }) {
+export default function ModalPagoVarias({ sentido, titulo, facturas, procesando, permiteChequeAFecha = false, onRegistrar, onCerrar }) {
   const entra = sentido === 'entrada'
   const [montos, setMontos] = useState(() => Object.fromEntries(facturas.map((f) => [f.id, String(f.saldo)])))
   const [claveIdempotencia] = useState(() => crypto.randomUUID())
@@ -39,7 +44,10 @@ export default function ModalPagoVarias({ sentido, titulo, facturas, procesando,
   const invalidas = lineas.filter((l) => !l.valido)
   const metodo = metodos.find((m) => m.id === metodoPagoId) || null
   const faltaReferencia = Boolean(metodo?.pideReferencia) && !referencia.trim()
-  const listo = invalidas.length === 0 && metodoPagoId && !faltaReferencia && total > 0
+  const hoy = hoyEnCostaRica()
+  const fechaMaxima = permiteChequeAFecha ? fechaMaximaPago(metodo, hoy) : hoy
+  const aFecha = permiteChequeAFecha && esChequeAFecha(metodo, fecha, hoy)
+  const listo = invalidas.length === 0 && metodoPagoId && !faltaReferencia && total > 0 && fecha && fecha <= fechaMaxima
 
   const registrar = async () => {
     if (!listo) return
@@ -48,7 +56,8 @@ export default function ModalPagoVarias({ sentido, titulo, facturas, procesando,
       metodoPagoId,
       claveIdempotencia,
       referencia: referencia.trim() || null,
-      fecha
+      fecha,
+      aFecha
     })
     if (exito) onCerrar()
   }
@@ -106,7 +115,12 @@ export default function ModalPagoVarias({ sentido, titulo, facturas, procesando,
           </label>
           <select
             value={metodoPagoId ?? ''}
-            onChange={(e) => { setMetodoPagoId(Number(e.target.value)); setReferencia('') }}
+            onChange={(e) => {
+              const id = Number(e.target.value)
+              setMetodoPagoId(id); setReferencia('')
+              // Solo un cheque puede llevar fecha futura.
+              if (!esCheque(metodos.find((m) => m.id === id)) && fecha > hoy) setFecha(hoy)
+            }}
             className="input h-12 w-full text-base"
           >
             <option value="" disabled>Elegí el método…</option>
@@ -127,9 +141,14 @@ export default function ModalPagoVarias({ sentido, titulo, facturas, procesando,
         <div>
           <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutro-700">
             <CalendarDays size={16} className="text-neutro-400" />
-            Fecha
+            {permiteChequeAFecha && esCheque(metodo) ? 'Fecha del cheque' : 'Fecha'}
           </label>
-          <input type="date" value={fecha} max={hoyEnCostaRica()} onChange={(e) => setFecha(e.target.value)} className="input h-12 w-full text-base" />
+          <input type="date" value={fecha} max={fechaMaxima} onChange={(e) => setFecha(e.target.value)} className="input h-12 w-full text-base" />
+          {aFecha && (
+            <p className="mt-2 rounded-xl border border-primario-200 bg-primario-50 px-3 py-2 text-sm text-primario-800">
+              <strong>Cheque a fecha.</strong> No se descuenta todavía: las facturas siguen pendientes con la nota «cheque para el {formatDate(fecha)}», y lo confirmás cuando se cobre.
+            </p>
+          )}
         </div>
       </div>
 
@@ -139,7 +158,9 @@ export default function ModalPagoVarias({ sentido, titulo, facturas, procesando,
         className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-exito-600 py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-exito-700 disabled:opacity-40"
       >
         {procesando ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
-        {procesando ? 'Guardando…' : `${entra ? 'Cobrar' : 'Pagar'} ${formatCurrency(total)}`}
+        {procesando ? 'Guardando…'
+          : aFecha ? `Anotar cheque de ${formatCurrency(total)}`
+            : `${entra ? 'Cobrar' : 'Pagar'} ${formatCurrency(total)}`}
       </button>
     </HojaModal>
   )

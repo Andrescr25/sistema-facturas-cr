@@ -81,6 +81,9 @@ export default function TablaFacturas({
               {f.nota && (
                 <p className="text-xs text-exito-700 bg-exito-50 rounded-lg px-2 py-1">{f.nota}</p>
               )}
+              {f.aviso && (
+                <p className="text-xs font-semibold text-primario-800 bg-primario-50 rounded-lg px-2 py-1">{f.aviso}</p>
+              )}
               {accion && (
                 <div className="self-start" onClick={(e) => e.stopPropagation()}>
                   {accion(f)}
@@ -136,6 +139,9 @@ export default function TablaFacturas({
                     <span className="font-extrabold text-neutro-900">{formatCurrency(f.saldo)}</span>
                     {f.nota && (
                       <span className="block text-xs text-exito-700 mt-0.5">{f.nota}</span>
+                    )}
+                    {f.aviso && (
+                      <span className="block text-xs font-semibold text-primario-800 mt-0.5">{f.aviso}</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-right whitespace-nowrap">
