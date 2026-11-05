@@ -10,6 +10,8 @@ import ConfirmModal from '../components/ConfirmModal'
 import ToastContainer from '../components/ToastContainer'
 import { FILTROS_VACIOS, getClienteKey } from '../utils/reporteClientesUtils'
 import BotonExportarExcel from '../components/ui/BotonExportarExcel'
+import { useSustitucionProducto } from '../hooks/useSustitucionProducto'
+import ModalSustitucionProducto from '../components/reporte-clientes/ModalSustitucionProducto'
 
 export default function ReporteClientes() {
   const {
@@ -34,14 +36,21 @@ export default function ReporteClientes() {
     contarAjustes,
     dialogProps,
     toasts,
+    showToast,
     removeToast
   } = useReporteClientes()
-
   // NAVEGACIÓN: lista de clientes → detalle de cliente
   const [clienteActivoClave, setClienteActivoClave] = useState(null)
   // Los filtros de la lista viven ACÁ y no en la lista: la lista se desmonta
   // al entrar a un cliente, y al volver los filtros aparecían vacíos.
   const [filtros, setFiltros] = useState(FILTROS_VACIOS)
+  const sustitucion = useSustitucionProducto({
+    ambito: `${filtroRuta.rutaId}:${vista}:${clienteActivoClave || ''}`,
+    onGuardado: async cambio => {
+      await loadReporte()
+      showToast(`Producto cambiado en la factura #${cambio.factura.numero}. Revisá la entrega antes de enviarla a Impresión.`, 'success')
+    }
+  })
 
   useEffect(() => { setClienteActivoClave(null) }, [filtroRuta.rutaId, vista])
 
@@ -110,10 +119,12 @@ export default function ReporteClientes() {
           onMarcarFacturaRevisada={handleMarcarFacturaRevisada}
           onReabrirRevision={handleReabrirRevision}
           onQuitarRespuesta={handleQuitarRespuesta}
+          onCambiarProducto={sustitucion.permitido ? sustitucion.abrir : undefined}
         />
       )}
 
       <ConfirmModal {...dialogProps} />
+      <ModalSustitucionProducto cambio={sustitucion} />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   )

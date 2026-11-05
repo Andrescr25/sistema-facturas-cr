@@ -1557,3 +1557,15 @@ sino que me salga una nota como cheque para x fecha, pendiente de confirmación�
 Eligió confirmarlo él («Confirmar cobro»), no que se dé por cobrado solo al
 llegar la fecha. [Cómo funciona](grafo/tabla/cuentas-por-pagar.md).
 
+
+
+## Cambiar productos faltantes en Reporte Clientes — 2026-11-05
+
+El usuario pide poder cambiar el producto pendiente por otro equivalente que
+sí entró por Revisión de precios, sin rehacer las facturas de cada cliente.
+Ejemplo: neumático Kenda por Vini de la misma medida. Conservar «No llegó»
+para cuando no hay sustituto y permitir al administrador habilitar la acción
+por usuario. Precio confirmado: **«Usar el precio actual del producto
+sustituto»**. No modificar las unidades del original que sí estaban completas.
+La decisión y su implementación se documentan en
+[el informe](informes/sustitucion-producto-reporte-clientes-2026-11-05.md).

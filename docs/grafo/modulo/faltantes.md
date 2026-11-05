@@ -54,10 +54,17 @@ archivos:
   - frontend/src/components/reporte-proveedores/ProveedorDetalle.jsx
   - frontend/src/components/reporte-proveedores/ModalAsignarProveedor.jsx
   - frontend/src/pages/ReporteProveedores.jsx
+  - backend/src/modules/missing-items/sustitucion.controller.js
+  - backend/src/modules/missing-items/sustitucion.service.js
+  - backend/src/modules/missing-items/sustitucionConsulta.js
+  - backend/src/modules/missing-items/ajustesAlmacenados.js
+  - backend/src/modules/missing-items/missing-items.routes.js
+  - backend/tests/sustitucionProductoLocal.test.js
+  - docs/informes/sustitucion-producto-reporte-clientes-2026-11-05.md
 aristas:
   depende_de: [tabla/supplier-product-mapping]
   relacionado: [modulo/reporte-proveedores, modulo/contexto-visible-operacion, modulo/necesidades-por-ciclo, modulo/archivo-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/facturas-bodega, modulo/facturacion, leccion/ids-propios-y-de-alegra-no-se-mezclan, leccion/fecha-utc-costa-rica, leccion/proveedor-por-cedula, modulo/exportaciones-reportes, modulo/demo-reporte-proveedores, modulo/hacienda, decision/solo-llega-lo-que-ingreso]
-medido: 2026-10-25
+medido: 2026-11-05
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -579,3 +586,26 @@ producto (`faltante_ingreso`, migración 067) y responde 409 si no alcanza.
 «No llegó» y `deleteAdjustment` sueltan lo asignado.
 `encolarDesdeReporte` vuelve a revisar que la compra siga registrada. Ver
 [[decision/solo-llega-lo-que-ingreso]].
+
+## Sustitución explícita antes de Impresión — 2026-11-05
+
+`GET /faltantes/:id/sustitutos`, `GET /faltantes/:id/sustitucion` y
+`POST /faltantes/:id/sustitucion` requieren Reporte Clientes y la acción
+`sustituir-producto`, consultada en servidor en cada petición. Los GET solo
+consultan. El faltante debe estar pendiente, sin ingreso original libre ni
+entrega asignada, sin revisión ni rebaja procesada y fuera de la cola.
+
+Solo se ofrecen compras registradas con la misma tolerancia de 12 h del
+pedido original y descontando todas las reservas. Confirmar bloquea primero
+la factura/sus faltantes y después los ingresos por id de producto ordenado;
+revalida disponibilidad y una huella de la propuesta. Factura, inventario,
+faltantes, reservas y bitácoras se confirman o revierten juntos.
+
+El origen conserva su fila histórica con el faltante restante (cero pasa a
+completo); el destino conserva su cantidad ya entregada y suma solo el nuevo
+ingreso. Si ya existía, no se borran sus reservas. Conserva la fecha de pedido
+más antigua para que la compra siga respaldando su revisión y encolado.
+No crea otra orden ni vuelve a pedir en Proveedores unidades ya recibidas.
+El ajuste nuevo queda sin revisar. «No llegó» libera ingresos como antes.
+
+[Alcance, concurrencia y reversión](../../informes/sustitucion-producto-reporte-clientes-2026-11-05.md).

@@ -69,9 +69,14 @@ archivos:
   - frontend/src/utils/moneda.js
   - frontend/src/utils/revisionPreciosUtils.js
   - frontend/src/utils/impresionUtils.js
+  - backend/src/modules/facturacion/sustitucionFactura.service.js
+  - backend/src/modules/facturacion/sustitucionLineas.js
+  - backend/tests/sustitucionLineas.test.js
+  - backend/tests/sustitucionProductoLocal.test.js
+  - docs/informes/sustitucion-producto-reporte-clientes-2026-11-05.md
 aristas:
   relacionado: [modulo/rutas-clientes, modulo/rentabilidad, leccion/precio-sin-iva-costo-con-iva, modulo/hacienda, leccion/la-estructura-se-cuida-con-una-prueba, leccion/lo-que-mueve-plata-no-va-por-omision, leccion/ids-propios-y-de-alegra-no-se-mezclan, modulo/compras, modulo/faltantes, modulo/portal-clientes, modulo/conciliacion-ventas, modulo/conciliacion-cobros, modulo/conciliacion-notas-credito, modulo/historico-debitos-ingreso, modulo/correo-facturas, modulo/facturacion-offline, modulo/archivo-ventas-electronicas, modulo/inventario, tabla/movimiento-inventario]
-medido: 2026-10-28
+medido: 2026-11-05
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -520,3 +525,21 @@ muestra la foto y el archivo viejo se borra al reemplazarla (se vería rota).
 Efecto del despliegue: la huella cambia una vez, así que cada dispositivo
 renueva solo su catálogo la primera vez y las copias viejas, guardadas sin
 foto, la reciben. Ocultar un producto y el costo siguen sin renovar nada.
+
+## Sustituir unidades desde Reporte Clientes — 2026-11-05
+
+`sustitucionFactura.service.js` reutiliza las protecciones de edición,
+`armarLineas`, el descuento del cliente/ofertas, reconciliación de inventario
+y bitácora. No crea otra factura, ni cambia su número. El helper puro
+`sustitucionLineas.js` conserva las líneas ajenas exactamente, y los precios,
+IVA, descuentos y copias históricas de las unidades originales que quedan.
+Solo el sustituto usa su ficha/precio/IVA actuales. Si el destino ya aparecía
+a otro precio en la factura, esa línea se conserva.
+
+Solo facturas propias editables en CRC: el catálogo está en colones. Las
+reservadas ante Hacienda/electrónicas, con cobros o notas vigentes conservan
+el bloqueo nativo; una corrección fiscal no se resuelve modificando el
+original. Se actualizan totales y movimientos en la misma transacción. El
+saldo continúa calculándose al consultar; no se escribe otra copia.
+
+[Casos y pruebas](../../informes/sustitucion-producto-reporte-clientes-2026-11-05.md).

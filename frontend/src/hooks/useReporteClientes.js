@@ -409,6 +409,7 @@ export function useReporteClientes() {
     contarClientesSinCaja,
     dialogProps,
     toasts,
+    showToast,
     removeToast
   }
 }

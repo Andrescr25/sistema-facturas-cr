@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Check, X, Undo2, CircleDot, PackageX } from 'lucide-react'
-import { respuestasPorIngreso } from '../../utils/reporteClientesUtils'
+import { Check, X, Undo2, CircleDot, PackageX, ArrowLeftRight } from 'lucide-react'
+import { respuestasPorIngreso, puedeSustituirProducto } from '../../utils/reporteClientesUtils'
 
 /**
  * Las dos caras de un producto dentro del checklist de bodega:
@@ -34,7 +34,8 @@ export function FilaPorRevisar({
   onMarcarCompleto,
   onNoLlegoNada,
   onCantidadEntregadaChange,
-  onQuitarRespuesta
+  onQuitarRespuesta,
+  onCambiarProducto
 }) {
   const [modoParcial, setModoParcial] = useState(false)
   const [cantidad, setCantidad] = useState('')
@@ -111,7 +112,7 @@ export function FilaPorRevisar({
         </div>
 
         {/* Tres botones de respuesta */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
           {Object.values(ESTADO_UI).map(item => {
             const isSelected = estadoSeleccionado === item.key
             const IconComponent = item.Icon
@@ -131,6 +132,12 @@ export function FilaPorRevisar({
               </button>
             )
           })}
+          {onCambiarProducto && puedeSustituirProducto(producto, entrega) && (
+            <button type="button" onClick={() => onCambiarProducto(producto)}
+              className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-primario-200 bg-primario-50 px-3 text-xs font-bold text-primario-800 hover:bg-primario-100 md:text-sm">
+              <ArrowLeftRight size={15} /> Cambiar producto
+            </button>
+          )}
         </div>
       </div>
 

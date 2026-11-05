@@ -807,3 +807,23 @@ pendiente. Ver GO-01/07 en el checklist de independencia y
 reporte del mes sin semanas/rutas, pagos duplicados ni cambios de inventario.
 Reportes antiguos conservados. GO-08/10 en independencia; no cierra pendientes
 ROT ni modifica próxima visita. [Alcance](informes/contador-mensual-2026-10-21.md).
+
+
+## Sustituir faltantes por productos ingresados — 2026-11-05
+
+- [x] RC-SUS-01 — Acción por usuario en Usuarios y permisos; requiere también
+  Reporte Clientes en servidor, sin concesión automática a empleados.
+- [x] RC-SUS-02 — Botón junto a «No llegó» en productos sin ingreso; buscar
+  equivalente, cantidad entera, precio actual con IVA y vista del total.
+- [x] RC-SUS-03 — Conservar factura/número, cantidades no sustituidas, líneas
+  ajenas, precios históricos y mayor descuento vigente sin acumular.
+- [x] RC-SUS-04 — Reservar ingreso real libre en la misma transacción; preservar
+  entregas previas, historial y revisión antes de Impresión. No duplicar
+  demanda en Proveedores ni rebajar de nuevo al imprimir.
+- [x] RC-SUS-05 — PostgreSQL desechable: parciales, concurrencia, fallo con
+  reversión completa, saldo calculado y factura fiscal protegida. Navegador
+  Chromium/WebKit390/1280, permiso desde Usuarios, doble clic y precio obsoleto.
+- [x] RC-SUS-06 — Suite completa con regresiones actualizadas, build/lint y
+  grafo/estructura. Sin SQL nuevo ni pruebas contra producción.
+
+[Alcance y evidencia](informes/sustitucion-producto-reporte-clientes-2026-11-05.md).

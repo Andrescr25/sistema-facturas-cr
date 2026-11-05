@@ -30,9 +30,13 @@ archivos:
   - docs/informes/reporte-clientes-historial-2026-10-15.md
   - backend/src/modules/missing-items/ingresoFaltante.js
   - frontend/src/components/reporte-clientes/FilaProducto.jsx
+  - frontend/src/hooks/useSustitucionProducto.js
+  - frontend/src/components/reporte-clientes/ModalSustitucionProducto.jsx
+  - backend/tests/sustitucionProductoLocal.test.js
+  - docs/informes/sustitucion-producto-reporte-clientes-2026-11-05.md
 aristas:
   relacionado: [modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica, decision/solo-llega-lo-que-ingreso]
-medido: 2026-10-25
+medido: 2026-11-05
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -176,3 +180,25 @@ Cada faltante pendiente trae `ingreso_disponible`; la fila apaga lo que no
 alcanza y dice «Todavía no ingresa por Revisión de precios» o «Ingresaron N
 de M». «No llegó» siempre se puede. El detalle, en
 [[decision/solo-llega-lo-que-ingreso]].
+
+## Cambiar un producto que no ingresó — 2026-11-05
+
+Al lado de «No llegó», «Cambiar producto» permite reemplazar unidades del
+faltante por un equivalente con ingreso registrado y libre. Se habilita por
+usuario en Usuarios y permisos → Reporte Clientes → «Cambiar productos
+faltantes por equivalentes». El administrador ya tiene esa facultad; no se
+concede automáticamente a quienes solo tienen el módulo.
+
+El modal busca por nombre/referencia, muestra disponibilidad, precio con IVA,
+cantidad entera y el total antes/después. Usa el precio actual del sustituto,
+su IVA y el mayor descuento vigente (oferta o cliente, sin sumarlos). Si
+faltaban 3 de 6 y se sustituyen las 3, conserva 3 originales y añade 3 del
+sustituto en la misma factura. Se puede cambiar solo una parte.
+
+Se reserva el ingreso y se guarda el ajuste sin marcarlo revisado: después
+se sigue revisando y enviando a Impresión normalmente. «No llegó» permanece.
+Cambiar de ruta, pestaña o cliente cierra el modal; propuestas viejas y
+confirmaciones duplicadas no vuelven a aplicar unidades. El resumen sin caja
+cuenta solo productos que todavía están en las líneas de la factura.
+
+[Alcance y pruebas](../../informes/sustitucion-producto-reporte-clientes-2026-11-05.md).

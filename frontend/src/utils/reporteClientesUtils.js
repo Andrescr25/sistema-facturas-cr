@@ -20,6 +20,13 @@ export function getProductKey(factura, producto) {
   return `${facturaKey}::${productoId}`
 }
 
+/** Solo sustituir lo pendiente sin ingreso ni entrega asignada del original. */
+export function puedeSustituirProducto(producto, entrega) {
+  return Boolean(producto?.faltante_id) && Number(producto.cantidad_faltante) > 0 &&
+    producto.ingreso_disponible != null && Number(producto.ingreso_disponible) <= 0 &&
+    (!entrega?.tieneAjuste || Number(entrega.cantidadEntregada) === 0)
+}
+
 export function getEntregaInfo(key, producto, entregasAjustadas) {
   const ajuste = entregasAjustadas.get(key)
   if (!ajuste) {

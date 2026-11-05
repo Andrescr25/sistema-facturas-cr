@@ -33,7 +33,8 @@ export default function FacturaActivaCard({
   onDeshacer,
   onMarcarFacturaRevisada,
   onReabrirRevision,
-  onQuitarRespuesta
+  onQuitarRespuesta,
+  onCambiarProducto
 }) {
   const [mostrarRevisados, setMostrarRevisados] = useState(false)
 
@@ -146,6 +147,7 @@ export default function FacturaActivaCard({
                       onNoLlegoNada={onNoLlegoNada}
                       onCantidadEntregadaChange={onCantidadEntregadaChange}
                       onQuitarRespuesta={onQuitarRespuesta}
+                      onCambiarProducto={onCambiarProducto ? producto => onCambiarProducto(factura, producto) : undefined}
                     />
                   )
                 })}

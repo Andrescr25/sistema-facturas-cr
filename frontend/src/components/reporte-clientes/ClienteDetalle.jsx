@@ -24,7 +24,8 @@ export default function ClienteDetalle({
   onMarcarRevisado,
   onMarcarFacturaRevisada,
   onReabrirRevision,
-  onQuitarRespuesta
+  onQuitarRespuesta,
+  onCambiarProducto
 }) {
   const esSinCaja = clienteTieneSinCaja(cliente, facturasEstado)
   const progreso = getClienteProgreso(cliente, facturasEstado, entregasAjustadas)
@@ -114,6 +115,7 @@ export default function ClienteDetalle({
             onMarcarFacturaRevisada={onMarcarFacturaRevisada}
             onReabrirRevision={onReabrirRevision}
             onQuitarRespuesta={onQuitarRespuesta}
+            onCambiarProducto={onCambiarProducto}
           />
         ))}
       </div>

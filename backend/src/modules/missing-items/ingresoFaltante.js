@@ -28,6 +28,12 @@ const TOLERANCIA = "interval '12 hours'";
 // producto no se reparten la misma unidad al mismo tiempo.
 const CANDADO = 67001;
 
+async function bloquearIngresos(db, productoIds) {
+  for (const id of [...new Set(productoIds)].sort((a,b)=>a-b)) {
+    await db.query('SELECT pg_advisory_xact_lock($1, $2)', [CANDADO,id]);
+  }
+}
+
 /**
  * Las líneas de compra que pueden respaldar al faltante del alias `f`, con
  * lo que les queda libre para él (lo suyo no se descuenta: se vuelve a repartir).
@@ -51,25 +57,7 @@ const ingresoDisponibleSql = (f) => `(SELECT COALESCE(SUM(l.libre), 0) FROM (${l
 
 const redondear = (n) => Math.round(Number(n) * 1000) / 1000;
 
-/** Suelta lo que el faltante tenía asignado: «No llegó» o quitar la respuesta. */
-async function soltarIngreso(db, faltanteId) {
-  await db.query('DELETE FROM faltante_ingreso WHERE faltante_id = $1', [faltanteId]);
-}
-
-/**
- * Le asigna `cantidad` unidades de lo que ingresó, o lanza un 409 que dice
- * cuánto hay. Reemplaza lo que tuviera antes. Corre en la transacción de
- * quien guarda la respuesta, que ya bloqueó la factura y el faltante.
- */
-async function asignarIngreso(db, faltante, cantidad, usuarioId = null) {
-  await db.query('SELECT pg_advisory_xact_lock($1, $2)', [CANDADO, faltante.producto_propio_id]);
-  await soltarIngreso(db, faltante.id);
-  if (!(cantidad > 0)) return [];
-
-  const { rows: lineas } = await db.query(
-    `SELECT l.* FROM faltantes f, LATERAL (${lineasPara('f')}) l WHERE f.id = $1 ORDER BY l.creado_en, l.id`,
-    [faltante.id]
-  );
+function repartir(lineas, cantidad) {
   const tomadas = [];
   let resta = cantidad;
   for (const l of lineas) {
@@ -85,6 +73,29 @@ async function asignarIngreso(db, faltante, cantidad, usuarioId = null) {
       ? `Solo ingresaron ${hay} de este producto por Revisión de precios; faltan ${resta} para marcar ${cantidad}.`
       : 'Este producto todavía no ingresa por Revisión de precios. Registre la compra (o cargue la factura a mano) antes de marcar que llegó.');
   }
+  return tomadas;
+}
+
+/** Suelta lo que el faltante tenía asignado: «No llegó» o quitar la respuesta. */
+async function soltarIngreso(db, faltanteId) {
+  await db.query('DELETE FROM faltante_ingreso WHERE faltante_id = $1', [faltanteId]);
+}
+
+/**
+ * Le asigna `cantidad` unidades de lo que ingresó, o lanza un 409 que dice
+ * cuánto hay. Reemplaza lo que tuviera antes. Corre en la transacción de
+ * quien guarda la respuesta, que ya bloqueó la factura y el faltante.
+ */
+async function asignarIngreso(db, faltante, cantidad, usuarioId = null) {
+  await bloquearIngresos(db, [faltante.producto_propio_id]);
+  await soltarIngreso(db, faltante.id);
+  if (!(cantidad > 0)) return [];
+
+  const { rows: lineas } = await db.query(
+    `SELECT l.* FROM faltantes f, LATERAL (${lineasPara('f')}) l WHERE f.id = $1 ORDER BY l.creado_en, l.id`,
+    [faltante.id]
+  );
+  const tomadas = repartir(lineas, cantidad);
   for (const t of tomadas) {
     await db.query(
       'INSERT INTO faltante_ingreso (faltante_id, compra_linea_id, cantidad, usuario_id) VALUES ($1, $2, $3, $4)',
@@ -113,4 +124,19 @@ async function ingresoRespaldado(db, faltanteIds) {
   return new Map(rows.map((r) => [r.faltante_id, Number(r.cantidad)]));
 }
 
-module.exports = { ingresoDisponibleSql, asignarIngreso, soltarIngreso, ingresoRespaldado };
+/** Reserva adicional: conserva lo que ya se había entregado en la línea destino.
+ * El alias con id=0 descuenta TODAS las reservas, también las de ese destino. */
+async function agregarIngreso(db, faltante, cantidad, desde, usuarioId) {
+  await bloquearIngresos(db, [faltante.producto_propio_id]);
+  const { rows: lineas } = await db.query(`SELECT l.* FROM
+    (SELECT 0::int AS id,$1::int AS producto_propio_id,$2::timestamp AS created_at) f,
+    LATERAL (${lineasPara('f')}) l ORDER BY l.creado_en,l.id`, [faltante.producto_propio_id, desde]);
+  const tomadas = repartir(lineas, cantidad);
+  for (const t of tomadas) await db.query(`INSERT INTO faltante_ingreso(faltante_id,compra_linea_id,cantidad,usuario_id)
+    VALUES($1,$2,$3,$4) ON CONFLICT(faltante_id,compra_linea_id)
+    DO UPDATE SET cantidad=faltante_ingreso.cantidad+EXCLUDED.cantidad,usuario_id=EXCLUDED.usuario_id`,
+  [faltante.id, t.compraLineaId, t.cantidad, usuarioId]);
+  return tomadas;
+}
+
+module.exports = { ingresoDisponibleSql, asignarIngreso, soltarIngreso, ingresoRespaldado, agregarIngreso, bloquearIngresos };

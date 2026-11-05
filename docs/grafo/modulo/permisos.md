@@ -37,9 +37,12 @@ archivos:
   - frontend/src/hooks/useUsuarios.js
   - frontend/src/components/RequierePermiso.jsx
   - frontend/src/pages/Dashboard.jsx
+  - backend/src/modules/missing-items/sustitucion.controller.js
+  - backend/tests/precioFijoFactura.test.js
+  - docs/informes/sustitucion-producto-reporte-clientes-2026-11-05.md
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/caja-general, modulo/carga-entregas-por-ruta, modulo/preventa-agenda, modulo/validacion-cadena-operativa, modulo/necesidades-por-ciclo, modulo/registro-carga-entrega, modulo/carga-entregas-por-ciclo, decision/permisos-por-prefijo-mas-especifico, modulo/gestion-catalogo, modulo/exportaciones-reportes, leccion/el-permiso-se-compara-como-express]
-medido: 2026-10-31
+medido: 2026-11-05
 ---
 
 `usuarios/modulos.js` es el registro: cada módulo declara sus `rutasApi`, y
@@ -322,3 +325,19 @@ Respaldo, huellas y resultado real:
 `~/.local/share/sistema-facturas-cr/respaldos/20261031-vista-modulos-admin-codex/`.
 Si se revierte código, se conserva la columna aditiva y las elecciones que
 ya haya guardado el usuario. El código anterior la ignora.
+
+## Acción de sustitución de faltantes — 2026-11-05
+
+Usuarios y permisos → Reporte Clientes incorpora «Cambiar productos faltantes
+por equivalentes» (`sustituir-producto`). El administrador puede otorgarla o
+retirarla a cada usuario. No va incluida en los permisos por omisión del
+agente ni en el acceso simple al módulo. Un administrador conserva su
+facultad por rol.
+
+Las tres rutas de sustitución exigen el módulo y `puedeHacer` en servidor,
+además del control visual. Sin sesión 401; sin módulo o sin acción 403. Una
+revocación se aplica en la siguiente petición sin depender del JWT anterior.
+Ninguna respuesta expone costo/margen. Las pruebas del espejo de acciones y
+del inventario de rutas incluyen los nuevos contratos.
+
+[Verificación HTTP y desde Usuarios](../../informes/sustitucion-producto-reporte-clientes-2026-11-05.md).

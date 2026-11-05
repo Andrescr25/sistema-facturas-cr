@@ -110,7 +110,7 @@ describe('cada llamada de la pantalla tiene su ruta en el servidor', () => {
   const rutasDe = prefijo => rutasEn(path.join(RAIZ, 'backend', 'src', 'modules', ...ROUTERS[prefijo]));
 
   const llamadas = ['services/alegraService.js', 'services/bodegaPropiaService.js', 'hooks/useReporteProveedores.js',
-    'hooks/useEdicionFaltantesProveedor.js', 'hooks/useEnvioOrdenProveedor.js']
+    'hooks/useEdicionFaltantesProveedor.js', 'hooks/useEnvioOrdenProveedor.js', 'hooks/useSustitucionProducto.js']
     .flatMap((archivo) => {
       const fuente = codigo(leer('frontend', 'src', ...archivo.split('/')));
       const base = fuente.match(/const BASE\s*=\s*'([^']+)'/)?.[1];
@@ -170,10 +170,10 @@ describe('las dos formas en que el hueco puede volver', () => {
     assert.deepEqual(sinDueno, []);
   });
 
-  test('`missing-items` solo guarda y quita ajustes', () => {
+  test('`missing-items` conserva ajustes y permite sustituir productos por sus rutas propias', () => {
     const rutas = codigo(leer('backend', 'src', 'modules', 'missing-items', 'missing-items.routes.js'));
     assert.deepEqual([...rutas.matchAll(/router\.(\w+)\('([^']+)'/g)].map(m => `${m[1]} ${m[2]}`),
-      ['post /ajustes', 'delete /ajustes/:faltanteId']);
+      ['get /:faltanteId/sustitutos', 'get /:faltanteId/sustitucion', 'post /:faltanteId/sustitucion', 'post /ajustes', 'delete /ajustes/:faltanteId']);
   });
 
   test('ningún archivo de la aplicación borra `faltantes` sin filtro', () => {

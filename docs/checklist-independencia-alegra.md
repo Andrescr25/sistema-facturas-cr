@@ -1486,3 +1486,12 @@ Ver [marcas del catálogo](grafo/modulo/marcas-catalogo.md).
   suite completa; preparar entrega y confirmar Render al publicar.
 
 [Alcance y comprobaciones](informes/portadas-marcas-proporcion-2026-11-03.md).
+
+
+### Sustitución de faltantes posterior al corte — 2026-11-05
+
+- [x] Reporte Clientes cambia unidades por un equivalente ingresado, con
+  permiso explícito, precio actual y reserva transaccional; conserva factura,
+  revisión e Impresión. Sin dependencia de Alegra ni SQL nuevo. Ver
+  [checklist operativo](checklist-rutas-ciclos-operativos.md) e
+  [informe](informes/sustitucion-producto-reporte-clientes-2026-11-05.md).

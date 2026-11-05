@@ -6,6 +6,11 @@
 const express = require('express');
 const router = express.Router();
 const missingItemsController = require('./missing-items.controller');
+const sustitucion = require('./sustitucion.controller');
+
+router.get('/:faltanteId/sustitutos', sustitucion.listar);
+router.get('/:faltanteId/sustitucion', sustitucion.previsualizar);
+router.post('/:faltanteId/sustitucion', sustitucion.sustituir);
 
 // Ajustes de faltantes
 router.post('/ajustes', missingItemsController.saveAdjustment);

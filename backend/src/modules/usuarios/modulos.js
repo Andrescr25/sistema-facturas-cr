@@ -366,7 +366,8 @@ const PERMISOS_DE_ACCION = [
   { clave: 'precio-factura', modulo: 'facturacion', nombre: 'Cambiar precio y descuento' },
   { clave: 'cobro-factura', modulo: 'facturacion', nombre: 'Cobrar al facturar' },
   { clave: 'facturas-todas', modulo: 'facturacion', nombre: 'Ver las facturas de todos' },
-  { clave: 'rutas-todas', modulo: 'preventa', nombre: 'Ver todas las rutas' }
+  { clave: 'rutas-todas', modulo: 'preventa', nombre: 'Ver todas las rutas' },
+  { clave: 'sustituir-producto', modulo: 'reporte-clientes', nombre: 'Cambiar productos faltantes por equivalentes' }
 ];
 
 const CLAVES = [...MODULOS.map(m => m.clave), ...PERMISOS_DE_ACCION.map(a => a.clave)];

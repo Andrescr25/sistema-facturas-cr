@@ -682,4 +682,4 @@ async function editarFacturaEn(cliente, id, datos, usuarioId, { precioFijo = fal
 
 module.exports = {
   hoyEnCostaRica, registrarCobro, crearFactura, crearFacturaEnTransaccion, editarFactura, editarFacturaEn, anularFactura,
-  armarLineas };
+  armarLineas, revisarSiSePuedeTocar, COLUMNAS_LINEA };

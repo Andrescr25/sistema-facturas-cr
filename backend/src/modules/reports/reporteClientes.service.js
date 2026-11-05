@@ -63,7 +63,10 @@ async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
         CASE WHEN f.estado = 'pendiente' THEN ${ingresoDisponibleSql('f')} END AS ingreso_disponible,
         fr.id as reimpresion_id,
         fr.estado as reimpresion_estado,
-        (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_propia_id = fa.id) as total_items_factura
+        -- Una sustitución conserva el faltante original resuelto; no debe
+        -- contarse como otro producto cuando ya salió de la factura.
+        (SELECT COUNT(*) FROM faltantes f2 WHERE f2.factura_propia_id = fa.id
+          AND EXISTS(SELECT 1 FROM factura_linea l WHERE l.factura_id=fa.id AND l.producto_id=f2.producto_propio_id)) as total_items_factura
       FROM faltantes f
       JOIN producto p ON p.id = f.producto_propio_id
       JOIN factura fa ON fa.id = f.factura_propia_id

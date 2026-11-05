@@ -4,29 +4,33 @@
  */
 
 const { pool } = require('../../../config/database');
-const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { enTransaccion } = require('../../utils/transaccion');
 const { httpError, idValido } = require('../../utils/validacion');
 const { validarEntrega } = require('./ajusteEntrega');
 const { asignarIngreso, soltarIngreso } = require('./ingresoFaltante');
+const { guardarAjusteEn } = require('./ajustesAlmacenados');
 
 /**
  * Guardar/borrar comparte el bloqueo de factura con encolar/procesar.
  * Bloquear solo el ajuste deja que una respuesta tardía cambie lo que
  * Impresión ya recibió. El orden factura → faltante evita bloqueos cruzados.
  */
-async function conFaltanteEditable(idCrudo, trabajo) {
+async function conFaltanteEditable(idCrudo, trabajo, { soloLectura = false, todosLosFaltantes = false } = {}) {
   const id = idValido(idCrudo);
   return enTransaccion(pool, async c => {
     const { rows: [vinculo] } = await c.query('SELECT factura_propia_id FROM faltantes WHERE id=$1', [id]);
     if (!vinculo) throw httpError(404, 'Ese faltante no existe.');
     if (!vinculo.factura_propia_id) throw httpError(409, 'El faltante no tiene una factura propia vinculada.');
     const facturaId = vinculo.factura_propia_id;
-    const { rows: [factura] } = await c.query('SELECT id,estado FROM factura WHERE id=$1 FOR UPDATE', [facturaId]);
+    const { rows: [factura] } = await c.query(`SELECT id,estado FROM factura WHERE id=$1${soloLectura ? '' : ' FOR UPDATE'}`, [facturaId]);
     if (!factura) throw httpError(404, 'La factura del faltante no existe.');
     if (factura.estado === 'anulada') throw httpError(409, 'Una factura anulada no admite ajustes de entrega.');
-    const { rows: [faltante] } = await c.query(`SELECT id,cantidad_faltante,tipo_faltante,estado,producto_propio_id FROM faltantes
-      WHERE id=$1 AND factura_propia_id=$2 FOR UPDATE`, [id, facturaId]);
+    if (todosLosFaltantes && !soloLectura) {
+      await c.query('SELECT id FROM faltantes WHERE factura_propia_id=$1 ORDER BY id FOR UPDATE', [facturaId]);
+    }
+    const { rows: [faltante] } = await c.query(`SELECT id,cantidad_faltante,tipo_faltante,estado,producto_propio_id,
+      factura_propia_id,cantidad_rebajada,observaciones,proveedor_asignado,created_at::text AS ingreso_desde FROM faltantes
+      WHERE id=$1 AND factura_propia_id=$2${soloLectura ? '' : ' FOR UPDATE'}`, [id, facturaId]);
     if (!faltante) throw httpError(409, 'El faltante cambió; recargue el reporte.');
     if (faltante.estado !== 'pendiente') throw httpError(409, 'Recupere la factura en Reporte de Clientes antes de cambiar la entrega.');
     if (faltante.tipo_faltante === 'completo' || Number(faltante.cantidad_faltante) <= 0) {
@@ -49,19 +53,7 @@ async function saveAdjustment({ faltanteId, cantidadEntregada, estado, revisado 
     // sin compra que lo respalde, el 409 dice cuánto hay.
     await asignarIngreso(c, faltante, entrega.cantidad, usuarioId);
     // La bandera del cliente puede quedar vieja: deriva de la entrega real.
-    await c.query(`
-    INSERT INTO faltantes_ajustes (faltante_id, cantidad_entregada, estado, requiere_actualizacion, revisado)
-    VALUES ($1, $2, $3, $4, COALESCE($5, FALSE))
-    ON CONFLICT (faltante_id) 
-    DO UPDATE SET 
-      cantidad_entregada = $2,
-      estado = $3,
-      requiere_actualizacion = $4,
-      revisado = COALESCE($5, CASE
-        WHEN faltantes_ajustes.cantidad_entregada <> $2 OR faltantes_ajustes.estado <> $3 THEN FALSE
-        ELSE faltantes_ajustes.revisado END),
-      updated_at = ${AHORA_CR_SQL}
-    `, [faltante.id, entrega.cantidad, entrega.estado, entrega.requiereActualizacion, entrega.revisado ?? null]);
+    await guardarAjusteEn(c, faltante.id, entrega);
 
     return { success: true, message: 'Ajuste guardado' };
   });
@@ -81,5 +73,6 @@ async function deleteAdjustment(faltanteId) {
 
 module.exports = {
   saveAdjustment,
-  deleteAdjustment
+  deleteAdjustment,
+  conFaltanteEditable
 };
