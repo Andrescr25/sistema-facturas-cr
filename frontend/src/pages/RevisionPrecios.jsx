@@ -24,6 +24,8 @@ export default function RevisionPrecios() {
     error,
     tabActiva,
     setTabActiva,
+    buscarRegistradas,
+    setBuscarRegistradas,
     preciosAjustados,
     enviando,
     devolviendo,
@@ -69,6 +71,8 @@ export default function RevisionPrecios() {
           onProcesarGasto={gasto.abrir}
           gastosPendientes={<GastosPorAprobar estado={aprobacion} />}
           onCargarManual={manual.abrir}
+          buscarRegistradas={buscarRegistradas}
+          setBuscarRegistradas={setBuscarRegistradas}
         />
       ) : (
         <RevisionFactura
@@ -87,6 +91,7 @@ export default function RevisionPrecios() {
           onAbrirFactor={abrirFactor}
           onEnviar={registrarCompra}
           onProcesarGasto={gasto.abrir}
+          onAvisar={showToast}
         />
       )}
 

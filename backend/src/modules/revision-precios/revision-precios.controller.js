@@ -10,8 +10,8 @@ const revisionPreciosService = require('./revision-precios.service');
  */
 async function getFacturas(req, res) {
   try {
-    const { estado } = req.query;
-    const result = await revisionPreciosService.getFacturas(estado);
+    const { estado, buscar } = req.query;
+    const result = await revisionPreciosService.getFacturas(estado, buscar);
     res.json({ success: true, ...result });
   } catch (error) {
     console.error('❌ Error obteniendo facturas:', error);

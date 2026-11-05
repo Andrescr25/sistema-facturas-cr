@@ -14,6 +14,9 @@ import { colonesExacto } from '../../utils/colones'
  * renglones que queda fijo arriba con el buscador, y cada resultado es una
  * fila que se elige con un toque. Usa el Modal del sistema (Escape, hoja
  * desde abajo en el teléfono).
+ *
+ * Sin `onCrearNuevo` no ofrece crear uno (corregir una compra registrada:
+ * ahí se elige entre los que ya existen).
  */
 export default function ModalBuscarProducto({
   productoSeleccionado,
@@ -23,7 +26,8 @@ export default function ModalBuscarProducto({
   buscando,
   onCerrar,
   onRelacionar,
-  onCrearNuevo
+  onCrearNuevo,
+  titulo = 'Relacionar con un producto propio'
 }) {
   const p = productoSeleccionado || {}
   const codigoGenerado = p.codigoProveedor?.startsWith('DESC-')
@@ -31,9 +35,9 @@ export default function ModalBuscarProducto({
   return (
     <Modal
       onCerrar={onCerrar}
-      titulo="Relacionar con un producto propio"
+      titulo={titulo}
       ancho="xl"
-      pie={<Boton variante="activo" icono={Plus} ancho onClick={onCrearNuevo}>No está: crear producto nuevo</Boton>}
+      pie={onCrearNuevo ? <Boton variante="activo" icono={Plus} ancho onClick={onCrearNuevo}>No está: crear producto nuevo</Boton> : null}
     >
       <div className="sticky top-0 z-10 space-y-3 border-b border-neutro-100 bg-white px-5 pb-3 pt-4">
         <div className="rounded-2xl bg-neutro-50 px-3.5 py-2.5 ring-1 ring-inset ring-neutro-200">

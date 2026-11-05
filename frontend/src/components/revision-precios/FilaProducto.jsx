@@ -35,7 +35,6 @@ export default function FilaProducto({
   productosDelCatalogo,
   preciosAjustados,
   sugerenciasPrecio,
-  soloLectura = false,
   onAjustarPrecio,
   onAplicarPrecioSugerido,
   onAbrirFactor
@@ -62,7 +61,7 @@ export default function FilaProducto({
             {cantidad.cantidadRealFormateada} {producto.unidadMedida}
             {cantidad.hayConversion && <span className="ml-1 text-primario-600">convertido</span>}
           </span>
-          {producto.mapeo && !soloLectura && (
+          {producto.mapeo && (
             <button
               type="button"
               onClick={() => onAbrirFactor(producto)}
@@ -123,55 +122,49 @@ export default function FilaProducto({
 
       {/* ---- Precio nuevo ---- */}
       <div className="mt-2 md:mt-0">
-        {soloLectura ? (
-          <p className="text-sm text-neutro-400 md:text-right">—</p>
-        ) : (
-          <>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-bold text-neutro-400">₡</span>
-                <input
-                  type="number"
-                  value={valorInput}
-                  onChange={(e) => onAjustarPrecio(producto.id, e.target.value)}
-                  step="5"
-                  min="0"
-                  aria-label={`Nuevo precio sin IVA de ${a.nombre}`}
-                  className="input h-10 w-full rounded-lg border border-neutro-300 pl-6 pr-2 text-right font-bold focus:border-primario-500"
-                />
-              </div>
-              {a.precioModificado && (
-                <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-bold ${colorMargen(a.margenNuevo)}`}>
-                  {a.margenNuevo.toFixed(1)}%
-                </span>
-              )}
-            </div>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-bold text-neutro-400">₡</span>
+            <input
+              type="number"
+              value={valorInput}
+              onChange={(e) => onAjustarPrecio(producto.id, e.target.value)}
+              step="5"
+              min="0"
+              aria-label={`Nuevo precio sin IVA de ${a.nombre}`}
+              className="input h-10 w-full rounded-lg border border-neutro-300 pl-6 pr-2 text-right font-bold focus:border-primario-500"
+            />
+          </div>
+          {a.precioModificado && (
+            <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-bold ${colorMargen(a.margenNuevo)}`}>
+              {a.margenNuevo.toFixed(1)}%
+            </span>
+          )}
+        </div>
 
-            <p className="mt-1 text-xs text-neutro-400 md:text-right">
-              sin IVA · con IVA {formatCurrency(a.precioAjustadoConIva)}
-            </p>
+        <p className="mt-1 text-xs text-neutro-400 md:text-right">
+          sin IVA · con IVA {formatCurrency(a.precioAjustadoConIva)}
+        </p>
 
-            {/* El precio que sugiere el motor, en una línea con su botón.
-                Se muestra siempre que haya sugerencia y no solo cuando el
-                margen ya está bajo: si el costo subió pero el margen todavía
-                "parece sano", igual conviene ver el recomendado. */}
-            {a.precioSugeridoSinIva !== null && (
-              <button
-                type="button"
-                onClick={() => onAplicarPrecioSugerido(producto.id, a.precioSugeridoSinIva)}
-                title={`Deja ${a.margenSugerido !== null ? `${a.margenSugerido.toFixed(1)}% de margen` : 'el margen recomendado'} · meta de la categoría ${a.margenObjetivo}%${a.categoriaProducto ? ` · ${a.categoriaProducto}` : ''}${a.claseRotacion ? ` · ${ROTACION[a.claseRotacion] || a.claseRotacion}` : ''}`}
-                className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-primario-200 bg-primario-50 px-2 py-1.5 text-xs font-bold text-primario-700 transition-colors hover:bg-primario-100"
-              >
-                <Sparkles size={12} className="shrink-0" />
-                <span className="truncate">Sugerido {formatCurrency(a.precioSugeridoSinIva)}</span>
-                {a.margenSugerido !== null && (
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-bold ${colorMargen(a.margenSugerido)}`}>
-                    {a.margenSugerido.toFixed(1)}%
-                  </span>
-                )}
-              </button>
+        {/* El precio que sugiere el motor, en una línea con su botón.
+            Se muestra siempre que haya sugerencia y no solo cuando el
+            margen ya está bajo: si el costo subió pero el margen todavía
+            "parece sano", igual conviene ver el recomendado. */}
+        {a.precioSugeridoSinIva !== null && (
+          <button
+            type="button"
+            onClick={() => onAplicarPrecioSugerido(producto.id, a.precioSugeridoSinIva)}
+            title={`Deja ${a.margenSugerido !== null ? `${a.margenSugerido.toFixed(1)}% de margen` : 'el margen recomendado'} · meta de la categoría ${a.margenObjetivo}%${a.categoriaProducto ? ` · ${a.categoriaProducto}` : ''}${a.claseRotacion ? ` · ${ROTACION[a.claseRotacion] || a.claseRotacion}` : ''}`}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-primario-200 bg-primario-50 px-2 py-1.5 text-xs font-bold text-primario-700 transition-colors hover:bg-primario-100"
+          >
+            <Sparkles size={12} className="shrink-0" />
+            <span className="truncate">Sugerido {formatCurrency(a.precioSugeridoSinIva)}</span>
+            {a.margenSugerido !== null && (
+              <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-bold ${colorMargen(a.margenSugerido)}`}>
+                {a.margenSugerido.toFixed(1)}%
+              </span>
             )}
-          </>
+          </button>
         )}
       </div>
     </div>

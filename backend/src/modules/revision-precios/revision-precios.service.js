@@ -68,13 +68,19 @@ async function conAceptacion(facturas) {
 }
 
 /**
- * Obtener facturas por estado
+ * Obtener facturas por estado. `buscar` (proveedor o número de factura) es
+ * para llegar a una compra registrada más vieja que las últimas 50 y
+ * corregirla (2026-11-05).
  */
-async function getFacturas(estado) {
+async function getFacturas(estado, buscar) {
   console.log(`📄 Obteniendo facturas con estado: ${estado || 'PROCESADA'}`);
 
+  const texto = String(buscar || '').trim().slice(0, 80);
+  const filtroTexto = texto.length >= 2
+    ? { OR: [{ proveedorNombre: { contains: texto, mode: 'insensitive' } }, { numeroConsecutivo: { contains: texto } }] }
+    : {};
   const facturas = await prisma.factura.findMany({
-    where: estado ? { estado: estado } : undefined,
+    where: estado || texto.length >= 2 ? { ...(estado ? { estado } : {}), ...filtroTexto } : undefined,
     include: {
       productos: {
         include: {

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { DollarSign, AlertCircle, PackageOpen, ArrowRight, FilePlus2 } from 'lucide-react'
+import { DollarSign, AlertCircle, PackageOpen, ArrowRight, FilePlus2, Search } from 'lucide-react'
 import Boton from '../ui/Boton'
 import Pestanas from '../ui/Pestanas'
 import EncabezadoPagina from '../ui/EncabezadoPagina'
@@ -31,7 +31,8 @@ const VACIOS = {
  */
 export default function ListaFacturas({
   facturas, loading, error, tabActiva, setTabActiva,
-  onAbrirRevision, onProcesarGasto, gastosPendientes, onCargarManual
+  onAbrirRevision, onProcesarGasto, gastosPendientes, onCargarManual,
+  buscarRegistradas, setBuscarRegistradas
 }) {
   const navigate = useNavigate()
 
@@ -78,6 +79,20 @@ export default function ListaFacturas({
       />
 
       <PasoActual paso={tabActiva} />
+      {/* Registradas: ábrala para ver cómo quedó cada línea y corregir un producto mal relacionado. */}
+      {tabActiva === 'ENVIADAS' && (
+        <div className="relative mb-4">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />
+          <input
+            type="search"
+            value={buscarRegistradas}
+            onChange={(e) => setBuscarRegistradas(e.target.value)}
+            placeholder="Buscar por proveedor o número de factura…"
+            aria-label="Buscar compras registradas"
+            className="input h-12 w-full pl-10 text-base"
+          />
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-peligro-200 bg-peligro-50 p-3 font-semibold text-peligro-800">

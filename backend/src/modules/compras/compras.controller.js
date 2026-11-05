@@ -11,6 +11,7 @@
 
 const servicio = require('./compras.service');
 const manual = require('./compraManual.service');
+const correccion = require('./corregirProductoCompra');
 
 function fallo(res, error, contexto) {
   const s = error.status || 500;
@@ -58,6 +59,25 @@ module.exports = {
     }
   },
 
+  /** GET /compras/por-factura/:facturaId — la compra registrada, como la mandó el proveedor y como quedó. */
+  compraDeFactura: async (req, res) => {
+    try {
+      res.json({ success: true, data: await correccion.compraDeFactura(req.params.facturaId) });
+    } catch (error) {
+      fallo(res, error, 'ver compra');
+    }
+  },
+  /** PUT /compras/lineas/:id/producto — { productoId, todas } (solo administrador). */
+  corregirProducto: async (req, res) => {
+    try {
+      const r = await correccion.corregirProducto(req.params.id, req.body || {}, req.usuario?.id);
+      res.json({ success: true, data: r, message: r.cambiadas
+        ? `Corregido a «${r.producto.nombre}» en ${r.cambiadas === 1 ? 'la línea' : `${r.cambiadas} líneas de ${r.compras} compras`}${r.relacionCorregida ? ', y la relación para las próximas facturas' : ''}.`
+        : r.relacionCorregida ? `La relación de este código ya es «${r.producto.nombre}», como esta compra.` : 'La línea ya tenía ese producto.' });
+    } catch (error) {
+      fallo(res, error, 'corregir producto');
+    }
+  },
   /** GET /compras/proveedores — para elegir de quién es la factura cargada a mano. */
   proveedores: async (_req, res) => {
     try {

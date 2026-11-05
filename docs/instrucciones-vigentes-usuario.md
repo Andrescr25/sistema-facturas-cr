@@ -1569,3 +1569,15 @@ por usuario. Precio confirmado: **«Usar el precio actual del producto
 sustituto»**. No modificar las unidades del original que sí estaban completas.
 La decisión y su implementación se documentan en
 [el informe](informes/sustitucion-producto-reporte-clientes-2026-11-05.md).
+
+
+### 2026-11-05 — Ver y corregir compras ya registradas
+
+El usuario: «las facturas de compra que ya están registradas, las pueda
+modificar: algún empleado puede cometer un error y enlazar un producto del
+proveedor con otro producto nuestro mal; esto repercute en Reporte Clientes,
+porque sale como que no ingresó pero fue por un error. Que me dejes ver esas
+facturas de compra ya registradas y poder editar algo que esté mal, y ver el
+nombre del producto del proveedor para ver que todo esté bien».
+[Cómo funciona](grafo/modulo/compras.md).
+

@@ -268,7 +268,9 @@ describe('acciones que exigen administrador aunque se tenga el módulo', () => {
     assert.equal(accionDeAdmin('PATCH', '/cuentas-por-cobrar/propios/abonos/7/anular').clave, 'anular-cobro');
     assert.equal(accionDeAdmin('POST', '/cuentas-por-cobrar/propios/caja/reabrir').clave, 'reabrir-caja');
     assert.equal(accionDeAdmin('PATCH', '/empleados/pagos/9/anular').clave, 'anular-pago-empleado');
-    assert.deepEqual(ACCIONES_ADMIN.map(a => a.clave), ['anular-factura', 'anular-cobro', 'reabrir-caja', 'corregir-entrega', 'anular-pago-empleado']);
+    // 2026-11-05: corregir el producto de una compra ya registrada.
+    assert.equal(accionDeAdmin('PUT', '/compras/lineas/77/producto').clave, 'corregir-compra');
+    assert.deepEqual(ACCIONES_ADMIN.map(a => a.clave), ['anular-factura', 'anular-cobro', 'reabrir-caja', 'corregir-entrega', 'anular-pago-empleado', 'corregir-compra']);
   });
 
   test('tampoco se saltan con mayúsculas, la barra final o el método en minúscula', () => {
@@ -287,7 +289,8 @@ describe('acciones que exigen administrador aunque se tenga el módulo', () => {
       ['GET', '/facturacion/facturas/12'],
       ['GET', '/facturacion/facturas/12/anular'],
       ['POST', '/reimpresion/facturas/12/procesar'],
-      ['POST', '/pagos-proveedores/pagos/4/anular']
+      ['POST', '/pagos-proveedores/pagos/4/anular'],
+      ['GET', '/compras/por-factura/0b6c8a8e-0000-0000-0000-000000000000']
     ]) {
       assert.equal(accionDeAdmin(metodo, ruta), null, `${metodo} ${ruta} quedó solo para administradores`);
     }
@@ -300,6 +303,7 @@ describe('acciones que exigen administrador aunque se tenga el módulo', () => {
     const cxc = leer('cuentas-por-cobrar', 'cuentas-por-cobrar.routes.js');
     assert.match(cxc, /router\.patch\('\/propios\/abonos\/:id\/anular'/);
     assert.match(cxc, /router\.post\('\/propios\/caja\/reabrir'/);
+    assert.match(leer('compras', 'compras.routes.js'), /router\.put\('\/lineas\/:id\/producto'/);
   });
 
   test('el espejo del frontend tiene las mismas claves', () => {
@@ -312,6 +316,7 @@ describe('acciones que exigen administrador aunque se tenga el módulo', () => {
     const frente = path.join(__dirname, '..', '..', 'frontend', 'src', 'components');
     assert.match(fs.readFileSync(path.join(frente, 'facturacion', 'VistaFactura.jsx'), 'utf8'), /puedeAccion\(usuario, 'anular-factura'\)/);
     assert.match(fs.readFileSync(path.join(frente, 'cuentas-por-cobrar', 'PanelCierreCaja.jsx'), 'utf8'), /puedeAccion\(usuario, 'reabrir-caja'\)/);
+    assert.match(fs.readFileSync(path.join(frente, 'revision-precios', 'CompraRegistrada.jsx'), 'utf8'), /puedeAccion\(usuario, 'corregir-compra'\)/);
   });
 });
 

@@ -31,6 +31,13 @@ export function useRevisionPrecios() {
 
   // Pestaña activa y filtros
   const [tabActiva, setTabActiva] = useState('PENDIENTE_RELACIONAR') // PENDIENTE_RELACIONAR, LISTAS_REVISION, ENVIADAS
+  // Registradas: buscar por proveedor o número, para llegar a una compra más vieja que las últimas 50.
+  const [buscarRegistradas, setBuscarRegistradas] = useState('')
+  const [buscarAplicado, setBuscarAplicado] = useState('')
+  useEffect(() => {
+    const espera = setTimeout(() => setBuscarAplicado(buscarRegistradas.trim()), 400)
+    return () => clearTimeout(espera)
+  }, [buscarRegistradas])
 
   // Precios ajustados por el usuario
   const [preciosAjustados, setPreciosAjustados] = useState({})
@@ -74,7 +81,7 @@ export function useRevisionPrecios() {
         // estado 'ENVIADA' en la base — el nombre quedó de cuando esto de
         // verdad mandaba algo a Alegra; cambiarlo es un cambio de esquema
         // aparte, no de esta pantalla.
-        response = await api.get('/revision-precios/facturas?estado=ENVIADA')
+        response = await api.get('/revision-precios/facturas', { params: { estado: 'ENVIADA', buscar: buscarAplicado || undefined } })
       }
 
       if (response && response.data.success) {
@@ -85,14 +92,14 @@ export function useRevisionPrecios() {
     } finally {
       setLoading(false)
     }
-  }, [tabActiva])
+  }, [tabActiva, buscarAplicado])
 
   useEffect(() => {
     if (vista === 'lista') {
       loadFacturas()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vista, tabActiva])
+  }, [vista, tabActiva, buscarAplicado])
 
   const abrirRevision = useCallback(async (factura) => {
     try {
@@ -334,6 +341,8 @@ export function useRevisionPrecios() {
     error,
     tabActiva,
     setTabActiva,
+    buscarRegistradas,
+    setBuscarRegistradas,
     preciosAjustados,
     enviando,
     devolviendo,

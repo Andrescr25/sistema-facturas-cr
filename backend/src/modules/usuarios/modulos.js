@@ -312,7 +312,8 @@ const ACCIONES_ADMIN = [
   { clave: 'anular-cobro', metodo: 'PATCH', patron: /^\/cuentas-por-cobrar\/propios\/abonos\/[^/]+\/anular$/, que: 'anular un cobro' },
   { clave: 'reabrir-caja', metodo: 'POST', patron: /^\/cuentas-por-cobrar\/propios\/caja\/reabrir$/, que: 'reabrir una caja cerrada' },
   { clave: 'corregir-entrega', metodo: 'POST', patron: /^\/entregas\/facturas\/[^/]+\/revision$/, que: 'corregir un registro físico de carga o entrega' },
-  { clave: 'anular-pago-empleado', metodo: 'PATCH', patron: /^\/empleados\/pagos\/[^/]+\/anular$/, que: 'anular un pago a un empleado' }
+  { clave: 'anular-pago-empleado', metodo: 'PATCH', patron: /^\/empleados\/pagos\/[^/]+\/anular$/, que: 'anular un pago a un empleado' },
+  { clave: 'corregir-compra', metodo: 'PUT', patron: /^\/compras\/lineas\/[^/]+\/producto$/, que: 'corregir el producto de una compra registrada' }
 ];
 
 /**

@@ -3,6 +3,7 @@ import FilaProducto from './FilaProducto'
 import Insignia from '../ui/Insignia'
 import { formatCurrency, formatDate } from '../../utils/pagos'
 import AceptacionCompra from './AceptacionCompra'
+import CompraRegistrada from './CompraRegistrada'
 import Boton from '../ui/Boton'
 
 /**
@@ -32,11 +33,15 @@ import Boton from '../ui/Boton'
  *
  * YA REGISTRADA también muestra cómo quedó ante Hacienda (AceptacionCompra):
  * la aceptación sale sola al registrar, sin el formulario que había acá.
+ *
+ * Y CÓMO QUEDÓ LA COMPRA (2026-11-05): en vez de la tabla de precios, cada
+ * línea como la mandó el proveedor y a qué producto nuestro quedó, con
+ * «Corregir producto» para el administrador (CompraRegistrada).
  */
 export default function RevisionFactura({
   facturaSeleccionada, productos, productosDelCatalogo, sugerenciasPrecio, preciosAjustados,
   loading, devolviendo, enviando,
-  onVolver, onDevolver, onAjustarPrecio, onAplicarPrecioSugerido, onAbrirFactor, onEnviar, onProcesarGasto
+  onVolver, onDevolver, onAjustarPrecio, onAplicarPrecioSugerido, onAbrirFactor, onEnviar, onProcesarGasto, onAvisar
 }) {
   const ajustados = Object.keys(preciosAjustados).filter(id => preciosAjustados[id] > 0).length
   const yaRegistrada = facturaSeleccionada?.estado === 'ENVIADA'
@@ -96,7 +101,9 @@ export default function RevisionFactura({
 
       {!yaRegistrada && onProcesarGasto && <details className="mb-4 text-sm text-neutro-500"><summary className="cursor-pointer">Otras opciones de esta factura</summary><Boton variante="secundario" className="mt-2" onClick={() => onProcesarGasto(facturaSeleccionada)}>Procesar factura como gasto operativo</Boton></details>}
 
-      {loading ? (
+      {yaRegistrada ? (
+        <CompraRegistrada facturaId={facturaSeleccionada.id} avisar={onAvisar} />
+      ) : loading ? (
         <div className="py-16 text-center">
           <div className="spinner mx-auto mb-3" />
           <p className="text-neutro-500">Analizando productos…</p>
@@ -110,7 +117,7 @@ export default function RevisionFactura({
             <span>Producto</span>
             <span>Costo nuevo</span>
             <span>Precio actual</span>
-            <span>{yaRegistrada ? 'Precio registrado' : 'Precio nuevo'}</span>
+            <span>Precio nuevo</span>
           </div>
 
           {productos.map(producto => (
@@ -120,7 +127,6 @@ export default function RevisionFactura({
               productosDelCatalogo={productosDelCatalogo}
               sugerenciasPrecio={sugerenciasPrecio}
               preciosAjustados={preciosAjustados}
-              soloLectura={yaRegistrada}
               onAjustarPrecio={onAjustarPrecio}
               onAplicarPrecioSugerido={onAplicarPrecioSugerido}
               onAbrirFactor={onAbrirFactor}

@@ -28,7 +28,7 @@ const PASOS = {
   ENVIADAS: {
     numero: 3,
     titulo: 'Compras registradas',
-    detalle: 'Ya procesadas. Se pueden consultar, pero no volver a registrar: ya existe una compra propia.',
+    detalle: 'Ya procesadas: no se vuelven a registrar. Abrí una para ver a qué producto quedó cada línea del proveedor y corregir el que esté mal relacionado.',
     tono: 'border-exito-200 bg-exito-50 text-exito-900',
     circulo: 'bg-exito-600'
   }

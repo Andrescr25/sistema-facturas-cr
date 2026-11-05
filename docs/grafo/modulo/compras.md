@@ -8,6 +8,10 @@ archivos:
   - backend/src/modules/compras/compras.service.js
   - backend/src/modules/compras/compras.controller.js
   - backend/src/modules/compras/liberarCuentaPorPagar.js
+  - backend/src/modules/compras/corregirProductoCompra.js
+  - backend/tests/corregirProductoCompra.test.js
+  - frontend/src/components/revision-precios/CompraRegistrada.jsx
+  - frontend/src/utils/compraRegistrada.js
   - backend/src/modules/pagos-recurrentes/scrapers/facturas-recibidas.adapter.js
   - backend/src/modules/revision-precios/revision-precios.service.js
   - backend/services/emailService.js
@@ -15,7 +19,7 @@ archivos:
 aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
-  relacionado: [modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion, modulo/gastos-operativos]
+  relacionado: [decision/solo-llega-lo-que-ingreso, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion, modulo/gastos-operativos]
 medido: 2026-10-21
 ---
 
@@ -139,3 +143,36 @@ paga el saldo completo con su medio en la misma transacción; después manda
 el mensaje receptor. Rechazar bloquea la deuda y anula sólo ese registro
 documental. El flujo comercial permanece.
 Ver [[modulo/gastos-operativos]]; SQL061/062 aplicadas en producción; ver despliegue del 21/10.
+
+
+## Corregir el producto de una compra ya registrada — 2026-11-05
+
+El usuario: «un empleado puede enlazar un producto del proveedor con otro
+nuestro mal; repercute en Reporte Clientes, porque sale como que no ingresó
+pero fue por un error. Que me dejes ver esas facturas de compra ya registradas
+y editar algo que esté mal, y ver el nombre del producto del proveedor».
+
+Lo que manda es `compra_linea.producto_id`: con él se decide qué ingresó
+([[decision/solo-llega-lo-que-ingreso]]), qué entró al inventario y qué costo
+quedó. «Gestionar Relaciones» corrige el mapeo y el buzón, pero NO la compra
+registrada: medido el 2026-11-04 en una copia de producción, 165 líneas de
+compra decían un producto y su línea del buzón otro (en las revisadas, la
+compra era la correcta y el buzón quedó cruzado: marcadores Pilot biselado y
+redondo, cuerdas de motoguadaña).
+
+En Revisión de Precios → Registradas (con buscador por proveedor o número),
+la factura abre `CompraRegistrada`: cada línea como la mandó el proveedor y a
+qué producto quedó, con avisos si la relación del código o lo que muestra
+Revisión de Precios no coinciden, o si la línea ya respalda una entrega.
+`corregirProductoCompra.js`, en una transacción y solo para administrador
+(`corregir-compra` en ACCIONES_ADMIN): cambia la línea de la compra y su
+línea del buzón; con `todas`, también las demás compras registradas de ese
+código con el mismo producto, el mapeo y el buzón todavía sin registrar;
+reconcilia el inventario por compra (solo la diferencia) y recalcula el costo
+de un producto solo si la línea corregida era su última compra. No toca una
+línea que ya respalda la entrega de un faltante (`faltante_ingreso`): primero
+se quita esa respuesta en Reporte Clientes. «Dejar la relación como esta
+compra» (mismo producto con `todas`) corrige solo mapeo y buzón, sin inventario.
+El historial de costos se sincroniza después del commit, con Prisma, como en
+Gestionar Relaciones.
+

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import api from '../services/api'
+import { useBuscarProductoPropio } from './useBuscarProductoPropio'
 import { hoyEnCostaRica } from '../utils/fechaCR'
 import { borradorVacio, lineaDeProducto, motivoParaNoGuardar, datosParaEnviar } from '../utils/facturaManualUtils'
 
@@ -12,15 +13,14 @@ export function useFacturaManual(onCargada) {
   const [abierta, setAbierta] = useState(false)
   const [borrador, setBorrador] = useState(() => borradorVacio(hoyEnCostaRica()))
   const [proveedores, setProveedores] = useState([])
-  const [busqueda, setBusqueda] = useState('')
-  const [resultados, setResultados] = useState([])
-  const [buscando, setBuscando] = useState(false)
+  // El mismo buscador del maestro que usa Relacionar productos.
+  const { busqueda, setBusqueda, resultados, buscando, limpiar } = useBuscarProductoPropio(abierta)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
   const abrir = async () => {
     setBorrador(borradorVacio(hoyEnCostaRica()))
-    setBusqueda(''); setResultados([]); setError('')
+    limpiar(); setError('')
     setAbierta(true)
     if (proveedores.length) return
     try {
@@ -30,25 +30,10 @@ export function useFacturaManual(onCargada) {
   }
   const cerrar = () => { if (!guardando) setAbierta(false) }
 
-  // El mismo buscador del maestro que usa Relacionar productos.
-  useEffect(() => {
-    if (!abierta || busqueda.trim().length < 2) { setResultados([]); return undefined }
-    let vigente = true
-    const espera = setTimeout(async () => {
-      setBuscando(true)
-      try {
-        const { data } = await api.get(`/productos-revision/buscar?q=${encodeURIComponent(busqueda.trim())}`)
-        if (vigente) setResultados(data.productos || [])
-      } catch { if (vigente) setResultados([]) }
-      finally { if (vigente) setBuscando(false) }
-    }, 300)
-    return () => { vigente = false; clearTimeout(espera) }
-  }, [abierta, busqueda])
-
   const cambiar = (campo, valor) => setBorrador((b) => ({ ...b, [campo]: valor }))
   const agregar = (producto) => {
     setBorrador((b) => ({ ...b, lineas: [...b.lineas, lineaDeProducto(producto)] }))
-    setBusqueda(''); setResultados([])
+    limpiar()
   }
   const cambiarLinea = (i, campo, valor) =>
     setBorrador((b) => ({ ...b, lineas: b.lineas.map((l, j) => (j === i ? { ...l, [campo]: valor } : l)) }))
