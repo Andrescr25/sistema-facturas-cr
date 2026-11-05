@@ -88,9 +88,11 @@ export default function RevisionFactura({
           <span className="text-neutro-500">
             Total <span className="font-bold text-neutro-900">{formatCurrency(facturaSeleccionada?.totalFactura)}</span>
           </span>
-          <span className="text-neutro-500">
-            Productos <span className="font-bold text-neutro-900">{productos.length}</span>
-          </span>
+          {!yaRegistrada && (
+            <span className="text-neutro-500">
+              Productos <span className="font-bold text-neutro-900">{productos.length}</span>
+            </span>
+          )}
           {!yaRegistrada && (
             <span className="text-neutro-500">
               Precios ajustados <span className={`font-bold ${ajustados > 0 ? 'text-alerta-600' : 'text-neutro-900'}`}>{ajustados}</span>

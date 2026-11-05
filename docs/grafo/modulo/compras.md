@@ -176,3 +176,11 @@ compra» (mismo producto con `todas`) corrige solo mapeo y buzón, sin inventari
 El historial de costos se sincroniza después del commit, con Prisma, como en
 Gestionar Relaciones.
 
+«Compras para revisar» (`comprasParaRevisar`, arriba de Registradas): las
+compras de mercadería con alguna línea sin producto, o cuyo producto no es el
+de la relación del código o el de su línea del buzón (lo que muestra
+Revisión de Precios). Los gastos no entran: no llevan producto a propósito.
+Medido en la copia del 4/11: 480 líneas en 263 compras (217 con Revisión de
+Precios distinta, 80 con la relación distinta, 183 de mercadería registrada sin
+producto, que nunca entró al inventario ni a Reporte Clientes).
+

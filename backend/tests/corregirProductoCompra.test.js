@@ -185,4 +185,31 @@ describe('corregir el producto de una compra registrada — PostgreSQL local', {
     assert.equal(r2.relacionCorregida, true);
     assert.equal((await uno('SELECT producto_id FROM productos_factura_proveedor WHERE factura_id = $1', [f1])).producto_id, Y);
   });
+
+  test('una línea que quedó SIN producto: se le pone el suyo y entra al inventario', async () => {
+    const l1 = await lineaDeCompra(f1);
+    // Como queda una compra registrada sin producto: esa línea no entró al inventario.
+    await c.query('UPDATE compra_linea SET producto_id = NULL WHERE id = $1', [l1.id]);
+    await inv.reconciliarDocumentoEn(c, 'compra', l1.compra_id, null);
+    const antes = await existencia(Y);
+    const r = await correccion.corregirProducto(l1.id, { productoId: Y }, null);
+    assert.equal(r.cambiadas, 1);
+    assert.equal((await lineaDeCompra(f1)).producto_id, Y);
+    assert.equal(await existencia(Y), antes + 2, 'entraron sus 2 unidades');
+    await correccion.corregirProducto(l1.id, { productoId: Y }, null);
+    assert.equal(await existencia(Y), antes + 2, 'repetir no las cuenta dos veces');
+  });
+
+  test('«Compras para revisar» trae la compra que no cuadra, con el motivo, y nunca un gasto', async () => {
+    const delas = async () => (await correccion.comprasParaRevisar()).facturas.filter((f) => [f1, f2].includes(f.facturaId));
+    assert.deepEqual(await delas(), [], 'ya está todo cuadrado');
+    await c.query('UPDATE productos_factura_proveedor SET producto_id = $2 WHERE factura_id = $1', [f2, X]);
+    const [f] = await delas();
+    assert.equal(f.facturaId, f2);
+    assert.deepEqual(f.lineas.map((l) => [l.motivo, l.revision, l.descripcion]),
+      [['revision', (await uno('SELECT nombre FROM producto WHERE id = $1', [X])).nombre, 'NEU.18 325/350x18 VINI (del proveedor)']]);
+    const { rows: gastos } = await c.query(`SELECT COUNT(*)::int n FROM facturas_proveedores WHERE id = ANY($1::uuid[]) AND estado <> 'ENVIADA'`,
+      [(await correccion.comprasParaRevisar()).facturas.map((x) => x.facturaId)]);
+    assert.equal(gastos[0].n, 0);
+  });
 });

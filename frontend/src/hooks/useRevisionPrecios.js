@@ -109,6 +109,12 @@ export function useRevisionPrecios() {
       setPreciosAjustados({})
       setSugerenciasPrecio({})
 
+      // Ya registrada: la pantalla muestra la compra (CompraRegistrada), no precios.
+      if (factura.estado === 'ENVIADA') {
+        setVista('revision')
+        return
+      }
+
       // El precio y el costo de HOY de cada producto, del maestro propio y
       // por `producto.id` (cada línea trae su `productoPropioId`). Antes se le
       // preguntaba a Alegra en vivo, por el id de Alegra: mostraba el precio

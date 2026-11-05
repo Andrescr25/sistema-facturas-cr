@@ -6,6 +6,7 @@ import EncabezadoPagina from '../ui/EncabezadoPagina'
 import Vacio from '../ui/Vacio'
 import PasoActual from './PasoActual'
 import TarjetaFactura from './TarjetaFactura'
+import ComprasParaRevisar from './ComprasParaRevisar'
 
 const VACIOS = {
   PENDIENTE_RELACIONAR: {
@@ -80,6 +81,7 @@ export default function ListaFacturas({
 
       <PasoActual paso={tabActiva} />
       {/* Registradas: ábrala para ver cómo quedó cada línea y corregir un producto mal relacionado. */}
+      {tabActiva === 'ENVIADAS' && <ComprasParaRevisar onAbrir={onAbrirRevision} />}
       {tabActiva === 'ENVIADAS' && (
         <div className="relative mb-4">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutro-400" />

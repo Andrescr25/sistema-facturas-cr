@@ -59,6 +59,14 @@ module.exports = {
     }
   },
 
+  /** GET /compras/para-revisar — las compras con alguna línea que no cuadra. */
+  paraRevisar: async (_req, res) => {
+    try {
+      res.json({ success: true, data: await correccion.comprasParaRevisar() });
+    } catch (error) {
+      fallo(res, error, 'compras para revisar');
+    }
+  },
   /** GET /compras/por-factura/:facturaId — la compra registrada, como la mandó el proveedor y como quedó. */
   compraDeFactura: async (req, res) => {
     try {

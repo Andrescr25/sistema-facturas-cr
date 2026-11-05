@@ -104,6 +104,50 @@ async function compraDeFactura(facturaProveedorId) {
   };
 }
 
+// Cuántas líneas trae la lista «para revisar», como mucho.
+const TOPE_PARA_REVISAR = 500;
+
+/**
+ * Las compras de mercadería (del buzón) con alguna línea que no cuadra: sin
+ * producto nuestro, o con la relación del código o lo que muestra Revisión de
+ * Precios distinto de lo que quedó en la compra. Los gastos (recurrentes y
+ * operativos) no llevan producto a propósito y no entran. Una factura por
+ * elemento, la más reciente primero.
+ */
+async function comprasParaRevisar() {
+  const { rows } = await pool.query(
+    `SELECT f.id AS factura_id, f.proveedor_nombre, f.numero_consecutivo, f.fecha_emision::date::text AS fecha, f.total_factura,
+            cl.id, cl.descripcion, pc.nombre AS compra, pb.nombre AS revision, mp.nombre AS relacion,
+            (cl.producto_id IS NULL) AS sin_producto,
+            (m.id IS NOT NULL AND m.producto_id IS DISTINCT FROM cl.producto_id) AS relacion_distinta,
+            (b.id IS NOT NULL AND b.producto_id IS DISTINCT FROM cl.producto_id) AS revision_distinta
+       FROM compra c JOIN facturas_proveedores f ON f.id = c.factura_proveedor_id AND f.estado = 'ENVIADA'
+       JOIN compra_linea cl ON cl.compra_id = c.id
+       ${BUZON}
+       LEFT JOIN producto pc ON pc.id = cl.producto_id
+       LEFT JOIN producto pb ON pb.id = b.producto_id
+       LEFT JOIN producto mp ON mp.id = m.producto_id
+      WHERE c.estado = 'registrada'
+        AND NOT EXISTS (SELECT 1 FROM gasto_operativo g WHERE g.compra_id = c.id)
+        AND (cl.producto_id IS NULL
+             OR (m.id IS NOT NULL AND m.producto_id IS DISTINCT FROM cl.producto_id)
+             OR (b.id IS NOT NULL AND b.producto_id IS DISTINCT FROM cl.producto_id))
+      ORDER BY c.creado_en DESC, cl.numero_linea
+      LIMIT ${TOPE_PARA_REVISAR}`);
+  const porFactura = new Map();
+  for (const r of rows) {
+    if (!porFactura.has(r.factura_id)) {
+      porFactura.set(r.factura_id, { facturaId: r.factura_id, proveedor: r.proveedor_nombre, numero: r.numero_consecutivo,
+        fecha: r.fecha, total: num(r.total_factura), lineas: [] });
+    }
+    porFactura.get(r.factura_id).lineas.push({
+      id: r.id, descripcion: r.descripcion, compra: r.compra, revision: r.revision, relacion: r.relacion,
+      motivo: r.sin_producto ? 'sin-producto' : r.relacion_distinta ? 'relacion' : 'revision'
+    });
+  }
+  return { facturas: [...porFactura.values()], lineas: rows.length, tope: rows.length === TOPE_PARA_REVISAR };
+}
+
 /** La última línea registrada de un producto: la que le puso el costo al registrarse. */
 async function ultimaCompraDe(db, productoId) {
   const { rows: [l] } = await db.query(
@@ -238,4 +282,4 @@ async function corregirProducto(compraLineaId, datos = {}, usuarioId = null) {
   return respuesta;
 }
 
-module.exports = { compraDeFactura, corregirProducto };
+module.exports = { compraDeFactura, corregirProducto, comprasParaRevisar };

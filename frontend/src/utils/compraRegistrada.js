@@ -37,3 +37,10 @@ export function opcionTodas(linea) {
   const relacionIgual = Boolean(linea.relacion && linea.producto) && !distinto(linea.relacion, linea)
   return { mostrar: Boolean(linea.relacion) && (linea.otrasCompras > 0 || relacionIgual), marcada: relacionIgual }
 }
+
+/** Por qué una línea está en «Compras para revisar», en palabras. */
+export const MOTIVOS_PARA_REVISAR = {
+  'sin-producto': () => 'quedó sin producto',
+  relacion: (l) => `quedó como «${l.compra}», la relación dice «${l.relacion || 'sin producto'}»`,
+  revision: (l) => `quedó como «${l.compra}», Revisión de Precios dice «${l.revision || 'sin producto'}»`
+}
