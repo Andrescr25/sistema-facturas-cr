@@ -280,7 +280,10 @@ del inicio de jornada de cada empleado». Decidió: es extra **lo que pase de
 ## Para publicar
 
 La 079 va antes del código en producción (agrega dos columnas con valor por
-omisión: las fichas de hoy quedan como agente con 8 h). Las migraciones 072,
+omisión: las fichas de hoy quedan como agente con 8 h). **Aplicada el
+2026-11-09 a las 20:35 CR** por Claude, con respaldo previo, ensayo con
+ROLLBACK y verificación en conexión nueva: la única ficha (el agente) quedó
+como ventas con 8 h. Main 743adad se subió después. Las migraciones 072,
 073, 074 y 075 (ya aplicadas el 2026-10-30) van ANTES del código en producción, en
 ese orden (la 074 recrea `movimiento_caja`: comparar antes su definición en
 producción con la de la 027; antes de la 075, ver quién tenía
