@@ -29,8 +29,9 @@ function Gasolina({ dia }) {
  * ve el empleado en «Mis ingresos» y el administrador en «Empleados»: con
  * `onCorregir`, cada tramo se puede corregir o anular. Con `gasolina`, cada
  * día dice también su gasolina y si ya se pagó: las dos cosas van por día.
+ * Con `conExtra` (bodega), cada día dice sus horas extra.
  */
-export default function HorasDeLaQuincena({ dias, onCorregir, gasolina }) {
+export default function HorasDeLaQuincena({ dias, onCorregir, gasolina, conExtra = false }) {
   if (!dias.length) return <Vacio icono={CalendarDays} titulo="Sin jornadas en esta quincena" descripcion="Cada día que se marque la jornada aparece acá con sus horas." />
   return (
     <ol className="space-y-3">
@@ -38,7 +39,10 @@ export default function HorasDeLaQuincena({ dias, onCorregir, gasolina }) {
         <li key={d.fecha} className="card p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h3 className="font-bold text-neutro-900 first-letter:uppercase">{nombreDelDia(d.fecha)}</h3>
-            <span className="text-lg font-bold text-primario-700">{duracion(d.minutos)}</span>
+            <span className="flex items-center gap-2">
+              {conExtra && d.extra > 0 && <Insignia tono="activo">{duracion(d.extra)} extra</Insignia>}
+              <span className="text-lg font-bold text-primario-700">{duracion(d.minutos)}</span>
+            </span>
           </div>
           <Gasolina dia={gasolina?.dias.find(g => g.fecha === d.fecha)} />
           <ul className="mt-2 space-y-2">

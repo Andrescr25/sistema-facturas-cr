@@ -3,6 +3,7 @@ import { Loader2, AlertCircle, UserPlus, Shield, Trash2, Pencil, UserX, UserChec
 import { useUsuarios } from '../hooks/useUsuarios'
 import { useAuth } from '../contexts/AuthContext'
 import { MODULOS } from '../utils/modulos'
+import { TIPOS_PERSONAL } from '../utils/ingresosTexto'
 import ModalUsuario from '../components/usuarios/ModalUsuario'
 import ConfirmModal from '../components/ConfirmModal'
 
@@ -23,10 +24,10 @@ export default function Usuarios() {
   const [editando, setEditando] = useState(null)   // objeto usuario, o 'nuevo'
   const [porBorrar, setPorBorrar] = useState(null)
 
-  const guardar = async (datos) => {
+  const guardar = async (datos, planilla) => {
     const ok = editando === 'nuevo'
-      ? await crear(datos)
-      : await actualizar(editando.id, datos)
+      ? await crear(datos, planilla)
+      : await actualizar(editando.id, datos, planilla)
     if (ok) setEditando(null)
   }
 
@@ -107,6 +108,9 @@ export default function Usuarios() {
                     <p className="mt-0.5 text-[12px] text-neutro-500">{resumenModulos(u)}</p>
                     {u.rutas?.length > 0 && (
                       <p className="text-[12px] font-semibold text-primario-700">Rutas: {u.rutas.map(r => r.nombre).join(' · ')}</p>
+                    )}
+                    {u.planilla?.activo && (
+                      <p className="text-[12px] font-semibold text-exito-700">Planilla: {TIPOS_PERSONAL[u.planilla.tipo]}</p>
                     )}
                     <p className="text-[11px] text-neutro-400">
                       {u.ultimoIngreso

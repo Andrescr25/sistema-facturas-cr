@@ -1,7 +1,7 @@
 ---
 id: decision/planilla-del-agente
 tipo: decision
-titulo: La planilla del agente se calcula al leer — horas marcadas, comisión, incentivos y gasolina, por quincena
+titulo: La planilla se calcula al leer — el agente (horas, comisión, incentivos y gasolina) o bodega (horas y horas extra), por quincena
 estado: vigente
 archivos:
   - backend/migrations/independencia/072_empleado_y_jornada.sql
@@ -70,9 +70,17 @@ archivos:
   - frontend/src/hooks/useDiaDelEmpleado.js
   - frontend/src/pages/Empleados.jsx
   - backend/tests/seguimientoAgente.test.js
+  - backend/migrations/independencia/079_tipo_de_personal.sql
+  - backend/tests/tipoDePersonal.test.js
+  - frontend/src/utils/planillaUsuario.js
+  - frontend/src/components/empleados/CamposPlanilla.jsx
+  - frontend/src/components/ingresos/ResumenHoras.jsx
+  - frontend/src/components/usuarios/ModalUsuario.jsx
+  - frontend/src/hooks/useUsuarios.js
+  - frontend/src/pages/Usuarios.jsx
 aristas:
   relacionado: [decision/agente-de-ventas-monitoreado, modulo/permisos]
-medido: 2026-10-31
+medido: 2026-11-09
 ---
 
 ## Qué pidió el usuario (2026-10-30)
@@ -235,9 +243,45 @@ y el seguimiento de agente, pónmelo dentro de empleados».
 - La tarjeta de la lista: «Le debo» y «Lleva en la quincena» en grande; horas,
   comisión y clientes nuevos en una línea.
 
+## Tipo de personal: bodega (2026-11-09) — migración 079
+
+El usuario: «mañana contrataré a un bodeguero; con lo que ya tenemos del
+agente, reciclemos código para que desde los permisos de usuarios pueda poner
+el tipo de personal. El agente de ventas tiene gasolina, incentivo, comisión…
+en cambio bodega solo tiene horas y horas extras; es para llevar el control
+del inicio de jornada de cada empleado». Decidió: es extra **lo que pase de
+8 h en un día** (ajustable por empleado) y se paga **a tiempo y medio**.
+
+- **`empleado.tipo`** (`ventas` | `bodega`, por omisión `ventas`: las fichas
+  que ya había siguen igual) y **`empleado.horas_jornada`** (8). La jornada,
+  el GPS, las correcciones, los pagos y «le debo» son los mismos.
+- **La extra se cuenta por día** (`liquidacion.conExtra`): de los minutos de
+  cada día, lo que pasa de la jornada; dos tramos que juntos la pasan también
+  (5 h + 4 h = 1 h extra). Se paga a `RECARGO_EXTRA` (1,5) × pago por hora
+  (`montoPorExtra`), y `porHoras` queda con las horas normales.
+- **Bodega no tiene** comisión, clientes nuevos ni gasolina: en la quincena
+  salen en 0 y la pantalla no los muestra. Total = horas + extra. El agente
+  no cambia: su `extra` es siempre 0.
+- **Lo pagado no cambia**: el tipo y la jornada van en `desglose.tarifas` al
+  pagar; un pago viejo, sin tipo, se lee como agente con 8 h.
+- **Desde Usuarios y permisos** (sección «Planilla», `CamposPlanilla`, la
+  misma de la ficha en Empleados): «No lleva planilla», Agente de ventas o
+  Bodega, con sus tarifas. Elegir un tipo le marca «Mis ingresos» (ahí inicia
+  y termina la jornada). Guardar el usuario y después su ficha
+  (`planillaUsuario.cambioDePlanilla`): darla de alta, actualizarla, o
+  desactivarla con «No lleva planilla» (nunca se borra: queda su historia;
+  volver a elegir un tipo la reactiva). La lista dice «Planilla: Bodega».
+- **En pantalla**: `ResumenHoras` es la cuenta de la quincena para las dos
+  pantallas (bodega: «22 h × ₡2.000 · Extra 3 h × ₡3.000»); cada día dice
+  «1 h extra». Mis ingresos y la ficha de Empleados muestran a bodega las
+  tarjetas Horas / Jornadas, Horas extra y Pagos; sin «Su día» (no tiene
+  ruta). La tarjeta de la lista lleva el tipo y «22 h · 3 h extra, ₡9.000».
+
 ## Para publicar
 
-Las migraciones 072, 073, 074 y 075 van ANTES del código en producción, en
+La 079 va antes del código en producción (agrega dos columnas con valor por
+omisión: las fichas de hoy quedan como agente con 8 h). Las migraciones 072,
+073, 074 y 075 (ya aplicadas el 2026-10-30) van ANTES del código en producción, en
 ese orden (la 074 recrea `movimiento_caja`: comparar antes su definición en
 producción con la de la 027; antes de la 075, ver quién tenía
 `seguimiento-agentes`). Después, el usuario crea la ficha de empleado

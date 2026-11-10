@@ -27,7 +27,7 @@ function httpError(status, message) {
 
 const COLUMNAS = `id, usuario, nombre, activo, es_admin, ultimo_ingreso, creado_en, modulos_ocultos`;
 
-function mapUsuario(row, modulos = [], rutas = []) {
+function mapUsuario(row, modulos = [], rutas = [], ficha = null) {
   return {
     id: row.id,
     usuario: row.usuario,
@@ -42,7 +42,9 @@ function mapUsuario(row, modulos = [], rutas = []) {
     modulos: row.es_admin ? [...CLAVES] : modulos,
     modulosOcultos: modulosOcultosDe(row),
     // Las rutas que atiende en Preventa (rutasAsignadas.js): [{ id, nombre }].
-    rutas
+    rutas,
+    // Su ficha de empleado (tipo de personal y tarifas), o null si no lleva planilla.
+    planilla: ficha ? { tipo: ficha.tipo, activo: ficha.activo, ...ficha.tarifas } : null
   };
 }
 
@@ -68,7 +70,9 @@ async function listar() {
   }
 
   const rutas = await rutasPorUsuario();
-  return u.rows.map(row => mapUsuario(row, porUsuario.get(row.id) || [], rutas.get(row.id) || []));
+  // Al usarse: empleados.service carga módulos que no hacen falta para lo demás de usuarios.
+  const fichas = await require('../empleados/empleados.service').fichasPorUsuario();
+  return u.rows.map(row => mapUsuario(row, porUsuario.get(row.id) || [], rutas.get(row.id) || [], fichas.get(row.id)));
 }
 
 async function obtener(usuarioId) {

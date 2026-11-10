@@ -106,7 +106,7 @@ async function pagarQuincena(usuarioId, datos = {}, registradoPor, leer) {
     const gasolina = q.gasolina.dias.filter(d => !d.pagada).map(d => ({ fecha: d.fecha, monto: d.monto }));
     const concepto = q.pagos.pagos.some(p => p.concepto === 'quincena') ? 'ajuste' : 'quincena';
     const desglose = {
-      tarifas: q.tarifas, minutos: q.minutos, porHoras: q.porHoras,
+      tarifas: q.tarifas, minutos: q.minutos, porHoras: q.porHoras, extra: q.extra,
       clientesNuevos: q.clientesNuevos.cuentan.map(c => ({ id: c.id, nombre: c.nombre, primeraCompra: c.primeraCompra })),
       montoClientes: q.clientesNuevos.monto,
       gasolina: { dias: gasolina, monto: dinero(gasolina.reduce((s, d) => s + d.monto, 0)) },

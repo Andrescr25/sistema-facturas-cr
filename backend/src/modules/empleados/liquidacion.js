@@ -13,11 +13,19 @@
  *
  * Todo se calcula al leer, de lo que quedó guardado: ninguna cuenta se guarda
  * en una columna, porque así es como queda desactualizada sin que nadie lo note.
+ *
+ * TIPO DE PERSONAL (2026-11-09, migración 079). El agente de ventas es lo de
+ * arriba. Bodega «solo tiene horas y horas extras»: lo que pase de su jornada
+ * en un día (8 h por omisión) es extra y se paga a tiempo y medio (decisión del
+ * usuario, como el Código de Trabajo).
  */
 const { sumarDias } = require('../../utils/fechaCR');
 
 // Una jornada abierta más tiempo que esto se olvidó de terminar: «sin salida».
 const HORAS_MAXIMAS = 16;
+const TIPOS = ['ventas', 'bodega'];
+// La hora extra vale tiempo y medio.
+const RECARGO_EXTRA = 1.5;
 const CLAVE = /^(\d{4})-(\d{2})-Q([12])$/;
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -93,10 +101,23 @@ function mesDe(q) {
  */
 const comisionDe = (netas, porcentaje) => dinero(Math.max(0, Number(netas) || 0) * (Number(porcentaje) || 0) / 100);
 
+/**
+ * Las horas extra de cada día: lo que pasa de su jornada (`horasJornada`). Le
+ * suma a cada día `normales` y `extra` (en minutos). Se cuenta por día, no por
+ * tramo: dos tramos que juntos pasan la jornada también hacen extra.
+ */
+function conExtra(dias, horasJornada) {
+  const tope = Math.round((Number(horasJornada) || 8) * 60);
+  return dias.map(d => ({ ...d, normales: Math.min(d.minutos, tope), extra: Math.max(0, d.minutos - tope) }));
+}
+
+/** Lo ganado por horas extra: minutos × tarifa por hora × tiempo y medio, a céntimos. */
+const montoPorExtra = (minutos, pagoHora) => dinero((Number(minutos) || 0) * (Number(pagoHora) || 0) * RECARGO_EXTRA / 60);
+
 /** Los días con gasolina: los que tienen al menos una jornada que no se anuló. */
 const diasConGasolina = (dias) => dias.filter(d => d.tramos.some(t => t.estado !== 'anulada')).map(d => d.fecha);
 
 module.exports = {
-  HORAS_MAXIMAS, dinero, quincenaDe, quincenaPorClave, quincenaAnterior, quincenaSiguiente, minutosDe, horasPorDia, montoPorHoras, montoPorCada,
+  HORAS_MAXIMAS, TIPOS, RECARGO_EXTRA, conExtra, montoPorExtra, dinero, quincenaDe, quincenaPorClave, quincenaAnterior, quincenaSiguiente, minutosDe, horasPorDia, montoPorHoras, montoPorCada,
   mesDe, comisionDe, diasConGasolina
 };

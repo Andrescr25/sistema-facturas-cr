@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import { cambioDePlanilla } from '../utils/planillaUsuario'
 
 /**
  * Los usuarios del sistema y sus permisos.
@@ -46,14 +47,29 @@ export function useUsuarios() {
     }
   }, [cargar])
 
-  const crear = useCallback((datos) =>
-    accion('nuevo', () => api.post('/usuarios', datos)), [accion])
+  /**
+   * Después de guardar el usuario, su ficha de Empleados: alta, cambio o
+   * desactivarla (la historia de horas y pagos queda). `anterior`: la que tenía.
+   */
+  const guardarPlanilla = async (usuarioId, planilla, anterior) => {
+    const cambio = planilla ? cambioDePlanilla(planilla, anterior) : null
+    if (!cambio) return
+    if (cambio.accion === 'crear') await api.post('/empleados', { usuarioId, ...cambio.datos })
+    else await api.patch(`/empleados/${usuarioId}`, cambio.datos)
+  }
 
-  const actualizar = useCallback((id, cambios) =>
+  const crear = useCallback((datos, planilla) =>
+    accion('nuevo', async () => {
+      const { data } = await api.post('/usuarios', datos)
+      await guardarPlanilla(data.data.id, planilla, null)
+    }), [accion])
+
+  const actualizar = useCallback((id, cambios, planilla) =>
     accion(id, async () => {
       const { data } = await api.put(`/usuarios/${id}`, cambios)
       actualizarUsuario(data.data)
-    }), [accion, actualizarUsuario])
+      await guardarPlanilla(id, planilla, usuarios.find(u => u.id === id)?.planilla)
+    }), [accion, actualizarUsuario, usuarios])
 
   const restablecerPassword = useCallback((id, password) =>
     accion(id, () => api.post(`/usuarios/${id}/password`, { password })), [accion])

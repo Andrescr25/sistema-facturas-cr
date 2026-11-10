@@ -30,3 +30,9 @@ export const ESTADOS_JORNADA = {
 
 /** "jueves, 29 oct" para encabezar un día. */
 export const nombreDelDia = (fecha) => fechaEnPalabras(fecha, { weekday: 'long', day: 'numeric', month: 'short' })
+
+/** El tipo de personal (2026-11-09, migración 079) como se lee en pantalla. */
+export const TIPOS_PERSONAL = {
+  ventas: 'Agente de ventas',
+  bodega: 'Bodega'
+}

@@ -1,18 +1,26 @@
 import { ChevronRight, Timer, AlertTriangle } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import { colones } from '../../utils/colones'
-import { duracion } from '../../utils/ingresosTexto'
+import { duracion, TIPOS_PERSONAL } from '../../utils/ingresosTexto'
 import { horaEnCostaRica } from '../../utils/fechaCR'
 
-/** Un empleado en la lista: lo que se le debe y lo que lleva en la quincena, en grande. Toda la tarjeta abre su ficha. */
+/**
+ * Un empleado en la lista: lo que se le debe y lo que lleva en la quincena, en
+ * grande. Toda la tarjeta abre su ficha. Bodega: horas y horas extra; el agente:
+ * horas, comisión y clientes nuevos.
+ */
 export default function TarjetaEmpleado({ empleado, onAbrir }) {
   const { jornada, quincena } = empleado
+  const resumen = empleado.tipo === 'bodega'
+    ? `${duracion(quincena.minutos - quincena.extra.minutos)} · ${quincena.extra.minutos ? `${duracion(quincena.extra.minutos)} extra, ${colones(quincena.extra.monto)}` : 'sin horas extra'}`
+    : `${duracion(quincena.minutos)} · comisión de ${quincena.comision.nombre.split(' ')[0]} ${colones(quincena.comision.monto)} · ${quincena.clientesNuevos.cuentan} ${quincena.clientesNuevos.cuentan === 1 ? 'cliente nuevo' : 'clientes nuevos'}`
   return (
     <button type="button" onClick={onAbrir}
       className="card flex w-full items-center gap-4 p-5 text-left transition-colors hover:border-primario-300 hover:bg-primario-50/40">
       <div className="min-w-0 flex-1 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-lg font-bold text-neutro-900">{empleado.nombre}</h2>
+          <Insignia tono="neutro">{TIPOS_PERSONAL[empleado.tipo]}</Insignia>
           {!empleado.activo && <Insignia tono="neutro">Inactivo</Insignia>}
           {jornada.abierta && <Insignia tono="activo" icono={Timer}>Trabajando desde {horaEnCostaRica(jornada.abierta.inicio)}</Insignia>}
           {jornada.sinSalida.length > 0 && <Insignia tono="alerta" icono={AlertTriangle}>{jornada.sinSalida.length} sin salida</Insignia>}
@@ -27,9 +35,7 @@ export default function TarjetaEmpleado({ empleado, onAbrir }) {
             <p className="text-2xl font-bold text-exito-700">{colones(quincena.total)}</p>
           </div>
         </div>
-        <p className="text-sm text-neutro-500">
-          {duracion(quincena.minutos)} · comisión de {quincena.comision.nombre.split(' ')[0]} {colones(quincena.comision.monto)} · {quincena.clientesNuevos.cuentan} {quincena.clientesNuevos.cuentan === 1 ? 'cliente nuevo' : 'clientes nuevos'}
-        </p>
+        <p className="text-sm text-neutro-500">{resumen}</p>
       </div>
       <ChevronRight className="shrink-0 text-neutro-400" />
     </button>

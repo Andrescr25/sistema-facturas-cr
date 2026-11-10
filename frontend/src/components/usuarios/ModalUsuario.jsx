@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { X, Loader2, AlertCircle, Shield, KeyRound } from 'lucide-react'
 import TableroPermisos from './TableroPermisos'
 import RutasDelUsuario from './RutasDelUsuario'
+import CamposPlanilla from '../empleados/CamposPlanilla'
 import { useModal } from '../../hooks/useModal'
+import { planillaInicial, faltaEnPlanilla } from '../../utils/planillaUsuario'
 
 /**
  * Alta y edición de un usuario, con sus permisos en la misma pantalla.
@@ -10,6 +12,9 @@ import { useModal } from '../../hooks/useModal'
  * La contraseña solo se pide al crear. Para cambiársela a alguien que la
  * olvidó hay un botón aparte, que no exige la anterior — quien la olvidó no
  * la puede escribir.
+ *
+ * PLANILLA (2026-11-09): el tipo de personal —agente de ventas o bodega— y sus
+ * tarifas. Elegir uno le da «Mis ingresos», donde marca su jornada.
  */
 export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, onRestablecer, esYoMismo }) {
   useModal(onCerrar)
@@ -22,6 +27,12 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
   const [modulos, setModulos] = useState(usuario?.modulos || [])
   const [modulosOcultos, setModulosOcultos] = useState(usuario?.modulosOcultos || [])
   const [rutas, setRutas] = useState((usuario?.rutas || []).map(r => r.id))
+  const [planilla, setPlanilla] = useState(() => planillaInicial(usuario))
+  const cambiarPlanilla = (nueva) => {
+    // Sin «Mis ingresos» no puede marcar la jornada.
+    if (nueva.tipo !== 'ninguno' && !esAdmin && !modulos.includes('ingresos')) setModulos(m => [...m, 'ingresos'])
+    setPlanilla(nueva)
+  }
   // Las rutas se eligen si ve Preventa pero no todas las rutas (el agente de ventas).
   const eligeRutas = !esAdmin && modulos.includes('preventa') && !modulos.includes('rutas-todas')
   const [error, setError] = useState('')
@@ -37,13 +48,16 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
     if (!esAdmin && modulos.length === 0) {
       return setError('Elija al menos un módulo, o hágalo administrador.')
     }
+    const falta = faltaEnPlanilla(planilla)
+    if (falta) return setError(falta)
     setError('')
     const rutasQueVan = eligeRutas ? rutas : []
     const ocultosQueVan = esAdmin ? modulosOcultos : []
     onGuardar(
       editando
         ? { nombre: nombre.trim(), esAdmin, modulos, modulosOcultos: ocultosQueVan, rutas: rutasQueVan }
-        : { usuario: nombreUsuario.trim(), nombre: nombre.trim(), password, esAdmin, modulos, modulosOcultos: ocultosQueVan, rutas: rutasQueVan }
+        : { usuario: nombreUsuario.trim(), nombre: nombre.trim(), password, esAdmin, modulos, modulosOcultos: ocultosQueVan, rutas: rutasQueVan },
+      planilla
     )
   }
 
@@ -140,6 +154,11 @@ export default function ModalUsuario({ usuario, guardando, onGuardar, onCerrar, 
           </div>
 
           {eligeRutas && <RutasDelUsuario seleccionadas={rutas} onCambiar={setRutas} deshabilitado={Boolean(guardando)} />}
+
+          <div className="rounded-2xl border border-neutro-200 p-3">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-neutro-400">Planilla</p>
+            <CamposPlanilla valores={planilla} onCambiar={cambiarPlanilla} conNinguno deshabilitado={Boolean(guardando)} />
+          </div>
 
           {editando && (
             <div className="rounded-2xl border border-neutro-200 p-3">

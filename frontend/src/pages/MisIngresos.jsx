@@ -1,11 +1,12 @@
 import { useSearchParams } from 'react-router-dom'
-import { PiggyBank, Timer, RefreshCw, Fuel, UserPlus, TrendingUp, Receipt, ArrowLeft } from 'lucide-react'
+import { PiggyBank, Timer, RefreshCw, Fuel, UserPlus, TrendingUp, Receipt, ArrowLeft, Clock } from 'lucide-react'
 import EncabezadoPagina from '../components/ui/EncabezadoPagina'
 import Boton from '../components/ui/Boton'
 import TarjetaJornada from '../components/ingresos/TarjetaJornada'
 import TotalQuincena from '../components/ingresos/TotalQuincena'
 import TarjetaIngreso from '../components/ingresos/TarjetaIngreso'
 import HorasDeLaQuincena from '../components/ingresos/HorasDeLaQuincena'
+import ResumenHoras from '../components/ingresos/ResumenHoras'
 import ClientesNuevos from '../components/ingresos/ClientesNuevos'
 import ComisionDelMes from '../components/ingresos/ComisionDelMes'
 import DeudaEmpleado from '../components/ingresos/DeudaEmpleado'
@@ -28,6 +29,8 @@ const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`
  * detalle (el usuario eligió «tarjetas → detalle», como Cuentas por Cobrar:
  * todo en una sola hoja quedaba disperso). El detalle abierto va en la
  * dirección (`?ver=`) para que el «atrás» del teléfono vuelva al inicio.
+ *
+ * BODEGA (2026-11-09): solo horas y horas extra; sin gasolina, clientes ni comisión.
  */
 export default function MisIngresos() {
   const ingresos = useMisIngresos()
@@ -37,6 +40,7 @@ export default function MisIngresos() {
   const abrir = (seccion) => { setParametros(seccion ? { ver: seccion } : {}); window.scrollTo(0, 0) }
   const d = ingresos.datos
   const q = d?.quincena
+  const bodega = q?.tipo === 'bodega'
 
   if (q && ver) {
     return (
@@ -46,12 +50,10 @@ export default function MisIngresos() {
           <span className="text-sm font-semibold text-neutro-500">{q.periodo.nombre}</span>
         </div>
         {ver === 'dias' && (
-          <section aria-label="Horas y gasolina" className="space-y-3">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-neutro-900"><Timer size={18} className="text-primario-500" />Horas y gasolina</h2>
-            <p className="text-sm text-neutro-600">
-              {duracion(q.minutos)} × {colones(q.tarifas.pagoHora)} = <b>{colones(q.porHoras)}</b> · Gasolina {plural(q.gasolina.dias.length, 'día', 'días')} = <b>{colones(q.gasolina.monto)}</b>
-            </p>
-            <HorasDeLaQuincena dias={q.dias} gasolina={q.gasolina} />
+          <section aria-label={bodega ? 'Horas y horas extra' : 'Horas y gasolina'} className="space-y-3">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-neutro-900"><Timer size={18} className="text-primario-500" />{bodega ? 'Horas y horas extra' : 'Horas y gasolina'}</h2>
+            <ResumenHoras quincena={q} />
+            <HorasDeLaQuincena dias={q.dias} gasolina={bodega ? null : q.gasolina} conExtra={bodega} />
           </section>
         )}
         {ver === 'clientes' && <ClientesNuevos clientes={q.clientesNuevos} incentivo={q.tarifas.incentivoClienteNuevo} />}
@@ -81,14 +83,21 @@ export default function MisIngresos() {
           <TotalQuincena quincena={q} deuda={d.deuda} onElegir={ingresos.setPeriodo}
             nota={jornada.estado?.abierta ? 'La jornada abierta suma al terminarla.' : ''} />
           <div className="grid grid-cols-2 gap-3">
-            <TarjetaIngreso icono={Timer} titulo="Horas" valor={colones(q.porHoras)} pie={duracion(q.minutos)} onClick={() => abrir('dias')} />
-            <TarjetaIngreso icono={Fuel} titulo="Gasolina" valor={colones(q.gasolina.monto)} onClick={() => abrir('dias')}
-              pie={pendientesGasolina ? `${plural(pendientesGasolina, 'día pendiente', 'días pendientes')} de pago` : plural(q.gasolina.dias.length, 'día', 'días')} />
-            <TarjetaIngreso icono={UserPlus} titulo="Clientes nuevos" valor={colones(q.clientesNuevos.monto)} onClick={() => abrir('clientes')}
-              pie={`${q.clientesNuevos.cuentan.length} con compra · ${q.clientesNuevos.esperando.length} por comprar`} />
-            <TarjetaIngreso icono={TrendingUp} titulo="Comisión" valor={colones(q.comision.monto)} onClick={() => abrir('comision')}
-              apagado={!q.comision.enEstaQuincena}
-              pie={`${q.comision.nombre.split(' ')[0]} · ${q.comision.enEstaQuincena ? `${q.comision.porcentaje} % de ${colones(Math.max(0, q.comision.netas))}` : 'se paga con la 2.ª quincena'}`} />
+            <TarjetaIngreso icono={Timer} titulo="Horas" valor={colones(q.porHoras)} pie={duracion(q.minutos - q.extra.minutos)} onClick={() => abrir('dias')} />
+            {bodega ? (
+              <TarjetaIngreso icono={Clock} titulo="Horas extra" valor={colones(q.extra.monto)} onClick={() => abrir('dias')}
+                pie={q.extra.minutos ? `${duracion(q.extra.minutos)} a tiempo y medio` : `Lo que pase de ${q.extra.horasJornada} h al día`} />
+            ) : (
+              <>
+                <TarjetaIngreso icono={Fuel} titulo="Gasolina" valor={colones(q.gasolina.monto)} onClick={() => abrir('dias')}
+                  pie={pendientesGasolina ? `${plural(pendientesGasolina, 'día pendiente', 'días pendientes')} de pago` : plural(q.gasolina.dias.length, 'día', 'días')} />
+                <TarjetaIngreso icono={UserPlus} titulo="Clientes nuevos" valor={colones(q.clientesNuevos.monto)} onClick={() => abrir('clientes')}
+                  pie={`${q.clientesNuevos.cuentan.length} con compra · ${q.clientesNuevos.esperando.length} por comprar`} />
+                <TarjetaIngreso icono={TrendingUp} titulo="Comisión" valor={colones(q.comision.monto)} onClick={() => abrir('comision')}
+                  apagado={!q.comision.enEstaQuincena}
+                  pie={`${q.comision.nombre.split(' ')[0]} · ${q.comision.enEstaQuincena ? `${q.comision.porcentaje} % de ${colones(Math.max(0, q.comision.netas))}` : 'se paga con la 2.ª quincena'}`} />
+              </>
+            )}
             {/* Lo que se le debe ya está en el total («Por cobrar»): acá, el último pago. */}
             <TarjetaIngreso className="col-span-2" icono={Receipt} titulo="Mis pagos" onClick={() => abrir('pagos')}
               valor={ultimoPago ? colones(ultimoPago.monto) : 'Sin pagos todavía'}

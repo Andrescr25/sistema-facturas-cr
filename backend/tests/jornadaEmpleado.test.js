@@ -93,7 +93,8 @@ describe('ficha de empleado y jornadas — contra PostgreSQL local', () => {
   test('el alta pone las tarifas que decidió el usuario por omisión, y queda en la bitácora', async () => {
     assert.ok((await empleados.usuariosSinFicha()).some(u => u.id === agente));
     const f = await empleados.crear({ usuarioId: agente, pagoHora: 1800 }, admin);
-    assert.deepEqual(f.tarifas, { pagoHora: 1800, comisionPorcentaje: 2, incentivoClienteNuevo: 2000, gasolinaDiaria: 5000 });
+    // Sin tipo, es agente de ventas con jornada de 8 h (migración 079).
+    assert.deepEqual(f.tarifas, { tipo: 'ventas', pagoHora: 1800, horasJornada: 8, comisionPorcentaje: 2, incentivoClienteNuevo: 2000, gasolinaDiaria: 5000 });
     assert.equal(f.desde, hoy);
     await empleados.crear({ usuarioId: otro, pagoHora: 1500, gasolinaDiaria: 0 }, admin);
     assert.ok(!(await empleados.usuariosSinFicha()).some(u => u.id === agente));
@@ -298,7 +299,10 @@ describe('la pantalla', () => {
   });
 
   test('las horas por día son las mismas para el empleado y para Empleados, que además corrige', () => {
-    assert.match(leer('pages', 'MisIngresos.jsx'), /<HorasDeLaQuincena dias=\{q\.dias\} gasolina=\{q\.gasolina\} \/>/);
-    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /<HorasDeLaQuincena dias=\{q\.dias\} gasolina=\{q\.gasolina\} onCorregir=\{setTramo\} \/>/);
+    // Bodega (2026-11-09): sin gasolina y con horas extra por día; la cuenta, en ResumenHoras.
+    const mismas = /<ResumenHoras quincena=\{q\} \/>\s*<HorasDeLaQuincena dias=\{q\.dias\} gasolina=\{bodega \? null : q\.gasolina\} conExtra=\{bodega\}/;
+    assert.match(leer('pages', 'MisIngresos.jsx'), mismas);
+    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), mismas);
+    assert.match(leer('components', 'empleados', 'DetalleEmpleado.jsx'), /conExtra=\{bodega\} onCorregir=\{setTramo\} \/>/);
   });
 });

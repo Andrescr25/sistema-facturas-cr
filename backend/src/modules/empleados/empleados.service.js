@@ -8,9 +8,13 @@
  * propio id, nunca uno que venga de la pantalla).
  *
  * Una sola cuenta para los dos lados: `quincenaDe`.
+ *
+ * TIPO DE PERSONAL (2026-11-09, migración 079): 'ventas' (horas, comisión,
+ * cliente nuevo y gasolina) o 'bodega' (horas y horas extra). Se elige desde
+ * Usuarios y permisos o desde la ficha.
  */
 const { query } = require('../../../config/database');
-const { httpError, idValido, numero, booleano, validar } = require('../../utils/validacion');
+const { httpError, idValido, numero, booleano, opcion, validar } = require('../../utils/validacion');
 const { registrarCambio } = require('../../utils/bitacora');
 const { hoyEnCostaRica } = require('../../utils/fechaCR');
 const liquidacion = require('./liquidacion');
@@ -23,6 +27,8 @@ const seguimiento = require('../seguimiento/seguimiento.service');
 // Las tarifas, con sus nombres de la pantalla. Lo que no venga queda como estaba
 // (al crear, lo pone la base: 2 %, ₡2.000 y ₡5.000, lo que decidió el usuario).
 const CAMPOS = {
+  tipo: { desde: 'tipo', etiqueta: 'Tipo de personal', validar: opcion(liquidacion.TIPOS) },
+  horas_jornada: { desde: 'horasJornada', etiqueta: 'Horas de la jornada', validar: numero({ min: 1, max: 24 }) },
   pago_hora: { desde: 'pagoHora', etiqueta: 'Pago por hora', validar: numero({ min: 0, max: 100000 }), requerido: true },
   comision_porcentaje: { desde: 'comisionPorcentaje', etiqueta: 'Comisión', validar: numero({ min: 0, max: 100 }) },
   incentivo_cliente_nuevo: { desde: 'incentivoClienteNuevo', etiqueta: 'Incentivo por cliente nuevo', validar: numero({ min: 0, max: 1000000 }) },
@@ -41,10 +47,13 @@ function tarifasDe(datos, { crear }) {
 const FICHA_SQL = `SELECT e.*, to_char(e.desde, 'YYYY-MM-DD') AS desde_dia, u.nombre, u.usuario, u.activo AS usuario_activo
   FROM empleado e JOIN usuario u ON u.id = e.usuario_id`;
 
+// `tipo` va también dentro de las tarifas: el pago de una quincena las congela,
+// y así se sigue contando como se pagó aunque después cambie el tipo.
 const comoFicha = (e) => ({
   usuarioId: e.usuario_id, nombre: e.nombre, usuario: e.usuario, activo: e.activo, usuarioActivo: e.usuario_activo, desde: e.desde_dia,
+  tipo: e.tipo,
   tarifas: {
-    pagoHora: Number(e.pago_hora), comisionPorcentaje: Number(e.comision_porcentaje),
+    tipo: e.tipo, pagoHora: Number(e.pago_hora), horasJornada: Number(e.horas_jornada), comisionPorcentaje: Number(e.comision_porcentaje),
     incentivoClienteNuevo: Number(e.incentivo_cliente_nuevo), gasolinaDiaria: Number(e.gasolina_diaria)
   }
 });
@@ -57,9 +66,15 @@ async function fichaDe(usuarioId, sinFicha = 'Ese usuario no es empleado.') {
 
 // La foto para la bitácora: las columnas que se pueden cambiar.
 const foto = (f) => ({
-  pago_hora: f.tarifas.pagoHora, comision_porcentaje: f.tarifas.comisionPorcentaje,
+  tipo: f.tipo, horas_jornada: f.tarifas.horasJornada, pago_hora: f.tarifas.pagoHora, comision_porcentaje: f.tarifas.comisionPorcentaje,
   incentivo_cliente_nuevo: f.tarifas.incentivoClienteNuevo, gasolina_diaria: f.tarifas.gasolinaDiaria, activo: f.activo
 });
+
+/** La ficha de cada usuario que tiene una (Usuarios y permisos muestra su tipo de personal). */
+async function fichasPorUsuario() {
+  const { rows } = await query(FICHA_SQL);
+  return new Map(rows.map(e => [e.usuario_id, comoFicha(e)]));
+}
 
 /** Los usuarios activos que todavía no tienen ficha de empleado. */
 async function usuariosSinFicha() {
@@ -121,17 +136,22 @@ async function quincenaDe(ficha, clave) {
   if (q.desde > actual.desde) throw httpError(400, 'Esa quincena todavía no empieza.');
   const anterior = liquidacion.quincenaAnterior(q);
   const pagado = await pagos.pagadoEnQuincena(ficha.usuarioId, q);
-  const t = pagado.pagos.find(p => p.concepto === 'quincena')?.desglose?.tarifas || ficha.tarifas;
-  const dias = liquidacion.horasPorDia(await jornadas.jornadasEntre(ficha.usuarioId, q.desde, q.hasta));
+  // Las de antes de la 079 no traen tipo: eran todas de agentes.
+  const congeladas = pagado.pagos.find(p => p.concepto === 'quincena')?.desglose?.tarifas;
+  const t = congeladas ? { tipo: 'ventas', horasJornada: 8, ...congeladas } : ficha.tarifas;
+  const bodega = t.tipo === 'bodega';
+  const dias = liquidacion.conExtra(liquidacion.horasPorDia(await jornadas.jornadasEntre(ficha.usuarioId, q.desde, q.hasta)), t.horasJornada);
   const minutos = dias.reduce((s, d) => s + d.minutos, 0);
-  const clientes = await clientesNuevos(ficha.usuarioId, q);
+  // Bodega: lo que pasa de la jornada de cada día es extra, a tiempo y medio. Ventas no tiene extra.
+  const extra = bodega ? dias.reduce((s, d) => s + d.extra, 0) : 0;
+  const clientes = bodega ? { cuentan: [], esperando: [] } : await clientesNuevos(ficha.usuarioId, q);
   const mes = liquidacion.mesDe(q);
-  const ventas = await ventasNetas(ficha.usuarioId, mes, ficha.desde);
+  const ventas = bodega ? { ventas: 0, facturas: 0, devoluciones: 0, notas: 0, netas: 0 } : await ventasNetas(ficha.usuarioId, mes, ficha.desde);
   const comision = {
-    ...mes, ...ventas, porcentaje: t.comisionPorcentaje, monto: liquidacion.comisionDe(ventas.netas, t.comisionPorcentaje),
-    enEstaQuincena: q.numero === 2, enCurso: hoyEnCostaRica() <= mes.hasta
+    ...mes, ...ventas, porcentaje: t.comisionPorcentaje, monto: bodega ? 0 : liquidacion.comisionDe(ventas.netas, t.comisionPorcentaje),
+    enEstaQuincena: !bodega && q.numero === 2, enCurso: hoyEnCostaRica() <= mes.hasta
   };
-  const conJornada = liquidacion.diasConGasolina(dias);
+  const conJornada = bodega ? [] : liquidacion.diasConGasolina(dias);
   // Un día pagado cuyo tramo después se anuló sigue a la vista: se pagó de más.
   const diasGasolina = [...new Set([...conJornada, ...pagado.gasolina.keys()])].sort().map(fecha => {
     const p = pagado.gasolina.get(fecha);
@@ -140,12 +160,13 @@ async function quincenaDe(ficha, clave) {
       : { fecha, monto: t.gasolinaDiaria, pagada: false, sinJornada: false };
   });
   const montos = {
-    porHoras: liquidacion.montoPorHoras(minutos, t.pagoHora),
+    porHoras: liquidacion.montoPorHoras(minutos - extra, t.pagoHora),
+    extra: liquidacion.montoPorExtra(extra, t.pagoHora),
     clientesNuevos: liquidacion.montoPorCada(clientes.cuentan.length, t.incentivoClienteNuevo),
     gasolina: liquidacion.dinero(diasGasolina.filter(d => !d.sinJornada).reduce((s, d) => s + d.monto, 0)),
     comision: comision.enEstaQuincena ? comision.monto : 0
   };
-  const total = liquidacion.dinero(montos.porHoras + montos.clientesNuevos + montos.gasolina + montos.comision);
+  const total = liquidacion.dinero(montos.porHoras + montos.extra + montos.clientesNuevos + montos.gasolina + montos.comision);
   // Lo pagado: la quincena y sus ajustes, más los días de gasolina pagados aparte.
   const gasolinaAparte = [...pagado.gasolina.values()].filter(d => d.concepto === 'gasolina').reduce((s, d) => s + d.monto, 0);
   const yaPagado = liquidacion.dinero(pagado.pagos.reduce((s, p) => s + p.monto, 0) + gasolinaAparte);
@@ -155,7 +176,8 @@ async function quincenaDe(ficha, clave) {
       anterior: anterior.hasta >= ficha.desde ? anterior.clave : null,
       siguiente: q.clave === actual.clave ? null : liquidacion.quincenaSiguiente(q).clave
     },
-    tarifas: t, dias, minutos, porHoras: montos.porHoras,
+    tipo: t.tipo, tarifas: t, dias, minutos, porHoras: montos.porHoras,
+    extra: { minutos: extra, monto: montos.extra, recargo: liquidacion.RECARGO_EXTRA, horasJornada: t.horasJornada },
     clientesNuevos: { ...clientes, monto: montos.clientesNuevos },
     gasolina: { dias: diasGasolina, porDia: t.gasolinaDiaria, monto: montos.gasolina },
     comision, total,
@@ -202,9 +224,9 @@ async function listar() {
   for (const fila of rows) {
     const ficha = comoFicha(fila);
     const quincena = await quincenaDe(ficha);
-    const { periodo, minutos, porHoras, clientesNuevos: nuevos, gasolina, comision, total } = quincena;
+    const { periodo, minutos, porHoras, extra, clientesNuevos: nuevos, gasolina, comision, total } = quincena;
     lista.push({ ...ficha, jornada: await jornadas.estadoDe(ficha.usuarioId), leDebo: (await deudaDe(ficha)).total, quincena: {
-      periodo, minutos, porHoras, total, pagado: quincena.pagos.pagado,
+      periodo, minutos, porHoras, extra, total, pagado: quincena.pagos.pagado,
       clientesNuevos: { cuentan: nuevos.cuentan.length, esperando: nuevos.esperando.length, monto: nuevos.monto },
       gasolina: { dias: gasolina.dias.length, pendientes: gasolina.dias.filter(d => !d.pagada).length, monto: gasolina.monto },
       comision: { nombre: comision.nombre, netas: comision.netas, monto: comision.monto, enEstaQuincena: comision.enEstaQuincena }
@@ -228,4 +250,4 @@ const pagarQuincena = (usuarioId, datos, registradoPor) => pagos.pagarQuincena(u
 const pagarGasolina = (usuarioId, datos, registradoPor) =>
   pagos.pagarGasolina(usuarioId, datos, registradoPor, leerParaPagar, (dia) => liquidacion.quincenaDe(dia).clave);
 
-module.exports = { usuariosSinFicha, crear, actualizar, fichaDe, ingresosDe, listar, diaDe, pagarQuincena, pagarGasolina, anularPago: pagos.anular };
+module.exports = { fichasPorUsuario, usuariosSinFicha, crear, actualizar, fichaDe, ingresosDe, listar, diaDe, pagarQuincena, pagarGasolina, anularPago: pagos.anular };

@@ -1581,3 +1581,13 @@ facturas de compra ya registradas y poder editar algo que esté mal, y ver el
 nombre del producto del proveedor para ver que todo esté bien».
 [Cómo funciona](grafo/modulo/compras.md).
 
+## 2026-11-09 — Tipo de personal: bodega
+
+El usuario: «mañana contrataré a un bodeguero, entonces con lo que ya tenemos
+del agente, reciclemos código para que desde los permisos de usuarios ahí
+pueda poner el tipo de personal. Porque el agente de ventas tiene gasolina,
+incentivo, comisión, etc.; en cambio bodega solo tiene horas y horas extras…
+es para yo llevar el control del inicio de jornada de cada empleado».
+Decidió: horas extra **«pasando 8 h al día»**, ajustable por empleado, y
+pagadas a **«tiempo y medio»**.
+[Cómo funciona](grafo/decision/planilla-del-agente.md).

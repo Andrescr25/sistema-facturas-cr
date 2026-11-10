@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { ArrowLeft, Settings2, Plus, Timer, AlertTriangle, Banknote, Footprints, UserPlus, TrendingUp, Receipt } from 'lucide-react'
+import { ArrowLeft, Settings2, Plus, Timer, AlertTriangle, Banknote, Footprints, UserPlus, TrendingUp, Receipt, Clock } from 'lucide-react'
 import Boton from '../ui/Boton'
 import TotalQuincena from '../ingresos/TotalQuincena'
 import TarjetaIngreso from '../ingresos/TarjetaIngreso'
 import HorasDeLaQuincena from '../ingresos/HorasDeLaQuincena'
+import ResumenHoras from '../ingresos/ResumenHoras'
 import ClientesNuevos from '../ingresos/ClientesNuevos'
 import ComisionDelMes from '../ingresos/ComisionDelMes'
 import GasolinaDeLaQuincena from '../ingresos/GasolinaDeLaQuincena'
@@ -15,17 +16,20 @@ import PagosEmpleado from './PagosEmpleado'
 import DiaDelEmpleado from './DiaDelEmpleado'
 import { useDetalleEmpleado } from '../../hooks/useDetalleEmpleado'
 import { colones } from '../../utils/colones'
-import { duracion, nombreDelDia } from '../../utils/ingresosTexto'
+import { duracion, nombreDelDia, TIPOS_PERSONAL } from '../../utils/ingresosTexto'
 import { horaEnCostaRica, hoyEnCostaRica, fechaEnPalabras } from '../../utils/fechaCR'
 
 const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`
 
-// De qué sale lo que se paga de la quincena: suma justo lo que falta.
+// De qué sale lo que se paga de la quincena: suma justo lo que falta. Bodega
+// cobra solo horas y horas extra; el agente, además, clientes, gasolina y comisión.
 const detalleDeQuincena = (q) => [
   { nombre: 'Horas trabajadas', monto: q.porHoras },
-  { nombre: 'Clientes nuevos', monto: q.clientesNuevos.monto },
-  { nombre: 'Gasolina', monto: q.gasolina.monto },
-  ...(q.comision.enEstaQuincena ? [{ nombre: `Comisión de ${q.comision.nombre}`, monto: q.comision.monto }] : []),
+  ...(q.tipo === 'bodega' ? [{ nombre: 'Horas extra', monto: q.extra.monto }] : [
+    { nombre: 'Clientes nuevos', monto: q.clientesNuevos.monto },
+    { nombre: 'Gasolina', monto: q.gasolina.monto },
+    ...(q.comision.enEstaQuincena ? [{ nombre: `Comisión de ${q.comision.nombre}`, monto: q.comision.monto }] : [])
+  ]),
   ...(q.pagos.pagado ? [{ nombre: 'Ya pagado', monto: -q.pagos.pagado }] : [])
 ]
 
@@ -35,6 +39,7 @@ const detalleDeQuincena = (q) => [
  * es y la quincena con «Pagar quincena»; abajo una tarjeta por parte —su día
  * (lo que era «Seguimiento de agentes»), jornadas y gasolina, clientes nuevos,
  * comisión y pagos—, que abre su detalle (`ver`, en la dirección).
+ * Bodega (2026-11-09): solo jornadas, horas extra y pagos; no tiene ruta.
  */
 export default function DetalleEmpleado({ usuarioId, ver, onVer, guardarFicha, onVolver }) {
   const d = useDetalleEmpleado(usuarioId)
@@ -44,6 +49,7 @@ export default function DetalleEmpleado({ usuarioId, ver, onVer, guardarFicha, o
   const ficha = d.datos?.ficha
   const q = d.datos?.quincena
   const jornada = d.datos?.jornada
+  const bodega = q?.tipo === 'bodega'
   const hoy = hoyEnCostaRica()
 
   const modales = (
@@ -92,8 +98,8 @@ export default function DetalleEmpleado({ usuarioId, ver, onVer, guardarFicha, o
                 <h2 className="flex items-center gap-2 text-lg font-bold text-neutro-900"><Timer size={18} className="text-primario-500" />Jornadas</h2>
                 <Boton variante="secundario" icono={Plus} onClick={() => setTramo(null)}>Agregar jornada</Boton>
               </div>
-              <p className="text-sm text-neutro-600">{duracion(q.minutos)} × {colones(q.tarifas.pagoHora)} = <b>{colones(q.porHoras)}</b> · Gasolina {plural(q.gasolina.dias.length, 'día', 'días')} = <b>{colones(q.gasolina.monto)}</b></p>
-              <HorasDeLaQuincena dias={q.dias} gasolina={q.gasolina} onCorregir={setTramo} />
+              <ResumenHoras quincena={q} />
+              <HorasDeLaQuincena dias={q.dias} gasolina={bodega ? null : q.gasolina} conExtra={bodega} onCorregir={setTramo} />
             </section>
           </>
         )}
@@ -124,7 +130,8 @@ export default function DetalleEmpleado({ usuarioId, ver, onVer, guardarFicha, o
         <h1 className="text-2xl font-bold text-neutro-900 md:text-3xl">{ficha.nombre}</h1>
         <p className="text-sm text-neutro-500">
           {jornada.abierta ? `Trabajando desde las ${horaEnCostaRica(jornada.abierta.inicio)}` : 'Sin jornada abierta'}
-          {ficha.activo ? '' : ' · inactivo'} · {colones(ficha.tarifas.pagoHora)} la hora
+          {ficha.activo ? '' : ' · inactivo'} · {TIPOS_PERSONAL[ficha.tipo]} · {colones(ficha.tarifas.pagoHora)} la hora
+          {bodega ? ` · jornada de ${ficha.tarifas.horasJornada} h` : ''}
         </p>
       </div>
       {jornada.sinSalida.map(j => (
@@ -137,17 +144,28 @@ export default function DetalleEmpleado({ usuarioId, ver, onVer, guardarFicha, o
       <TotalQuincena quincena={q} deuda={d.datos.deuda} onElegir={d.setPeriodo} para="administrador" accion={
         sePuedePagar
           ? <Boton icono={Banknote} ancho onClick={() => setPagando({ tipo: 'quincena' })}>{q.pagos.pagada ? 'Pagar ajuste' : 'Pagar quincena'} · {colones(q.pagos.porPagar)}</Boton>
-          : q.pagos.porPagar > 0 ? <p className="text-center text-xs text-neutro-500">Se paga desde el {fechaEnPalabras(q.periodo.hasta, { day: 'numeric', month: 'long' })}. La gasolina, por días, en «Jornadas y gasolina».</p> : null
+          : q.pagos.porPagar > 0 ? <p className="text-center text-xs text-neutro-500">Se paga desde el {fechaEnPalabras(q.periodo.hasta, { day: 'numeric', month: 'long' })}.{bodega ? '' : ' La gasolina, por días, en «Jornadas y gasolina».'}</p> : null
       } />
       <div className="grid grid-cols-2 gap-3">
-        <TarjetaIngreso icono={Footprints} titulo="Su día" onClick={() => onVer('dia')} pie="Recorrido, ventas y ubicación"
-          valor={jornada.abierta ? `Desde las ${horaEnCostaRica(jornada.abierta.inicio)}` : minutosHoy ? duracion(minutosHoy) : 'Sin jornada hoy'} />
-        <TarjetaIngreso icono={Timer} titulo="Jornadas y gasolina" valor={duracion(q.minutos)} onClick={() => onVer('jornadas')}
-          pie={`${colones(q.porHoras)}${gasolinaPendiente ? ` · gasolina: ${plural(gasolinaPendiente, 'día', 'días')} por pagar` : ''}`} />
-        <TarjetaIngreso icono={UserPlus} titulo="Clientes nuevos" valor={colones(q.clientesNuevos.monto)} onClick={() => onVer('clientes')}
-          pie={`${q.clientesNuevos.cuentan.length} con compra · ${q.clientesNuevos.esperando.length} por comprar`} />
-        <TarjetaIngreso icono={TrendingUp} titulo="Comisión" valor={colones(q.comision.monto)} onClick={() => onVer('comision')} apagado={!q.comision.enEstaQuincena}
-          pie={`${q.comision.nombre.split(' ')[0]} · ${q.comision.enEstaQuincena ? `${q.comision.porcentaje} % de ${colones(Math.max(0, q.comision.netas))}` : 'se paga con la 2.ª quincena'}`} />
+        {bodega ? (
+          <>
+            <TarjetaIngreso icono={Timer} titulo="Jornadas" valor={duracion(q.minutos - q.extra.minutos)} onClick={() => onVer('jornadas')}
+              pie={`${colones(q.porHoras)}${minutosHoy ? ` · hoy ${duracion(minutosHoy)}` : ''}`} />
+            <TarjetaIngreso icono={Clock} titulo="Horas extra" valor={colones(q.extra.monto)} onClick={() => onVer('jornadas')}
+              pie={q.extra.minutos ? `${duracion(q.extra.minutos)} a tiempo y medio` : `Lo que pase de ${q.extra.horasJornada} h al día`} />
+          </>
+        ) : (
+          <>
+            <TarjetaIngreso icono={Footprints} titulo="Su día" onClick={() => onVer('dia')} pie="Recorrido, ventas y ubicación"
+              valor={jornada.abierta ? `Desde las ${horaEnCostaRica(jornada.abierta.inicio)}` : minutosHoy ? duracion(minutosHoy) : 'Sin jornada hoy'} />
+            <TarjetaIngreso icono={Timer} titulo="Jornadas y gasolina" valor={duracion(q.minutos)} onClick={() => onVer('jornadas')}
+              pie={`${colones(q.porHoras)}${gasolinaPendiente ? ` · gasolina: ${plural(gasolinaPendiente, 'día', 'días')} por pagar` : ''}`} />
+            <TarjetaIngreso icono={UserPlus} titulo="Clientes nuevos" valor={colones(q.clientesNuevos.monto)} onClick={() => onVer('clientes')}
+              pie={`${q.clientesNuevos.cuentan.length} con compra · ${q.clientesNuevos.esperando.length} por comprar`} />
+            <TarjetaIngreso icono={TrendingUp} titulo="Comisión" valor={colones(q.comision.monto)} onClick={() => onVer('comision')} apagado={!q.comision.enEstaQuincena}
+              pie={`${q.comision.nombre.split(' ')[0]} · ${q.comision.enEstaQuincena ? `${q.comision.porcentaje} % de ${colones(Math.max(0, q.comision.netas))}` : 'se paga con la 2.ª quincena'}`} />
+          </>
+        )}
         <TarjetaIngreso className="col-span-2" icono={Receipt} titulo="Pagos" onClick={() => onVer('pagos')}
           valor={d.datos.deuda.total > 0 ? `Le debo ${colones(d.datos.deuda.total)}` : 'Al día'}
           pie={ultimoPago ? `Último pago: ${colones(ultimoPago.monto)}, el ${fechaEnPalabras(ultimoPago.fecha, { day: 'numeric', month: 'long' })}` : 'Todavía sin pagos'} />
