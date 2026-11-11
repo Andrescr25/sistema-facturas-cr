@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   ArrowLeft, FileText, Ban, Undo2, Building2,
   PencilLine, Save, X, MessageCircle, Mail
@@ -12,13 +13,14 @@ import CobrosFactura from './CobrosFactura'
 import NotasCreditoFactura from './NotasCreditoFactura'
 import BotonEmitirFactura from './BotonEmitirFactura'
 import PanelEmisionFactura from './PanelEmisionFactura'
+import ModalDescuentoLinea from './ModalDescuentoLinea'
 import { CELDA } from './estilosFactura'
 import { colones } from '../../utils/colones'
 import { fechaCorta } from '../../utils/fechaCR'
 import { useAuth } from '../../contexts/AuthContext'
 import { puedeAccion } from '../../utils/modulos'
 import { estadoDeFactura, notasDeFactura } from '../../utils/notaCreditoTexto'
-import { medio, filaDe, totalesDe, reservaFiscalDe, porQueNoSeEdita } from '../../utils/facturaVista'
+import { medio, filaDe, totalesDe, reservaFiscalDe, porQueNoSeEdita, porQueNoSeDescuenta } from '../../utils/facturaVista'
 import useEmisionFactura from '../../hooks/useEmisionFactura'
 import useEdicionFactura from '../../hooks/useEdicionFactura'
 
@@ -77,7 +79,7 @@ const GRUPO_ACCIONES = 'contents sm:flex sm:gap-2'
 export default function VistaFactura({
   factura, empresa, editando, productos = [], clientes = [],
   onVolver, onPdf, onPdfNota, onAnular, onNotaCredito, onEditar, onEnviar, onCorreo, cargandoCorreo,
-  onGuardar, onCancelarEdicion, abriendoPdf, onFiscalCambio, onAnularCobro
+  onGuardar, onCancelarEdicion, abriendoPdf, onFiscalCambio, onAnularCobro, onDescuento
 }) {
   const f = factura
   const emisor = empresa || {}
@@ -99,6 +101,11 @@ export default function VistaFactura({
 
   const reservaFiscal = reservaFiscalDe(emision.estado?.comprobante)
   const razonNoEditable = porQueNoSeEdita(f, { reservaFiscal, emitiendo: Boolean(emision.fase) })
+  // Solo el descuento de una línea (2026-11-11): también con la factura en
+  // Bodega o con un cobro parcial; pide «Cambiar precio y descuento».
+  const sePuedeDescontar = Boolean(onDescuento) && !editando && puedeAccion(usuario, 'precio-factura')
+    && !porQueNoSeDescuenta(f, { reservaFiscal, emitiendo: Boolean(emision.fase) })
+  const [descontando, setDescontando] = useState(null)
 
   // En edición manda la copia de trabajo; si no, el documento guardado.
   const filas = editando ? edicion.lineas : f.lineas.map(filaDe)
@@ -170,6 +177,7 @@ export default function VistaFactura({
       {!editando && razonNoEditable && f.estado === 'emitida' && (
         <p className="rounded-xl bg-neutro-100 px-3 py-2 text-sm text-neutro-600">
           <strong>No se puede editar:</strong> {razonNoEditable}
+          {sePuedeDescontar && ' El descuento de un producto sí se cambia con «Descuento», en su línea.'}
         </p>
       )}
 
@@ -248,7 +256,8 @@ export default function VistaFactura({
           </dl>
         </div>
 
-        <LineasFactura filas={filas} editando={editando} edicion={edicion} totales={totales} />
+        <LineasFactura filas={filas} editando={editando} edicion={edicion} totales={totales}
+          onDescuento={sePuedeDescontar ? setDescontando : null} />
 
         <TotalesFactura factura={f} editando={editando} totales={totales} />
 
@@ -311,6 +320,10 @@ export default function VistaFactura({
           </div>
         )}
       </div>
+
+      {descontando && (
+        <ModalDescuentoLinea factura={f} linea={descontando} onGuardar={onDescuento} onCerrar={() => setDescontando(null)} />
+      )}
 
       {/* Al final de la factura, no al principio (pedido del usuario,
           2026-10-19): se corrige de arriba abajo y se guarda donde termina.

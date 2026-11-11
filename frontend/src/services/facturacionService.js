@@ -780,6 +780,12 @@ class FacturacionService {
     return response.data?.data ?? null;
   }
 
+  /** Cambiar SOLO el descuento de una línea (2026-11-11): { descuentoPorcentaje, motivo }. */
+  async cambiarDescuentoLinea(id, numeroLinea, datos) {
+    const response = await api.patch(`/facturacion/facturas/${id}/lineas/${numeroLinea}/descuento`, datos);
+    return response.data?.data ?? null;
+  }
+
   /** A qué números se le puede mandar esta factura. */
   async telefonosDeFactura(id) {
     const response = await api.get(`/facturacion/facturas/${id}/telefonos`);

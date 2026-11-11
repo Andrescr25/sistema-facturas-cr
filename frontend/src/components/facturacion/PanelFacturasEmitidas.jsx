@@ -124,6 +124,7 @@ export default function PanelFacturasEmitidas({ f }) {
           clientes={f.clientes}
           onGuardar={f.guardarEdicion}
           onAnularCobro={f.anularCobro}
+          onDescuento={f.cambiarDescuento}
           onCancelarEdicion={f.cerrarEdicion}
           abriendoPdf={f.abriendoPdf}
           onVolver={f.volver}

@@ -70,6 +70,20 @@ function exigirClienteMostrado(datos, ficha) {
 }
 
 /**
+ * Los montos de UNA línea con precio sin IVA: descuento, base, impuesto y
+ * total, redondeados a céntimos. La usan armar una factura y cambiar el
+ * descuento de una línea ya emitida (`descuentoLinea.service`): una sola
+ * fórmula, para que una línea no sume distinto según cómo se tocó.
+ */
+function montosDeLinea({ cantidad, precio, porcentaje, tarifa }) {
+  const bruto = cantidad * precio;
+  const descuentoMonto = dinero((bruto * porcentaje) / 100);
+  const base = dinero(bruto - descuentoMonto);
+  const impuestoMonto = dinero((base * tarifa) / 100);
+  return { descuentoMonto, base, impuestoMonto, total: dinero(base + impuestoMonto) };
+}
+
+/**
  * Arma las líneas con la tarifa del maestro y calcula los totales.
  *
  * El descuento viene en porcentaje, como lo manda la pantalla, y se guarda
@@ -141,9 +155,7 @@ function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set
       descuentoMonto = dinero((bruto * porcentajeDescuento / 100) / (1 + tarifa / 100));
       precio = Math.round(precio / (1 + tarifa / 100) * 100000) / 100000;
     } else {
-      descuentoMonto = dinero((bruto * porcentajeDescuento) / 100);
-      base = dinero(bruto - descuentoMonto);
-      impuestoMonto = dinero((base * tarifa) / 100);
+      ({ descuentoMonto, base, impuestoMonto } = montosDeLinea({ cantidad, precio, porcentaje: porcentajeDescuento, tarifa }));
     }
 
     subtotal += base;
@@ -180,4 +192,4 @@ function armarLineas(items, productosPorClave, claveDe, { yaFacturados = new Set
   };
 }
 
-module.exports = { armarLineas, exigirClienteMostrado, recortar, dinero, enColones };
+module.exports = { armarLineas, montosDeLinea, exigirClienteMostrado, recortar, dinero, enColones };

@@ -167,6 +167,14 @@ export function useFacturasEmitidas({ activa }) {
     await cargar()
   }
 
+  // Solo el descuento de una línea: la factura sigue abierta y se relee.
+  const cambiarDescuento = async (numeroLinea, datos) => {
+    const r = await facturacionService.cambiarDescuentoLinea(detalleId, numeroLinea, datos)
+    setMensaje(r?.sinCambios ? 'El descuento ya era ese.' : 'Descuento aplicado.')
+    setDetalle(await facturacionService.detalleFacturaEmitida(detalleId))
+    await cargar()
+  }
+
   const abrirEnvio = async (factura) => {
     try {
       const datos = await facturacionService.telefonosDeFactura(factura.id)
@@ -266,7 +274,7 @@ export function useFacturasEmitidas({ activa }) {
     empresa,
     detalleId, detalle, cargandoDetalle, abrirDetalle, refrescarDetalle,
     volver: () => { cerrarCorreo(); setDetalleId(null); setDetalle(null); setEditando(false) },
-    editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion, anularCobro,
+    editando, abrirEdicion, cerrarEdicion: () => setEditando(false), guardarEdicion, anularCobro, cambiarDescuento,
     productos, clientes,
     abriendoPdf, verPdf, verPdfNota, anular, crearNota,
     enviando, abrirEnvio, cerrarEnvio: () => setEnviando(null), enviarPorWhatsApp,

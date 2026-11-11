@@ -16,6 +16,7 @@ const { obtenerInicio } = require('../portal-clientes/portal-clientes.inicio.ser
 const { pool } = require('../../../config/database');
 const { puedeHacer } = require('../usuarios/permisos.middleware');
 const { soloDe } = require('./soloSusFacturas');
+const { cambiarDescuentoDeLinea } = require('./descuentoLinea.service');
 
 /** Una respuesta de error uniforme, que no inventa códigos. */
 function fallo(res, error, contexto) {
@@ -201,6 +202,23 @@ module.exports = {
       res.json({ success: true, data: factura });
     } catch (error) {
       fallo(res, error, 'editar');
+    }
+  },
+
+  /**
+   * PATCH /facturacion/facturas/:id/lineas/:numeroLinea/descuento — SOLO el
+   * descuento de una línea (2026-11-11), también con la factura en Bodega.
+   * Es cambiar el precio: pide «Cambiar precio y descuento».
+   */
+  descuentoLinea: async (req, res) => {
+    try {
+      if (!(await puedeHacer(req, 'precio-factura'))) {
+        return res.status(403).json({ success: false, message: 'Cambiar el descuento necesita el permiso «Cambiar precio y descuento».' });
+      }
+      const r = await cambiarDescuentoDeLinea(req.params.id, req.params.numeroLinea, req.body || {}, req.usuario?.id);
+      res.json({ success: true, data: r });
+    } catch (error) {
+      fallo(res, error, 'cambiar el descuento');
     }
   },
 

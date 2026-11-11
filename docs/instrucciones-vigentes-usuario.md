@@ -1602,3 +1602,10 @@ lugar diga que hay 5 y en otro 8». Esto pide mostrar cantidades en la pantalla
 interna de catálogo; los catálogos de venta siguen sin existencias.
 [Resultado](grafo/modulo/inventario.md).
 
+## 2026-11-11 — Descuento a un producto desde la factura
+
+El usuario (mientras hacía el conteo físico): «ahora quiero que me agregues en
+facturas la posibilidad de aplicar descuento a un producto específico desde
+factura, que no me deje modificar cantidad ni nada, pero sí editar el
+descuento». [Cómo funciona](grafo/modulo/facturacion.md).
+

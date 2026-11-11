@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { Percent, Plus, Trash2 } from 'lucide-react'
 import { colones, colonesExacto } from '../../utils/colones'
 import { num, baseDe, esDetallePropio } from '../../utils/facturaVista'
 import { CELDA } from './estilosFactura'
@@ -20,8 +20,11 @@ import { useAuth } from '../../contexts/AuthContext'
  * EL IMPUESTO NO SE ESCRIBE: la tarifa sale del maestro del producto. Dejarla
  * editable es el agujero por el que se facturaron productos al 1 % cobrando
  * 13 %.
+ *
+ * Con `onDescuento` (2026-11-11), sin estar editando, cada línea ofrece
+ * «Descuento»: cambiar solo ese porcentaje, también con la factura en Bodega.
  */
-export default function LineasFactura({ filas, editando, edicion, totales }) {
+export default function LineasFactura({ filas, editando, edicion, totales, onDescuento = null }) {
   const { hayDescuento } = totales
   const comun = { editando, edicion, totales }
   // Sin «Cambiar precio y descuento», al editar se ven pero no se cambian.
@@ -47,6 +50,7 @@ export default function LineasFactura({ filas, editando, edicion, totales }) {
               <span className="text-xs font-semibold uppercase tracking-wider text-neutro-500">Total línea</span>
               <span className="text-base font-bold text-neutro-900">{colones(baseDe(l))}</span>
             </div>
+            {onDescuento && <div className="mt-2"><BotonDescuento l={l} onDescuento={onDescuento} /></div>}
           </li>
         ))}
         {editando && <li className="bg-primario-50/30 px-4 py-3"><AgregarProducto edicion={edicion} /></li>}
@@ -64,6 +68,7 @@ export default function LineasFactura({ filas, editando, edicion, totales }) {
               <th className="px-2 py-2 text-right font-semibold">Impuesto</th>
               <th className="px-4 py-2 text-right font-semibold">Total línea</th>
               {editando && <th className="w-10 px-2 py-2" />}
+              {onDescuento && <th className="px-2 py-2" />}
             </tr>
           </thead>
           <tbody>
@@ -76,6 +81,7 @@ export default function LineasFactura({ filas, editando, edicion, totales }) {
                 <td className="px-2 py-2.5 text-right"><Impuesto l={l} totales={totales} /></td>
                 <td className="px-4 py-2.5 text-right font-bold text-neutro-900">{colones(baseDe(l))}</td>
                 {editando && <td className="px-2 py-2.5 text-right"><Quitar l={l} i={i} edicion={edicion} /></td>}
+                {onDescuento && <td className="px-2 py-2.5 text-right"><BotonDescuento l={l} onDescuento={onDescuento} /></td>}
               </tr>
             ))}
 
@@ -173,6 +179,21 @@ function Impuesto({ l, totales }) {
       {colones(totales.impuestoDe(l))}
       <span className="ml-1 text-[11px] text-neutro-400">{l.tarifa}%</span>
     </span>
+  )
+}
+
+function BotonDescuento({ l, onDescuento }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onDescuento(l)}
+      className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-alerta-200 bg-alerta-50 px-3 text-sm font-semibold text-alerta-700 hover:bg-alerta-100 md:min-h-8 md:px-2.5"
+      title="Cambiar solo el descuento de este producto"
+      aria-label={`Descuento de ${l.nombre}`}
+    >
+      <Percent size={14} />
+      Descuento
+    </button>
   )
 }
 

@@ -57,6 +57,7 @@ const { aplicarDescuentoEn } = require('./descuentoCliente.service');
 const { exigirPrecioDeLista } = require('./precioFijo');
 const { registrarVentaEn } = require('../preventa/visitas');
 const { estaTomadaEn, mensajeDeFacturaTomada } = require('../warehouse/tomadaEnBodega');
+const { exigirFueraDeHacienda, cobradoDe, acreditadoDe } = require('./candadosFactura');
 
 
 /**
@@ -437,42 +438,19 @@ async function crearFactura(datos, usuarioId, { clave = null, precioFijo = false
  * que decir la razón de más peso primero.
  */
 async function revisarSiSePuedeTocar(cliente, factura, accion) {
-  if (factura.electronica) {
-    throw httpError(409,
-      `La factura ${factura.numero} se emitió como electrónica: ante Hacienda ya existe y no se puede ${accion}. ` +
-      'Se corrige con una nota de crédito.');
-  }
+  exigirFueraDeHacienda(factura, accion);
 
-  if (['pendiente','enviada'].includes(factura.hacienda_estado)) {
-    throw httpError(409, 'La factura está reservada ante Hacienda. Consulte el resultado antes de editar o anular.');
-  }
-
-  // SOLO LO VIGENTE. Un cobro anulado y una nota anulada siguen en su tabla
-  // —no se borran, por el rastro— y esta suma los contaba igual: después de
-  // revertir el cobro, la factura seguía respondiendo "tiene ₡X en cobros
-  // aplicados" PARA SIEMPRE, y no había manera de editarla ni de anularla.
-  // Es la misma regla del saldo (saldo.sql.js): cobros con `anulado = FALSE`
-  // y notas que no estén anuladas.
-  const { rows: cobros } = await cliente.query(
-    `SELECT COALESCE(SUM(pf.monto), 0) AS total
-       FROM pago_factura pf JOIN pago p ON p.id = pf.pago_id
-      WHERE pf.factura_id = $1 AND p.anulado = FALSE`,
-    [factura.id]
-  );
-  const cobrado = Number(cobros[0].total) || 0;
+  // Un cobro o una nota anulados no cuentan (`candadosFactura.js`): antes,
+  // después de revertir el cobro, la factura seguía respondiendo "tiene ₡X en
+  // cobros aplicados" PARA SIEMPRE, y no había manera de editarla ni de anularla.
+  const cobrado = await cobradoDe(cliente, factura.id);
   if (cobrado > 0) {
     throw httpError(409,
       `La factura ${factura.numero} tiene ${enColones(cobrado)} en cobros aplicados. ` +
       `Hay que anular el cobro antes de ${accion}la.`);
   }
 
-  const { rows: notas } = await cliente.query(
-    `SELECT COALESCE(SUM(nf.monto), 0) AS total
-       FROM nota_credito_factura nf JOIN nota_credito nc ON nc.id = nf.nota_credito_id
-      WHERE nf.factura_id = $1 AND nc.estado <> 'anulada'`,
-    [factura.id]
-  );
-  const acreditado = Number(notas[0].total) || 0;
+  const acreditado = await acreditadoDe(cliente, factura.id);
   if (acreditado > 0) {
     throw httpError(409,
       `La factura ${factura.numero} ya tiene una nota de crédito aplicada por ${enColones(acreditado)}.`);

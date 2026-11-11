@@ -214,3 +214,25 @@ describe('el medio de pago y la fecha, en palabras', () => {
     assert.equal(fechaCorta('', ''), '');
   });
 });
+
+describe('cuándo se puede cambiar solo el descuento de una línea (2026-11-11)', () => {
+  test('con la factura en Bodega o con un cobro parcial, sí: no cambia ni la cantidad ni el producto', () => {
+    assert.equal(u.porQueNoSeDescuenta(factura({ tomadaEnBodega: true })), null);
+    assert.equal(u.porQueNoSeDescuenta(factura({ tomadaEnBodega: true, cobrado: 1000 })), null);
+  });
+
+  test('lo de Hacienda, la nota de crédito y lo de Alegra la frenan, igual que al editar', () => {
+    assert.match(u.porQueNoSeDescuenta(factura({ electronica: true, tomadaEnBodega: true })), /nota de crédito/);
+    assert.match(u.porQueNoSeDescuenta(factura({ haciendaEstado: 'pendiente' })), /reservada ante Hacienda/);
+    assert.match(u.porQueNoSeDescuenta(factura(), { emitiendo: true }), /Se está emitiendo/);
+    assert.match(u.porQueNoSeDescuenta(factura({ acreditado: 100 })), /nota de crédito aplicada/);
+    assert.match(u.porQueNoSeDescuenta(factura({ historica: true })), /Alegra/);
+    assert.match(u.porQueNoSeDescuenta(factura({ estado: 'anulada' })), /anulada/);
+  });
+
+  test('el total de la línea con IVA: el que anuncia la ventana del descuento', () => {
+    const l = u.filaDe(linea({ numeroLinea: 2, descuentoPorcentaje: '10' }));
+    assert.equal(l.numeroLinea, 2);
+    assert.equal(Math.round(u.totalDeLinea(l) * 100) / 100, 3051);
+  });
+});

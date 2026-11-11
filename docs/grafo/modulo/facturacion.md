@@ -37,6 +37,12 @@ archivos:
   - frontend/src/components/facturacion/CobrosFactura.jsx
   - frontend/src/utils/facturaVista.js
   - frontend/src/hooks/useEdicionFactura.js
+  - backend/src/modules/facturacion/descuentoLinea.service.js
+  - backend/src/modules/facturacion/candadosFactura.js
+  - backend/src/modules/facturacion/facturaLineas.js
+  - frontend/src/components/facturacion/ModalDescuentoLinea.jsx
+  - frontend/src/hooks/useFacturasEmitidas.js
+  - backend/tests/descuentoLineaFactura.test.js
   - backend/tests/facturaVista.test.js
   - frontend/src/components/facturacion/NotasCreditoFactura.jsx
   - frontend/src/components/facturacion/ModalNotaCredito.jsx
@@ -543,3 +549,30 @@ original. Se actualizan totales y movimientos en la misma transacción. El
 saldo continúa calculándose al consultar; no se escribe otra copia.
 
 [Casos y pruebas](../../informes/sustitucion-producto-reporte-clientes-2026-11-05.md).
+
+## Cambiar solo el descuento de un producto — 2026-11-11
+
+El usuario: «agregar en facturas la posibilidad de aplicar descuento a un
+producto específico desde factura, que no me deje modificar cantidad ni nada,
+pero sí editar el descuento».
+
+- En la factura abierta, cada línea lleva «Descuento» (`LineasFactura`,
+  `ModalDescuentoLinea`): se escribe el porcentaje y se ve cómo quedan el
+  producto y la factura antes de aplicar. La cantidad y el precio se ven, no
+  se escriben. `PATCH /facturacion/facturas/:id/lineas/:n/descuento`
+  (`descuentoLinea.service`), con el permiso «Cambiar precio y descuento».
+- **Sí con la factura en Bodega** (Editar no): no cambia lo despachado ni el
+  inventario, el kardex no se mueve. **Sí con un cobro parcial**: el saldo se
+  calcula; si lo cobrado pasa del total nuevo, 409 «anular el cobro primero».
+- **No** si es electrónica o está reservada ante Hacienda (nota de crédito),
+  si tiene una nota de crédito vigente (se calculó con el descuento de antes)
+  ni si es de Alegra. Las reglas de Hacienda, cobro y nota viven una sola vez
+  en `candadosFactura.js`, que también usa Editar.
+- La línea se recalcula con `montosDeLinea`, la misma fórmula de facturar, con
+  su precio y su tarifa de ese día; la factura suma sus líneas. Queda en la
+  bitácora (antes/después y el motivo, si lo escribieron). Impresión conserva
+  el descuento cuando después reajusta la factura por faltantes.
+- Medido en la copia del 2026-11-08 (desde el 25/10): 96 facturas, 53
+  electrónicas (ahí sigue siendo nota de crédito), 95 tomadas en Bodega, 55
+  con cobro.
+

@@ -39,6 +39,7 @@ router.put('/facturas/:id', suya, facturaPropia.editar);
 // Anular NO borra: la factura conserva su número y queda con su motivo. Un
 // número que desaparece es un hueco que después hay que explicarle a Hacienda.
 router.patch('/facturas/:id/anular', suya, facturaPropia.anular);
+router.patch('/facturas/:id/lineas/:numeroLinea/descuento', suya, facturaPropia.descuentoLinea);
 
 // ---- Notas de crédito propias ----
 // Deshacen una venta ya entregada SIN borrar la factura: el número se conserva

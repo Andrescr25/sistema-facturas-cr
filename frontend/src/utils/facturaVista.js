@@ -38,7 +38,7 @@ export const esDetallePropio = (l) => Boolean(String(l.descripcion || '').trim()
  * había escrito en las demás ("ENTREGADO", "OJO CERRADO, VIGILADO X CÁMARAS").
  */
 export const filaDe = (l) => ({
-  productoId: l.productoId, nombre: l.nombre, referencia: l.referencia, cabys: l.cabys,
+  numeroLinea: l.numeroLinea, productoId: l.productoId, nombre: l.nombre, referencia: l.referencia, cabys: l.cabys,
   cantidad: num(l.cantidad), precioUnitario: num(l.precioUnitario),
   descuentoPorcentaje: num(l.descuentoPorcentaje), tarifa: num(l.tarifa),
   impuestoMonto: num(l.impuestoMonto), descripcion: l.descripcion || ''
@@ -129,17 +129,39 @@ export function reservaFiscalDe(comprobante) {
 }
 
 /** Por qué no se puede editar la factura; null = sí se puede. */
-export function porQueNoSeEdita(f, { reservaFiscal = null, emitiendo = false } = {}) {
+// Lo que impide tocar la factura de cualquier forma: anulada, borrador o ante Hacienda.
+function bloqueoDelDocumento(f, { reservaFiscal, emitiendo }) {
   return f.estado === 'anulada' ? 'Está anulada.'
     : f.estado !== 'emitida' ? 'Todavía es un borrador.'
     : (f.electronica || reservaFiscal?.estado === 'aceptada') ? 'Ya se emitió electrónicamente: se corrige con una nota de crédito.'
     : emitiendo ? 'Se está emitiendo electrónicamente.'
     : (['pendiente', 'enviada'].includes(f.haciendaEstado) || reservaFiscal) ? 'Está reservada ante Hacienda. Consultá el resultado antes de editar.'
-    : f.tomadaEnBodega ? 'Bodega ya la tomó: para quitar algo se hace una nota de crédito, y para agregar algo, una factura nueva.'
-    : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que anularlo, abajo en «Cobros».'
-    : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada.'
     : null
 }
+
+export function porQueNoSeEdita(f, { reservaFiscal = null, emitiendo = false } = {}) {
+  return bloqueoDelDocumento(f, { reservaFiscal, emitiendo })
+    || (f.tomadaEnBodega ? 'Bodega ya la tomó: para quitar algo se hace una nota de crédito, y para agregar algo, una factura nueva.'
+      : f.cobrado > 0 ? 'Tiene un cobro aplicado: primero hay que anularlo, abajo en «Cobros».'
+      : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada.'
+      : null)
+}
+
+/**
+ * Por qué no se le puede cambiar el descuento a una línea (2026-11-11), o null.
+ * Más suelto que editar: con la factura en Bodega o con un cobro parcial SÍ se
+ * puede, porque no cambia ni la cantidad ni el producto. Lo que pase de lo
+ * cobrado lo frena el servidor (`descuentoLinea.service`).
+ */
+export function porQueNoSeDescuenta(f, { reservaFiscal = null, emitiendo = false } = {}) {
+  return bloqueoDelDocumento(f, { reservaFiscal, emitiendo })
+    || (f.historica ? 'Es de las de Alegra: se corrige con una nota de crédito.'
+      : f.acreditado > 0 ? 'Tiene una nota de crédito aplicada, calculada con el descuento de hoy.'
+      : null)
+}
+
+/** El total de una línea con IVA, en pantalla (el servidor redondea por céntimo). */
+export const totalDeLinea = (l) => acreditadoDe(l, l.cantidad)
 
 /** Qué impide guardar la corrección, en palabras. '' = se puede. */
 export function faltaParaGuardar(lineas) {
