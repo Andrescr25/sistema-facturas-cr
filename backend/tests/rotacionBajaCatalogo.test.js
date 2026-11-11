@@ -4,8 +4,10 @@
  * El usuario, para ordenar el catálogo: «agrégame un filtro en Gestión de
  * Catálogo que diga rotación baja o nula, dentro de donde están los otros
  * filtros: a la venta, ocultos del catálogo…». Son los que están a la venta y
- * en los últimos 30 días vendieron menos de 3 unidades (el corte con que el
- * motor de precios dice «se vende poco»), ninguna incluida.
+ * venden menos de 3 unidades al mes (el corte con que el motor de precios dice
+ * «se vende poco»), ninguna incluida. Desde el 2026-11-11 el «al mes» es el
+ * promedio de los últimos 3 meses, o de lo que lleva si es nuevo (mínimo 30
+ * días): la misma rotación de la fila (ventas/rotacion.js).
  *
  * Contra PostgreSQL local, en una transacción que se deshace. Las ventas van
  * en una tabla TEMP que tapa la vista `venta_linea` solo en esta conexión.
@@ -41,8 +43,9 @@ describe('filtro de rotación baja o nula — contra PostgreSQL local', () => {
     p = {
       nada: await nuevo('ZZ ROTBAJA SIN VENTAS'),
       dos: await nuevo('ZZ ROTBAJA DOS UNIDADES'),
-      tres: await nuevo('ZZ ROTBAJA TRES UNIDADES'),
+      cuatro: await nuevo('ZZ ROTBAJA NUEVO CUATRO UNIDADES'),
       viejas: await nuevo('ZZ ROTBAJA VENTAS VIEJAS'),
+      lento: await nuevo('ZZ ROTBAJA VIEJO LENTO'),
       oculto: await nuevo('ZZ ROTBAJA OCULTO', { oculto: true }),
       baja: await nuevo('ZZ ROTBAJA DADO DE BAJA', { activo: false })
     };
@@ -50,35 +53,38 @@ describe('filtro de rotación baja o nula — contra PostgreSQL local', () => {
       `INSERT INTO venta_linea (producto_id, fecha, cantidad, importe, factura_id, cliente_id)
        VALUES ($1, (now() AT TIME ZONE 'America/Costa_Rica')::date - $2::int, $3, $3::numeric * 1000, $1, 1)`,
       [producto, diasAtras, cantidad]);
-    await venta(p.dos, 0, 2);
-    await venta(p.tres, 0, 1);
-    await venta(p.tres, 29, 2);
-    await venta(p.viejas, 30, 50);
+    await venta(p.dos, 0, 2);            // nuevo de hoy: 2 en su primer mes
+    await venta(p.cuatro, 0, 1);
+    await venta(p.cuatro, 29, 3);        // nuevo de 30 días: 4 al mes
+    await venta(p.viejas, 100, 50);      // antes de los 3 meses: no cuenta
+    await venta(p.lento, 200, 1);
+    await venta(p.lento, 10, 3);         // viejo: 3 en 3 meses = 1 al mes
   });
 
   after(async () => { if (db) { await db.query('ROLLBACK'); await db.end(); } });
 
   const nombres = async (estado) => (await productos.listarProductos({ buscar: 'ZZ ROTBAJA', estado, limite: 50 })).data.map(x => x.nombre).sort();
 
-  test('a la venta con menos de 3 unidades en 30 días, ninguna incluida; lo de antes de 30 días no cuenta', async () => {
+  test('a la venta con menos de 3 al mes, ninguna incluida; lo de antes de los 3 meses no cuenta', async () => {
     assert.equal(motor.ROTACION_BAJA, 3);
-    assert.deepEqual(await nombres('rotacion_baja'), ['ZZ ROTBAJA DOS UNIDADES', 'ZZ ROTBAJA SIN VENTAS', 'ZZ ROTBAJA VENTAS VIEJAS']);
+    assert.deepEqual(await nombres('rotacion_baja'),
+      ['ZZ ROTBAJA DOS UNIDADES', 'ZZ ROTBAJA SIN VENTAS', 'ZZ ROTBAJA VENTAS VIEJAS', 'ZZ ROTBAJA VIEJO LENTO']);
   });
 
-  test('con 3 unidades (hoy y hace 29 días) ya no es baja; ocultos y dados de baja no entran', async () => {
+  test('el nuevo que vende 4 en su primer mes no es baja; ocultos y dados de baja no entran', async () => {
     const lista = await nombres('rotacion_baja');
-    assert.ok(!lista.includes('ZZ ROTBAJA TRES UNIDADES'));
+    assert.ok(!lista.includes('ZZ ROTBAJA NUEVO CUATRO UNIDADES'));
     assert.ok(!lista.includes('ZZ ROTBAJA OCULTO'));
     assert.ok(!lista.includes('ZZ ROTBAJA DADO DE BAJA'));
   });
 
-  test('primero los que no vendieron nada; después los de 1 o 2 unidades', async () => {
+  test('primero los que no vendieron nada; después de menos a más al mes', async () => {
     const orden = (await productos.listarProductos({ buscar: 'ZZ ROTBAJA', estado: 'rotacion_baja', limite: 50 })).data.map(x => x.nombre);
-    assert.deepEqual(orden, ['ZZ ROTBAJA SIN VENTAS', 'ZZ ROTBAJA VENTAS VIEJAS', 'ZZ ROTBAJA DOS UNIDADES']);
+    assert.deepEqual(orden, ['ZZ ROTBAJA SIN VENTAS', 'ZZ ROTBAJA VENTAS VIEJAS', 'ZZ ROTBAJA VIEJO LENTO', 'ZZ ROTBAJA DOS UNIDADES']);
   });
 
   test('los otros estados siguen igual, y uno que no existe se rechaza', async () => {
-    assert.equal((await nombres('activos')).length, 4);
+    assert.equal((await nombres('activos')).length, 5);
     assert.deepEqual(await nombres('ocultos'), ['ZZ ROTBAJA OCULTO']);
     await assert.rejects(productos.listarProductos({ estado: 'rotacion' }), (e) => e.status === 400 && /rotacion_baja/.test(e.message));
   });

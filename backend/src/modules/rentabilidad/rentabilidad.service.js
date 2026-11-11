@@ -69,9 +69,9 @@ async function calcularCatalogo() {
        WHERE p.activo = TRUE AND p.oculto = FALSE
     `),
     obtenerCostosDerivados(),
-    // La rotación visible refleja el movimiento de los últimos 30 días,
-    // incluido el mes actual; los demás totales conservan su ventana.
-    rotacion.rotacionPorProducto({ ultimos30Dias: true })
+    // La rotación: promedio por mes de los últimos 3 meses, o de lo que
+    // lleva el producto si es nuevo (ventas/rotacion.js, `porVida`).
+    rotacion.rotacionPorProducto()
   ]);
 
   return productos.rows.map((p) => {
@@ -106,6 +106,7 @@ async function calcularCatalogo() {
       unidades: redondear(unidades),
       unidadesSemana: r ? r.unidadesSemana : 0,
       unidadesMes: r ? r.unidadesMes : 0,
+      diasRotacion: r && r.rotacionNueva ? r.diasRotacion : null,
       facturas: r ? r.facturas : 0,
       clientes: r ? r.clientesDistintos : 0,
       ultimaVenta: r ? r.ultimaVenta : null,

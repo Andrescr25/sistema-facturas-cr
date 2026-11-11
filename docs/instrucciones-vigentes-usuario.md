@@ -1609,3 +1609,10 @@ facturas la posibilidad de aplicar descuento a un producto específico desde
 factura, que no me deje modificar cantidad ni nada, pero sí editar el
 descuento». [Cómo funciona](grafo/modulo/facturacion.md).
 
+## 2026-11-11 — La rotación: últimos 3 meses, o lo que lleva si es nuevo
+
+El usuario: «que la medida de la rotación no sea por mes sino los últimos 3
+meses, y si el producto es nuevo y tiene apenas mes y medio, que saque la
+estadística con eso». Reemplaza «los últimos 30 días» que eligió el
+2026-10-14. [Cómo se calcula](grafo/modulo/rentabilidad.md).
+

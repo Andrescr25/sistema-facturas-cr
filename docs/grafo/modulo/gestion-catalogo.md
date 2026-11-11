@@ -84,14 +84,13 @@ LO QUE CAMBIA RESPECTO DE `main`
   impuesto, unidad, medicamento, ocultar y dar de baja. Los ocultos y los
   dados de baja no cuentan en las tarjetas —el agente tampoco los ve— y se
   encuentran con el filtro de estado del buscador.
-- La rotación de cada fila (unidades al mes) usa desde el 2026-10-14 la
-  misma rotación de Rentabilidad: **unidades vendidas en los últimos30
-  días**, incluido el actual, por aclaración posterior al caso real de
-  un producto agotado. Reemplaza la media de meses completos inicial.
-  Categoría y búsqueda leen `SQL_ROTACION_MENSUAL` desde `venta_linea`, por
-  `producto.id`; sin ventas dan cero. El formato compartido conserva los
-  decimales y muestra «Últimos30 días». No se lee la foto antigua de
-  `producto_rotacion`. [Verificación](../../informes/rotacion-reciente-2026-10-14.md).
+- La rotación de cada fila (unidades al mes) es la misma de Rentabilidad:
+  desde el 2026-11-11, el **promedio por mes de los últimos 3 meses**, o de
+  los días que lleva el producto si es nuevo (mínimo 30), con el pie
+  «Promedio de 3 meses» o «Promedio de 45 días · nuevo» (`pieRotacion`).
+  Reemplaza «los últimos 30 días» del 2026-10-14. Categoría y búsqueda leen
+  `SQL_ROTACION` desde `venta_linea`, por `producto.id`; sin ventas dan cero.
+  La regla y su porqué, en [[modulo/rentabilidad]].
 - Los componentes de `main` siguen hablando con los nombres de la caché
   (`name`, `imageUrl`…); la traducción está en UN solo lugar, `aFila` de
   `useListaCatalogo.js`, y el id es el propio.
@@ -183,9 +182,10 @@ El usuario, para ordenar el catálogo: «agrégame un filtro en Gestión de
 Catálogo que diga rotación baja o nula, dentro de donde están los otros
 filtros: a la venta, ocultos del catálogo…». Es una opción más del selector de
 estado (`estado=rotacion_baja` en `/maestro/buscar` → `listarProductos`): los
-que están A LA VENTA (activos y sin ocultar) que en los últimos 30 días
-vendieron menos de 3 unidades, ninguna incluida. Es la rotación que muestra
-cada fila (`SQL_ROTACION_MENSUAL`, calculada una vez en un `WITH … MATERIALIZED`)
+que están A LA VENTA (activos y sin ocultar) que venden menos de 3 unidades
+al mes, ninguna incluida (desde el 2026-11-11, el promedio de 3 meses o de lo
+que lleva si es nuevo). Es la rotación que muestra
+cada fila (`SQL_ROTACION`, calculada una vez en un `WITH … MATERIALIZED`)
 y el corte `ROTACION_BAJA` del motor de precios («se vende poco»), importado,
 no copiado. Se combina con el buscador y el proveedor.
 

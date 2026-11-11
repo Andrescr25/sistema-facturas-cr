@@ -2,7 +2,7 @@ import { Camera, Copy, Pencil } from 'lucide-react'
 import Insignia from '../ui/Insignia'
 import VistaPreviaImagen from './VistaPreviaImagen'
 import { formatCRC } from '../../utils/gestionCatalogoUtils'
-import { unidades } from '../../utils/rentabilidadFormato'
+import { unidades, pieRotacion } from '../../utils/rentabilidadFormato'
 import { formatCantidad } from '../../utils/inventarioAuditoriaUtils'
 
 function Dato({ etiqueta, children, pie }) {
@@ -107,7 +107,7 @@ export default function FilaProducto({
         </Dato>
         <Dato etiqueta="Margen"><TonoMargen margen={p.margenReal} /></Dato>
         <Dato etiqueta="Cantidad"><Cantidad producto={p} onVerMovimientos={onVerMovimientos} /></Dato>
-        <Dato etiqueta="Rotación" pie="Últimos 30 días">
+        <Dato etiqueta="Rotación" pie={pieRotacion(p.diasRotacion)}>
           {p.unidadesMes != null ? <>{unidades(p.unidadesMes)}<span className="text-xs font-semibold text-neutro-400">/mes</span></> : '—'}
         </Dato>
         <div className="flex items-center gap-2">

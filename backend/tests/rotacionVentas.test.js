@@ -42,12 +42,13 @@ describe('la rotación', () => {
     assert.equal(VENTANA_MESES, 3);
     assert.match(SQL_ROTACION, /INTERVAL '3 months'/);
     assert.match(SQL_ROTACION, /America\/Costa_Rica/);
-    assert.match(SQL_ROTACION, /ORDER BY SUM\(cantidad\) DESC/, 'el Pareto acumula unidades, no plata');
+    assert.match(SQL_ROTACION, /SUM\(vl\.cantidad\) \/ \(3 \*/, 'el promedio es de unidades, no de plata');
+    assert.match(SQL_ROTACION, /ORDER BY a\.mensual DESC/, 'el Pareto acumula ese promedio');
   });
 
   test('A hasta el 80 %, B hasta el 95 %; el que cruza el corte queda arriba', () => {
-    assert.match(SQL_ROTACION, /\(v\.acumulado - v\.unidades\) < 0\.8 \* v\.total THEN 'A'/);
-    assert.match(SQL_ROTACION, /\(v\.acumulado - v\.unidades\) < 0\.95 \* v\.total THEN 'B'/);
+    assert.match(SQL_ROTACION, /\(v\.acumulado - v\.mensual\) < 0\.8 \* v\.total THEN 'A'/);
+    assert.match(SQL_ROTACION, /\(v\.acumulado - v\.mensual\) < 0\.95 \* v\.total THEN 'B'/);
   });
 
   test('el motor de precios conserva su ventana de 12 meses', () => {
@@ -61,9 +62,9 @@ describe('la rotación', () => {
 
   test('sale de las ventas propias, por producto.id, y trae además el id de Alegra del producto', () => {
     assert.match(SQL_ROTACION, /FROM venta_linea/);
-    assert.match(SQL_ROTACION, /GROUP BY producto_id/);
+    assert.match(SQL_ROTACION, /GROUP BY vl\.producto_id/);
     assert.match(SQL_ROTACION, /SELECT v\.producto_id,\s+pr\.alegra_id AS alegra_item_id/);
-    assert.match(SQL_ROTACION, /SUM\(importe\) AS ventas/, 'lo vendido lleva el descuento restado');
+    assert.match(SQL_ROTACION, /SUM\(vl\.importe\) AS ventas/, 'lo vendido lleva el descuento restado');
   });
 
   test('el mapa y A/B usan producto.id, incluidos los productos sin Alegra', async () => {

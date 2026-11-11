@@ -54,8 +54,8 @@ const ESTADOS = [
   { valor: 'activos', texto: 'A la venta' },
   { valor: 'ocultos', texto: 'Ocultos de los catálogos' },
   { valor: 'inactivos', texto: 'Dados de baja' },
-  // A la venta, con menos de 3 unidades vendidas en los últimos 30 días (el
-  // servidor decide el corte; 2026-11-03, para ordenar el catálogo).
+  // A la venta, con menos de 3 unidades al mes (promedio de 3 meses, o de lo
+  // que lleva si es nuevo; el servidor decide el corte; 2026-11-03).
   { valor: 'rotacion_baja', texto: 'Rotación baja o nula' }
 ]
 

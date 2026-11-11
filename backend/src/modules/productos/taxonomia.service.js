@@ -24,7 +24,7 @@ const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
 const { clasificarProducto } = require('../precios/auditoria');
 const tablas = require('./taxonomiaTablas');
-const { SQL_ROTACION_MENSUAL } = require('../ventas/rotacion');
+const { SQL_ROTACION } = require('../ventas/rotacion');
 const { listarProductos } = require('./productos.service');
 const { cambiosDeEstado, accionDeEstado } = require('./estadoProducto');
 
@@ -120,16 +120,17 @@ const SELECT_FILA = `
          p.activo, p.oculto, p.categoria_id, p.marca_catalogo_id, p.inventariable, sa.existencia,
          c.nombre AS categoria, i.tarifa,
          s.id AS sub_id, s.nombre AS sub_nombre,
-         COALESCE(r.unidades_mes, 0) AS unidades_mes,
+         COALESCE(r.unidades_mes, 0) AS unidades_mes, r.dias_rotacion, COALESCE(r.rotacion_nueva, FALSE) AS rotacion_nueva,
          prov.supplier_name, prov.supplier_cedula
     FROM producto p
     LEFT JOIN categoria_producto c ON c.id = p.categoria_id
     LEFT JOIN impuesto i ON i.id = p.impuesto_id
     LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
     LEFT JOIN inventario_saldo sa ON sa.producto_id = p.id
-    -- La misma rotación de Rentabilidad: unidades vendidas en los últimos
-    -- 30 días, por el id propio. Sin ventas en ese período, devuelve cero.
-    LEFT JOIN (${SQL_ROTACION_MENSUAL}) r ON r.producto_id = p.id
+    -- La misma rotación de Rentabilidad: promedio por mes de los últimos 3
+    -- meses (o de lo que lleva, si es nuevo), por el id propio. Sin ventas en
+    -- ese período, devuelve cero.
+    LEFT JOIN (${SQL_ROTACION}) r ON r.producto_id = p.id
     LEFT JOIN LATERAL (
            SELECT supplier_name, supplier_cedula
              FROM supplier_product_mapping m
@@ -159,6 +160,8 @@ function aFila(r) {
     precio_con_iva: tarifa === null ? null : precioConImpuesto(precio, tarifa),
     margen_real: margenReal,
     unidades_mes: r.unidades_mes === null || r.unidades_mes === undefined ? null : Number(r.unidades_mes),
+    // Si es nuevo, sobre cuántos días se sacó el promedio.
+    dias_rotacion: r.rotacion_nueva ? Number(r.dias_rotacion) : null,
     // Un servicio (no inventariable) no tiene cantidad.
     existencia: r.inventariable ? Number(r.existencia) : null,
     subcategoria: r.sub_id ? { id: r.sub_id, nombre: r.sub_nombre } : null,

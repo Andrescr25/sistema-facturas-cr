@@ -18,6 +18,8 @@ archivos:
   - frontend/src/components/rentabilidad/CuandoSeVende.jsx
   - frontend/src/utils/rentabilidadFormato.js
   - backend/tests/rentabilidad.test.js
+  - backend/tests/rotacionMensual.test.js
+  - backend/tests/rotacionBajaCatalogo.test.js
   - backend/tests/rentabilidadFormato.test.js
   - backend/tests/rotacionVentas.test.js
   - backend/tests/rotacionMensual.test.js
@@ -54,17 +56,23 @@ otro producto en silencio el día que coincidan los números.
 
 DE DÓNDE SALE CADA CIFRA
 
-**Rotación mensual, regla vigente tras el caso real 2026-10-14:** el usuario
-elige **unidades vendidas en los últimos30 días**, incluyendo el actual.
-Suma de hoy y los29 días anteriores: una venta sale al superar30 días, sin
-reiniciar el contador al comenzar otro mes. No cuenta compras ni fechas
-futuras. Reemplaza la media de tres meses completos de la entrega inicial.
-Rentabilidad pide `rotacionPorProducto({ ultimos30Dias: true })` y comparte
-`SQL_ROTACION_MENSUAL` con categoría y búsqueda de Gestión de Catálogo.
-Sin ventas da cero; el formato conserva decimales. Tarjetas, detalle y Excel
-indican **Últimos30 días**. Una consulta conserva los totales, semanas,
-facturas, clientes y Pareto vigentes. Precios mantiene su media de12 meses.
-[Caso, decisión y pruebas](../../informes/rotacion-reciente-2026-10-14.md).
+**Rotación mensual, regla vigente desde el 2026-11-11:** el usuario pidió
+«que la medida de la rotación no sea por mes sino los últimos 3 meses, y si el
+producto es nuevo y tiene apenas mes y medio, que saque la estadística con
+eso». Es el **promedio por mes de los últimos 3 meses** (lo vendido entre los
+meses reales de la ventana); un producto que **empezó dentro de la ventana**
+se promedia sobre los días que lleva, **nunca menos de 30**. Empezó = su
+primera venta o su primera compra registrada, la que sea antes
+(`producto.creado_en` es la fecha de la migración para casi todos). Es
+`SQL_ROTACION` (`sqlRotacion(3, { porVida: true })`), UNA sola para
+Rentabilidad y su Excel, la categoría, la búsqueda y el filtro «Rotación baja
+o nula» de Gestión de Catálogo, y las clases A/B del catálogo del agente; el
+Pareto acumula ese promedio. Trae `dias_rotacion`/`rotacion_nueva`: la
+pantalla dice «Promedio de 3 meses» o «Promedio de 45 días · nuevo»
+(`pieRotacion`). Reemplaza «los últimos 30 días» (2026-10-14), elegido por un
+producto nuevo agotado en menos de un mes, caso que esto resuelve sin perder
+la ventana. Precios mantiene su media de 12 meses sin `porVida`.
+[Caso de 2026-10-14](../../informes/rotacion-reciente-2026-10-14.md).
 
 - **Margen de hoy**: `clasificarProducto` (`precios/auditoria.js`), con la
   tarifa real del producto y, si la ficha no tiene costo, el de las compras.

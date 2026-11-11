@@ -41,8 +41,8 @@ const PRODUCTOS = [
 
 // Por `producto.id`, como lo devuelve ventas/rotacion.js.
 const ROTACION = new Map([
-  [101, { clase: 'A', unidades: 100, ventas: 100000, unidadesMes: 33.33, unidadesSemana: 7.69, facturas: 12, clientesDistintos: 5, ultimaVenta: '2026-09-24' }],
-  [102, { clase: 'B', unidades: 50, ventas: 50000, unidadesMes: 16.67, unidadesSemana: 3.85, facturas: 6, clientesDistintos: 2, ultimaVenta: '2026-09-20' }],
+  [101, { clase: 'A', unidades: 100, ventas: 100000, unidadesMes: 33.33, unidadesSemana: 7.69, diasRotacion: 92, rotacionNueva: false, facturas: 12, clientesDistintos: 5, ultimaVenta: '2026-09-24' }],
+  [102, { clase: 'B', unidades: 50, ventas: 50000, unidadesMes: 33.33, unidadesSemana: 7.78, diasRotacion: 45, rotacionNueva: true, facturas: 6, clientesDistintos: 2, ultimaVenta: '2026-09-20' }],
   [104, { clase: 'C', unidades: 10, ventas: 2000, unidadesMes: 3.33, unidadesSemana: 0.77, facturas: 2, clientesDistintos: 1, ultimaVenta: '2026-08-01' }]
 ]);
 
@@ -80,11 +80,11 @@ beforeEach(() => { COSTOS_DERIVADOS = new Map(); s = cargar(); });
 const porId = (lista) => Object.fromEntries(lista.map((p) => [p.productoId, p]));
 
 describe('el margen y la ganancia de cada producto', () => {
-  test('Rentabilidad pide los últimos 30 días y muestra la cifra de la rotación', async () => {
+  test('Rentabilidad muestra la rotación de 3 meses, y los días si el producto es nuevo (2026-11-11)', async () => {
     const p = porId((await s.listarProductos()).data);
-    assert.deepEqual(opcionesRotacion, { ultimos30Dias: true });
-    assert.equal(p[101].unidadesMes, 33.33);
-    assert.equal(p[101].unidades, 100);
+    assert.equal(opcionesRotacion, undefined, 'la rotación es una sola: sin opciones');
+    assert.deepEqual([p[101].unidadesMes, p[101].unidades, p[101].diasRotacion], [33.33, 100, null]);
+    assert.deepEqual([p[102].unidadesMes, p[102].diasRotacion], [33.33, 45]);
   });
   test('el margen usa la tarifa real: el exento no se divide entre 1,13', async () => {
     const p = porId((await s.listarProductos()).data);

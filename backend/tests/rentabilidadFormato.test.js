@@ -82,3 +82,11 @@ describe('la respuesta de cada gráfico', () => {
     assert.equal(f.lasMasAltas([{ valor: 0 }, { valor: 0 }], 3, () => 'x'), null);
   });
 });
+
+describe('de dónde sale la rotación (2026-11-11)', () => {
+  test('promedio de 3 meses, o de los días que lleva un producto nuevo', async () => {
+    const { pieRotacion } = await import('../../frontend/src/utils/rentabilidadFormato.js');
+    assert.equal(pieRotacion(null), 'Promedio de 3 meses');
+    assert.equal(pieRotacion(45), 'Promedio de 45 días · nuevo');
+  });
+});

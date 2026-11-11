@@ -36,6 +36,13 @@ export function unidades(v) {
   return numeroCR(n, Number.isInteger(n) ? 0 : 1)
 }
 
+/**
+ * De dónde sale la rotación (2026-11-11): el promedio de los últimos 3 meses,
+ * o de los días que lleva un producto nuevo (`diasRotacion`, si lo es).
+ */
+export const pieRotacion = (diasRotacion) =>
+  diasRotacion ? `Promedio de ${diasRotacion} días · nuevo` : 'Promedio de 3 meses'
+
 export function porcentaje(v) {
   return v === null || v === undefined ? '—' : `${numeroCR(v, 1)} %`
 }

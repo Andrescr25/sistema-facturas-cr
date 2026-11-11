@@ -21,7 +21,7 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, texto, numero, booleano, validar, idValido } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { precioConImpuesto } = require('../catalogo-clientes/precio');
-const { SQL_ROTACION_MENSUAL } = require('../ventas/rotacion');
+const { SQL_ROTACION } = require('../ventas/rotacion');
 const { ROTACION_BAJA } = require('../precios/motor');
 const { cambiosDeEstado, accionDeEstado } = require('./estadoProducto');
 
@@ -141,9 +141,10 @@ function normalizarFila(fila) {
  *   `activos` es lo que muestran los catálogos (activo y sin ocultar);
  *   `vendibles` es todo lo que se puede facturar: activo, oculto o no.
  *   `rotacion_baja` (2026-11-03, el usuario: «rotación baja o nula», para
- *   ordenar el catálogo): los que están a la venta y en los últimos 30 días
- *   vendieron menos de `ROTACION_BAJA` unidades, ninguna incluida. Es la misma
- *   rotación que muestra la fila (`SQL_ROTACION_MENSUAL`) y el mismo corte con
+ *   ordenar el catálogo): los que están a la venta y venden menos de
+ *   `ROTACION_BAJA` unidades al mes (promedio de 3 meses, o de lo que lleva si
+ *   es nuevo), ninguna incluida. Es la misma rotación que muestra la fila
+ *   (`SQL_ROTACION`) y el mismo corte con
  *   que el motor de precios dice «se vende poco». Van primero los que no
  *   vendieron nada: si la lista llega al tope, lo que queda afuera es lo menos urgente.
  */
@@ -193,7 +194,7 @@ async function listarProductos({ buscar = '', categoriaId, proveedor = '', sinIm
   // La rotación se calcula una vez (no por fila) y solo cuando el filtro la pide.
   const porRotacion = estado === 'rotacion_baja';
   const { rows } = await pool.query(
-    `${porRotacion ? `WITH rot AS MATERIALIZED (${SQL_ROTACION_MENSUAL})` : ''}
+    `${porRotacion ? `WITH rot AS MATERIALIZED (${SQL_ROTACION})` : ''}
      ${SELECT_VISTA.replace('SELECT p.*,', 'SELECT p.*, COUNT(*) OVER() AS total,')}
      ${filtro}
      ORDER BY ${porRotacion ? 'COALESCE((SELECT unidades_mes FROM rot WHERE rot.producto_id = p.id), 0),' : ''} lower(p.nombre), p.id

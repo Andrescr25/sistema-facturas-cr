@@ -30,6 +30,7 @@ function aFila(p) {
     precioConIva: p.precio_con_iva,
     margenReal: p.margen_real,
     unidadesMes: p.unidades_mes,
+    diasRotacion: p.dias_rotacion,
     existencia: p.existencia,
     proveedor: p.proveedor,
     subcategoria: p.subcategoria,

@@ -3,7 +3,7 @@ import Insignia from '../ui/Insignia'
 import Dato from './Dato'
 import CuandoSeVende from './CuandoSeVende'
 import { Foto, AvisoMargen, TONO_CLASE } from './ListaProductos'
-import { colonesCorto, colonesExactos, porcentaje, unidades, MESES_CORTOS } from '../../utils/rentabilidadFormato'
+import { colonesCorto, colonesExactos, porcentaje, unidades, pieRotacion, MESES_CORTOS } from '../../utils/rentabilidadFormato'
 
 /**
  * Un producto: su margen, su rotación real y cuándo se vende, en unidades.
@@ -50,7 +50,7 @@ export default function DetalleProducto({ seleccionado, detalle, cargando, error
         <Dato titulo="Dejó en 3 meses" valor={p.ganancia !== null ? colonesCorto(p.ganancia) : '—'}
           tono={p.ganancia !== null && p.ganancia < 0 ? 'peligro' : 'neutro'}
           pie={`De ${colonesCorto(p.ventas)} vendidos · estimado con el costo de hoy`} />
-        <Dato titulo="Rotación mensual" valor={`${unidades(p.unidadesMes)} u. / mes`} pie="Últimos 30 días" />
+        <Dato titulo="Rotación mensual" valor={`${unidades(p.unidadesMes)} u. / mes`} pie={pieRotacion(p.diasRotacion)} />
         <Dato titulo="Facturas" valor={p.facturas} pie={`${p.clientes} ${p.clientes === 1 ? 'cliente distinto' : 'clientes distintos'} · 3 meses`} />
         <Dato titulo="Última venta" valor={fechaCorta(p.ultimaVenta)} />
         <Dato titulo="Rotación" valor={`Clase ${p.clase}`}
