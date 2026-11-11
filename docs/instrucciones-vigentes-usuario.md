@@ -1591,3 +1591,14 @@ es para yo llevar el control del inicio de jornada de cada empleado».
 Decidió: horas extra **«pasando 8 h al día»**, ajustable por empleado, y
 pagadas a **«tiempo y medio»**.
 [Cómo funciona](grafo/decision/planilla-del-agente.md).
+
+## 2026-11-11 — Inventario: la cantidad en Gestión de Catálogo, una sola cifra
+
+El usuario: «ahora quiero dar más enfoque al inventario: ponme en Gestión de
+Catálogo a la par del producto su cantidad y revisa que las cantidades se
+rebajen y se sumen bien en todos los módulos dependiendo del proceso. Con esto
+me refiero a que no haya duplicaciones del input de cantidad, o sea, que en un
+lugar diga que hay 5 y en otro 8». Esto pide mostrar cantidades en la pantalla
+interna de catálogo; los catálogos de venta siguen sin existencias.
+[Resultado](grafo/modulo/inventario.md).
+

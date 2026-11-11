@@ -103,8 +103,13 @@ async function arbol() {
 // ─── Las filas de la pantalla ─────────────────────────────────────────────
 
 /**
- * Subcategoría, rotación, proveedor principal y margen de cada producto, en
- * UNA consulta para toda la lista (sin una por fila).
+ * Subcategoría, rotación, proveedor principal, margen y cantidad de cada
+ * producto, en UNA consulta para toda la lista (sin una por fila).
+ *
+ * La cantidad es la existencia de `inventario_saldo`, la vista del kardex que
+ * leen Existencias, las auditorías y las ofertas (2026-11-11). Ninguna
+ * pantalla guarda ni calcula su propia cantidad: así no puede decir 5 una y 8
+ * otra.
  *
  * El margen sale de `clasificarProducto`, la misma fórmula que el resto del
  * sistema, con la tarifa real del producto: una tercera fórmula serían tres
@@ -112,7 +117,7 @@ async function arbol() {
  */
 const SELECT_FILA = `
   SELECT p.id, p.nombre, p.referencia, p.imagen_url, p.precio_sin_iva, p.costo_con_iva,
-         p.activo, p.oculto, p.categoria_id, p.marca_catalogo_id,
+         p.activo, p.oculto, p.categoria_id, p.marca_catalogo_id, p.inventariable, sa.existencia,
          c.nombre AS categoria, i.tarifa,
          s.id AS sub_id, s.nombre AS sub_nombre,
          COALESCE(r.unidades_mes, 0) AS unidades_mes,
@@ -121,6 +126,7 @@ const SELECT_FILA = `
     LEFT JOIN categoria_producto c ON c.id = p.categoria_id
     LEFT JOIN impuesto i ON i.id = p.impuesto_id
     LEFT JOIN subcategoria s ON s.id = p.subcategoria_id
+    LEFT JOIN inventario_saldo sa ON sa.producto_id = p.id
     -- La misma rotación de Rentabilidad: unidades vendidas en los últimos
     -- 30 días, por el id propio. Sin ventas en ese período, devuelve cero.
     LEFT JOIN (${SQL_ROTACION_MENSUAL}) r ON r.producto_id = p.id
@@ -153,6 +159,8 @@ function aFila(r) {
     precio_con_iva: tarifa === null ? null : precioConImpuesto(precio, tarifa),
     margen_real: margenReal,
     unidades_mes: r.unidades_mes === null || r.unidades_mes === undefined ? null : Number(r.unidades_mes),
+    // Un servicio (no inventariable) no tiene cantidad.
+    existencia: r.inventariable ? Number(r.existencia) : null,
     subcategoria: r.sub_id ? { id: r.sub_id, nombre: r.sub_nombre } : null,
     proveedor: r.supplier_name ? { nombre: r.supplier_name, cedula: r.supplier_cedula } : null
   };

@@ -15,6 +15,10 @@ archivos:
   - frontend/src/hooks/useInventarioAuditoria.js
   - backend/tests/auditoriasPropias.test.js
   - backend/tests/inventarioPropio.test.js
+  - frontend/src/components/inventario-auditoria/DetalleKardex.jsx
+  - backend/src/modules/productos/taxonomia.service.js
+  - frontend/src/components/gestion-catalogo/FilaProducto.jsx
+  - backend/tests/cantidadUnaSola.test.js
 aristas:
   depende_de: [decision/inventario-desde-cero, tabla/movimiento-inventario]
   bloqueado_por: [bloqueo/conteo-fisico]
@@ -125,3 +129,32 @@ apertura y sin movimientos. 17 auditorías y 470 descuentos anteriores conservad
 como históricos, ninguno activo. Migraciones 044–052 conservan esos datos;
 reactivar una auditoría o insertar un movimiento ficticio se detecta en clon
 y se revierte. [[modulo/auditoria-operacion-local]]. No equivale a contar físico.
+
+## Una sola cantidad, también en Gestión de Catálogo (2026-11-11)
+
+El usuario: «ponme en Gestión de Catálogo a la par del producto su cantidad, y
+revisa que las cantidades se rebajen y se sumen bien en todos los módulos…
+que no haya duplicaciones: que en un lugar diga que hay 5 y en otro 8».
+
+- La fila de Gestión de Catálogo lleva «Cantidad»: la existencia de
+  `inventario_saldo` (`taxonomia.service`, SELECT_FILA), la misma vista de
+  Existencias, auditorías y ofertas. Negativa en rojo; un servicio (no
+  inventariable) muestra «—», no un 0. Quien ve Inventario la toca y abre el
+  kardex (`DetalleKardex`, que salió de Existencias para ser una sola copia).
+  `cantidadUnaSola.test.js` comprueba que catálogo, búsqueda, Existencias y
+  kardex dicen lo mismo.
+- **Cuadre medido en la copia de producción del 2026-11-08**: desde el corte
+  (11/10), cada factura emitida, nota de crédito y compra registrada cuadra
+  con el kardex producto por producto (también las editadas, anuladas,
+  sustituidas y las compras corregidas). Única diferencia: un producto que se
+  pasó a «no inventariable» después de moverse (queda con su saldo).
+- **Lo que mueve mercadería y el kardex todavía no ve**: el conteo físico
+  (ninguno confirmado: 187 productos activos en negativo, 114 en positivo,
+  1.226 en cero), las líneas de compra sin producto (hasta que se corrigen en
+  «Compras para revisar») y las notas de crédito de PROVEEDOR por devolución
+  (`nota_credito_proveedor`, su `inventario_revisado` nunca se usó).
+- **Otra cifra que no es la del kardex**: «Ingresaron N» en Reporte Clientes y
+  «Disponibles» al sustituir un producto cuentan lo comprado después del
+  faltante y todavía no repartido (`ingresoFaltante.js`), no lo que hay: una
+  venta de mostrador no lo rebaja.
+

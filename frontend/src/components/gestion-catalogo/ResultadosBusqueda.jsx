@@ -18,7 +18,8 @@ export default function ResultadosBusqueda({
   estaSeleccionado,
   onEditar,
   onSugerirFoto,
-  onDuplicar
+  onDuplicar,
+  onVerMovimientos
 }) {
   const ordenPlano = useMemo(() => resultados.map((p) => p.id), [resultados])
   const descripcion = [
@@ -74,6 +75,7 @@ export default function ResultadosBusqueda({
             onEditar={onEditar}
             onSugerirFoto={onSugerirFoto}
             onDuplicar={onDuplicar}
+            onVerMovimientos={onVerMovimientos}
           />
         ))}
       </div>

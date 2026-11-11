@@ -19,6 +19,9 @@ import ResultadosBusqueda from '../components/gestion-catalogo/ResultadosBusqued
 import BarraLote from '../components/gestion-catalogo/BarraLote'
 import ModalProducto from '../components/gestion-catalogo/ModalProducto'
 import ModalSugerirImagen from '../components/ModalSugerirImagen'
+import DetalleKardex from '../components/inventario-auditoria/DetalleKardex'
+import { useAuth } from '../contexts/AuthContext'
+import { puedeVer } from '../utils/modulos'
 import TablaCatalogo from '../components/configuracion/TablaCatalogo'
 import ModalElementoCatalogo from '../components/configuracion/ModalElementoCatalogo'
 import { urlArchivo } from '../utils/urlArchivo'
@@ -78,6 +81,9 @@ export default function GestionCatalogo() {
   const mostrarToast = useCallback((type, message) => showToast(message, type), [showToast])
   const [pestana, setPestana] = useState('catalogo')
   const [edicionCategoria, setEdicionCategoria] = useState(null)
+  // El kardex de un producto (de dónde sale su cantidad), para quien ve Inventario.
+  const [kardexDe, setKardexDe] = useState(null)
+  const { usuario } = useAuth()
   // Mismo formato que usan las tarjetas de Cuentas por Cobrar: `estado` es el
   // atajo elegido (todos | sinClasificar | sinFoto).
   const [vista, setVista] = useState({ estado: 'todos', dias: 'todos' })
@@ -213,7 +219,8 @@ export default function GestionCatalogo() {
   const accionesFila = {
     onEditar: ficha.abrirEditar,
     onSugerirFoto: ficha.openImageSuggestions,
-    onDuplicar: ficha.abrirOtraMarca
+    onDuplicar: ficha.abrirOtraMarca,
+    onVerMovimientos: puedeVer(usuario, '/inventario-auditoria') ? (p) => setKardexDe(p.id) : null
   }
 
   const pestanas = [
@@ -442,6 +449,8 @@ export default function GestionCatalogo() {
           onCerrar={ficha.cerrarEdicion}
         />
       )}
+
+      {kardexDe && <DetalleKardex productoId={kardexDe} onCerrar={() => setKardexDe(null)} />}
 
       {edicionCategoria && (
         <ModalElementoCatalogo

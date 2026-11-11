@@ -3,6 +3,7 @@ import Insignia from '../ui/Insignia'
 import VistaPreviaImagen from './VistaPreviaImagen'
 import { formatCRC } from '../../utils/gestionCatalogoUtils'
 import { unidades } from '../../utils/rentabilidadFormato'
+import { formatCantidad } from '../../utils/inventarioAuditoriaUtils'
 
 function Dato({ etiqueta, children, pie }) {
   return (
@@ -18,6 +19,24 @@ function TonoMargen({ margen }) {
   if (margen === null || margen === undefined) return <span className="text-neutro-300">—</span>
   const tono = margen < 0 ? 'peligro' : margen < 10 ? 'alerta' : 'exito'
   return <Insignia tono={tono}>{margen.toFixed(0)}%</Insignia>
+}
+
+/**
+ * Cuántas hay: la existencia del kardex (`inventario_saldo`), la misma cifra
+ * de Inventario → Existencias. Negativa en rojo (salió más de lo que entró).
+ * Con `onVerMovimientos`, tocarla abre de dónde sale.
+ */
+function Cantidad({ producto, onVerMovimientos }) {
+  if (producto.existencia == null) return <span className="text-neutro-300" title="No lleva inventario">—</span>
+  const texto = formatCantidad(producto.existencia)
+  const tono = producto.existencia < 0 ? 'text-peligro-700' : 'text-neutro-900'
+  if (!onVerMovimientos) return <span className={tono}>{texto}</span>
+  return (
+    <button type="button" onClick={() => onVerMovimientos(producto)} title="Ver de dónde sale esta cantidad"
+      className={`${tono} underline decoration-neutro-300 decoration-dotted underline-offset-4 hover:decoration-primario-500`}>
+      {texto}
+    </button>
+  )
 }
 
 function Accion({ icono: Icono, texto, onClick }) {
@@ -36,7 +55,7 @@ function Accion({ icono: Icono, texto, onClick }) {
 
 /**
  * Un producto: foto (con vista grande al pasar el mouse), nombre, lo que
- * cuesta y cuánto deja, cuánto se mueve, y las tres acciones siempre a la
+ * cuesta y cuánto deja, cuántas hay, cuánto se mueve, y las tres acciones siempre a la
  * vista — no escondidas tras un hover, que en la tablet del mostrador no
  * existe.
  */
@@ -47,7 +66,8 @@ export default function FilaProducto({
   mostrarCategoria = false,
   onEditar,
   onSugerirFoto,
-  onDuplicar
+  onDuplicar,
+  onVerMovimientos
 }) {
   const p = producto
   const detalle = [p.reference ? `Ref. ${p.reference}` : 'Sin referencia', p.proveedor?.nombre].filter(Boolean).join(' · ')
@@ -86,6 +106,7 @@ export default function FilaProducto({
           {p.precioConIva != null ? formatCRC(p.precioConIva) : '—'}
         </Dato>
         <Dato etiqueta="Margen"><TonoMargen margen={p.margenReal} /></Dato>
+        <Dato etiqueta="Cantidad"><Cantidad producto={p} onVerMovimientos={onVerMovimientos} /></Dato>
         <Dato etiqueta="Rotación" pie="Últimos 30 días">
           {p.unidadesMes != null ? <>{unidades(p.unidadesMes)}<span className="text-xs font-semibold text-neutro-400">/mes</span></> : '—'}
         </Dato>

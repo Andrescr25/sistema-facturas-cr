@@ -16,6 +16,11 @@ export function tamanoTextoMonto(valorFormateado) {
   return 'text-3xl'
 }
 
+// Una cantidad de inventario, con las fracciones que tenga (hasta 4 decimales).
+// La usan Existencias, el kardex y Gestión de Catálogo: la misma cifra se
+// escribe igual en todos lados.
+export const formatCantidad = (value) => Number(value).toLocaleString('es-CR', { maximumFractionDigits: 4 })
+
 export const formatDate = (value) =>
   new Date(value).toLocaleDateString('es-CR', {
     year: 'numeric',

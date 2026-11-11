@@ -53,7 +53,8 @@ export default function DetalleCategoria({
   onMoverSub,
   onEditar,
   onSugerirFoto,
-  onDuplicar
+  onDuplicar,
+  onVerMovimientos
 }) {
   const [editandoNombre, setEditandoNombre] = useState(false)
   const [nombreVisible, setNombreVisible] = useState(categoria.nombreVisible)
@@ -258,6 +259,7 @@ export default function DetalleCategoria({
                 onEditar={onEditar}
                 onSugerirFoto={onSugerirFoto}
                 onDuplicar={onDuplicar}
+                onVerMovimientos={onVerMovimientos}
               />
             )
           })}

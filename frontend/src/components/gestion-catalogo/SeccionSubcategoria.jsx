@@ -30,7 +30,8 @@ export default function SeccionSubcategoria({
   onMoverACategoria,
   onEditar,
   onSugerirFoto,
-  onDuplicar
+  onDuplicar,
+  onVerMovimientos
 }) {
   const [editando, setEditando] = useState(false)
   const [nombre, setNombre] = useState(seccion.nombre)
@@ -150,6 +151,7 @@ export default function SeccionSubcategoria({
               onEditar={onEditar}
               onSugerirFoto={onSugerirFoto}
               onDuplicar={onDuplicar}
+              onVerMovimientos={onVerMovimientos}
             />
           ))}
         </div>
