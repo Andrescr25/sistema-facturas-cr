@@ -438,3 +438,19 @@ que si se factura ese producto, agarre el descuento que se puso en excesos».
   12 → oferta del 20 % en Facturación y en el catálogo → factura con el 20 %
   (25 % se rechaza) → vendidas las 12, la oferta se apaga.
 
+## «Quedan» en la lista de liquidación — 2026-11-11
+
+El usuario: «desde el tab de excesos déjame modificar la cantidad para poner
+cuáles son los que quedan». En Excesos → «Descuentos del catálogo» cada
+producto lleva **Quedan** (el inventario de hoy) junto al descuento.
+Cambiarlo es un recuento de ese producto (`recontarExceso`, `PUT
+/inventario-auditorias/descuentos/:productoId/quedan`): una auditoría
+`recuento_exceso` de un solo ítem, empacado, que se aplica y se cierra en el
+mismo paso. El kardex queda en ese número (ajuste con «Recuento de
+liquidación: …») y cuenta como el último empaque (`descuentosExceso.js` lee
+`exceso` y `recuento_exceso`): con N > 0 la oferta sigue o vuelve, con 0 sale
+—y la tarea diaria `depurarOfertasSinStock` le pone 0 % al día siguiente—.
+No aparece en las listas de auditorías ni de tandas. Solo para productos con
+descuento vigente (409 si no está en liquidación). Sin SQL: el tipo de
+auditoría no tiene restricción en la base.
+

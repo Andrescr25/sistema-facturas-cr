@@ -8,7 +8,8 @@
  * lado, el cliente podría ver una oferta que al pedirla se cobra completa.
  *
  * Vigente = el empacador confirmó el producto listo en caja (empacado) en su
- * tanda de exceso más reciente, esa cantidad física es mayor a 0, el
+ * tanda de exceso más reciente —o se recontó «cuántas quedan» desde la
+ * pestaña Excesos, 2026-11-11—, esa cantidad física es mayor a 0, el
  * descuento sigue siendo mayor que 0, y no llegó al 100% (no está regalado).
  *
  * El stock del empaque es una foto; la oferta requiere también existencias
@@ -25,7 +26,7 @@ const SQL_VIGENTES = `
       iai.producto_id,
       COALESCE(iai.stock_real, iai.stock_sistema) AS stock_efectivo
     FROM inventario_auditoria_items iai
-    JOIN inventario_auditorias ia ON ia.id = iai.auditoria_id AND ia.tipo = 'exceso'
+    JOIN inventario_auditorias ia ON ia.id = iai.auditoria_id AND ia.tipo IN ('exceso', 'recuento_exceso')
     WHERE iai.empacado = TRUE AND NOT ia.historica
     ORDER BY iai.producto_id, iai.created_at DESC, iai.id DESC
   )

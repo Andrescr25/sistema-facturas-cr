@@ -11,7 +11,40 @@ import { Percent, Search, Trash2, Loader2, RefreshCw, Eye, EyeOff, Check, Plus }
  * además que el producto se haya empacado en alguna tanda y que le quede
  * stock. Sin decirlo, alguien pone un 40%, no pasa nada en el catálogo, y
  * parece que el sistema está roto.
+ *
+ * «Quedan» (2026-11-11): cuántas quedan de cada uno. Cambiarlo ajusta el
+ * inventario a ese número (un recuento de ese producto); con 0 sale del
+ * catálogo.
  */
+function CampoQuedan({ d, onRecontar }) {
+  const [valor, setValor] = useState(null)
+  const enEdicion = valor !== null
+  const guardar = async () => {
+    if (valor === '' || !(Number(valor) >= 0)) return
+    await onRecontar(d.productoId, valor, d.nombreProducto)
+    setValor(null)
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <label className="text-center">
+        <span className="block text-[10px] font-bold uppercase tracking-wider text-neutro-400">Quedan</span>
+        <input type="number" min="0" step="1" inputMode="decimal" aria-label={`Cuántas quedan de ${d.nombreProducto}`}
+          value={enEdicion ? valor : String(Number(d.stockEfectivo))}
+          onChange={(e) => setValor(e.target.value)}
+          className={`w-20 text-center py-1.5 px-2 border-2 rounded-xl font-extrabold text-sm focus:outline-none ${
+            enEdicion ? 'border-exito-500 bg-exito-50' : Number(d.stockEfectivo) <= 0 ? 'border-peligro-200 bg-peligro-50 text-peligro-700' : 'border-neutro-200 bg-white'
+          }`} />
+      </label>
+      {enEdicion && (
+        <button onClick={guardar} title="Guardar cuántas quedan" aria-label={`Guardar cuántas quedan de ${d.nombreProducto}`}
+          className="mt-4 bg-primario-800 hover:bg-primario-900 text-white p-2 rounded-lg transition-colors">
+          <Check size={15} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function SeccionDescuentos({
   descuentos,
   loading,
@@ -22,7 +55,8 @@ export default function SeccionDescuentos({
   setBusquedaProducto,
   resultadosProducto,
   buscandoProducto,
-  onAgregarProducto
+  onAgregarProducto,
+  onRecontar
 }) {
   const [filtro, setFiltro] = useState('')
   const [soloVisibles, setSoloVisibles] = useState(false)
@@ -149,7 +183,7 @@ export default function SeccionDescuentos({
           {visibles.map(d => {
             const enEdicion = editando[d.productoId] !== undefined
             return (
-              <div key={d.productoId} className="p-4 flex items-center gap-3">
+              <div key={d.productoId} className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-neutro-900 text-sm truncate">{d.nombreProducto}</p>
                   <p className="text-xs mt-0.5 flex items-center gap-1.5">
@@ -165,8 +199,10 @@ export default function SeccionDescuentos({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-end gap-2 shrink-0">
+                  <CampoQuedan d={d} onRecontar={onRecontar} />
                   <div className="relative">
+                    <span className="block text-center text-[10px] font-bold uppercase tracking-wider text-neutro-400">Descuento</span>
                     <input
                       type="number"
                       min="0"
@@ -178,7 +214,7 @@ export default function SeccionDescuentos({
                         enEdicion ? 'border-exito-500 bg-exito-50' : 'border-neutro-200 bg-white'
                       }`}
                     />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-neutro-400 font-bold">%</span>
+                    <span className="absolute right-2 bottom-2 text-xs text-neutro-400 font-bold">%</span>
                   </div>
 
                   {enEdicion && (

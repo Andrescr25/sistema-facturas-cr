@@ -13,7 +13,9 @@ const { SQL_VIGENTES } = require('../../utils/descuentosExceso');
 // Las devoluciones (de cliente y a proveedor) se quitaron el 2026-11-11 por
 // pedido del usuario: ya no se crean. Las filas viejas quedan en la base, fuera
 // de las listas.
-const TIPOS = ['random','categoria','critico','inicial','exceso'];
+// `recuento_exceso`: «cuántas quedan» de un producto en liquidación, desde la
+// pestaña Excesos (2026-11-11). Nace y se cierra en el mismo paso.
+const TIPOS = ['random','categoria','critico','inicial','exceso','recuento_exceso'];
 const DEVOLUCIONES_VIEJAS = ['devolucion','devolucion_proveedor'];
 const transaccion = inv.conTransaccion;
 const conteo = v => v == null || v === '' ? null : inv.decimal(v,'Conteo',{decimales:4});
@@ -63,7 +65,7 @@ async function insertarItemEn(db,a,p,stockReal=null,ultimaVenta=null) {
 async function listarAuditorias(tipo) {
   if(tipo&&!TIPOS.includes(tipo))throw httpError(400,'Tipo de auditoría inválido.');
   return (await pool.query(`SELECT * FROM inventario_auditorias WHERE NOT historica AND
-    CASE WHEN $1::text IS NOT NULL THEN tipo=$1 ELSE tipo NOT IN ('devolucion','devolucion_proveedor','exceso') END
+    CASE WHEN $1::text IS NOT NULL THEN tipo=$1 ELSE tipo NOT IN ('devolucion','devolucion_proveedor','exceso','recuento_exceso') END
     ORDER BY fecha_creacion DESC,id DESC`,[tipo||null])).rows;
 }
 async function listarCategorias() {
@@ -268,6 +270,32 @@ async function eliminarDescuentoExceso(productoId) {
   const {rows:[d]}=await pool.query('DELETE FROM producto_descuento_exceso WHERE producto_id=$1 AND NOT historica RETURNING nombre_producto',[idValido(productoId)]);
   if(!d)throw httpError(404,'El producto no tiene descuento activo.');return {eliminado:true,nombre:d.nombre_producto};
 }
+/**
+ * «Quedan N» de un producto en liquidación, desde la pestaña Excesos
+ * (2026-11-11). El usuario: «desde el tab de excesos déjame modificar la
+ * cantidad para poner cuáles son los que quedan».
+ *
+ * Es un conteo de un solo producto: el inventario queda en N (un ajuste en el
+ * kardex, con este recuento como origen) y cuenta como el último empaque del
+ * exceso. Con N > 0 la oferta sigue (o vuelve) al catálogo; con 0 sale. No se
+ * muestra en las listas de auditorías ni de tandas: su rastro es el kardex.
+ */
+async function recontarExceso({productoId,cantidad},usuarioId=null) {
+  if(cantidad==null||cantidad==='')throw httpError(400,'Escribí cuántas quedan.');
+  const quedan=inv.decimal(String(cantidad),'Cantidad que queda',{decimales:4});
+  return transaccion(async db=>{
+    const b=await inv.bloquear(db),p=await productoEn(db,productoId);
+    const {rows:[d]}=await db.query('SELECT 1 FROM producto_descuento_exceso WHERE producto_id=$1 AND NOT historica',[p.producto_id]);
+    if(!d)throw httpError(409,'Ese producto no está en liquidación.');
+    const a=await nuevaEn(db,'recuento_exceso',{nombre:`Recuento de liquidación: ${p.nombre}`.slice(0,255),revision:b.revision});
+    const i=await insertarItemEn(db,a,p,quedan);
+    await db.query('UPDATE inventario_auditoria_items SET empacado=TRUE WHERE id=$1',[i.id]);
+    await aplicarEn(db,a,b,{usuarioId});
+    await db.query(`UPDATE inventario_auditorias SET estado='finalizado',fecha_finalizacion=CURRENT_TIMESTAMP,
+      precision_porcentaje=CASE WHEN $2::numeric=$3::numeric THEN 100 ELSE 0 END WHERE id=$1`,[a.id,quedan,p.existencia]);
+    return {productoId:p.producto_id,antes:Number(p.existencia),quedan:Number(quedan)};
+  });
+}
 async function listarDescuentosExceso() {
   const {rows}=await pool.query(`WITH vigentes AS (${SQL_VIGENTES.replace(/;\s*$/,'')})
     SELECT d.*,s.existencia AS stock_efectivo,v.producto_id IS NOT NULL AS visible
@@ -314,6 +342,6 @@ async function generarTandaDeExcesos() {
 }
 module.exports={listarAuditorias,listarCategorias,crearAuditoria,getAuditoria,guardarConteos,guardarConteoIndividual,
   finalizarAuditoria,ajustarInventario,resincronizarAuditoria,buscarProductosParaTanda,
-  eliminarItemDeTanda,detectarCandidatosExceso,escalarDescuentosExceso,generarTandaDeExcesos,depurarOfertasSinStock,
+  eliminarItemDeTanda,recontarExceso,detectarCandidatosExceso,escalarDescuentosExceso,generarTandaDeExcesos,depurarOfertasSinStock,
   actualizarItemExceso,listarRegalos,crearExcesoManual,eliminarAuditoria,agregarItemExceso,aplicarDescuentoTanda,
   listarDescuentosExceso,guardarDescuentoExceso,eliminarDescuentoExceso};

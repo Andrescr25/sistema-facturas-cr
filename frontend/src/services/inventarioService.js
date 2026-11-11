@@ -108,6 +108,12 @@ export async function eliminarDescuentoExceso(productoId) {
   return response.data;
 }
 
+// «Quedan N» de un producto en liquidación (2026-11-11): ajusta el inventario.
+export async function recontarExceso(productoId, cantidad) {
+  const response = await api.put(`/inventario-auditorias/descuentos/${productoId}/quedan`, { cantidad });
+  return response.data;
+}
+
 export async function guardarConteoIndividual(id, itemId, stockReal) {
   const response = await api.patch(`/inventario-auditorias/${id}/items/${itemId}/conteo`, { stockReal });
   return response.data;

@@ -57,6 +57,22 @@ describe('un exceso llega al catálogo y a la factura — PostgreSQL con ROLLBAC
     assert.equal((await catalogo.listarOfertas()).find(o => String(o.id) === String(producto.id)).descuentoPorcentaje, 20);
   });
 
+  test('«Quedan» desde la pestaña Excesos: el inventario queda en ese número; con 0 sale y con 4 vuelve', async () => {
+    const quedan = async () => Number((await c.query('SELECT existencia FROM inventario_saldo WHERE producto_id = $1', [producto.id])).rows[0].existencia);
+    const r = await excesos.recontarExceso({ productoId: producto.id, cantidad: '0' }, usuario);
+    assert.deepEqual([r.antes, r.quedan, await quedan()], [12, 0, 0]);
+    assert.equal(await enOferta(), undefined, 'con 0 no se ofrece');
+    await excesos.recontarExceso({ productoId: producto.id, cantidad: 12 }, usuario);
+    assert.equal((await enOferta()).descuentoPorcentaje, 20, 'vuelve con su descuento');
+    const { rows: [m] } = await c.query(`SELECT tipo, cantidad::float, observaciones FROM movimiento_inventario
+      WHERE producto_id = $1 ORDER BY id DESC LIMIT 1`, [producto.id]);
+    assert.deepEqual([m.tipo, m.cantidad], ['ajuste_auditoria', 12]);
+    assert.match(m.observaciones, /Recuento de liquidación/);
+    const enListas = (await excesos.listarAuditorias()).concat(await excesos.listarAuditorias('exceso'));
+    assert.ok(!enListas.some(a => a.tipo === 'recuento_exceso'), 'el recuento no ensucia las listas de auditorías ni de tandas');
+    await assert.rejects(excesos.recontarExceso({ productoId: producto.id, cantidad: '' }), (e) => e.status === 400);
+  });
+
   test('facturado sin permiso de precio: vale el 20 % del exceso y no otro; al venderse todo, la oferta se apaga', async () => {
     const venta = (cantidad, descuento) => ({ clienteId: cliente,
       items: [{ productoId: producto.id, reference: producto.referencia, name: producto.nombre, quantity: cantidad, price: 1000, discount: descuento }] });

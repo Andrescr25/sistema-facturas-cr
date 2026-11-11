@@ -20,7 +20,8 @@ import {
   aplicarDescuentoTanda as aplicarDescuentoTandaApi,
   getDescuentosExceso,
   guardarDescuentoExceso as guardarDescuentoExcesoApi,
-  eliminarDescuentoExceso as eliminarDescuentoExcesoApi
+  eliminarDescuentoExceso as eliminarDescuentoExcesoApi,
+  recontarExceso as recontarExcesoApi
 } from '../services/inventarioService'
 import {
   calcularKpis,
@@ -362,6 +363,20 @@ export function useInventarioAuditoria() {
     }
   }
 
+  // «Quedan N» desde la lista de liquidación: el inventario queda en N; con 0
+  // sale del catálogo.
+  const handleRecontarExceso = async (productoId, cantidad, nombre) => {
+    try {
+      const result = await recontarExcesoApi(productoId, cantidad)
+      if (result.success) {
+        showToast(`"${nombre}": quedan ${result.data.quedan}.`, 'success')
+        await loadDescuentos()
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'No se pudo guardar la cantidad.', 'error')
+    }
+  }
+
   const handleEliminarDescuento = async (productoId, nombre) => {
     const confirmado = await confirm(
       `¿Quitar el descuento de "${nombre}"? Deja de verse en el catálogo público de inmediato.`
@@ -660,6 +675,7 @@ export function useInventarioAuditoria() {
     loadDescuentos,
     handleGuardarDescuento,
     handleEliminarDescuento,
+    handleRecontarExceso,
 
     auditoriaActiva,
     conteosDraft,

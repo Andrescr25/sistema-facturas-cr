@@ -64,6 +64,7 @@ export default function InventarioAuditoria() {
     loadDescuentos,
     handleGuardarDescuento,
     handleEliminarDescuento,
+    handleRecontarExceso,
 
     auditoriaActiva,
     conteosDraft,
@@ -170,6 +171,7 @@ export default function InventarioAuditoria() {
               onRefresh={loadDescuentos}
               onGuardar={handleGuardarDescuento}
               onEliminar={handleEliminarDescuento}
+              onRecontar={handleRecontarExceso}
               busquedaProducto={busquedaProductoExceso}
               setBusquedaProducto={setBusquedaProductoExceso}
               resultadosProducto={resultadosProductoExceso}

@@ -1633,3 +1633,8 @@ que si se factura ese producto, agarre el descuento que se puso en excesos».
 El usuario: «también ahí puedes quitar el tab de "devoluciones"».
 [Qué se quitó](grafo/modulo/inventario.md).
 
+## 2026-11-11 — «Quedan» de cada producto en liquidación
+
+El usuario: «desde el tab de excesos déjame modificar la cantidad para poner
+cuáles son los que quedan». [Cómo funciona](grafo/modulo/catalogo-agente.md).
+

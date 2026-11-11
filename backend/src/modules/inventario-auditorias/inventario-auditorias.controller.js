@@ -20,6 +20,8 @@ const ajustarInventario = accion(r => servicio.ajustarInventario(r.params.id,usu
 const resincronizarAuditoria = accion(r => servicio.resincronizarAuditoria(r.params.id));
 const buscarProductosParaTanda = accion(r => servicio.buscarProductosParaTanda(r.query.q));
 const eliminarItemDeTanda = accion(r => servicio.eliminarItemDeTanda(r.params.id,r.params.itemId));
+// «Quedan N» de un producto en liquidación (2026-11-11).
+const recontarExceso = accion(r => servicio.recontarExceso({productoId:r.params.productoId,cantidad:r.body?.cantidad},usuario(r)));
 const generarExcesos = accion(r => servicio.generarTandaDeExcesos(), { extendido: true });
 const actualizarItemExceso = accion(r => servicio.actualizarItemExceso(r.params.id,r.params.itemId,r.body || {},usuario(r)));
 const listarRegalos = accion(r => servicio.listarRegalos());
@@ -79,6 +81,6 @@ async function quitarProductoNuevo(req, res) {
 }
 
 module.exports = {
-  listarAuditorias, listarCategorias, crearAuditoria, getAuditoria, guardarConteos, guardarConteoIndividual, finalizarAuditoria, ajustarInventario, resincronizarAuditoria, buscarProductosParaTanda, eliminarItemDeTanda, generarExcesos, actualizarItemExceso, listarRegalos, crearExcesoManual, eliminarAuditoria, agregarItemExceso, aplicarDescuentoTanda, listarDescuentosExceso, guardarDescuentoExceso, eliminarDescuentoExceso, listarExistencias, kardex, guardarUmbrales,
+  listarAuditorias, listarCategorias, crearAuditoria, getAuditoria, guardarConteos, guardarConteoIndividual, finalizarAuditoria, ajustarInventario, resincronizarAuditoria, buscarProductosParaTanda, eliminarItemDeTanda, recontarExceso, generarExcesos, actualizarItemExceso, listarRegalos, crearExcesoManual, eliminarAuditoria, agregarItemExceso, aplicarDescuentoTanda, listarDescuentosExceso, guardarDescuentoExceso, eliminarDescuentoExceso, listarExistencias, kardex, guardarUmbrales,
   buscarProductosNuevos, listarProductosNuevos, agregarProductoNuevo, quitarProductoNuevo
 };

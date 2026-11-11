@@ -28,6 +28,7 @@ router.post('/generar-excesos', inventarioAuditoriasController.generarExcesos);
 router.post('/excesos', inventarioAuditoriasController.crearExcesoManual);
 router.post('/descuentos', inventarioAuditoriasController.guardarDescuentoExceso);
 router.delete('/descuentos/:productoId', inventarioAuditoriasController.eliminarDescuentoExceso);
+router.put('/descuentos/:productoId/quedan', inventarioAuditoriasController.recontarExceso);
 
 router.get('/existencias', inventarioAuditoriasController.listarExistencias);
 router.get('/kardex/:productoId', inventarioAuditoriasController.kardex);
