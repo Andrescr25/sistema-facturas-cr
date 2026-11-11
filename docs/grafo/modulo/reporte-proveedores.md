@@ -4,6 +4,11 @@ tipo: modulo
 titulo: Reporte de Proveedores — faltantes y fichas, órdenes independientes
 estado: vigente
 archivos:
+  - backend/src/modules/orders-whatsapp/reenvioOrden.service.js
+  - backend/tests/reenvioOrdenProveedor.test.js
+  - frontend/src/hooks/useReenvioOrden.js
+  - frontend/src/components/reporte-proveedores/ModalReenviarOrden.jsx
+  - frontend/src/components/reporte-proveedores/OrdenEnviadaDetalle.jsx
   - docs/informes/despliegue-portadas-065-2026-10-22.md
   - docs/informes/proveedores-rendimiento-2026-10-14.md
   - backend/src/modules/orders-whatsapp/destinoProveedor.service.js
@@ -334,3 +339,26 @@ Los párrafos de entregas previas describen su estado histórico al publicarlas.
 
 La ficha configura Comercial, Combustible, Alimentación/viáticos o Mixto para facturas futuras. Se conserva el comportamiento de proveedores existentes y el reporte de faltantes; no cambia sus envíos.
 Ver [[modulo/gastos-operativos]]; requiere SQL 061, pendiente de producción.
+
+## Volver a enviar una orden ya enviada — 2026-11-11
+
+El usuario: «agrégame la opción en Reporte Proveedor de volver a enviar, para
+quitar la opción de "usar código proveedor"».
+
+- La orden enviada (`OrdenEnviadaDetalle`) lleva «Volver a enviar»; la que
+  está por verificar, no. El modal (`ModalReenviarOrden`) trae la casilla
+  «Usar códigos/nombres propios del proveedor en el PDF» **apagada**, el
+  número del envío original (o los de la ficha) y el mensaje de siempre.
+- El servidor (`reenvioOrden.service`, `POST /orden-compra/proveedor/ordenes/
+  :id/reenviar`) arma el PDF desde la orden guardada —mismas líneas y
+  cantidades— con `generarPdfOrden(o, { preferirDatosProveedor })` y lo manda
+  por WhatsApp. **No toca la orden ni su envío confirmado**:
+  `orden_compra_ciclo_envio` admite un envío activo por orden y es inmutable.
+  El reenvío queda en `envio_whatsapp` y en la bitácora (`iniciar_reenvio`
+  con la huella del PDF y la opción, luego `reenvio_enviado`, `_no_enviado`
+  o `_incierto`). Sin migración.
+- Uno a la vez: se reclama con la orden bloqueada antes de tocar la red;
+  otro reenvío de la misma orden dentro de 2 minutos responde 409.
+- Solo se ve mientras la orden enviada sigue en el reporte (3 días,
+  `DIAS_VISIBLE` de `ordenesReporte.service`).
+

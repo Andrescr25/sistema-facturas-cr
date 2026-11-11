@@ -6,4 +6,6 @@ router.get('/ordenes', c.consultar);
 router.post('/preparar', c.preparar);
 router.post('/revisar-envio', c.revisarEnvio);
 router.post('/enviar', c.enviar);
+router.get('/ordenes/:id/reenvio', c.propuestaReenvio);
+router.post('/ordenes/:id/reenviar', c.reenviar);
 module.exports = router;

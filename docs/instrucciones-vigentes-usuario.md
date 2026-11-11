@@ -1616,3 +1616,8 @@ meses, y si el producto es nuevo y tiene apenas mes y medio, que saque la
 estadística con eso». Reemplaza «los últimos 30 días» que eligió el
 2026-10-14. [Cómo se calcula](grafo/modulo/rentabilidad.md).
 
+## 2026-11-11 — Volver a enviar una orden a un proveedor
+
+El usuario: «agrégame la opción en Reporte Proveedor de volver a enviar, para
+quitar la opción de "usar código proveedor"». [Cómo funciona](grafo/modulo/reporte-proveedores.md).
+

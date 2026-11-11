@@ -10,3 +10,7 @@ exports.contactos = (req,res) => responder(res, () => require('./destinoProveedo
 
 exports.enviar = (req,res) => responder(res, () => require('./envioDesdeReporte.service').enviar(req.body, req.usuario?.id));
 exports.revisarEnvio = (req,res) => responder(res, () => require('./envioDesdeReporte.service').revisarEnvio(req.body, req.usuario?.id));
+// Volver a enviar una orden ya enviada, con o sin los códigos del proveedor (2026-11-11).
+exports.propuestaReenvio = (req,res) => responder(res, () => require('./reenvioOrden.service').propuesta(req.params.id));
+exports.reenviar = (req,res) => responder(res, () => require('./reenvioOrden.service').reenviar(req.params.id, req.body || {}, req.usuario?.id));
+
