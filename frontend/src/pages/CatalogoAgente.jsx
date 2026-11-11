@@ -107,6 +107,14 @@ export default function CatalogoAgente() {
     [ofertas, configCatalogo]
   )
 
+  // Los excesos con su descuento (2026-11-11, el usuario: «así como los
+  // productos nuevos salen en el catálogo, que pase lo mismo con los
+  // excesos»): sección propia en Todo y filtro, además de su familia.
+  const liquidacionPorCategoria = useMemo(
+    () => enOrdenDelCatalogo(featuredProducts, configCatalogo),
+    [featuredProducts, configCatalogo]
+  )
+
   // "Productos nuevos" (lista manual de Auditoría de Inventario), igual que
   // las rebajas: por categoría y, dentro, por subcategoría.
   const nuevosPorCategoria = useMemo(
@@ -128,6 +136,7 @@ export default function CatalogoAgente() {
     }
     const lista = [{ clave: 'todo', texto: 'Todo', icono: LayoutGrid, contador: filteredData.flat.length }]
     if (ofertas.length > 0) lista.push({ clave: '__ofertas', texto: 'Ofertas', icono: Tag, contador: ofertas.length })
+    if (featuredProducts.length > 0) lista.push({ clave: '__liquidacion', texto: 'Liquidación', icono: Flame, contador: featuredProducts.length })
     if (productosNuevos.length > 0) lista.push({ clave: '__nuevos', texto: 'Nuevos', icono: Sparkles, contador: productosNuevos.length })
     if (clienteActivo && productosHabitualesDelCliente.length > 0) {
       lista.push({ clave: '__cliente', texto: 'De este cliente', icono: UserCheck, contador: productosHabitualesDelCliente.length })
@@ -136,7 +145,7 @@ export default function CatalogoAgente() {
       lista.push({ clave: k, texto: nombreVisibleDeCategoria(k, configCatalogo), contador: filteredData.grouped[k]?.length || 0 })
     })
     return lista
-  }, [filteredData, ofertas, productosNuevos, clienteActivo, productosHabitualesDelCliente, configCatalogo, clienteNuevo])
+  }, [filteredData, ofertas, featuredProducts, productosNuevos, clienteActivo, productosHabitualesDelCliente, configCatalogo, clienteNuevo])
 
   // Una categoría que ya no existe (cambió el catálogo, o se está buscando)
   // dejaría la pantalla en blanco sin explicación.
@@ -268,6 +277,15 @@ export default function CatalogoAgente() {
               <Seccion titulo="Ofertas y liquidación" descripcion="Filtradas por categoría y familia"
                 icono={Tag} color="bg-acento-50 text-acento-600">
                 <BloquesPorCategoria bloques={ofertasPorCategoria} configCatalogo={configCatalogo} />
+              </Seccion>
+            )}
+
+            {/* Excesos de Auditoría de Inventario, con el precio ya rebajado:
+                sección propia como la de nuevos (2026-11-11). */}
+            {(enTodo || categoria === '__liquidacion') && featuredProducts.length > 0 && (
+              <Seccion titulo="Liquidación" descripcion="Excesos de bodega, con su descuento"
+                icono={Flame} color="bg-nota-50 text-nota-600">
+                <BloquesPorCategoria bloques={liquidacionPorCategoria} configCatalogo={configCatalogo} />
               </Seccion>
             )}
 

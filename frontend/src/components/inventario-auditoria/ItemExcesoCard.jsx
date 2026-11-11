@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, Loader2, Undo2, ImageIcon, Trash2 } from 'lucide-react'
-import { formatCurrency, clasificarItemConteo } from '../../utils/inventarioAuditoriaUtils'
+import { formatCurrency, clasificarItemConteo, faltaCantidadParaEmpacar } from '../../utils/inventarioAuditoriaUtils'
 
 // Mismos colores/lenguaje visual que ItemAuditoriaCard.jsx (hoja de conteo de
 // auditorías normales), para que "¿coincide o no la cantidad?" se vea igual
@@ -170,7 +170,10 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onElim
   // Nunca dejar que un estado no contemplado tumbe la pantalla: sin este
   // respaldo, agregar un estado al clasificador rompe esta tarjeta en blanco.
   const config = ESTADO_CONFIG[estado] || ESTADO_CONFIG.pendiente
-  const boton = typeof config.boton === 'function' ? config.boton(cantidad) : config.boton
+  const faltaCantidad = faltaCantidadParaEmpacar(item, cantidad)
+  const boton = faltaCantidad
+    ? { texto: 'Escribí cuántas hay para empacar', clase: 'bg-neutro-400' }
+    : typeof config.boton === 'function' ? config.boton(cantidad) : config.boton
 
   return (
     <div className={`bg-white p-4 rounded-2xl border shadow-sm transition-all space-y-3 ${config.cardBorder}`}>
@@ -234,13 +237,18 @@ export default function ItemExcesoCard({ item, onActualizar, onVerImagen, onElim
 
         <button
           onClick={handleMarcar}
-          disabled={guardando}
+          disabled={guardando || faltaCantidad}
           className={`w-full sm:w-auto sm:flex-1 disabled:bg-neutro-200 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 ${boton.clase}`}
         >
           {guardando ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
           <span className="text-center">{boton.texto}</span>
         </button>
       </div>
+      {faltaCantidad && (
+        <p className="text-xs font-semibold text-alerta-700">
+          El inventario dice {stockSistema}: sin la cantidad real, la oferta no sale en el catálogo ni en la factura.
+        </p>
+      )}
     </div>
   )
 }

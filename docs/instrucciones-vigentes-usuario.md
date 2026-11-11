@@ -1621,3 +1621,10 @@ estadística con eso». Reemplaza «los últimos 30 días» que eligió el
 El usuario: «agrégame la opción en Reporte Proveedor de volver a enviar, para
 quitar la opción de "usar código proveedor"». [Cómo funciona](grafo/modulo/reporte-proveedores.md).
 
+## 2026-11-11 — Excesos en el catálogo, como los productos nuevos
+
+El usuario: «así como los productos nuevos salen en el catálogo, que pase
+exactamente lo mismo con los excesos y se vea el descuento reflejado; además,
+que si se factura ese producto, agarre el descuento que se puso en excesos».
+[Cómo funciona](grafo/modulo/catalogo-agente.md).
+

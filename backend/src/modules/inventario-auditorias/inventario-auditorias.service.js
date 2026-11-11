@@ -256,6 +256,11 @@ async function actualizarItemExceso(id,itemId,{empacado,stockReal},usuarioId=nul
     if(a.tipo!=='exceso')throw httpError(400,'Este registro no es una tanda de excesos.');
     const {rows:[i]}=await db.query('SELECT * FROM inventario_auditoria_items WHERE auditoria_id=$1 AND id=$2',[a.id,idValido(itemId)]);
     if(!i)throw httpError(404,'Producto no encontrado en esta tanda.');
+    // Empacar sin escribir la cantidad toma la del inventario. Si dice 0 o
+    // menos —sin el conteo físico es lo común—, la oferta quedaría escondida
+    // («No queda stock») y la factura no tomaría el descuento (2026-11-11).
+    if(empacado===true&&stockReal===undefined&&i.stock_real==null&&!(Number(i.stock_sistema)>0))
+      throw httpError(400,`Escribí cuántas unidades se empacaron: el inventario dice ${Number(i.stock_sistema)} y con eso no sale en el catálogo.`);
     if(stockReal!==undefined)await guardarUnoEn(db,a,i.id,stockReal);
     if(empacado===true&&stockReal===undefined&&i.stock_real==null)await guardarUnoEn(db,a,i.id,i.stock_sistema);
     if(empacado!==undefined)await db.query('UPDATE inventario_auditoria_items SET empacado=$1 WHERE id=$2',[empacado,i.id]);

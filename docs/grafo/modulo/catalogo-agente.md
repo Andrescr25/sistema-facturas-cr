@@ -4,6 +4,9 @@ tipo: modulo
 titulo: Catálogo del agente — el mismo orden que Gestión de Catálogo, de solo mirar
 estado: vigente
 archivos:
+  - backend/tests/excesoEnCatalogo.test.js
+  - frontend/src/components/inventario-auditoria/ItemExcesoCard.jsx
+  - frontend/src/utils/inventarioAuditoriaUtils.js
   - docs/informes/portadas-marcas-proporcion-2026-11-03.md
   - docs/informes/senuelos-favarcia-2026-11-03.md
   - frontend/src/utils/precioCatalogoAgente.js
@@ -407,3 +410,31 @@ imagen completa conserva su proporción y no se estira con los productos.
 El criterio se comparte con el armado de filas del agente. Vista previa y
 controles existentes se conservan; sin otra consulta ni migración. Ver
 [[modulo/marcas-catalogo]] y el informe de proporciones enlazado.
+
+## Liquidación como «Productos nuevos», y el exceso hasta la factura — 2026-11-11
+
+El usuario: «así como los productos nuevos salen en el catálogo, que pase
+exactamente lo mismo con los excesos y se vea el descuento reflejado; además,
+que si se factura ese producto, agarre el descuento que se puso en excesos».
+
+- **Sección «Liquidación»** en Todo, arriba de «Productos nuevos», y filtro
+  propio (`__liquidacion`): los excesos vigentes (`featuredProducts`) por
+  categoría y familia, con la tarjeta de siempre (−X %, precio tachado y el
+  rebajado). También siguen en su familia y en «Ofertas», como los nuevos
+  siguen en la suya. Esto revierte, solo para excesos, la nota de 2026-10 de
+  no mostrar las promociones aparte en Todo: lo pidió el usuario.
+- **Por qué no salían**: vigente exige empaque confirmado, descuento y
+  existencia del kardex mayor que 0 (`utils/descuentosExceso.js`). Sin el
+  conteo físico casi todo está en 0 o negativo, y «Marcar empacado» sin
+  escribir la cantidad tomaba la del inventario: la oferta quedaba «No queda
+  stock». Ahora, si el inventario dice 0 o menos, empacar exige escribir
+  cuántas hay (`faltaCantidadParaEmpacar` en la tarjeta y
+  `actualizarItemExceso` en el servidor). Esa cantidad ajusta el kardex: la
+  oferta sale y se apaga sola cuando la venta la agota.
+- **La factura** ya tomaba el descuento: la línea nace con la oferta vigente
+  (`useLineasFacturacion`) y, sin permiso de precio, el servidor solo acepta
+  0, esa oferta o el descuento del cliente (`precioFijo.js`).
+  `excesoEnCatalogo.test.js` lo prueba de la tanda a la factura: empacado con
+  12 → oferta del 20 % en Facturación y en el catálogo → factura con el 20 %
+  (25 % se rechaza) → vendidas las 12, la oferta se apaga.
+

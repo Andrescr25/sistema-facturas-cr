@@ -158,6 +158,15 @@ export function calcularSiguienteNombreDevolucion(devoluciones) {
 
 // Clasifica un producto de la hoja de conteo según su estado actual, para
 // que el componente decida bordes/badge sin repetir la lógica numérica.
+/**
+ * Empacar un exceso sin escribir la cantidad toma la del inventario; si dice 0
+ * o menos (lo común sin el conteo físico), la oferta no saldría en el catálogo
+ * ni en la factura. Entonces hay que escribir cuántas hay (2026-11-11; el
+ * servidor lo exige igual, `actualizarItemExceso`).
+ */
+export const faltaCantidadParaEmpacar = (item, conteoRaw) =>
+  String(conteoRaw ?? '').trim() === '' && !(Number(item.stock_sistema) > 0)
+
 export function clasificarItemConteo(item, conteoRaw) {
   const stockSis = Number(item.stock_sistema)
 
