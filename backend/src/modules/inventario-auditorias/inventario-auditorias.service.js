@@ -10,12 +10,15 @@ const inv = require('../inventario/inventario.service');
 const { httpError, idValido } = require('../../utils/validacion');
 const { hoyEnCostaRica, diaEnCostaRica } = require('../../utils/fechaCR');
 const { SQL_VIGENTES } = require('../../utils/descuentosExceso');
-const DEVOLUCIONES = ['devolucion','devolucion_proveedor'];
-const TIPOS = ['random','categoria','critico','inicial','exceso',...DEVOLUCIONES];
+// Las devoluciones (de cliente y a proveedor) se quitaron el 2026-11-11 por
+// pedido del usuario: ya no se crean. Las filas viejas quedan en la base, fuera
+// de las listas.
+const TIPOS = ['random','categoria','critico','inicial','exceso'];
+const DEVOLUCIONES_VIEJAS = ['devolucion','devolucion_proveedor'];
 const transaccion = inv.conTransaccion;
 const conteo = v => v == null || v === '' ? null : inv.decimal(v,'Conteo',{decimales:4});
 function expirada(a) {
-  return !['inicial','exceso',...DEVOLUCIONES].includes(a.tipo) && a.estado==='en_progreso' &&
+  return !['inicial','exceso',...DEVOLUCIONES_VIEJAS].includes(a.tipo) && a.estado==='en_progreso' &&
     Date.now()-new Date(a.fecha_creacion).getTime()>=24*3600000;
 }
 async function cargarEn(db,id,editar=false) {
@@ -41,8 +44,8 @@ async function nuevaEn(db,tipo,{nombre,categoria=null,revision}={}) {
   if(!TIPOS.includes(tipo))throw httpError(400,'Tipo de auditoría inválido.');
   if(nombre!=null&&(typeof nombre!=='string'||nombre.trim().length>255))throw httpError(400,'Nombre: hasta 255 caracteres.');
   if(!nombre?.trim()) {
-    if(tipo==='exceso'||DEVOLUCIONES.includes(tipo)) {
-      const prefijo=tipo==='exceso'?'Excesos':tipo==='devolucion_proveedor'?'Proveedor':'Ajuste';
+    if(tipo==='exceso') {
+      const prefijo='Excesos';
       const {rows}=await db.query('SELECT nombre FROM inventario_auditorias WHERE tipo=$1 AND NOT historica',[tipo]);
       const nums=rows.map(r=>new RegExp(`^${prefijo}\\s+(\\d+)$`,'i').exec(r.nombre)?.[1]).map(Number).filter(Number.isFinite);
       nombre=`${prefijo} ${Math.max(0,...nums)+1}`;
@@ -60,8 +63,7 @@ async function insertarItemEn(db,a,p,stockReal=null,ultimaVenta=null) {
 async function listarAuditorias(tipo) {
   if(tipo&&!TIPOS.includes(tipo))throw httpError(400,'Tipo de auditoría inválido.');
   return (await pool.query(`SELECT * FROM inventario_auditorias WHERE NOT historica AND
-    CASE WHEN $1::text='devolucion' THEN tipo IN ('devolucion','devolucion_proveedor')
-      WHEN $1::text IS NOT NULL THEN tipo=$1 ELSE tipo NOT IN ('devolucion','devolucion_proveedor','exceso') END
+    CASE WHEN $1::text IS NOT NULL THEN tipo=$1 ELSE tipo NOT IN ('devolucion','devolucion_proveedor','exceso') END
     ORDER BY fecha_creacion DESC,id DESC`,[tipo||null])).rows;
 }
 async function listarCategorias() {
@@ -125,13 +127,11 @@ async function aplicarEn(db,a,b,{completo=false,usuarioId=null}={}) {
     const s=await inv.saldo(db,i.producto_id);
     if(String(s.revision_stock)!==String(i.revision_stock))throw httpError(409,`Las existencias de ${i.nombre_producto} cambiaron después de empezar el conteo. Actualiza y vuelve a contar.`);
     const {rows:[d]}=await db.query('SELECT ($1::numeric-$2::numeric)::numeric(14,4) AS cantidad',[i.stock_real,s.existencia]);
-    if (a.tipo==='devolucion' && Number(d.cantidad)<=0) throw httpError(400,'Una devolución de cliente debe ingresar una cantidad positiva.');
-    if (a.tipo==='devolucion_proveedor' && (Number(d.cantidad)>=0 || Number(i.stock_real)<0)) throw httpError(400,'La devolución a proveedor debe salir sin superar las existencias.');
     if(Number(d.cantidad)!==0||a.tipo==='inicial')await inv.registrarEn(db,{productoId:i.producto_id,
-      tipo:a.tipo==='inicial'?'inicial':a.tipo==='devolucion_proveedor'?'devolucion_proveedor':'ajuste_auditoria',
+      tipo:a.tipo==='inicial'?'inicial':'ajuste_auditoria',
       cantidad:d.cantidad,cantidadContada:a.tipo==='inicial'?i.stock_real:null,
       costoUnitario:a.tipo==='inicial'?i.costo_unitario:s.costo_promedio??i.costo_unitario,
-      origenTipo:a.tipo==='devolucion_proveedor'?'devolucion_proveedor':'auditoria_item',origenId:i.id,
+      origenTipo:'auditoria_item',origenId:i.id,
       clave:`auditoria:${a.id}:item:${i.id}`,usuarioId,observaciones:`${a.nombre}: conteo físico ${i.stock_real}.`});
     await db.query('UPDATE inventario_auditoria_items SET ajustado_inventario=TRUE WHERE id=$1',[i.id]);ajustados++;
   }
@@ -184,35 +184,18 @@ async function resincronizarAuditoria(id) {
     await db.query('UPDATE inventario_auditorias SET fecha_creacion=CURRENT_TIMESTAMP,revision_inventario=$2 WHERE id=$1',[a.id,b.revision]);
   });
 }
-async function crearDevolucion(destino='cliente') {
-  if(!['cliente','proveedor'].includes(destino))throw httpError(400,'Selecciona devolución de cliente o a proveedor.');
-  return transaccion(async db=>{const b=await inv.bloquear(db);return nuevaEn(db,destino==='proveedor'?'devolucion_proveedor':'devolucion',{revision:b.revision});});
-}
-async function buscarProductosParaDevolucion(q) {
+/** El buscador de «Agregar producto a la tanda» de excesos. */
+async function buscarProductosParaTanda(q) {
   if(!String(q||'').trim())return [];
   const {productos}=await inv.listarExistencias({q:String(q),limit:30});
   return productos.map(p=>({productoId:p.producto_id,nombre:p.nombre,referencia:p.referencia,categoria:p.categoria,
     costoUnitario:Number(p.costo_promedio??p.costo_con_iva),precioVenta:Number(p.precio_sin_iva),stockActual:Number(p.existencia)}));
 }
-async function agregarItemDevolucion(id,{productoId,cantidadDevuelta}) {
-  const cantidad=inv.decimal(cantidadDevuelta,'Cantidad devuelta',{decimales:4});
-  if(Number(cantidad)<=0)throw httpError(400,'La cantidad devuelta debe ser mayor a cero.');
+/** Quitar un producto de una tanda de excesos o de un conteo inicial, antes de aplicarlo. */
+async function eliminarItemDeTanda(id,itemId) {
   return transaccion(async db=>{
     await inv.bloquear(db);const a=await cargarEn(db,id,true);editable(a);
-    if(!DEVOLUCIONES.includes(a.tipo))throw httpError(400,'Este registro no es una devolución.');
-    const p=await productoEn(db,productoId);
-    if((await db.query('SELECT id FROM inventario_auditoria_items WHERE auditoria_id=$1 AND producto_id=$2',[a.id,p.producto_id])).rows.length)throw httpError(409,'Ese producto ya está en esta devolución.');
-    const {rows:[d]}=await db.query('SELECT ($1::numeric+$2::numeric*$3)::numeric(14,4) AS cantidad',[p.existencia,cantidad,a.tipo==='devolucion_proveedor'?-1:1]);
-    // El saldo provisional puede estar negativo. Una devolución de cliente
-    // entra aunque todavía no lo recupere a cero; no es un conteo físico.
-    if(a.tipo==='devolucion_proveedor' && Number(d.cantidad)<0)throw httpError(400,'La devolución a proveedor supera las existencias disponibles.');
-    return insertarItemEn(db,a,p,d.cantidad);
-  });
-}
-async function eliminarItemDevolucion(id,itemId) {
-  return transaccion(async db=>{
-    await inv.bloquear(db);const a=await cargarEn(db,id,true);editable(a);
-    if(!['inicial','exceso',...DEVOLUCIONES].includes(a.tipo))throw httpError(400,'No se puede quitar un producto de este conteo.');
+    if(!['inicial','exceso'].includes(a.tipo))throw httpError(400,'No se puede quitar un producto de este conteo.');
     const {rows:[i]}=await db.query('SELECT * FROM inventario_auditoria_items WHERE auditoria_id=$1 AND id=$2',[a.id,idValido(itemId)]);
     if(!i)throw httpError(404,'Producto no encontrado en esta auditoría.');
     if(i.ajustado_inventario)throw httpError(409,'El movimiento ya se aplicó; conserva su respaldo y corrígelo con otra auditoría.');
@@ -330,7 +313,7 @@ async function generarTandaDeExcesos() {
   });
 }
 module.exports={listarAuditorias,listarCategorias,crearAuditoria,getAuditoria,guardarConteos,guardarConteoIndividual,
-  finalizarAuditoria,ajustarInventario,resincronizarAuditoria,crearDevolucion,buscarProductosParaDevolucion,agregarItemDevolucion,
-  eliminarItemDevolucion,detectarCandidatosExceso,escalarDescuentosExceso,generarTandaDeExcesos,depurarOfertasSinStock,
+  finalizarAuditoria,ajustarInventario,resincronizarAuditoria,buscarProductosParaTanda,
+  eliminarItemDeTanda,detectarCandidatosExceso,escalarDescuentosExceso,generarTandaDeExcesos,depurarOfertasSinStock,
   actualizarItemExceso,listarRegalos,crearExcesoManual,eliminarAuditoria,agregarItemExceso,aplicarDescuentoTanda,
   listarDescuentosExceso,guardarDescuentoExceso,eliminarDescuentoExceso};

@@ -30,7 +30,7 @@ como producto, ni una referencia de Alegra como alguno de los dos.
 036 rellena `producto_id` por `producto.alegra_id`, conserva huérfanos,
 permite referencias históricas nulas y cambia la clave primaria a `id`.
 Se puede repetir. El buscador de esta lista consulta el maestro propio;
-no usa el buscador de devoluciones, que mantiene su contrato de Alegra.
+no usa el buscador de las tandas de excesos.
 
 La administración conserva productos ocultos, inactivos o sin precio y
 explica por qué no salen. La tablet recibe solo los visibles, por id propio.

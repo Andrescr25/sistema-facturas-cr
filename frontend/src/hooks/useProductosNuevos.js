@@ -7,7 +7,7 @@ import {
  * "Productos nuevos" del catálogo del agente: la lista manual y su buscador.
  *
  * Hook propio y no otro pedazo de useInventarioAuditoria (900 líneas): la
- * sección no comparte estado con auditorías, devoluciones ni excesos. Los
+ * sección no comparte estado con auditorías ni excesos. Los
  * avisos y la confirmación sí son los de la página, y llegan de afuera.
  */
 export function useProductosNuevos({ showToast, confirm }) {

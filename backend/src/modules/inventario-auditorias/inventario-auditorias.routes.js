@@ -12,7 +12,7 @@ const inventarioAuditoriasController = require('./inventario-auditorias.controll
 // '/:id' se las coma tratando "descuentos" como un id.
 router.get('/', inventarioAuditoriasController.listarAuditorias);
 router.get('/categorias', inventarioAuditoriasController.listarCategorias);
-router.get('/buscar-productos', inventarioAuditoriasController.buscarProductosParaDevolucion);
+router.get('/buscar-productos', inventarioAuditoriasController.buscarProductosParaTanda);
 router.get('/regalos', inventarioAuditoriasController.listarRegalos);
 router.get('/descuentos', inventarioAuditoriasController.listarDescuentosExceso);
 // "Productos nuevos" del catálogo del agente. Antes de '/:id', que si no se
@@ -24,7 +24,6 @@ router.post('/productos-nuevos', inventarioAuditoriasController.agregarProductoN
 // entrada propia que casualmente tenga el mismo número.
 router.delete('/productos-nuevos/registros/:registroId', inventarioAuditoriasController.quitarProductoNuevo);
 router.post('/', inventarioAuditoriasController.crearAuditoria);
-router.post('/devolucion', inventarioAuditoriasController.crearDevolucion);
 router.post('/generar-excesos', inventarioAuditoriasController.generarExcesos);
 router.post('/excesos', inventarioAuditoriasController.crearExcesoManual);
 router.post('/descuentos', inventarioAuditoriasController.guardarDescuentoExceso);
@@ -37,10 +36,9 @@ router.put('/stock/:productoId', inventarioAuditoriasController.guardarUmbrales)
 router.get('/:id', inventarioAuditoriasController.getAuditoria);
 router.delete('/:id', inventarioAuditoriasController.eliminarAuditoria);
 router.put('/:id/items', inventarioAuditoriasController.guardarConteos);
-router.post('/:id/items', inventarioAuditoriasController.agregarItemDevolucion);
 router.post('/:id/items-exceso', inventarioAuditoriasController.agregarItemExceso);
 router.post('/:id/descuento', inventarioAuditoriasController.aplicarDescuentoTanda);
-router.delete('/:id/items/:itemId', inventarioAuditoriasController.eliminarItemDevolucion);
+router.delete('/:id/items/:itemId', inventarioAuditoriasController.eliminarItemDeTanda);
 router.patch('/:id/items/:itemId/exceso', inventarioAuditoriasController.actualizarItemExceso);
 router.patch('/:id/items/:itemId/conteo', inventarioAuditoriasController.guardarConteoIndividual);
 router.post('/:id/finalizar', inventarioAuditoriasController.finalizarAuditoria);

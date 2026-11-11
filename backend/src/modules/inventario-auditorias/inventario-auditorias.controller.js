@@ -18,10 +18,8 @@ const guardarConteoIndividual = accion(r => servicio.guardarConteoIndividual(r.p
 const finalizarAuditoria = accion(r => servicio.finalizarAuditoria(r.params.id,r.body?.observaciones,usuario(r)));
 const ajustarInventario = accion(r => servicio.ajustarInventario(r.params.id,usuario(r)), { extendido: true });
 const resincronizarAuditoria = accion(r => servicio.resincronizarAuditoria(r.params.id));
-const crearDevolucion = accion(r => servicio.crearDevolucion(r.body?.destino || 'cliente'));
-const buscarProductosParaDevolucion = accion(r => servicio.buscarProductosParaDevolucion(r.query.q));
-const agregarItemDevolucion = accion(r => servicio.agregarItemDevolucion(r.params.id,r.body || {}));
-const eliminarItemDevolucion = accion(r => servicio.eliminarItemDevolucion(r.params.id,r.params.itemId));
+const buscarProductosParaTanda = accion(r => servicio.buscarProductosParaTanda(r.query.q));
+const eliminarItemDeTanda = accion(r => servicio.eliminarItemDeTanda(r.params.id,r.params.itemId));
 const generarExcesos = accion(r => servicio.generarTandaDeExcesos(), { extendido: true });
 const actualizarItemExceso = accion(r => servicio.actualizarItemExceso(r.params.id,r.params.itemId,r.body || {},usuario(r)));
 const listarRegalos = accion(r => servicio.listarRegalos());
@@ -81,6 +79,6 @@ async function quitarProductoNuevo(req, res) {
 }
 
 module.exports = {
-  listarAuditorias, listarCategorias, crearAuditoria, getAuditoria, guardarConteos, guardarConteoIndividual, finalizarAuditoria, ajustarInventario, resincronizarAuditoria, crearDevolucion, buscarProductosParaDevolucion, agregarItemDevolucion, eliminarItemDevolucion, generarExcesos, actualizarItemExceso, listarRegalos, crearExcesoManual, eliminarAuditoria, agregarItemExceso, aplicarDescuentoTanda, listarDescuentosExceso, guardarDescuentoExceso, eliminarDescuentoExceso, listarExistencias, kardex, guardarUmbrales,
+  listarAuditorias, listarCategorias, crearAuditoria, getAuditoria, guardarConteos, guardarConteoIndividual, finalizarAuditoria, ajustarInventario, resincronizarAuditoria, buscarProductosParaTanda, eliminarItemDeTanda, generarExcesos, actualizarItemExceso, listarRegalos, crearExcesoManual, eliminarAuditoria, agregarItemExceso, aplicarDescuentoTanda, listarDescuentosExceso, guardarDescuentoExceso, eliminarDescuentoExceso, listarExistencias, kardex, guardarUmbrales,
   buscarProductosNuevos, listarProductosNuevos, agregarProductoNuevo, quitarProductoNuevo
 };

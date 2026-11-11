@@ -1,5 +1,5 @@
 import Existencias from '../components/inventario-auditoria/Existencias'
-import { Boxes, Search, ArrowLeft, RefreshCw, Plus } from 'lucide-react'
+import { Boxes, Search, ArrowLeft, RefreshCw } from 'lucide-react'
 import { useInventarioAuditoria } from '../hooks/useInventarioAuditoria'
 import { formatCurrency, formatDate, tamanoTextoMonto } from '../utils/inventarioAuditoriaUtils'
 import ToastContainer from '../components/ToastContainer'
@@ -16,11 +16,6 @@ import PanelProgresoConteo from '../components/inventario-auditoria/PanelProgres
 import ReporteFinalizado from '../components/inventario-auditoria/ReporteFinalizado'
 import BarraAccionMovil from '../components/inventario-auditoria/BarraAccionMovil'
 import TabsInventarioAuditoria from '../components/inventario-auditoria/TabsInventarioAuditoria'
-import ModalNuevaDevolucion from '../components/inventario-auditoria/ModalNuevaDevolucion'
-import HistorialDevoluciones from '../components/inventario-auditoria/HistorialDevoluciones'
-import BuscadorProductoDevolucion from '../components/inventario-auditoria/BuscadorProductoDevolucion'
-import ListaItemsDevolucion from '../components/inventario-auditoria/ListaItemsDevolucion'
-import PanelFinalizarDevolucion from '../components/inventario-auditoria/PanelFinalizarDevolucion'
 import HistorialExcesos from '../components/inventario-auditoria/HistorialExcesos'
 import ReporteExceso from '../components/inventario-auditoria/ReporteExceso'
 import EjecucionExceso from '../components/inventario-auditoria/EjecucionExceso'
@@ -42,20 +37,6 @@ export default function InventarioAuditoria() {
 
     vistaActiva,
     cambiarVista,
-    devoluciones,
-    loadDevoluciones,
-    showNewDevolucionModal,
-    setShowNewDevolucionModal,
-    siguienteNombreDevolucion,
-    handleCreateDevolucion,
-    busquedaProductoDevolucion,
-    setBusquedaProductoDevolucion,
-    resultadosProductoDevolucion,
-    buscandoProductoDevolucion,
-    agregandoItemDevolucion,
-    handleAgregarItemDevolucion,
-    handleEliminarItemDevolucion,
-    handleFinalizeDevolucion,
 
     excesos,
     loadExcesos,
@@ -170,25 +151,6 @@ export default function InventarioAuditoria() {
           </>
         ) : vistaActiva === 'productos-nuevos' ? (
           <SeccionProductosNuevos showToast={showToast} confirm={confirm} />
-        ) : vistaActiva === 'devoluciones' ? (
-          <>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowNewDevolucionModal(true)}
-                className="bg-primario-800 hover:bg-primario-900 text-white font-bold py-2.5 px-5 rounded-2xl shadow-md transition-all flex items-center gap-2"
-              >
-                <Plus size={18} />
-                Nueva Devolución
-              </button>
-            </div>
-
-            <HistorialDevoluciones
-              devoluciones={devoluciones}
-              loading={loading}
-              onRefresh={loadDevoluciones}
-              onSelectDevolucion={handleSelectAuditoria}
-            />
-          </>
         ) : (
           <>
             <HistorialExcesos
@@ -218,16 +180,6 @@ export default function InventarioAuditoria() {
           </>
         )}
 
-        {/* Modal: New Devolución */}
-        {showNewDevolucionModal && (
-          <ModalNuevaDevolucion
-            loading={loading}
-            siguienteNombre={siguienteNombreDevolucion}
-            onSubmit={handleCreateDevolucion}
-            onCerrar={() => setShowNewDevolucionModal(false)}
-          />
-        )}
-
         {/* Modal: New Audit */}
         {showNewModal && (
           <ModalNuevaAuditoria
@@ -250,9 +202,8 @@ export default function InventarioAuditoria() {
     )
   }
 
-  // Active Audit / Devolución / Exceso Screen
+  // Active Audit / Exceso Screen
   const esActiva = auditoriaActiva.estado === 'en_progreso'
-  const esDevolucion = ['devolucion','devolucion_proveedor'].includes(auditoriaActiva.tipo)
   const esExceso = auditoriaActiva.tipo === 'exceso'
 
   return (
@@ -264,7 +215,7 @@ export default function InventarioAuditoria() {
           className="flex items-center gap-2 text-neutro-500 hover:text-primario-600 font-bold transition-colors"
         >
           <ArrowLeft size={20} />
-          {esDevolucion ? 'Volver a devoluciones' : esExceso ? 'Volver a excesos' : 'Volver a auditorías'}
+          {esExceso ? 'Volver a excesos' : 'Volver a auditorías'}
         </button>
         <span className={`inline-flex items-center gap-1 font-bold text-xs px-3 py-1 rounded-full uppercase tracking-wider ${esActiva ? 'bg-alerta-50 text-alerta-700 border border-alerta-200' : 'bg-exito-50 text-exito-700 border border-exito-200'}`}>
           {esActiva ? 'En Progreso' : 'Finalizada'}
@@ -285,14 +236,14 @@ export default function InventarioAuditoria() {
               <h1 className="text-2xl font-extrabold text-neutro-900 tracking-tight">{auditoriaActiva.nombre}</h1>
               <p className="text-sm text-neutro-500 flex items-center gap-3">
                 <span>Tipo: <strong className="text-neutro-700 capitalize">
-                  {esDevolucion ? (auditoriaActiva.tipo === 'devolucion_proveedor' ? 'Devolución a proveedor — salida' : 'Devolución de cliente — ingreso') : auditoriaActiva.tipo === 'inicial' ? 'Conteo inicial completo' : esExceso ? 'Exceso de Inventario' : auditoriaActiva.tipo === 'random' ? 'Aleatoria 50' : auditoriaActiva.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
+                  {auditoriaActiva.tipo === 'inicial' ? 'Conteo inicial completo' : esExceso ? 'Exceso de Inventario' : auditoriaActiva.tipo === 'random' ? 'Aleatoria 50' : auditoriaActiva.tipo === 'categoria' ? 'Categoría' : 'Crítica'}
                 </strong></span>
                 <span>•</span>
                 <span>Creada: <strong className="text-neutro-700">{formatDate(auditoriaActiva.fecha_creacion)}</strong></span>
               </p>
             </div>
 
-            {!esActiva && !esDevolucion && !esExceso && (
+            {!esActiva && !esExceso && (
               <div className="flex flex-wrap items-center gap-6 border-t md:border-t-0 pt-4 md:pt-0">
                 <div>
                   <p className="text-xs font-semibold text-neutro-400 uppercase tracking-wider">Precisión</p>
@@ -311,8 +262,8 @@ export default function InventarioAuditoria() {
           {esActiva && <button type="button" onClick={handleResyncAuditoria} disabled={loading}
             className="text-sm font-bold text-primario-700 underline">Actualizar existencias y volver a contar pendientes</button>}
 
-          {/* Execution filters (solo auditorías normales, no devoluciones ni excesos) */}
-          {esActiva && !esDevolucion && !esExceso && (
+          {/* Execution filters (solo auditorías normales, no excesos) */}
+          {esActiva && !esExceso && (
             <FiltrosEjecucion
               executionSearch={executionSearch}
               setExecutionSearch={setExecutionSearch}
@@ -323,35 +274,7 @@ export default function InventarioAuditoria() {
           )}
 
           {/* Main Grid: Products execution or report details */}
-          {esActiva && esDevolucion ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-              <div className="md:col-span-2 space-y-4">
-                <BuscadorProductoDevolucion
-                  busqueda={busquedaProductoDevolucion}
-                  setBusqueda={setBusquedaProductoDevolucion}
-                  resultados={resultadosProductoDevolucion}
-                  buscando={buscandoProductoDevolucion}
-                  agregando={agregandoItemDevolucion}
-                  onAgregar={handleAgregarItemDevolucion}
-                />
-                <ListaItemsDevolucion
-                  items={auditoriaActiva.items}
-                  onQuitar={handleEliminarItemDevolucion}
-                />
-              </div>
-
-              <div className="space-y-6">
-                <PanelFinalizarDevolucion
-                  itemsStats={itemsStats}
-                  liveFinancialImpact={liveFinancialImpact}
-                  observacionesFinales={observacionesFinales}
-                  setObservacionesFinales={setObservacionesFinales}
-                  loading={loading}
-                  onFinalizar={handleFinalizeDevolucion}
-                />
-              </div>
-            </div>
-          ) : esActiva && esExceso ? (
+          {esActiva && esExceso ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
               <div className="md:col-span-2 space-y-4">
                 <EjecucionExceso
@@ -425,12 +348,11 @@ export default function InventarioAuditoria() {
               auditoriaActiva={auditoriaActiva}
               adjustmentsPreview={adjustmentsPreview}
               error={error}
-              esDevolucion={esDevolucion}
             />
           )}
 
           {/* Mobile Floating Action Summary Bar (Sticky at the bottom of the viewport) — solo auditorías normales */}
-          {esActiva && !esDevolucion && !esExceso && (
+          {esActiva && !esExceso && (
             <BarraAccionMovil
               itemsStats={itemsStats}
               liveFinancialImpact={liveFinancialImpact}

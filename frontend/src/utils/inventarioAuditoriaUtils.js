@@ -141,21 +141,6 @@ export function calcularImpactoFinanciero(conteosDraft, items) {
   return sum
 }
 
-// Vista previa del nombre autoincremental "Ajuste N" que asignará el backend
-// al crear la próxima devolución (el backend es quien decide el nombre real
-// — esto es solo informativo para el modal, calculado del mismo modo).
-export function calcularSiguienteNombreDevolucion(devoluciones) {
-  let maxNumero = 0
-  ;(devoluciones || []).forEach(dev => {
-    const match = /^ajuste\s+(\d+)$/i.exec((dev.nombre || '').trim())
-    if (match) {
-      const numero = parseInt(match[1], 10)
-      if (numero > maxNumero) maxNumero = numero
-    }
-  })
-  return `Ajuste ${maxNumero + 1}`
-}
-
 // Clasifica un producto de la hoja de conteo según su estado actual, para
 // que el componente decida bordes/badge sin repetir la lógica numérica.
 /**

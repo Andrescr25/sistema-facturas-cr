@@ -67,11 +67,16 @@ Los productos nuevos posteriores pueden recibir su apertura en otro conteo.
 El conteo REAL sigue pendiente hasta producción; no cerrar esa fila por
 haber demostrado la herramienta con fixtures. [[bloqueo/conteo-fisico]].
 
-DEVOLUCIONES. El flujo anterior era devolución DE CLIENTE (entrada), no a
-proveedor. Se conserva y se añade elección explícita A PROVEEDOR (salida),
-limitada a stock disponible. Finalizar registra el movimiento; no crea un
-crédito financiero ni documento fiscal. Si cambian existencias después de
-agregar el ítem, no sobrescribe el saldo: exige volver a revisarlo.
+DEVOLUCIONES (RETIRADAS el 2026-11-11). El usuario: «también ahí puedes
+quitar el tab de "devoluciones"». Se quitaron la pestaña, sus pantallas, las
+rutas de crear una devolución y de agregarle productos, y sus ramas en el
+kardex. En producción había una sola, ya finalizada e histórica, sin
+movimientos. Las filas viejas quedan en la base, fuera de las listas
+(`DEVOLUCIONES_VIEJAS`). Lo que compartía con excesos sigue con otro nombre:
+`buscarProductosParaTanda` y `eliminarItemDeTanda`. Una devolución de
+cliente entra con su nota de crédito; una a proveedor no tiene hoy cómo
+rebajar el inventario (ver «Lo que mueve mercadería y el kardex todavía no
+ve», más abajo).
 
 EXCESOS Y OFERTAS. Solo a petición de una persona, sin cron. Detecta stock
 propio positivo y 60 días sin venta (venta_linea); máximo 10 de mayor valor

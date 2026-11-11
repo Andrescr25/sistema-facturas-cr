@@ -8,11 +8,8 @@ import {
   guardarConteoIndividual,
   finalizarAuditoria,
   resyncAuditoria,
-  getDevoluciones,
-  crearDevolucion as crearDevolucionApi,
-  buscarProductosDevolucion,
-  agregarItemDevolucion as agregarItemDevolucionApi,
-  eliminarItemDevolucion as eliminarItemDevolucionApi,
+  buscarProductosParaTanda,
+  eliminarItemDeTanda,
   getExcesos,
   generarExcesosAhora,
   actualizarItemExceso,
@@ -30,8 +27,7 @@ import {
   filtrarItemsAuditoria,
   calcularItemsStats,
   calcularAjustesPreview,
-  calcularImpactoFinanciero,
-  calcularSiguienteNombreDevolucion
+  calcularImpactoFinanciero
 } from '../utils/inventarioAuditoriaUtils'
 import { useDialog } from './useDialog'
 import { useToast } from './useToast'
@@ -76,29 +72,18 @@ export function useInventarioAuditoria() {
   // Visible mientras se confirma la transacción del conteo y sus movimientos.
   const [applyingAdjustments, setApplyingAdjustments] = useState(false)
 
-  // Pestaña de nivel de página: Auditorías (conteo cíclico) o Devoluciones
-  // (reingreso de productos devueltos). auditoriaActiva se reutiliza para
-  // ambas — se distingue por auditoriaActiva.tipo === 'devolucion'.
+  // Pestaña de nivel de página: Existencias, Auditorías, Excesos o Productos
+  // nuevos. «Devoluciones» se quitó el 2026-11-11 por pedido del usuario.
   const [vistaActiva, setVistaActiva] = useState('auditorias')
-  const [devoluciones, setDevoluciones] = useState([])
-  const [showNewDevolucionModal, setShowNewDevolucionModal] = useState(false)
-
-  // Búsqueda de producto para agregar a la devolución activa
-  const [busquedaProductoDevolucion, setBusquedaProductoDevolucion] = useState('')
-  const [resultadosProductoDevolucion, setResultadosProductoDevolucion] = useState([])
-  const [buscandoProductoDevolucion, setBuscandoProductoDevolucion] = useState(false)
-  const [agregandoItemDevolucion, setAgregandoItemDevolucion] = useState(false)
 
   // Excesos de inventario: tandas de empaque generadas por el cron semanal o
   // armadas a mano — auditoriaActiva.tipo === 'exceso' reusa la misma
-  // pantalla de detalle que auditorías/devoluciones.
+  // pantalla de detalle que las auditorías.
   const [excesos, setExcesos] = useState([])
   const [generandoExcesos, setGenerandoExcesos] = useState(false)
   const [creandoExceso, setCreandoExceso] = useState(false)
 
-  // Búsqueda para agregar productos a mano a una tanda de excesos. Estado
-  // aparte del de devoluciones a propósito: son flujos distintos y compartir
-  // el estado hacía que una búsqueda vieja apareciera en la otra pantalla.
+  // Búsqueda para agregar productos a mano a una tanda de excesos.
   const [busquedaProductoExceso, setBusquedaProductoExceso] = useState('')
   const [resultadosProductoExceso, setResultadosProductoExceso] = useState([])
   const [buscandoProductoExceso, setBuscandoProductoExceso] = useState(false)
@@ -143,22 +128,6 @@ export function useInventarioAuditoria() {
     loadDashboard()
   }, [])
 
-  // Load devoluciones history (tipo='devolucion', filtradas en el backend)
-  const loadDevoluciones = async () => {
-    setLoading(true)
-    try {
-      const data = await getDevoluciones()
-      if (data.success) {
-        setDevoluciones(data.data)
-      }
-    } catch (err) {
-      console.error('Error cargando devoluciones:', err)
-      showToast('No se pudo cargar el historial de devoluciones.', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   // Load excesos history (tipo='exceso', filtrados en el backend)
   const loadExcesos = async () => {
     setLoading(true)
@@ -191,9 +160,6 @@ export function useInventarioAuditoria() {
   // vez que se entra a cada una.
   const cambiarVista = (vista) => {
     setVistaActiva(vista)
-    if (vista === 'devoluciones' && devoluciones.length === 0) {
-      loadDevoluciones()
-    }
     if (vista === 'excesos' && excesos.length === 0) {
       loadExcesos()
       loadRegalos()
@@ -282,7 +248,7 @@ export function useInventarioAuditoria() {
     }
     setBuscandoProductoExceso(true)
     try {
-      const result = await buscarProductosDevolucion(q)
+      const result = await buscarProductosParaTanda(q)
       if (result.success) setResultadosProductoExceso(result.data)
     } catch (err) {
       console.error('Error buscando productos para exceso:', err)
@@ -360,7 +326,7 @@ export function useInventarioAuditoria() {
     if (!confirmado) return
 
     try {
-      await eliminarItemDevolucionApi(auditoriaActiva.id, itemId)
+      await eliminarItemDeTanda(auditoriaActiva.id, itemId)
       await refrescarAuditoriaActiva()
     } catch (err) {
       console.error('Error quitando producto de la tanda:', err)
@@ -417,8 +383,6 @@ export function useInventarioAuditoria() {
   // Compute KPIs
   const kpis = useMemo(() => calcularKpis(auditorias), [auditorias])
 
-  // Vista previa informativa del nombre "Ajuste N" que asignará el backend
-  const siguienteNombreDevolucion = useMemo(() => calcularSiguienteNombreDevolucion(devoluciones), [devoluciones])
 
   // Load details of a specific audit
   const handleSelectAuditoria = async (id) => {
@@ -573,65 +537,15 @@ export function useInventarioAuditoria() {
   const volverAlDashboard = () => {
     const tipoActivo = auditoriaActiva?.tipo
     setAuditoriaActiva(null)
-    if (['devolucion','devolucion_proveedor'].includes(tipoActivo)) {
-      loadDevoluciones()
-    } else if (tipoActivo === 'exceso') {
+    if (tipoActivo === 'exceso') {
       loadExcesos()
     } else {
       loadDashboard()
     }
   }
 
-  // --- Devoluciones ---
-
-  const handleCreateDevolucion = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    try {
-      const destino = new FormData(e.currentTarget).get('destino') || 'cliente'
-      const result = await crearDevolucionApi(destino)
-      if (result.success) {
-        setShowNewDevolucionModal(false)
-        await handleSelectAuditoria(result.data.id)
-        const data = await getDevoluciones()
-        if (data.success) setDevoluciones(data.data)
-      }
-    } catch (err) {
-      console.error('Error creando devolución:', err)
-      showToast(err.response?.data?.message || 'Error al crear la devolución.', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const buscarProductoDevolucion = async (q) => {
-    if (!q || q.length < 2) {
-      setResultadosProductoDevolucion([])
-      return
-    }
-    setBuscandoProductoDevolucion(true)
-    try {
-      const result = await buscarProductosDevolucion(q)
-      if (result.success) setResultadosProductoDevolucion(result.data)
-    } catch (err) {
-      console.error('Error buscando productos para devolución:', err)
-    } finally {
-      setBuscandoProductoDevolucion(false)
-    }
-  }
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      buscarProductoDevolucion(busquedaProductoDevolucion)
-    }, 300)
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busquedaProductoDevolucion])
-
-  // Refresca el detalle de la devolución activa y su conteosDraft (que ya
-  // trae cada stock_real calculado, así que ReporteFinalizado/adjustmentsPreview
-  // funcionan igual que para una auditoría normal sin ningún cambio).
+  // Refresca el detalle de la auditoría o tanda activa y su conteosDraft (que
+  // ya trae cada stock_real calculado).
   const refrescarAuditoriaActiva = async () => {
     const updatedDetail = await getAuditoriaDetalle(auditoriaActiva.id)
     if (updatedDetail.success) {
@@ -641,75 +555,6 @@ export function useInventarioAuditoria() {
         draft[item.id] = item.stock_real !== null ? Number(item.stock_real) : ''
       })
       setConteosDraft(draft)
-    }
-  }
-
-  const handleAgregarItemDevolucion = async (producto, cantidad) => {
-    if (!auditoriaActiva) return
-    const cantidadNum = Number(cantidad)
-    if (!cantidadNum || cantidadNum <= 0) {
-      showToast('Ingresa una cantidad devuelta válida.', 'warning')
-      return
-    }
-
-    setAgregandoItemDevolucion(true)
-    try {
-      // El backend consulta el producto en vivo en el inventario propio (stock/costo
-      // frescos) al momento de agregarlo — solo hace falta mandar cuál y cuántos.
-      const result = await agregarItemDevolucionApi(auditoriaActiva.id, {
-        productoId: producto.productoId,
-        cantidadDevuelta: cantidadNum
-      })
-      if (result.success) {
-        showToast(`"${producto.nombre}" agregado (${cantidadNum} unid.)`, 'success')
-        setBusquedaProductoDevolucion('')
-        setResultadosProductoDevolucion([])
-        await refrescarAuditoriaActiva()
-      }
-    } catch (err) {
-      console.error('Error agregando producto a devolución:', err)
-      showToast(err.response?.data?.message || 'Error al agregar el producto.', 'error')
-    } finally {
-      setAgregandoItemDevolucion(false)
-    }
-  }
-
-  const handleEliminarItemDevolucion = async (itemId) => {
-    if (!auditoriaActiva) return
-    const confirmado = await confirm('¿Quitar este producto de la devolución?')
-    if (!confirmado) return
-
-    try {
-      await eliminarItemDevolucionApi(auditoriaActiva.id, itemId)
-      await refrescarAuditoriaActiva()
-    } catch (err) {
-      console.error('Error quitando producto de devolución:', err)
-      showToast(err.response?.data?.message || 'Error al quitar el producto.', 'error')
-    }
-  }
-
-  // El cierre confirma la devolución y sus movimientos en la misma transacción.
-  const handleFinalizeDevolucion = async () => {
-    if (!auditoriaActiva) return
-    if (!auditoriaActiva.items || auditoriaActiva.items.length === 0) {
-      showToast('Agrega al menos un producto devuelto antes de finalizar.', 'warning')
-      return
-    }
-
-    setLoading(true)
-    try {
-      const result = await finalizarAuditoria(auditoriaActiva.id, observacionesFinales)
-      if (result.success) {
-        showToast('Devolución finalizada y movimiento registrado en el inventario propio.', 'success')
-        await refrescarAuditoriaActiva()
-        const data = await getDevoluciones()
-        if (data.success) setDevoluciones(data.data)
-      }
-    } catch (err) {
-      console.error('Error finalizando devolución:', err)
-      showToast(err.response?.data?.message || 'Error al finalizar la devolución.', 'error')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -785,20 +630,6 @@ export function useInventarioAuditoria() {
 
     vistaActiva,
     cambiarVista,
-    devoluciones,
-    loadDevoluciones,
-    showNewDevolucionModal,
-    setShowNewDevolucionModal,
-    siguienteNombreDevolucion,
-    handleCreateDevolucion,
-    busquedaProductoDevolucion,
-    setBusquedaProductoDevolucion,
-    resultadosProductoDevolucion,
-    buscandoProductoDevolucion,
-    agregandoItemDevolucion,
-    handleAgregarItemDevolucion,
-    handleEliminarItemDevolucion,
-    handleFinalizeDevolucion,
 
     excesos,
     loadExcesos,

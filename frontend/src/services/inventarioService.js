@@ -40,27 +40,14 @@ export async function resyncAuditoria(id) {
   return response.data;
 }
 
-export async function getDevoluciones() {
-  const response = await api.get('/inventario-auditorias', { params: { tipo: 'devolucion' } });
-  return response.data;
-}
-
-export async function crearDevolucion(destino = 'cliente') {
-  const response = await api.post('/inventario-auditorias/devolucion', { destino });
-  return response.data;
-}
-
-export async function buscarProductosDevolucion(q) {
+// Buscar productos para agregar a una tanda de excesos.
+export async function buscarProductosParaTanda(q) {
   const response = await api.get('/inventario-auditorias/buscar-productos', { params: { q } });
   return response.data;
 }
 
-export async function agregarItemDevolucion(id, item) {
-  const response = await api.post(`/inventario-auditorias/${id}/items`, item);
-  return response.data;
-}
-
-export async function eliminarItemDevolucion(id, itemId) {
+// Quitar un producto de una tanda (o de un conteo inicial) antes de aplicarlo.
+export async function eliminarItemDeTanda(id, itemId) {
   const response = await api.delete(`/inventario-auditorias/${id}/items/${itemId}`);
   return response.data;
 }

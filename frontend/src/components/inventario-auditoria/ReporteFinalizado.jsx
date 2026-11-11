@@ -2,17 +2,14 @@ import { CheckCircle, AlertTriangle } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../utils/inventarioAuditoriaUtils'
 
 /**
- * Reporte de una auditoría (o devolución) ya finalizada: resumen + lista de
- * discrepancias/productos (izquierda), y la acción correctiva de ajustar el
- * movimientos confirmados (derecha).
- * `esDevolucion` solo cambia los textos — el cálculo (adjustmentsPreview) y
- * la acción de aplicar el ajuste son exactamente los mismos.
+ * Reporte de una auditoría ya finalizada: resumen + lista de discrepancias
+ * (izquierda), y la acción correctiva de ajustar el movimientos confirmados
+ * (derecha).
  */
 export default function ReporteFinalizado({
   auditoriaActiva,
   adjustmentsPreview,
-  error,
-  esDevolucion = false
+  error
 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
@@ -23,14 +20,10 @@ export default function ReporteFinalizado({
           <CheckCircle className="text-exito-600 shrink-0 mt-0.5" size={28} />
           <div className="space-y-1.5 text-sm">
             <h4 className="font-extrabold text-exito-900 text-base">
-              {esDevolucion ? 'Devolución Finalizada' : 'Auditoría Cerrada Exitosamente'}
+              Auditoría Cerrada Exitosamente
             </h4>
             <p>
-              {esDevolucion ? (
-                <>La devolución se cerró el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con {adjustmentsPreview.length} producto(s) registrados en el inventario propio.</>
-              ) : (
-                <>El conteo físico de stock concluyó el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con un porcentaje de precisión de <strong>{Number(auditoriaActiva.precision_porcentaje).toFixed(1)}%</strong>.</>
-              )}
+              El conteo físico de stock concluyó el <strong>{formatDate(auditoriaActiva.fecha_finalizacion)}</strong> con un porcentaje de precisión de <strong>{Number(auditoriaActiva.precision_porcentaje).toFixed(1)}%</strong>.
             </p>
             {auditoriaActiva.observaciones && (
               <p className="italic bg-white/50 p-2.5 rounded-xl border border-exito-200 text-xs text-exito-800 mt-2 block">
@@ -45,9 +38,7 @@ export default function ReporteFinalizado({
           <div className="p-5 border-b border-neutro-100 bg-neutro-50/50 flex justify-between items-center">
             <h3 className="font-bold text-neutro-900 flex items-center gap-2">
               <AlertTriangle className="text-peligro-500" size={18} />
-              {esDevolucion
-                ? `Movimientos de devolución (${adjustmentsPreview.length})`
-                : `Detalle de ajustes aplicados (${adjustmentsPreview.length} discrepancias)`}
+              Detalle de ajustes aplicados ({adjustmentsPreview.length} discrepancias)
             </h3>
           </div>
 
@@ -55,10 +46,10 @@ export default function ReporteFinalizado({
             <div className="p-8 text-center text-neutro-400">
               <CheckCircle size={36} className="text-exito-500 mx-auto mb-2" />
               <p className="font-bold text-neutro-700">
-                {esDevolucion ? 'No hay productos agregados' : '¡Perfecto! No se encontraron discrepancias'}
+                ¡Perfecto! No se encontraron discrepancias
               </p>
               <p className="text-xs text-neutro-500 mt-0.5">
-                {esDevolucion ? 'Esta devolución se finalizó sin productos.' : 'El conteo físico de todos los productos coincidió 100% con el sistema.'}
+                El conteo físico de todos los productos coincidió 100% con el sistema.
               </p>
             </div>
           ) : (

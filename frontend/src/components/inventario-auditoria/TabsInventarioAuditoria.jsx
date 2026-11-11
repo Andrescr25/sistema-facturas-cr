@@ -1,7 +1,8 @@
-import { Boxes, Undo2, PackageX, Sparkles } from 'lucide-react'
+import { Boxes, PackageX, Sparkles } from 'lucide-react'
 
 /**
- * Pestañas Auditorías / Devoluciones / Excesos / Productos nuevos a nivel de página. Mismo
+ * Pestañas Existencias / Auditorías / Excesos / Productos nuevos a nivel de página
+ * («Devoluciones» se quitó el 2026-11-11, pedido del usuario). Mismo
  * espíritu que TabsFacturacion.jsx, adaptado a la estética emerald de esta
  * página. En pantallas chicas se reparten a ancho completo (flex-1) y bajan
  * de tamaño para no forzar scroll horizontal; en sm+ vuelven a su ancho
@@ -23,17 +24,6 @@ export default function TabsInventarioAuditoria({ vistaActiva, onCambiarVista })
       >
         <Boxes size={16} className="hidden shrink-0 sm:block" />
         Auditorías
-      </button>
-      <button
-        onClick={() => onCambiarVista('devoluciones')}
-        className={`flex-1 sm:flex-none justify-center px-2 sm:px-6 py-2.5 sm:py-3 font-bold text-xs sm:text-sm whitespace-nowrap transition-colors flex items-center gap-1.5 sm:gap-2 ${
-          vistaActiva === 'devoluciones'
-            ? 'text-primario-700 border-b-2 border-primario-600'
-            : 'text-neutro-500 hover:text-neutro-700'
-        }`}
-      >
-        <Undo2 size={16} className="hidden shrink-0 sm:block" />
-        Devoluciones
       </button>
       <button
         onClick={() => onCambiarVista('excesos')}

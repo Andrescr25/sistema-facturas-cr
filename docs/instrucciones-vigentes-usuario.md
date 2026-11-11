@@ -1628,3 +1628,8 @@ exactamente lo mismo con los excesos y se vea el descuento reflejado; además,
 que si se factura ese producto, agarre el descuento que se puso en excesos».
 [Cómo funciona](grafo/modulo/catalogo-agente.md).
 
+## 2026-11-11 — Sin la pestaña «Devoluciones» en Auditoría de Inventario
+
+El usuario: «también ahí puedes quitar el tab de "devoluciones"».
+[Qué se quitó](grafo/modulo/inventario.md).
+

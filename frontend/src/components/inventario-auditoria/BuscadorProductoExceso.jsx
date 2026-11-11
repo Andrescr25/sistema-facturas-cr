@@ -4,9 +4,8 @@ import { formatCurrency } from '../../utils/inventarioAuditoriaUtils'
 /**
  * Buscador para agregar productos a mano a una tanda de excesos.
  *
- * A diferencia de BuscadorProductoDevolucion no pide cantidad: en un exceso
- * la cantidad la define el stock que ya hay en el inventario propio, y si la física no
- * coincide se corrige al empacar (ver ItemExcesoCard). Pedir un número acá
+ * No pide cantidad: en un exceso la cantidad se escribe al empacar (ver
+ * ItemExcesoCard), que con el inventario en 0 o menos la exige. Pedir un número acá
  * sería pedir un dato que todavía nadie contó.
  */
 export default function BuscadorProductoExceso({

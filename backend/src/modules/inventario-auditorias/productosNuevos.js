@@ -49,7 +49,7 @@ async function listar() {
   });
 }
 
-/** Buscador propio de esta lista; no usa el de devoluciones ni consulta Alegra. */
+/** Buscador propio de esta lista; no usa el de las tandas de excesos ni consulta Alegra. */
 async function buscar(texto) {
   const q = normalizar(texto).trim();
   if (q.length < 2) return [];

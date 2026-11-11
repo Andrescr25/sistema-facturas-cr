@@ -131,15 +131,6 @@ prueba('producto creado durante el conteo exige reconstruir la lista completa, s
   assert.equal((await inv.saldo(c,p.id)).conteo_confirmado,false);
   await aud.resincronizarAuditoria(a.id);assert.equal((await aud.getAuditoria(a.id)).items.length,2);
 });
-prueba('devoluciones de cliente ingresan y a proveedor salen; límite de stock y reintento protegidos',async({c,p,u})=>{
-  const entrada=await aud.crearDevolucion('cliente');await aud.agregarItemDevolucion(entrada.id,{productoId:p.id,cantidadDevuelta:'3.125'});
-  await aud.finalizarAuditoria(entrada.id,'ZZ cliente',u.id);assert.equal(await saldo(c,p),3.125);
-  const salida=await aud.crearDevolucion('proveedor');
-  await assert.rejects(aud.agregarItemDevolucion(salida.id,{productoId:p.id,cantidadDevuelta:'4'}),e=>e.status===400);
-  const i=await aud.agregarItemDevolucion(salida.id,{productoId:p.id,cantidadDevuelta:'1.125'});
-  await aud.finalizarAuditoria(salida.id,'ZZ proveedor',u.id);await aud.ajustarInventario(salida.id,u.id);assert.equal(await saldo(c,p),2);
-  await assert.rejects(aud.eliminarItemDevolucion(salida.id,i.id),e=>e.status===409);
-});
 prueba('producto sin id externo recibe exceso; oferta requiere empaque y stock ACTUAL, sin escalada',async({c,p,u})=>{
   await mover(c,p,'5');const a=await aud.crearExcesoManual(),i=await aud.agregarItemExceso(a.id,{productoId:p.id});
   await aud.guardarDescuentoExceso({productoId:p.id,descuentoPorcentaje:40});
@@ -188,9 +179,4 @@ prueba('excesos se detectan por stock y ventas propios, con tope de diez y sin c
   }
   const r=await aud.generarTandaDeExcesos();assert.equal(r.total,10);assert.equal(r.totalDetectados,12);assert.deepEqual(r.regalosNuevos,[]);
   assert.equal((await aud.getAuditoria(r.id)).items.length,10);
-});
-prueba('una devolución de cliente parcial ingresa aunque el saldo provisional siga negativo',async({c,p,u,cli})=>{
-  await ventas.crearFactura(pedido(p,cli,3),u.id);assert.equal(await saldo(c,p),-3);
-  const a=await aud.crearDevolucion('cliente');await aud.agregarItemDevolucion(a.id,{productoId:p.id,cantidadDevuelta:'1'});
-  await aud.finalizarAuditoria(a.id,'ZZ devolución parcial',u.id);assert.equal(await saldo(c,p),-2);
 });
