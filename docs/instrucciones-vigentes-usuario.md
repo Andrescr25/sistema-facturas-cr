@@ -1638,3 +1638,9 @@ El usuario: «también ahí puedes quitar el tab de "devoluciones"».
 El usuario: «desde el tab de excesos déjame modificar la cantidad para poner
 cuáles son los que quedan». [Cómo funciona](grafo/modulo/catalogo-agente.md).
 
+
+## 2026-11-18 — El mensaje del envío al proveedor se puede cambiar
+
+El usuario: «en reporte proveedores, al momento de enviar la orden de compra,
+que el mensaje por defecto me deje modificarlo». Vale solo para ese envío; el
+de siempre no cambia. [Cómo funciona](grafo/modulo/reporte-proveedores.md).

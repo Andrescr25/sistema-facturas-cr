@@ -46,6 +46,14 @@ caso('confirmar reutiliza exactamente número, mensaje, PDF y clave mostrados; r
  assert.deepEqual(await s.enviar(datos),enviada);assert.equal(transportes,1);
  await assert.rejects(s.enviar({...datos,productos:[{...datos.productos[0],cantidad:3,cantidadOriginal:3}]}),e=>e.status===409);assert.equal(transportes,1);
 });
+caso('el mensaje escrito para este envío es el que se guarda y sale; con la misma clave y otro texto, no',async()=>{
+ await faltante(10);const datos={...await pedido(),mensaje:'  Buenas, ZZ este pedido es para el viernes\ngracias  '};
+ const r=await s.revisarEnvio(datos);assert.equal(r.destino.mensaje,'Buenas, ZZ este pedido es para el viernes\ngracias');
+ assert.equal(r.orden.envios.find(e=>e.id===datos.clave).mensaje,r.destino.mensaje);
+ await assert.rejects(s.enviar({...datos,mensaje:'ZZ otro texto'}),e=>e.status===409);assert.equal(transportes,0);
+ const enviada=await s.enviar(datos);assert.equal(enviada.envioEstado,'confirmado');assert.equal(ultimo.mensaje,r.destino.mensaje);
+ for(const malo of ['   ',7,'x'.repeat(2001)])await assert.rejects(s.revisarEnvio({...datos,clave:randomUUID(),mensaje:malo}),e=>e.status===400&&/mensaje/.test(e.message));
+});
 caso('repetir preparación no genera otra copia ni altera la revisión; cancelación permite otra revisión',async()=>{
  await faltante(10);const datos=await pedido(),r=await s.revisarEnvio(datos);
  assert.deepEqual(await s.revisarEnvio(datos),r);assert.equal(transportes,0);

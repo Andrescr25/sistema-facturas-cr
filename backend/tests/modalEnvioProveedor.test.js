@@ -273,3 +273,32 @@ test('doble clic al revisar el nuevo número prepara una copia y cambiarlo duran
   assert.equal(m.render().modal.telefono, '50687777777'); assert.deepEqual(llamadas[2].cuerpo, llamadas[1].cuerpo);
   enviar(confirmado); await transporte;
 });
+
+test('cambiar el mensaje prepara otra copia con ese texto y la manda en el mismo clic', async () => {
+  const llamadas = [];
+  const m = montar({ post: async (ruta, cuerpo) => {
+    llamadas.push({ ruta, cuerpo: structuredClone(cuerpo) });
+    if (ruta.endsWith('revisar-envio')) return { data: { success: true, data: { orden: { id: 25 }, envioEstado: 'preparado', destino: { ...destino, mensaje: (cuerpo.mensaje ?? destino.mensaje).trim() } } } };
+    return confirmado;
+  } });
+  await m.render().enviar();
+  m.render().cambiarMensaje('Buenas, ZZ para el viernes ');
+  assert.equal(m.render().modal.mensaje, 'Buenas, ZZ para el viernes ');
+  assert.equal(llamadas.length, 1, 'escribir no llama al servidor');
+  await m.render().confirmarEnvio();
+  assert.deepEqual(llamadas.map(l => l.ruta), ['/orden-compra/proveedor/revisar-envio', '/orden-compra/proveedor/revisar-envio', '/orden-compra/proveedor/enviar']);
+  assert.notEqual(llamadas[1].cuerpo.clave, llamadas[0].cuerpo.clave, 'otro texto es otra copia');
+  assert.equal(llamadas[1].cuerpo.mensaje, 'Buenas, ZZ para el viernes ');
+  assert.deepEqual(llamadas[2].cuerpo, llamadas[1].cuerpo, 'sale la copia con el mensaje escrito');
+  assert.equal(m.render().estado, 'confirmado');
+});
+
+test('si el servidor no devuelve el mensaje escrito, no se manda', async () => {
+  const llamadas = [];
+  const m = montar({ post: async ruta => { llamadas.push(ruta); return preparado; } });
+  await m.render().enviar();
+  m.render().cambiarMensaje('ZZ otro texto');
+  await m.render().confirmarEnvio();
+  assert.equal(llamadas.filter(r => r.endsWith('/enviar')).length, 0);
+  assert.equal(m.almacen.size, 0);
+});

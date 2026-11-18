@@ -21,8 +21,13 @@ function validar(datos) {
   if (!Array.isArray(datos.productos) || !datos.productos.length || datos.productos.length > 500) throw httpError(400,'Incluí entre 1 y 500 productos en el pedido.');
   if (datos.fechaInicio != null && (typeof datos.fechaInicio !== 'string' || !fechaValida(datos.fechaInicio))) throw httpError(400,'La fecha inicial del reporte no es válida.');
   if ('telefono' in datos && (typeof datos.telefono !== 'string' || !datos.telefono.trim())) throw httpError(400,'Escribí un número de WhatsApp para este envío.');
+  if (datos.mensaje != null && (typeof datos.mensaje !== 'string' || !datos.mensaje.trim() || datos.mensaje.trim().length > 2000)) throw httpError(400,'Escribí un mensaje de hasta 2000 caracteres.');
   return { ...datos, clave:datos.clave.toLowerCase() };
 }
+// El mensaje lo puede cambiar quien envía (2026-11-18); sin tocarlo, el de
+// siempre. Va dentro de la firma del intento: la misma clave con otro texto
+// es otro pedido y se rechaza, igual que con otro número.
+const mensajeDe = datos => datos.mensaje == null ? envio.mensajePredeterminado : datos.mensaje.trim();
 async function productoManualEn(db,p,l) {
   let productoId = l.productoId;
   if (productoId == null) {
@@ -67,7 +72,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   if (!telefono) {
     // Con varios destinos, no elegir uno por el orden de lectura. Abrir el
     // modal permite elegir o escribir otro sin crear una copia sin destino.
-    if (soloPreparar) return { destinoPendiente:{telefono:'',mensaje:envio.mensajePredeterminado,telefonos:candidatos} };
+    if (soloPreparar) return { destinoPendiente:{telefono:'',mensaje:mensajeDe(datos),telefonos:candidatos} };
     throw httpError(409,'Elegí o escribí un número de WhatsApp antes de enviar.');
   }
   const reporte = await new (require('../reports/report.service'))().getMissingItemsBySupplier(datos.fechaInicio || null,{db,incluirEnviadas:false,proveedor:p});
@@ -134,8 +139,7 @@ async function revisarEn(db,datos,actor,{soloPreparar=false}={}) {
   await require('./ordenesCicloLineas.service').insertarLineasEn(db,o,entradas);
   await db.query("UPDATE orden_compra_ciclo SET estado='pendiente_enviar',version=version+1,actualizado_en=NOW() WHERE id=$1",[o.id]);
   o = await obtenerEn(db,o.id);
-  const mensaje = envio.mensajePredeterminado;
-  o = await envio.interno.prepararEn(db,o.id,{version:o.version,clave:datos.clave,telefono,mensaje,preferirDatosProveedor:datos.preferirDatosProveedor !== false},actor);
+  o = await envio.interno.prepararEn(db,o.id,{version:o.version,clave:datos.clave,telefono,mensaje:mensajeDe(datos),preferirDatosProveedor:datos.preferirDatosProveedor !== false},actor);
   const { rows:temporales } = await db.query(`SELECT id,updated_at::text actualizado FROM orden_compra_temporal
     WHERE proveedor_nombre=ANY($1::text[])`,[[...new Set([p.nombre,actual.nombre,...(actual.aliases || [])])]]);
   await registrarCambio(db,{entidad:'orden_compra_ciclo',entidadId:o.id,accion:'revisar_reporte',despues:{clave:datos.clave,firma:firma(datos),temporales},usuarioId:actor});

@@ -1,6 +1,7 @@
 import { Phone, Send } from 'lucide-react'
 import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
+import CampoMensajeOrden from './CampoMensajeOrden'
 
 // Lo que pasó con el reenvío, en palabras.
 const RESULTADOS = {
@@ -21,7 +22,7 @@ export default function ModalReenviarOrden({ proveedor, reenvio }) {
       <div className="flex flex-wrap justify-end gap-2">
         <Boton variante="secundario" onClick={reenvio.cerrar} disabled={reenvio.enviando} className="min-h-12">{listo ? 'Cerrar' : 'Cancelar'}</Boton>
         {!listo && (
-          <Boton icono={Send} onClick={reenvio.reenviar} cargando={reenvio.enviando} disabled={reenvio.cargando || !reenvio.telefono.trim()} className="min-h-12">
+          <Boton icono={Send} onClick={reenvio.reenviar} cargando={reenvio.enviando} disabled={reenvio.cargando || !reenvio.telefono.trim() || !reenvio.mensaje.trim()} className="min-h-12">
             Volver a enviar
           </Boton>
         )}
@@ -61,12 +62,8 @@ export default function ModalReenviarOrden({ proveedor, reenvio }) {
           </div>
         </div>
 
-        {reenvio.mensaje && (
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutro-500">Mensaje</p>
-            <p className="whitespace-pre-wrap break-words rounded-2xl border border-neutro-200 p-4 text-sm text-neutro-800">{reenvio.mensaje}</p>
-          </div>
-        )}
+        {!reenvio.cargando && <CampoMensajeOrden id="reenvio-mensaje" valor={reenvio.mensaje} onCambiar={reenvio.setMensaje}
+          deshabilitado={reenvio.enviando || listo} />}
 
         {reenvio.error && <p role="alert" className="rounded-xl bg-peligro-50 px-3 py-2 text-sm text-peligro-700">{reenvio.error}</p>}
         {r && <p role="status" className={`rounded-xl px-3 py-2 text-sm font-semibold ${RESULTADOS[r.estado].tono}`}>{RESULTADOS[r.estado].texto(r)}</p>}

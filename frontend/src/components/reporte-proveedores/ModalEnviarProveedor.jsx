@@ -1,12 +1,15 @@
 import { Phone, Send } from 'lucide-react'
 import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
+import CampoMensajeOrden from './CampoMensajeOrden'
 
 /** Cambiar destino exige revisar otra copia antes de confirmar. El teléfono
- * elegido aquí sólo corresponde a este envío; la ficha se edita aparte. */
-export default function ModalEnviarProveedor({ revision, enviando, onConfirmar, onReintentar, onCambiarTelefono, onCerrar }) {
+ * elegido aquí sólo corresponde a este envío; la ficha se edita aparte. El
+ * mensaje también se cambia solo para este envío (2026-11-18). */
+export default function ModalEnviarProveedor({ revision, enviando, onConfirmar, onReintentar, onCambiarTelefono, onCambiarMensaje, onCerrar }) {
   const requiereRevision = revision.requiereRevision || revision.error
   const telefonos = revision.telefonos || []
+  const conMensaje = typeof revision.mensaje === 'string'
   return (
     <Modal titulo="Enviar PDF a WhatsApp" ancho="lg" onCerrar={onCerrar} pie={
       <div className="flex flex-wrap justify-end gap-2">
@@ -16,7 +19,7 @@ export default function ModalEnviarProveedor({ revision, enviando, onConfirmar, 
             {revision.requiereRevision ? 'Revisar número' : 'Reintentar revisión'}
           </Boton>
         ) : (
-          <Boton icono={Send} onClick={onConfirmar} cargando={enviando} disabled={revision.cargando || !revision.destino} className="min-h-12">Confirmar envío</Boton>
+          <Boton icono={Send} onClick={onConfirmar} cargando={enviando} disabled={revision.cargando || !revision.destino || (conMensaje && !revision.mensaje.trim())} className="min-h-12">Confirmar envío</Boton>
         )}
       </div>
     }>
@@ -43,12 +46,8 @@ export default function ModalEnviarProveedor({ revision, enviando, onConfirmar, 
           <p className="text-xs text-neutro-500">Para registrar números, editá la ficha del proveedor.</p>
           {revision.destino?.telefono && !revision.requiereRevision && <p className="text-xs font-semibold text-exito-700">Se enviará a: +{revision.destino.telefono}</p>}
         </div>
-        {revision.mensaje && <>
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutro-500">Mensaje predeterminado</p>
-            <p className="whitespace-pre-wrap break-words rounded-2xl border border-neutro-200 p-4 text-sm leading-relaxed text-neutro-800">{revision.mensaje}</p>
-          </div>
-        </>}
+        {conMensaje && <CampoMensajeOrden id="envio-proveedor-mensaje" valor={revision.mensaje} onCambiar={onCambiarMensaje}
+          deshabilitado={enviando || revision.cargando} />}
       </div>
     </Modal>
   )

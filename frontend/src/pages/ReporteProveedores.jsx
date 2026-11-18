@@ -246,7 +246,8 @@ export default function ReporteProveedores() {
       )}
 
       {envio.modal && <ModalEnviarProveedor revision={envio.modal} enviando={envio.enviando}
-        onConfirmar={envio.confirmarEnvio} onReintentar={envio.reintentarRevision} onCambiarTelefono={envio.cambiarTelefono} onCerrar={envio.cerrarModal} />}
+        onConfirmar={envio.confirmarEnvio} onReintentar={envio.reintentarRevision} onCambiarTelefono={envio.cambiarTelefono}
+        onCambiarMensaje={envio.cambiarMensaje} onCerrar={envio.cerrarModal} />}
 
       <ConfirmModal {...dialogFichas} />
 

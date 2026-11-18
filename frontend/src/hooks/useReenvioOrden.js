@@ -45,7 +45,7 @@ export function useReenvioOrden(ordenId) {
 
   return {
     abierto, abrir, cerrar: () => setAbierto(false),
-    telefonos, telefono, setTelefono, mensaje, conCodigos, setConCodigos,
+    telefonos, telefono, setTelefono, mensaje, setMensaje, conCodigos, setConCodigos,
     cargando, enviando, error, resultado, reenviar
   }
 }

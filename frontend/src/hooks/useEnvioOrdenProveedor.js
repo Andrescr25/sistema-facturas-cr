@@ -177,12 +177,29 @@ export function useEnvioOrdenProveedor({ proveedor, productos, preferirDatosProv
     setModal({ nombre: copia.nombre, telefono, telefonos: copia.telefonos || [], mensaje: copia.mensaje, cargando: false, requiereRevision: true })
   }
 
-  const confirmarEnvio = () => {
+  // El mensaje se cambia como el número (2026-11-18): otra copia, con otra
+  // clave, que el servidor guarda con ese texto. Lo escrito es lo que sale.
+  const cambiarMensaje = mensaje => {
+    const anterior = revision.current
+    if (!anterior || anterior.preparando || ocupado.current) return
+    revision.current = { ...anterior, cuerpo: structuredClone({ ...anterior.cuerpo, clave: crypto.randomUUID(), mensaje }),
+      mensaje, lista: false, preparando: false, cambioMensaje: true }
+    setModal(prev => prev && { ...prev, mensaje })
+  }
+
+  const confirmarEnvio = async () => {
     const copia = revision.current
-    if (!copia?.lista || ocupado.current) return
+    if (!copia || ocupado.current) return
     if (seleccion.current !== copia.contexto) { cerrarModal(); return }
+    // Con solo el mensaje cambiado, confirmar guarda primero la copia con ese
+    // texto y, si el servidor la devuelve igual, la manda en el mismo clic.
+    if (copia.cambioMensaje && !copia.lista && !copia.cambioTelefono && !copia.requiereTelefono) {
+      await preparar(copia)
+      if (revision.current !== copia || copia.mensaje !== copia.cuerpo.mensaje.trim()) return
+    }
+    if (!copia.lista) return
     return enviarIntento({ cuerpo: copia.cuerpo, estado: 'por_verificar' }, copia.storage, copia.nombre, copia.contexto, true)
   }
 
-  return { enviar, enviando, estado, error, modal, cerrarModal, reintentarRevision, confirmarEnvio, cambiarTelefono }
+  return { enviar, enviando, estado, error, modal, cerrarModal, reintentarRevision, confirmarEnvio, cambiarTelefono, cambiarMensaje }
 }

@@ -25,6 +25,7 @@ archivos:
   - backend/tests/telefonosProveedorVista.test.js
   - docs/informes/proveedores-modal-pdf-2026-10-14.md
   - frontend/src/components/reporte-proveedores/ModalEnviarProveedor.jsx
+  - frontend/src/components/reporte-proveedores/CampoMensajeOrden.jsx
   - backend/tests/modalEnvioProveedor.test.js
   - backend/tests/confirmacionEnvioProveedor.test.js
   - backend/src/modules/orders-whatsapp/reservasBorradorReporte.service.js
@@ -362,3 +363,23 @@ quitar la opción de "usar código proveedor"».
 - Solo se ve mientras la orden enviada sigue en el reporte (3 días,
   `DIAS_VISIBLE` de `ordenesReporte.service`).
 
+## El mensaje del envío se puede cambiar — 2026-11-18
+
+El usuario: «en reporte proveedores, al momento de enviar la orden de compra,
+que el mensaje por defecto me deje modificarlo».
+
+- «Enviar PDF a WhatsApp» y «Volver a enviar» traen el mensaje de siempre
+  («Hola buenas, adjunto pedido / gracias») en un campo editable
+  (`CampoMensajeOrden`, una sola copia para los dos). Vale solo para ese
+  envío: el de siempre no cambia. Vacío no deja confirmar; hasta 2000
+  caracteres.
+- Enviar: el mensaje viaja en el cuerpo (`mensaje`) y entra en la firma del
+  intento, igual que el número. Cambiarlo hace otra copia con otra clave
+  (`cambiarMensaje` en `useEnvioOrdenProveedor`); «Confirmar envío» la
+  prepara con ese texto y, si el servidor la devuelve igual, la manda en el
+  mismo clic. La misma clave con otro texto → 409. Sin `mensaje`, el
+  servidor usa el de siempre (`mensajeDe` en `envioDesdeReporte.service`).
+- Volver a enviar: `reenvioOrden.service` ya aceptaba `mensaje`; ahora la
+  ventana lo deja escribir.
+- Sin migración: la copia guardada (`orden_compra_ciclo_envio.mensaje`) ya
+  guardaba el texto de cada envío.

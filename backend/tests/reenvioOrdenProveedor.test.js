@@ -81,6 +81,14 @@ caso('vuelve a mandar el PDF sin los códigos del proveedor, y la orden queda ig
   assert.equal(w.exito, true);
 });
 
+caso('el mensaje cambiado en la ventana es el que sale (2026-11-18)', async () => {
+  const o = await ordenEnviada();
+  await reenvio.reenviar(o.id, { telefono: '8888 8888', preferirDatosProveedor: false, mensaje: '  ZZ les reenvío el pedido sin sus códigos\ngracias ' });
+  assert.equal(ultimo.mensaje, 'ZZ les reenvío el pedido sin sus códigos\ngracias');
+  await c.query('ROLLBACK TO SAVEPOINT reenvio_caso');
+  await assert.rejects(reenvio.reenviar((await ordenEnviada()).id, { telefono: '8888 8888', preferirDatosProveedor: false, mensaje: 'x'.repeat(2001) }), (e) => e.status === 400);
+});
+
 caso('un segundo reenvío dentro de 2 minutos no sale: un doble clic no manda dos PDF', async () => {
   const o = await ordenEnviada();
   await reenvio.reenviar(o.id, { telefono: '8888 8888', preferirDatosProveedor: false });
