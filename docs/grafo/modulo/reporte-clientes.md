@@ -221,8 +221,5 @@ crédito; de hecho, ese producto no debería aparecer en Reporte Clientes».
   y número de línea, y el cambio no renumera ni toca las líneas de los otros
   productos (las nuevas van al final).
 - Si con el cambio el total queda por debajo de lo acreditado, no se hace.
-- **Queda pendiente:** Impresión edita la factura con la misma edición de
-  Facturación (renumera las líneas), así que con una nota solo procesa si no
-  tiene que cambiar nada. Si tiene que rebajar algo o poner un precio nuevo
-  del catálogo, responde el mismo 409 de la nota. Un faltante del producto
-  acreditado sigue pendiente para Impresión y Reporte Proveedores.
+- Impresión con la nota: resuelto el mismo día, ver [[modulo/faltantes]]
+  («Impresión con una nota de crédito»).

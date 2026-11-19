@@ -57,7 +57,7 @@ const { aplicarDescuentoEn } = require('./descuentoCliente.service');
 const { exigirPrecioDeLista } = require('./precioFijo');
 const { registrarVentaEn } = require('../preventa/visitas');
 const { estaTomadaEn, mensajeDeFacturaTomada } = require('../warehouse/tomadaEnBodega');
-const { exigirFueraDeHacienda, cobradoDe, acreditadoDe } = require('./candadosFactura');
+const { exigirFueraDeHacienda, cobradoDe, acreditadoDe, lineasAcreditadasEn, exigirAcreditadasIntactas } = require('./candadosFactura');
 
 
 /**
@@ -533,8 +533,12 @@ async function editarFactura(id, datos, usuarioId, { precioFijo = false } = {}) 
 /**
  * Lo mismo, dentro de una transacción que ya abrió otro: Impresión edita la
  * factura y marca la cola en la misma (reprinting/procesarImpresion.js).
+ *
+ * `permitirNota` (solo Impresión, 2026-11-19): con una nota de crédito sí se
+ * edita, siempre que las líneas acreditadas queden iguales y en su lugar
+ * (`exigirAcreditadasIntactas`).
  */
-async function editarFacturaEn(cliente, id, datos, usuarioId, { precioFijo = false } = {}) {
+async function editarFacturaEn(cliente, id, datos, usuarioId, { precioFijo = false, permitirNota = false } = {}) {
   const n = idValido(id);
   const items = Array.isArray(datos?.items) ? datos.items : null;
   if (!items || items.length === 0) throw httpError(400, 'La factura no tiene líneas.');
@@ -545,7 +549,7 @@ async function editarFacturaEn(cliente, id, datos, usuarioId, { precioFijo = fal
     if (!factura) throw httpError(404, 'No existe esa factura.');
     if (factura.estado === 'anulada') throw httpError(409, `La factura ${factura.numero} está anulada.`);
 
-    await revisarSiSePuedeTocar(cliente, factura, 'editar');
+    const { acreditado } = await revisarSiSePuedeTocar(cliente, factura, 'editar', { permitirNota });
 
     const usaAlegraId = items.some(i => i.productoId === undefined);
     const productos = await buscarProductos(
@@ -607,6 +611,10 @@ async function editarFacturaEn(cliente, id, datos, usuarioId, { precioFijo = fal
         plazo_texto: aCredito ? nuevo.plazo_nombre : 'De contado',
         fecha_vencimiento: aCredito ? sumarDias(diaDeBase(factura.fecha), dias) : diaDeBase(factura.fecha)
       };
+    }
+
+    if (acreditado > 0) {
+      exigirAcreditadasIntactas(factura, await lineasAcreditadasEn(cliente, n), armado.lineas, armado.total, acreditado);
     }
 
     await cliente.query('DELETE FROM factura_linea WHERE factura_id = $1', [n]);

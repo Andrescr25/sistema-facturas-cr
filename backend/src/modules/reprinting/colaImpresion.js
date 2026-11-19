@@ -25,6 +25,7 @@ const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { validarEntrega } = require('../missing-items/ajusteEntrega');
 const { ingresoRespaldado } = require('../missing-items/ingresoFaltante');
+const { productoConNotaSql } = require('../facturacion/candadosFactura');
 const {
   impresaFueraDePlazo, MOVIMIENTOS_REPORTE, ULTIMA_COLA, JOIN_HISTORIAL_REPORTE
 } = require('../reports/historialClientes.sql');
@@ -101,6 +102,9 @@ async function ponerEnCola(db, facturaId, { ajustes, categoria }) {
  * su comportamiento; un envío nuevo exige respuesta y revisión persistidas.
  */
 async function ajustesDeFactura(db, facturaId) {
+  // El producto con nota de crédito ya se le acreditó al cliente: no sale en
+  // Reporte Clientes, así que no se exige su revisión (2026-11-19). Impresión
+  // lo cierra sin rebaja (procesarImpresion.rebajaObjetivo).
   const { rows } = await db.query(`
     SELECT f.id AS faltante_id, f.cantidad_faltante, p.id AS producto_id, p.referencia, p.nombre,
            aj.cantidad_entregada, aj.estado, aj.requiere_actualizacion, aj.revisado
@@ -111,6 +115,7 @@ async function ajustesDeFactura(db, facturaId) {
        AND f.estado = 'pendiente'
        AND f.tipo_faltante <> 'completo'
        AND f.cantidad_faltante > 0
+       AND NOT ${productoConNotaSql('f.factura_propia_id', 'f.producto_propio_id')}
      ORDER BY f.id
   `, [facturaId]);
   return rows.map((r) => ({

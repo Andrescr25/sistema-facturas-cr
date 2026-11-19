@@ -1,15 +1,19 @@
 const { SIN_CREDITO_TOTAL } = require('../facturacion/saldo.sql');
+const { productoConNotaSql } = require('../facturacion/candadosFactura');
 
 /** Compra actual: una respuesta revisada es final para ESTA factura. Leer
  * historia procesada como necesidad vuelve a pedir lo que ya se resolvió.
  * Validar también la línea propia evita atribuir a un cliente productos ajenos.
  * Uno quitado de las compras en Reporte Proveedores (faltante_sin_compra, 065)
  * ya no se le pide a nadie; el faltante del cliente sigue igual.
+ * Uno cuyo producto tiene nota de crédito en esa factura tampoco (2026-11-19):
+ * ya se le acreditó al cliente.
  */
 function faltanteOperativo(f = 'f', fa = 'fa') {
   return `${f}.estado='pendiente' AND ${f}.tipo_faltante<>'completo'
     AND ${f}.cantidad_faltante>0 AND ${fa}.estado='emitida' AND ${SIN_CREDITO_TOTAL.replace(/\bf\./g, fa + '.')}
     AND EXISTS(SELECT 1 FROM factura_linea l WHERE l.factura_id=${fa}.id AND l.producto_id=${f}.producto_propio_id)
+    AND NOT ${productoConNotaSql(`${fa}.id`, `${f}.producto_propio_id`)}
     AND NOT EXISTS(SELECT 1 FROM faltantes_ajustes a WHERE a.faltante_id=${f}.id AND a.revisado)
     AND NOT EXISTS(SELECT 1 FROM faltante_sin_compra sc WHERE sc.faltante_id=${f}.id)
     AND NOT EXISTS(SELECT 1 FROM (SELECT r.estado FROM facturas_reimpresion r

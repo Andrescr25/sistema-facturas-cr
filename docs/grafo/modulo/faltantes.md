@@ -4,6 +4,7 @@ tipo: modulo
 titulo: Faltantes — del despacho a la reimpresión, sobre la factura y el producto propios
 estado: vigente
 archivos:
+  - backend/tests/impresionConNota.test.js
   - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - docs/informes/proveedores-correccion-2026-10-14.md
   - backend/tests/proveedoresCritico.test.js
@@ -609,3 +610,28 @@ No crea otra orden ni vuelve a pedir en Proveedores unidades ya recibidas.
 El ajuste nuevo queda sin revisar. «No llegó» libera ingresos como antes.
 
 [Alcance, concurrencia y reversión](../../informes/sustitucion-producto-reporte-clientes-2026-11-05.md).
+
+## Impresión con una nota de crédito — 2026-11-19
+
+Sigue a [[modulo/reporte-clientes]] («Cambiar producto con una nota de
+crédito»). El usuario dio el «dale sí» a: que Impresión cambie las líneas
+sin tocar las que tienen nota, que el faltante del producto acreditado se
+cierre sin rebaja y que ese producto no se le pida al proveedor.
+
+- **El producto acreditado ya se resolvió con la nota.** No se exige su
+  revisión para mandar la factura a Impresión (`colaImpresion.ajustesDeFactura`).
+  Impresión lo cierra como procesado sin rebajar más
+  (`rebajaObjetivo` con `con_nota`). No es necesidad de compra
+  (`faltanteOperativo`). Todo con `productoConNotaSql`, una sola copia.
+- **Impresión edita aunque haya nota** (`editarFacturaEn(..., { permitirNota })`),
+  con una condición: cada línea acreditada queda igual, con el mismo
+  producto, número, cantidad, precio y descuento, y el total no baja de lo
+  acreditado (`exigirAcreditadasIntactas` en `candadosFactura`).
+  - La línea acreditada no toma el precio nuevo del catálogo.
+  - Si se quita una línea anterior, otra de las de después ocupa su lugar
+    (`conservarLugarAcreditadas`), para que la acreditada no se corra.
+  - Si eso no alcanza, responde 409 sin tocar nada y sugiere corregir con
+    otra nota de crédito.
+- Editar y Anular desde Facturación siguen frenados por la nota.
+- **Hueco conocido:** una factura cuyo único faltante pendiente tiene la nota
+  no sale en Reporte Clientes, así que de ahí no se manda a Impresión.

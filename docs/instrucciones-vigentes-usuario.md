@@ -1651,3 +1651,9 @@ El usuario: «en reporte clientes, déjame cambiar productos aunque haya nota de
 crédito; la única restricción que no me debe dejar es cambiar el producto que
 tiene nota de crédito; de hecho este producto con nota de crédito no debería
 aparecer en reporte clientes». [Cómo funciona](grafo/modulo/reporte-clientes.md).
+
+## 2026-11-19 — Impresión con nota de crédito
+
+El usuario dijo «dale sí» a que Impresión cambie las líneas sin tocar las que
+tienen nota, que el faltante del producto acreditado se cierre sin rebaja y
+que no se le pida al proveedor. [Cómo funciona](grafo/modulo/faltantes.md).

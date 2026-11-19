@@ -47,4 +47,41 @@ const productoConNotaSql = (factura, producto) => `EXISTS (SELECT 1 FROM nota_cr
     JOIN nota_credito_linea ncl ON ncl.nota_credito_id = nc.id
    WHERE nf.factura_id = ${factura} AND ncl.producto_id = ${producto})`;
 
-module.exports = { exigirFueraDeHacienda, cobradoDe, acreditadoDe, productoConNotaSql };
+/** Las líneas de la factura que tienen una nota de crédito vigente, con cómo están hoy. */
+async function lineasAcreditadasEn(db, facturaId) {
+  const { rows } = await db.query(
+    `SELECT DISTINCT ncl.producto_id, ncl.numero_linea, l.nombre, l.cantidad, l.precio_unitario, l.descuento_porcentaje
+       FROM nota_credito_factura nf
+       JOIN nota_credito nc ON nc.id = nf.nota_credito_id AND nc.estado <> 'anulada'
+       JOIN nota_credito_linea ncl ON ncl.nota_credito_id = nc.id
+       JOIN factura_linea l ON l.factura_id = nf.factura_id AND l.numero_linea = ncl.numero_linea
+                           AND l.producto_id IS NOT DISTINCT FROM ncl.producto_id
+      WHERE nf.factura_id = $1
+      ORDER BY ncl.numero_linea`, [facturaId]);
+  return rows.map(r => ({ ...r, numero_linea: Number(r.numero_linea) }));
+}
+
+/**
+ * Impresión con una nota de crédito (2026-11-19): puede cambiar la factura,
+ * pero cada línea acreditada queda igual —mismo producto, número, cantidad,
+ * precio y descuento—, porque la nota la reconoce por producto y número. Y el
+ * total no puede quedar por debajo de lo acreditado.
+ */
+function exigirAcreditadasIntactas(factura, acreditadas, nuevas, total, acreditado) {
+  for (const a of acreditadas) {
+    const n = nuevas.find(l => Number(l.numero_linea) === a.numero_linea);
+    const igual = n && n.producto_id === a.producto_id && Number(n.cantidad) === Number(a.cantidad)
+      && Number(n.precio_unitario) === Number(a.precio_unitario)
+      && Number(n.descuento_porcentaje) === Number(a.descuento_porcentaje);
+    if (!igual) {
+      throw httpError(409,
+        `La factura ${factura.numero} tiene una nota de crédito sobre ${a.nombre} (línea ${a.numero_linea}): ` +
+        'esa línea no se puede cambiar ni mover de lugar. Lo que no llegó de los demás productos, corregilo con otra nota de crédito.');
+    }
+  }
+  if (total < acreditado) {
+    throw httpError(409, `La factura ${factura.numero} quedaría por debajo de lo que ya se le acreditó con nota de crédito.`);
+  }
+}
+
+module.exports = { exigirFueraDeHacienda, cobradoDe, acreditadoDe, productoConNotaSql, lineasAcreditadasEn, exigirAcreditadasIntactas };

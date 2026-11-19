@@ -18,6 +18,11 @@
  *   llegó parte → lo que faltó (faltante − entregado)
  *   no llegó, o sin respuesta → el faltante entero: nada confirma que se entregó
  *
+ * CON UNA NOTA DE CRÉDITO (2026-11-19) también se procesa. El producto
+ * acreditado ya se le devolvió al cliente: su faltante se cierra sin rebaja,
+ * su línea conserva precio y cantidad y queda en su mismo número (la nota la
+ * reconoce por producto y número de línea; `exigirAcreditadasIntactas`).
+ *
  * LOS PRECIOS. Se usa `producto.precio_sin_iva` —sin IVA, como el de la línea—
  * salvo en las que Bodega despachó completas ('sin_pendientes'), que solo se
  * imprimen. En la pantalla de edición la propuesta ya trae esos precios y lo
@@ -30,6 +35,7 @@ const { query, pool } = require('../../../config/database');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { editarFacturaEn } = require('../facturacion/facturaPropia.service');
+const { productoConNotaSql, lineasAcreditadasEn } = require('../facturacion/candadosFactura');
 const { obtenerFactura } = require('../facturacion/facturaConsulta.service');
 const { generarPdfFactura } = require('../facturacion/factura.pdf');
 
@@ -49,8 +55,10 @@ function idDeFactura(valor) {
 
 const numero = (v) => Number(v) || 0;
 
-/** Cuánto hay que haber rebajado de la factura por un faltante, según lo que llegó. */
-function rebajaObjetivo({ cantidad_faltante, estado, cantidad_entregada }) {
+/** Cuánto hay que haber rebajado de la factura por un faltante, según lo que
+ * llegó. Con nota de crédito, nada más: la nota ya se lo devolvió al cliente. */
+function rebajaObjetivo({ cantidad_faltante, estado, cantidad_entregada, cantidad_rebajada, con_nota }) {
+  if (con_nota) return numero(cantidad_rebajada);
   const faltante = numero(cantidad_faltante);
   if (estado === 'completo') return 0;
   if (estado === 'parcial') return Math.max(faltante - numero(cantidad_entregada), 0);
@@ -65,7 +73,7 @@ function rebajaObjetivo({ cantidad_faltante, estado, cantidad_entregada }) {
  * le devuelve a la línea; si la línea ya no estaba, vuelve con el precio del
  * catálogo.
  */
-function proponerLineas(lineas, faltantes, { actualizarPrecios }) {
+function proponerLineas(lineas, faltantes, { actualizarPrecios, acreditados = new Set() }) {
   const propuesta = lineas.map((l) => ({
     productoId: l.producto_id,
     nombre: l.nombre,
@@ -74,7 +82,8 @@ function proponerLineas(lineas, faltantes, { actualizarPrecios }) {
     cantidadOriginal: numero(l.cantidad),
     cantidad: numero(l.cantidad),
     precioOriginal: numero(l.precio_unitario),
-    precio: actualizarPrecios && numero(l.precio_catalogo) > 0 ? numero(l.precio_catalogo) : numero(l.precio_unitario),
+    precio: actualizarPrecios && !acreditados.has(l.producto_id) && numero(l.precio_catalogo) > 0
+      ? numero(l.precio_catalogo) : numero(l.precio_unitario),
     descuento: numero(l.descuento_porcentaje),
     tarifa: numero(l.tarifa),
     rebaja: 0,
@@ -142,11 +151,29 @@ function lineasDePantalla(lineas) {
 }
 
 /** Solo refresca lo que la pantalla mostró automáticamente; cada clave es producto.id. */
-function refrescarPreciosDePantalla(lineas, precios) {
+function refrescarPreciosDePantalla(lineas, precios, acreditados = new Set()) {
   return lineas.map(linea => {
     const actual = numero(precios.get(linea.productoId));
-    return linea.precioEditado === false && actual > 0 ? { ...linea, precio: actual } : linea;
+    return linea.precioEditado === false && actual > 0 && !acreditados.has(linea.productoId) ? { ...linea, precio: actual } : linea;
   });
+}
+
+/**
+ * Con nota de crédito, cada línea acreditada vuelve a su mismo número: si
+ * Impresión quita una línea de antes, la ocupa una de las de después. Si no
+ * se puede (no quedan líneas suficientes), queda como venía y la edición lo
+ * rechaza con su motivo. Pura, para probarla.
+ */
+function conservarLugarAcreditadas(finales, acreditadas) {
+  if (!acreditadas.length) return finales;
+  const lugares = new Array(finales.length).fill(null);
+  const libres = [...finales];
+  for (const a of acreditadas) {
+    const i = libres.findIndex(l => l.productoId === a.producto_id);
+    if (i < 0 || a.numero_linea > finales.length || lugares[a.numero_linea - 1]) continue;
+    lugares[a.numero_linea - 1] = libres.splice(i, 1)[0];
+  }
+  return lugares.map(l => l ?? libres.shift());
 }
 
 /** Todo lo que hace falta de una factura para procesarla. `db`: cliente de transacción o el módulo. */
@@ -176,6 +203,7 @@ async function cargar(db, facturaId) {
     db.query(`
       SELECT f.id, f.producto_propio_id AS producto_id, f.cantidad_faltante, f.cantidad_rebajada,
              aj.estado, aj.cantidad_entregada, p.nombre, p.referencia,
+             ${productoConNotaSql('f.factura_propia_id', 'f.producto_propio_id')} AS con_nota,
              p.precio_sin_iva AS precio_catalogo, i.tarifa
         FROM faltantes f
         JOIN producto p ON p.id = f.producto_propio_id
@@ -195,7 +223,9 @@ async function cargar(db, facturaId) {
        LIMIT 1
     `, [facturaId])
   ]);
-  return { factura, lineas: lineas.rows, faltantes: faltantes.rows, cola: cola.rows[0] || null };
+  const acreditadas = await lineasAcreditadasEn(db, facturaId);
+  return { factura, lineas: lineas.rows, faltantes: faltantes.rows, cola: cola.rows[0] || null,
+    acreditadas, acreditados: new Set(acreditadas.map(a => a.producto_id)) };
 }
 
 /**
@@ -220,7 +250,7 @@ async function detalle(facturaIdCrudo) {
     // Ante Hacienda se imprime como se emitió: no hay propuesta de cambios.
     lineas: f.ante_hacienda
       ? proponerLineas(datos.lineas, [], { actualizarPrecios: false })
-      : proponerLineas(datos.lineas, datos.faltantes, { actualizarPrecios: categoria !== 'sin_pendientes' })
+      : proponerLineas(datos.lineas, datos.faltantes, { actualizarPrecios: categoria !== 'sin_pendientes', acreditados: datos.acreditados })
   };
 }
 
@@ -262,12 +292,13 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
     if (finales && actualizarPrecios && !soloImprimir && finales.some(l => l.precioEditado === false)) {
       const ids = [...new Set(finales.filter(l => l.precioEditado === false).map(l => l.productoId))];
       const { rows } = await c.query('SELECT id, precio_sin_iva FROM producto WHERE id = ANY($1::int[])', [ids]);
-      finales = refrescarPreciosDePantalla(finales, new Map(rows.map(p => [p.id, p.precio_sin_iva])));
+      finales = refrescarPreciosDePantalla(finales, new Map(rows.map(p => [p.id, p.precio_sin_iva])), datos.acreditados);
     }
     if (!anteHacienda && !finales && !(soloImprimir && datos.faltantes.length === 0)) {
-      finales = proponerLineas(datos.lineas, datos.faltantes, { actualizarPrecios: actualizarPrecios && !soloImprimir })
+      finales = proponerLineas(datos.lineas, datos.faltantes, { actualizarPrecios: actualizarPrecios && !soloImprimir, acreditados: datos.acreditados })
         .filter((l) => l.cantidad > 0);
     }
+    if (finales) finales = conservarLugarAcreditadas(finales, datos.acreditadas);
 
     let editada = false;
     let total = numero(datos.factura.total);
@@ -281,7 +312,7 @@ async function procesar(facturaIdCrudo, { lineas: dePantalla = null, actualizarP
             productoId: l.productoId, quantity: l.cantidad, price: l.precio, discount: l.descuento, description: l.nota
           })),
           motivo: 'Impresión: faltantes y precios de catálogo'
-        }, usuario.id);
+        }, usuario.id, { permitirNota: true });
         editada = true;
         total = numero(r.total);
       }
@@ -352,5 +383,5 @@ async function pdf(facturaIdCrudo) {
 
 module.exports = {
   detalle, procesar, buscarProductos, pdf,
-  proponerLineas, rebajaObjetivo, cambiaron, lineasDePantalla, refrescarPreciosDePantalla
+  proponerLineas, rebajaObjetivo, cambiaron, lineasDePantalla, refrescarPreciosDePantalla, conservarLugarAcreditadas
 };
