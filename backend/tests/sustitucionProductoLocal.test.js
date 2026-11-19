@@ -157,4 +157,46 @@ describe('sustituir faltantes — PostgreSQL desechable', { skip:process.env.PRO
       JOIN factura fa ON fa.id=f.factura_propia_id WHERE fa.id=$1 AND ${faltanteOperativo('f','fa')}`,[e.factura.id]);
     assert.equal(Number(pendiente.n),0);
   });
+
+  // 2026-11-19, la factura 001000015241: una nota de crédito ya no frena el
+  // cambio; solo el producto acreditado no se cambia ni sale en el reporte.
+  const notaDe=(e,numeroLinea,cantidad=1)=>require('../src/modules/facturacion/notaCredito.service')
+    .crearNotaCredito({facturaId:e.factura.id,motivo:'devolucion',motivoTexto:'ZZ nota',lineas:[{numeroLinea,cantidad}]},usuario.id);
+  const enReporte=async e=>(await require('../src/modules/reports/reporteClientes.service').getMissingItemsByClient()).data
+    .find(c=>c.id===e.cliente.id)?.facturas_con_faltantes.find(f=>f.factura_id===e.factura.id)?.productos_faltantes.map(p=>p.producto_id)||[];
+
+  test('con una nota de crédito de otro producto sí cambia, y la línea acreditada queda igual',async()=>{
+    const e=await escenario();const antes=await lineas(e);
+    const lineaOtro=antes.find(l=>l.producto_id===e.otro.id);
+    await notaDe(e,lineaOtro.numero_linea);
+    assert.deepEqual(await enReporte(e),[e.a.id],'el faltante de Kenda sigue en Reporte Clientes');
+    await confirmar(e,await preview(e));
+    const despues=await lineas(e);
+    assert.deepEqual(despues.find(l=>l.id===lineaOtro.id),lineaOtro,'mismo producto, número y cantidad: la nota sigue casando');
+    assert.equal(Number(despues.find(l=>l.producto_id===e.b.id).cantidad),3);
+    await assert.rejects(require('../src/modules/facturacion/facturaPropia.service').editarFactura(e.factura.id,{items:[]},usuario.id),
+      err=>err.status>=400,'Editar factura sigue bloqueado');
+  });
+
+  test('el producto con nota de crédito no se cambia y no sale en Reporte Clientes',async()=>{
+    const e=await escenario();const antes=await lineas(e);
+    await notaDe(e,antes.find(l=>l.producto_id===e.a.id).numero_linea);
+    await assert.rejects(preview(e),err=>err.status===409&&/nota de crédito/.test(err.message)&&/no se cambia/.test(err.message));
+    await assert.rejects(servicio.listar(e.faltanteId,''),err=>err.status===409);
+    assert.deepEqual(await lineas(e),antes);
+    assert.deepEqual(await enReporte(e),[]);
+  });
+
+  test('si con el cambio la factura queda por debajo de lo acreditado, no se hace',async()=>{
+    // Una nota que acredita un monto mayor que sus líneas (las que vinieron de Alegra).
+    const e=await escenario({originales:3,faltan:3});
+    await notaDe(e,(await lineas(e)).find(l=>l.producto_id===e.otro.id).numero_linea,2);
+    await db.query('ALTER TABLE nota_credito_factura DISABLE TRIGGER USER');
+    await db.query('UPDATE nota_credito_factura SET monto=3000 WHERE factura_id=$1',[e.factura.id]);
+    await db.query('ALTER TABLE nota_credito_factura ENABLE TRIGGER USER');
+    await db.query('UPDATE producto SET precio_sin_iva=10 WHERE id=$1',[e.b.id]);
+    const antes=await lineas(e);
+    await assert.rejects(preview(e),err=>err.status===409&&/menos que su nota de crédito de ₡3\.000,00/.test(err.message));
+    assert.deepEqual(await lineas(e),antes);
+  });
 });

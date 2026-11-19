@@ -36,4 +36,15 @@ async function acreditadoDe(db, facturaId) {
   return Number(r.total) || 0;
 }
 
-module.exports = { exigirFueraDeHacienda, cobradoDe, acreditadoDe };
+/**
+ * Un producto con nota de crédito vigente en esa factura (2026-11-19): ya se le
+ * acreditó al cliente. No se cambia por otro en Reporte Clientes ni sale ahí.
+ * La nota casa sus líneas con las de la factura por producto y número de línea
+ * (`notaCredito.service`), así que esa línea no se toca.
+ */
+const productoConNotaSql = (factura, producto) => `EXISTS (SELECT 1 FROM nota_credito_factura nf
+    JOIN nota_credito nc ON nc.id = nf.nota_credito_id AND nc.estado <> 'anulada'
+    JOIN nota_credito_linea ncl ON ncl.nota_credito_id = nc.id
+   WHERE nf.factura_id = ${factura} AND ncl.producto_id = ${producto})`;
+
+module.exports = { exigirFueraDeHacienda, cobradoDe, acreditadoDe, productoConNotaSql };

@@ -1644,3 +1644,10 @@ cuáles son los que quedan». [Cómo funciona](grafo/modulo/catalogo-agente.md).
 El usuario: «en reporte proveedores, al momento de enviar la orden de compra,
 que el mensaje por defecto me deje modificarlo». Vale solo para ese envío; el
 de siempre no cambia. [Cómo funciona](grafo/modulo/reporte-proveedores.md).
+
+## 2026-11-19 — Cambiar producto aunque la factura tenga nota de crédito
+
+El usuario: «en reporte clientes, déjame cambiar productos aunque haya nota de
+crédito; la única restricción que no me debe dejar es cambiar el producto que
+tiene nota de crédito; de hecho este producto con nota de crédito no debería
+aparecer en reporte clientes». [Cómo funciona](grafo/modulo/reporte-clientes.md).

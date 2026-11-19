@@ -1,5 +1,6 @@
 const { ingresoDisponibleSql } = require('./ingresoFaltante');
 const { contextoFacturaEn } = require('../facturacion/sustitucionFactura.service');
+const { productoConNotaSql } = require('../facturacion/candadosFactura');
 const { httpError } = require('../../utils/validacion');
 const { NORMALIZAR_SQL, normalizar } = require('../catalogo-clientes/consultaProducto');
 
@@ -10,6 +11,10 @@ async function contextoEn(db, faltante) {
     FROM faltantes f JOIN producto p ON p.id=f.producto_propio_id
     LEFT JOIN faltantes_ajustes aj ON aj.faltante_id=f.id WHERE f.id=$1`, [faltante.id]);
   if (!original) throw httpError(409, 'El producto original ya no está disponible. Revisá esta factura en Impresión.');
+  const { rows: [conNota] } = await db.query(`SELECT ${productoConNotaSql('$1', '$2')} AS si`, [faltante.factura_propia_id, original.id]);
+  if (conNota.si) {
+    throw httpError(409, `${original.nombre} tiene una nota de crédito en la factura ${contexto.factura.numero}: ya se le acreditó al cliente y no se cambia.`);
+  }
   if (Number(faltante.cantidad_rebajada) > 0) throw httpError(409, 'Esta factura ya se ajustó en Impresión. Revisá su corrección desde Impresión.');
   if (original.revisado) throw httpError(409, 'Deshacé la revisión del producto antes de cambiarlo.');
   if (Number(original.cantidad_entregada) > 0 || Number(original.disponible) > 0) {

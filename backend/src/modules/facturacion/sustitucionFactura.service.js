@@ -2,16 +2,20 @@ const { httpError, idValido } = require('../../utils/validacion');
 const { revisarSiSePuedeTocar, COLUMNAS_LINEA } = require('./facturaPropia.service');
 const { aplicarDescuentoEn } = require('./descuentoCliente.service');
 const { sustituirLineas } = require('./sustitucionLineas');
+const { enColones } = require('./facturaLineas');
 const { reconciliarDocumentoEn } = require('../inventario/inventario.service');
 const { registrarCambio } = require('../../utils/bitacora');
 const { mapaVigentesPropios } = require('../../utils/descuentosExceso');
 
 async function contextoFacturaEn(db, facturaId) {
   const { rows: [factura] } = await db.query('SELECT *, actualizado_en::text AS version_fecha FROM factura WHERE id=$1', [facturaId]);
-  await revisarSiSePuedeTocar(db, factura, 'editar');
+  // Con una nota de crédito sí se puede (2026-11-19): el cambio deja las
+  // líneas de los demás productos como están, con su número, y el producto
+  // acreditado no se cambia (sustitucionConsulta).
+  const { acreditado } = await revisarSiSePuedeTocar(db, factura, 'editar', { permitirNota: true });
   if (factura.moneda !== 'CRC') throw httpError(409, 'El cambio de producto usa precios del catálogo en colones. Esta factura está en otra moneda.');
   const { rows: lineas } = await db.query('SELECT * FROM factura_linea WHERE factura_id=$1 ORDER BY numero_linea,id', [facturaId]);
-  return { factura, lineas };
+  return { factura, lineas, acreditado };
 }
 
 async function prepararSustitucionEn(db, contexto, originalId, productoId, cantidad) {
@@ -26,6 +30,10 @@ async function prepararSustitucionEn(db, contexto, originalId, productoId, canti
     [producto], p => p.id);
   const descuento = Number(item.discount ?? item.descuento ?? 0);
   const armado = sustituirLineas(contexto.lineas, originalId, producto, cantidad, descuento);
+  if (armado.total < contexto.acreditado) {
+    throw httpError(409, `Con este cambio la factura ${contexto.factura.numero} quedaría en ${enColones(armado.total)}, ` +
+      `menos que su nota de crédito de ${enColones(contexto.acreditado)}. Elegí otro producto o menos unidades.`);
+  }
   return { producto, descuento, armado };
 }
 

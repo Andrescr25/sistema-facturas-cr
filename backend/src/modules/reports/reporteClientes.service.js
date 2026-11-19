@@ -10,6 +10,7 @@ const {
 } = require('./historialClientes.sql');
 const { filtroRutaActual, listarRutasActuales: listarRutas } = require('../rutas/rutaActual.service');
 const { ingresoDisponibleSql } = require('../missing-items/ingresoFaltante');
+const { productoConNotaSql } = require('../facturacion/candadosFactura');
 
 async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
   try {
@@ -83,6 +84,9 @@ async function getMissingItemsByClient({ rutaId, vista: vistaCruda } = {}) {
         -- Palmares: anulada y todavía en el reporte, parecía un duplicado).
         -- Se excluye por el estado, no se borran los faltantes.
         AND fa.estado <> 'anulada'
+        -- Lo que tiene nota de crédito ya se le acreditó al cliente: no se
+        -- entrega ni se cambia, así que no sale (2026-11-19).
+        AND NOT ${productoConNotaSql('fa.id', 'f.producto_propio_id')}
         AND ${condicionVista(vista)}
         ${whereRuta}
       ORDER BY c.id NULLS LAST, fa.cliente_nombre, fa.fecha DESC, fa.id

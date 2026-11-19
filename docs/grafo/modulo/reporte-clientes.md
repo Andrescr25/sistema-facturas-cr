@@ -202,3 +202,27 @@ confirmaciones duplicadas no vuelven a aplicar unidades. El resumen sin caja
 cuenta solo productos que todavía están en las líneas de la factura.
 
 [Alcance y pruebas](../../informes/sustitucion-producto-reporte-clientes-2026-11-05.md).
+
+## Cambiar producto con una nota de crédito — 2026-11-19
+
+El usuario, ante «La factura 001000015241 ya tiene una nota de crédito
+aplicada por ₡4.650,00»: «déjame cambiar productos aunque haya nota de
+crédito; la única restricción es cambiar el producto que tiene nota de
+crédito; de hecho, ese producto no debería aparecer en Reporte Clientes».
+
+- «Cambiar producto» ya no se frena por una nota de crédito vigente
+  (`revisarSiSePuedeTocar(..., { permitirNota: true })` en
+  `sustitucionFactura.service`). Editar y Anular la factura siguen
+  frenados. Cobros, electrónica y Hacienda frenan igual que antes.
+- El producto con nota de crédito vigente en esa factura no se cambia (409
+  en `sustitucionConsulta.contextoEn`) y no sale en Reporte Clientes
+  (`productoConNotaSql` de `candadosFactura`, una sola copia).
+- Es seguro para la nota: casa sus líneas con las de la factura por producto
+  y número de línea, y el cambio no renumera ni toca las líneas de los otros
+  productos (las nuevas van al final).
+- Si con el cambio el total queda por debajo de lo acreditado, no se hace.
+- **Queda pendiente:** Impresión edita la factura con la misma edición de
+  Facturación (renumera las líneas), así que con una nota solo procesa si no
+  tiene que cambiar nada. Si tiene que rebajar algo o poner un precio nuevo
+  del catálogo, responde el mismo 409 de la nota. Un faltante del producto
+  acreditado sigue pendiente para Impresión y Reporte Proveedores.

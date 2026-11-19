@@ -436,8 +436,12 @@ async function crearFactura(datos, usuarioId, { clave = null, precioFijo = false
  *
  * Se mira ANTES de editar o anular, y en este orden porque el mensaje tiene
  * que decir la razón de más peso primero.
+ *
+ * `permitirNota`: Cambiar producto en Reporte Clientes (2026-11-19) sí puede
+ * con una nota de crédito, porque no renumera ni toca las líneas que la nota
+ * acreditó (`sustitucionFactura.service`). Editar y Anular, no.
  */
-async function revisarSiSePuedeTocar(cliente, factura, accion) {
+async function revisarSiSePuedeTocar(cliente, factura, accion, { permitirNota = false } = {}) {
   exigirFueraDeHacienda(factura, accion);
 
   // Un cobro o una nota anulados no cuentan (`candadosFactura.js`): antes,
@@ -451,10 +455,11 @@ async function revisarSiSePuedeTocar(cliente, factura, accion) {
   }
 
   const acreditado = await acreditadoDe(cliente, factura.id);
-  if (acreditado > 0) {
+  if (acreditado > 0 && !permitirNota) {
     throw httpError(409,
       `La factura ${factura.numero} ya tiene una nota de crédito aplicada por ${enColones(acreditado)}.`);
   }
+  return { acreditado };
 }
 
 /**
