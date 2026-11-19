@@ -4,6 +4,10 @@ tipo: modulo
 titulo: Facturas en Bodega — el despacho de cada pedido, sobre la factura propia y sin Alegra
 estado: vigente
 archivos:
+  - backend/src/modules/warehouse/despachoInventario.js
+  - backend/migrations/independencia/080_despacho_bodega_inventario.sql
+  - backend/tests/despachoInventario.test.js
+  - frontend/src/components/facturas-bodega/ItemFaltanteCard.jsx
   - backend/tests/operacionSinSemanas.test.js
   - docs/informes/simplificacion-sin-semanas-2026-10-20.md
   - docs/informes/proveedores-correccion-2026-10-14.md
@@ -207,3 +211,53 @@ faltantes. Reabrir un despacho NO la libera: la marca no se borra.
 
 Las facturas que ya estaban despachadas quedan tomadas por su estado, sin
 migrar datos. Pruebas: `facturaTomadaEnBodega.test.js` (contra la base local).
+
+## Cada marca corrige el inventario — 2026-11-19
+
+El usuario: «quiero que facturas en bodega corrija inventario con los
+negativos: si marcan que algo no hay físico pero en sistema sí, entonces que
+ponga la cantidad negativa y se vaya acumulando conforme los clientes». Su
+ejemplo:
+- El sistema dice 4 y en físico hay 0.
+- El cliente A pide 6 → −6. El cliente B pide 3 → −9.
+- Si el domingo el producto no ingresó por Revisión de Precios, estaba agotado
+  y vuelve a 0.
+
+**La regla.** La existencia del kardex es lo que hay en el estante menos lo
+que se les debe a los clientes. Lo que se debe es lo que faltó y sigue
+pendiente, menos lo que ya llegó para ellos. No cuenta lo de una factura
+anulada, una acreditada entera ni un producto con nota de crédito.
+- **Faltó todo o Parcial:** el estante quedó vacío, así que la existencia
+  queda en −deuda.
+- **Completo:** la existencia queda en por lo menos −deuda. Solo sube un
+  negativo de más. Un positivo no se toca, porque no se sabe cuántas quedaron.
+- **La vuelta a 0 no se fuerza.** Si el producto ingresa por Revisión de
+  Precios, la compra suma. Si no llegó, Impresión lo devuelve al rebajar la
+  factura, o la factura se anula si no se entregó nada.
+
+**Decisiones del usuario:**
+- La vuelta a 0 la hace Impresión, no un proceso del domingo.
+- Completo sube un negativo.
+- Se muestra «En inventario: N» en cada producto.
+- Arranca al publicarse, sin ajustar hacia atrás.
+
+**Cuándo** (`despachoInventario.auditarDespachoEn`, dentro de
+`bodegaPropia.registrarFaltantes`):
+- Solo si la marca de ese producto es nueva o cambió.
+  `guardarFaltantes` devuelve la marca de antes y la de ahora.
+- Volver a guardar el despacho no repite el ajuste. Recalcularlo borraría las
+  compras que entraron después.
+- Si la marca cambió, se descuenta lo que esa factura ya había ajustado y se
+  calcula de nuevo.
+
+**Dónde queda** (SQL 080):
+- `despacho_bodega_inventario`: una fila por factura y producto, con la
+  marca, qué decía el sistema, la deuda, en cuánto quedó y quién marcó.
+  Sirve para revisar robos más adelante; el usuario lo dejó para cuando el
+  inventario esté bien.
+- En el kardex, un movimiento `ajuste_bodega` con origen `despacho_bodega` y
+  la factura en sus observaciones. `DetalleKardex` lo muestra como
+  «Bodega (despacho)».
+
+**En pantalla:** cada producto de Facturas en Bodega muestra «En inventario: N»
+(el de hoy, ya con esa factura), en rojo si es negativo.

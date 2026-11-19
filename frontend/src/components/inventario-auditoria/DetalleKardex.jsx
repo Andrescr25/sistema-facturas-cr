@@ -5,7 +5,8 @@ import { formatCurrency, formatDate, formatCantidad as cantidad } from '../../ut
 import { useModal } from '../../hooks/useModal'
 
 const TIPOS = { inicial: 'Conteo inicial', venta: 'Venta', nota_credito: 'Nota de crédito', compra: 'Compra',
-  ajuste_auditoria: 'Conteo / devolución de cliente', devolucion_proveedor: 'Devolución a proveedor', reversa: 'Reversa' }
+  ajuste_auditoria: 'Conteo / devolución de cliente', devolucion_proveedor: 'Devolución a proveedor', reversa: 'Reversa',
+  ajuste_bodega: 'Bodega (despacho)' }
 
 /**
  * De dónde sale la cantidad de un producto: cada movimiento del kardex (compra,
@@ -50,7 +51,7 @@ export default function DetalleKardex({ productoId, onCerrar, onGuardado }) {
           <p className="text-xs text-neutro-500 w-full">Si baja del mínimo, la sugerencia cubre la diferencia hasta el objetivo. No crea una orden automáticamente.</p>
         </form>
         <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left border-b"><th className="p-2">Fecha / movimiento</th><th className="p-2">Cantidad</th><th className="p-2">Existencias</th><th className="p-2">Costo</th><th className="p-2">Origen / responsable</th></tr></thead><tbody>
-          {data.movimientos.map(m => <tr key={m.id} className="border-b"><td className="p-2">{formatDate(m.fecha)}<br />{TIPOS[m.tipo] || m.tipo}</td><td className="p-2">{Number(m.cantidad) > 0 ? '+' : ''}{cantidad(m.cantidad)}</td><td className="p-2">{cantidad(m.existencia)}</td><td className="p-2 whitespace-nowrap">{m.costo_unitario == null ? 'Sin valorar' : formatCurrency(m.costo_unitario)}</td><td className="p-2">{m.origen_tipo} #{m.origen_id}<br />{m.usuario_nombre || 'Proceso sin usuario'}{m.cantidad_contada != null && <p>Conteo físico: {cantidad(m.cantidad_contada)}</p>}</td></tr>)}
+          {data.movimientos.map(m => <tr key={m.id} className="border-b"><td className="p-2">{formatDate(m.fecha)}<br />{TIPOS[m.tipo] || m.tipo}</td><td className="p-2">{Number(m.cantidad) > 0 ? '+' : ''}{cantidad(m.cantidad)}</td><td className="p-2">{cantidad(m.existencia)}</td><td className="p-2 whitespace-nowrap">{m.costo_unitario == null ? 'Sin valorar' : formatCurrency(m.costo_unitario)}</td><td className="p-2">{m.tipo === 'ajuste_bodega' ? m.observaciones : `${m.origen_tipo} #${m.origen_id}`}<br />{m.usuario_nombre || 'Proceso sin usuario'}{m.cantidad_contada != null && <p>Conteo físico: {cantidad(m.cantidad_contada)}</p>}</td></tr>)}
         </tbody></table></div>
         {!data.movimientos.length && <p className="text-neutro-500">Este producto todavía no tiene movimientos.</p>}
         <div className="flex justify-between"><button disabled={!start} onClick={() => setStart(v => Math.max(0,v-50))}>Anteriores</button><button disabled={data.movimientos.length < 50} onClick={() => setStart(v => v+50)}>Más movimientos</button></div>
