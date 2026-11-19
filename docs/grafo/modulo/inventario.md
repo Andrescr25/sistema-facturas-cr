@@ -163,3 +163,9 @@ que no haya duplicaciones: que en un lugar diga que hay 5 y en otro 8».
   faltante y todavía no repartido (`ingresoFaltante.js`), no lo que hay: una
   venta de mostrador no lo rebaja.
 
+
+## Bodega corrige el inventario al despachar (2026-11-19)
+
+Un tipo nuevo de movimiento, `ajuste_bodega` (origen `despacho_bodega`, SQL 080):
+cada marca de Facturas en Bodega es una pequeña auditoría del producto.
+Ver [[modulo/facturas-bodega]] («Cada marca corrige el inventario»).

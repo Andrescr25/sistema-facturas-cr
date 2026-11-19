@@ -1658,6 +1658,16 @@ El usuario dijo «dale sí» a que Impresión cambie las líneas sin tocar las q
 tienen nota, que el faltante del producto acreditado se cierre sin rebaja y
 que no se le pida al proveedor. [Cómo funciona](grafo/modulo/faltantes.md).
 
+## 2026-11-19 — Facturas en Bodega corrige el inventario
+
+El usuario: «quiero que facturas en bodega corrija inventario con los
+negativos… Producto A sistema 4, físico 0; cliente A pide 6 → −6; cliente B 3 →
+−9; si llega el domingo y nunca ingresó por revisión de precios, estaba agotado:
+vuelve a 0». Confirmó: la vuelta a 0 la hace Impresión; Completo sube un
+negativo; se ve «En inventario» en cada producto; arranca al publicarse. Las
+alertas contra robos, para cuando el inventario esté bien.
+[Cómo funciona](grafo/modulo/facturas-bodega.md).
+
 ## 2026-11-24 — Descuento en las cotizaciones
 
 El usuario: «agrégale el campo descuento % a cotizaciones porque la edité y

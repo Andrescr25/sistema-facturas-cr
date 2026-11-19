@@ -1,4 +1,5 @@
 import { AlertTriangle, Check, ImageIcon, Minus, Plus, X } from 'lucide-react'
+import { formatCantidad } from '../../utils/inventarioAuditoriaUtils'
 
 /**
  * Tarjeta de un producto de la factura, con los botones rápidos
@@ -52,6 +53,13 @@ export default function ItemFaltanteCard({
           <p className="text-sm font-semibold text-neutro-600">
             Cantidad a despachar: {cantidadFactura}
           </p>
+          {/* Lo que dice el inventario hoy, ya con esta factura (2026-11-19).
+              Lo que se marque acá lo corrige. */}
+          {item.existencia != null && (
+            <p className={`text-sm font-semibold ${item.existencia < 0 ? 'text-peligro-700' : 'text-neutro-600'}`}>
+              En inventario: {formatCantidad(item.existencia)}
+            </p>
+          )}
           <p className="break-all text-xs text-neutro-400">Referencia: {draft?.referencia || 'N/A'}</p>
           {(item.descripcion || item.description) && (
             <div className="mt-3 bg-alerta-50 border-2 border-alerta-200 text-alerta-900 rounded-2xl p-3 shadow-sm flex flex-col gap-1.5">

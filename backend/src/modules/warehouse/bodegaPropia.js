@@ -30,6 +30,7 @@ const { filtroRutaActual } = require('../rutas/rutaActual.service');
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
 const { SIN_CREDITO_TOTAL, asegurarFacturaVigente } = require('./vigenciaFactura');
 const { tomarEn } = require('./tomadaEnBodega');
+const { auditarDespachoEn } = require('./despachoInventario');
 
 const HOY_CR = `(now() AT TIME ZONE 'America/Costa_Rica')::date`;
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
@@ -70,7 +71,10 @@ function aLinea(l) {
     reference: l.referencia || null,
     codigo_producto: l.referencia || null,
     cantidad,
-    quantity: cantidad
+    quantity: cantidad,
+    // Lo que dice el inventario hoy (ya con esta factura); null si el
+    // producto no lleva inventario (2026-11-19).
+    existencia: l.existencia == null ? null : Number(l.existencia)
   };
 }
 
@@ -142,7 +146,16 @@ async function listar({ dias, limit, rutaId } = {}) {
        WHERE l.factura_id = ANY($1::int[])
        ORDER BY l.factura_id, l.numero_linea
     `, [ids]);
-    for (const linea of lineas) porFactura.get(linea.factura_id)?.push(linea);
+    // La cantidad en inventario de cada producto, una sola consulta.
+    const productos = [...new Set(lineas.map((l) => l.producto_id).filter(Boolean))];
+    const { rows: saldos } = productos.length ? await query(`
+      SELECT p.id, s.existencia FROM producto p JOIN inventario_saldo s ON s.producto_id = p.id
+       WHERE p.id = ANY($1::int[]) AND p.inventariable`, [productos]) : { rows: [] };
+    const existencias = new Map(saldos.map((r) => [r.id, r.existencia]));
+    for (const linea of lineas) {
+      linea.existencia = existencias.get(linea.producto_id) ?? null;
+      porFactura.get(linea.factura_id)?.push(linea);
+    }
   }
 
   const todas = facturas.map((f) => aFactura(f, porFactura.get(f.id) || []));
@@ -190,6 +203,8 @@ async function registrarFaltantes(facturaIdCrudo, faltantes, registradoPor = 'Bo
     await tomarEn(c, facturaId, usuarioId);
     const detectados = [];
     const cantidad = await guardarFaltantes(facturaId, faltantes, registradoPor, c, detectados);
+    // Cada marca nueva o cambiada es una pequeña auditoría del inventario (2026-11-19).
+    await auditarDespachoEn(c, facturaId, detectados, usuarioId);
     const { micros } = require('../orders-whatsapp/ordenesCiclo.service').interno;
     const incrementos = new Map();
     const porId = new Map();

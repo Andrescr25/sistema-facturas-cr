@@ -107,7 +107,12 @@ async function guardarFaltantes(facturaId, faltantes, registradoPor = 'Usuario',
       ]);
       faltanteId = nuevo.id;
     }
-    detectados.push({ id: faltanteId, productoId, anterior, cantidad: faltante.tipo_faltante === 'completo' ? 0 : faltante.cantidad_faltante });
+    // La marca de antes y la de ahora: Bodega corrige el inventario solo si
+    // cambió (warehouse/despachoInventario.js).
+    detectados.push({ id: faltanteId, productoId, anterior, cantidad: faltante.tipo_faltante === 'completo' ? 0 : faltante.cantidad_faltante,
+      existia: existente.rows.length > 0, tipoAnterior: existente.rows[0]?.tipo_faltante ?? null,
+      cantidadAnterior: Number(existente.rows[0]?.cantidad_faltante) || 0,
+      tipo: faltante.tipo_faltante, cantidadFaltante: cantidad });
     guardados++;
   }
   return guardados;
