@@ -160,25 +160,40 @@ function filas(doc, cot, col, ancho, yInicio, F) {
 }
 
 function totales(doc, cot, ancho, y, F) {
-  // El bloque mide unos 120 puntos entre subtotal, IVA y la caja del total.
-  // Si no caben en lo que queda de página, se pasa a la siguiente en vez de
-  // escribirlos por debajo del margen (que además agrega una página vacía).
-  if (y + 130 > doc.page.height - M - PIE_RESERVADO) {
-    doc.addPage();
-    y = M;
-  }
-
   const subtotal = cot.lineas.reduce((s, l) => s + (Number(l.cantidad) || 0) * (Number(l.precio) || 0), 0);
   const impuesto = cot.lineas.reduce(
     (s, l) => s + (Number(l.cantidad) || 0) * (Number(l.precio) || 0) * ((Number(l.taxPercentage) || 0) / 100), 0);
   const total = subtotal + impuesto;
+  // Con descuento (descuentoCotizacion.js), las filas ya van con el precio
+  // rebajado: arriba del subtotal se dice de cuánto era y cuánto se rebajó.
+  const lista = cot.lineas.reduce((s, l) => s + (Number(l.cantidad) || 0) * (Number(l.precioLista ?? l.precio) || 0), 0);
+  const rebaja = lista - subtotal;
+  const conDescuento = rebaja >= 0.005;
+
+  // El bloque mide unos 120 puntos entre subtotal, IVA y la caja del total
+  // (30 más con el descuento). Si no caben en lo que queda de página, se pasa
+  // a la siguiente en vez de escribirlos por debajo del margen (que además
+  // agrega una página vacía).
+  if (y + 130 + (conDescuento ? 30 : 0) > doc.page.height - M - PIE_RESERVADO) {
+    doc.addPage();
+    y = M;
+  }
 
   const anchoCaja = 236;
   const xCaja = doc.page.width - M - anchoCaja;
   let yy = y + 16;
 
-  doc.font(F.normal).fontSize(9).fillColor(MARCA.gris)
-    .text('Subtotal', xCaja, yy, { width: anchoCaja - 110, align: 'right' })
+  doc.font(F.normal).fontSize(9).fillColor(MARCA.gris);
+  if (conDescuento) {
+    const porcentaje = Number(cot.descuentoPorcentaje) > 0 ? ` (${String(cot.descuentoPorcentaje).replace('.', ',')} %)` : '';
+    doc.text('Antes del descuento', xCaja, yy, { width: anchoCaja - 110, align: 'right' })
+      .text(colones(lista), xCaja + anchoCaja - 106, yy, { width: 106, align: 'right' });
+    yy += 15;
+    doc.text(`Descuento${porcentaje}`, xCaja, yy, { width: anchoCaja - 110, align: 'right' })
+      .text(`-${colones(rebaja)}`, xCaja + anchoCaja - 106, yy, { width: 106, align: 'right' });
+    yy += 15;
+  }
+  doc.text('Subtotal', xCaja, yy, { width: anchoCaja - 110, align: 'right' })
     .text(colones(subtotal), xCaja + anchoCaja - 106, yy, { width: 106, align: 'right' });
   yy += 15;
   doc.text('IVA', xCaja, yy, { width: anchoCaja - 110, align: 'right' })

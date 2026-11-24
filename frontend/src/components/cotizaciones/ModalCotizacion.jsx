@@ -5,6 +5,10 @@ import Modal from '../ui/Modal'
 import Boton from '../ui/Boton'
 import { buscarProductos } from '../../utils/buscarCatalogoAgente'
 import { colones } from '../../utils/colones'
+import { conDescuento, porcentajeEscrito, textoPorcentaje } from '../../utils/descuentoCotizacion'
+import { puedeAccion } from '../../utils/modulos'
+import { useAuth } from '../../contexts/AuthContext'
+import CampoDescuento from './CampoDescuento'
 
 /**
  * Armar una cotización: cliente, productos, validez.
@@ -52,6 +56,13 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
   // una fecha de vencimiento y contar días desde hoy la correría sin querer.
   const [vence, setVence] = useState(cotizacion?.vence || '')
   const [observaciones, setObservaciones] = useState(cotizacion?.observaciones || '')
+  // El de toda la cotización. Al editar arranca con el que ya tiene: antes
+  // editar lo devolvía a cero sin avisar.
+  const { usuario } = useAuth()
+  const puedeDescontar = puedeAccion(usuario, 'precio-factura')
+  const [descuentoTexto, setDescuentoTexto] = useState(
+    cotizacion?.descuentoPorcentaje ? textoPorcentaje(cotizacion.descuentoPorcentaje) : '')
+  const descuento = porcentajeEscrito(descuentoTexto)
 
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
@@ -129,7 +140,8 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
   }, [productos, busqueda])
 
   const porId = Object.fromEntries(lineas.map(l => [String(l.productoId), l]))
-  const total = lineas.reduce((s, l) => s + l.cantidad * l.precio, 0)
+  const totalLista = lineas.reduce((s, l) => s + l.cantidad * l.precio, 0)
+  const total = conDescuento(totalLista, descuento)
 
   const cambiar = (producto, cantidad) => {
     const n = Math.max(0, Math.floor(Number(cantidad) || 0))
@@ -148,11 +160,13 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
     setError('')
     if (!cliente) return setError('Elegí el cliente.')
     if (lineas.length === 0) return setError('Agregá al menos un producto.')
+    if (descuento === null) return setError('El descuento va de 0 a 100 %.')
 
     setEnviando(true)
     try {
       const cuerpo = {
         clienteId: cliente.id,
+        descuentoPorcentaje: descuento,
         observaciones: observaciones.trim() || null,
         lineas: lineas.map(l => ({ productoId: Number(l.productoId), cantidad: l.cantidad }))
       }
@@ -186,6 +200,11 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
           <div>
             <p className="text-[11px] uppercase tracking-wide text-neutro-400">Total</p>
             <p className="text-xl font-extrabold text-neutro-900">{colones(total)}</p>
+            {descuento > 0 && (
+              <p className="text-[11px] font-semibold text-exito-700">
+                con {textoPorcentaje(descuento)} % de descuento · antes {colones(totalLista)}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Boton variante="secundario" onClick={onCerrar}>Cancelar</Boton>
@@ -296,7 +315,7 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
                       className="w-16 rounded-lg border-2 border-neutro-200 py-1 text-center text-sm font-extrabold focus:border-acento-500 focus:outline-none"
                     />
                     <span className="w-24 shrink-0 text-right text-sm font-extrabold text-neutro-900">
-                      {colones(l.cantidad * l.precio)}
+                      {colones(conDescuento(l.cantidad * l.precio, descuento))}
                     </span>
                     <button type="button" aria-label={`Quitar ${l.nombre}`}
                       onClick={() => cambiar({ id: l.productoId }, 0)}
@@ -329,6 +348,10 @@ export default function ModalCotizacion({ onCerrar, onCreada, cotizacion = null 
                   </div>
                 )}
               </div>
+              <CampoDescuento
+                valor={descuentoTexto} onCambiar={setDescuentoTexto}
+                puedeCambiar={puedeDescontar} invalido={descuento === null}
+              />
               <div className="min-w-[200px] flex-1">
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutro-400">
                   Nota <span className="font-semibold normal-case text-neutro-300">(opcional)</span>

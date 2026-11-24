@@ -1657,3 +1657,10 @@ aparecer en reporte clientes». [Cómo funciona](grafo/modulo/reporte-clientes.m
 El usuario dijo «dale sí» a que Impresión cambie las líneas sin tocar las que
 tienen nota, que el faltante del producto acreditado se cierre sin rebaja y
 que no se le pida al proveedor. [Cómo funciona](grafo/modulo/faltantes.md).
+
+## 2026-11-24 — Descuento en las cotizaciones
+
+El usuario: «agrégale el campo descuento % a cotizaciones porque la edité y
+perdió el 5 %». Un solo porcentaje para toda la cotización; editarla lo
+conserva. [Cómo funciona](grafo/modulo/cotizaciones.md).
+

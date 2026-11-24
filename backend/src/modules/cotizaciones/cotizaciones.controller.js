@@ -3,6 +3,11 @@
  */
 
 const servicio = require('./cotizaciones.service');
+const { puedeHacer } = require('../usuarios/permisos.middleware');
+
+// El descuento de la cotización es cambiar el precio: el mismo permiso que en
+// Facturación (descuentoCotizacion.js).
+const permisosDe = async (req) => ({ puedeDescontar: await puedeHacer(req, 'precio-factura') });
 
 async function listar(req, res) {
   try {
@@ -52,8 +57,9 @@ async function publica(req, res) {
 
 async function crear(req, res) {
   try {
-    const { clienteId, lineas, observaciones, validezDias, claveIdempotencia } = req.body;
-    const r = await servicio.crear({ clienteId, lineas, observaciones, validezDias, claveIdempotencia }, req.usuario?.id);
+    const { clienteId, lineas, observaciones, validezDias, claveIdempotencia, descuentoPorcentaje } = req.body;
+    const r = await servicio.crear({ clienteId, lineas, observaciones, validezDias, claveIdempotencia, descuentoPorcentaje },
+      req.usuario?.id, await permisosDe(req));
     res.json({
       success: true,
       data: r,
@@ -67,8 +73,9 @@ async function crear(req, res) {
 
 async function editar(req, res) {
   try {
-    const { clienteId, lineas, observaciones, vence } = req.body;
-    const r = await servicio.editar(req.params.id, { clienteId, lineas, observaciones, vence }, req.usuario?.id);
+    const { clienteId, lineas, observaciones, vence, descuentoPorcentaje } = req.body;
+    const r = await servicio.editar(req.params.id, { clienteId, lineas, observaciones, vence, descuentoPorcentaje },
+      req.usuario?.id, await permisosDe(req));
     res.json({ success: true, data: r, message: 'Cotización actualizada.' });
   } catch (error) {
     console.error('Error editando cotización:', error.message);

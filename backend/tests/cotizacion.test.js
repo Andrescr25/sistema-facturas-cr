@@ -584,3 +584,105 @@ describe('catálogo y clientes para el modal', () => {
     assert.equal(log.length, 0);
   });
 });
+
+/**
+ * El descuento de la cotización (2026-11-24). El usuario: «agrégale el campo
+ * descuento % a cotizaciones porque la edité y perdió el 5 %». Uno solo para
+ * toda la cotización, guardado en cada línea; editar sin mandarlo lo conserva.
+ */
+describe('descuento de la cotización', () => {
+  const unaLinea = [{ productoId: 1, cantidad: 2 }];
+
+  test('el 5 % va en cada línea y en los totales: el aceite de ₡10.000 queda en ₡9.500 + IVA', async () => {
+    const { servicio, log } = montar();
+    await servicio.crear({ clienteId: 8, lineas: [...unaLinea, { productoId: 2, cantidad: 10 }], descuentoPorcentaje: 5 }, 4);
+    const [aceite, lapicero] = lineasInsertadas(log);
+    assert.equal(aceite.descuento_porcentaje, 5);
+    assert.equal(aceite.descuento_monto, 500);
+    assert.equal(lapicero.descuento_porcentaje, 5, 'el mismo en todas las líneas');
+    const cab = fila(log, /INSERT INTO cotizacion \(/).params;
+    // subtotal 9.500 + 1.900, descuento 500 + 100, IVA 1.235 + 19
+    assert.deepEqual(cab.slice(8, 12), [11400, 600, 1254, 12654]);
+    assert.equal(fila(log, /INSERT INTO bitacora_cambio/).params[4].includes('"descuento":5'), true);
+  });
+
+  test('se puede escribir con coma: «2,5» es 2,5 %', async () => {
+    const { servicio, log } = montar();
+    await servicio.crear({ clienteId: 8, lineas: unaLinea, descuentoPorcentaje: '2,5' }, 4);
+    assert.equal(lineasInsertadas(log)[0].descuento_porcentaje, 2.5);
+  });
+
+  test('fuera de 0 a 100, o sin número, no se guarda nada', async () => {
+    for (const malo of [-1, 101, 'abc']) {
+      const { servicio, log } = montar();
+      await assert.rejects(
+        () => servicio.crear({ clienteId: 8, lineas: unaLinea, descuentoPorcentaje: malo }, 4),
+        (e) => e.status === 400 && /0 a 100/.test(e.message)
+      );
+      assert.equal(log.length, 0, `con ${malo} no se abre la transacción`);
+    }
+  });
+
+  test('sin «Cambiar precio y descuento» no se cotiza con descuento, pero sí sin él', async () => {
+    const { servicio } = montar();
+    await assert.rejects(
+      () => servicio.crear({ clienteId: 8, lineas: unaLinea, descuentoPorcentaje: 5 }, 4, { puedeDescontar: false }),
+      (e) => e.status === 403 && /Cambiar precio y descuento/.test(e.message)
+    );
+    const r = await servicio.crear({ clienteId: 8, lineas: unaLinea, descuentoPorcentaje: 0 }, 4, { puedeDescontar: false });
+    assert.equal(r.numero, '12');
+  });
+
+  test('editar sin mandar el descuento conserva el que tenía (así se perdió el 5 % de la cotización 6)', async () => {
+    const { servicio, log } = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' })] });
+    await servicio.editar(55, { lineas: unaLinea, vence: '2026-10-30' }, 4);
+    assert.equal(lineasInsertadas(log)[0].descuento_porcentaje, 5);
+    assert.equal(fila(log, /UPDATE cotizacion SET vence/).params[6], 500, 'el descuento de la cabecera también');
+  });
+
+  test('editar con 0 lo quita; con otro número lo cambia', async () => {
+    const quitar = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' })] });
+    await quitar.servicio.editar(55, { lineas: unaLinea, descuentoPorcentaje: 0 }, 4);
+    assert.equal(lineasInsertadas(quitar.log)[0].descuento_porcentaje, 0);
+
+    const cambiar = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' })] });
+    await cambiar.servicio.editar(55, { lineas: unaLinea, descuentoPorcentaje: 10 }, 4);
+    assert.equal(lineasInsertadas(cambiar.log)[0].descuento_porcentaje, 10);
+  });
+
+  test('sin el permiso se edita la cotización, pero el descuento queda como estaba', async () => {
+    const igual = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' })] });
+    await igual.servicio.editar(55, { lineas: unaLinea, descuentoPorcentaje: 5 }, 4, { puedeDescontar: false });
+    assert.equal(lineasInsertadas(igual.log)[0].descuento_porcentaje, 5);
+
+    const otro = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' })] });
+    await assert.rejects(
+      () => otro.servicio.editar(55, { lineas: unaLinea, descuentoPorcentaje: 0 }, 4, { puedeDescontar: false }),
+      (e) => e.status === 403
+    );
+    assert.equal(filas(otro.log, /DELETE FROM cotizacion_linea/).length, 0, 'no se tocó ninguna línea');
+  });
+
+  test('el detalle dice el descuento de la cotización, o null si sus líneas difieren', async () => {
+    const con = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' }), lineaGuardada({ numero_linea: 2, descuento_porcentaje: '5.000' })] });
+    assert.equal((await con.servicio.detalle(55)).descuentoPorcentaje, 5);
+    const mezcla = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' }), lineaGuardada({ numero_linea: 2 })] });
+    assert.equal((await mezcla.servicio.detalle(55)).descuentoPorcentaje, null);
+  });
+
+  test('el enlace del cliente trae el descuento y lo que valía cada línea sin él', async () => {
+    const { servicio } = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' })] });
+    const { enlacePublico } = await servicio.detalle(55);
+    const p = await servicio.publicaPorToken(enlacePublico.split('/cotizacion/')[1]);
+    assert.equal(p.descuentoPorcentaje, 5);
+    assert.equal(p.lineas[0].importe, 9500);
+    assert.equal(p.lineas[0].importeLista, 10000);
+  });
+
+  test('facturarla pasa el 5 % a la factura', async () => {
+    const entorno = montar({ cot: cabecera(), lineas: [lineaGuardada({ descuento_porcentaje: '5.000' })] });
+    await entorno.servicio.facturar(55, {}, 4);
+    assert.equal(entorno.facturas[0].datos.items[0].descuento, 5);
+    assert.equal(entorno.facturas[0].datos.items[0].precio, 5000, 'el precio de lista, con su descuento aparte');
+  });
+});

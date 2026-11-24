@@ -35,6 +35,7 @@ const { clientesParaOperar } = require('../clientes/clientes.service');
 const { armarLineas, crearFacturaEnTransaccion } = require('../facturacion/facturaPropia.service');
 const { generarPdfCotizacion } = require('./cotizacion.pdf');
 const { leerToken, enlaceDe } = require('./enlacePublico');
+const { porcentajeDe, descuentoDeLineas, exigirPermiso } = require('./descuentoCotizacion');
 
 const enTransaccion = (trabajo) => enTransaccionCon(pool, trabajo);
 
@@ -175,8 +176,11 @@ async function buscarClienteCotizable(ejecutor, clienteId) {
  *
  * Un producto dado de baja no revienta la cotización: se deja fuera y se
  * avisa (`noDisponibles`). Pasa al editar una cotización vieja.
+ *
+ * `descuento` es el de la cotización entera, el mismo en cada línea
+ * (descuentoCotizacion.js).
  */
-async function armarDesdeCatalogo(ejecutor, lineas) {
+async function armarDesdeCatalogo(ejecutor, lineas, descuento = 0) {
   const pedidas = lineas.map((l) => ({ productoId: Number(l.productoId), cantidad: Number(l.cantidad) }));
   const ids = pedidas.map((l) => l.productoId).filter((n) => Number.isInteger(n) && n > 0);
 
@@ -198,9 +202,8 @@ async function armarDesdeCatalogo(ejecutor, lineas) {
       noDisponibles.push({ productoId: l.productoId, nombre: p?.nombre || null });
       continue;
     }
-    // El precio del SERVIDOR, sin impuesto. Descuento cero: la pantalla no
-    // cotiza con rebaja.
-    items.push({ productoId: p.id, cantidad: l.cantidad, precio: Number(p.precio_sin_iva), descuento: 0 });
+    // El precio del SERVIDOR, sin impuesto; el descuento, el de la cotización.
+    items.push({ productoId: p.id, cantidad: l.cantidad, precio: Number(p.precio_sin_iva), descuento });
   }
 
   if (items.length === 0) throw httpError(400, 'Ninguno de los productos está disponible para cotizar.');
@@ -238,14 +241,21 @@ function validarFecha(valor, etiqueta) {
   return String(valor);
 }
 
-/** Crea la cotización con el número que sigue de la serie. */
-async function crear({ clienteId, lineas, observaciones, validezDias = VALIDEZ_POR_OMISION, claveIdempotencia } = {}, usuarioId) {
+/**
+ * Crea la cotización con el número que sigue de la serie. `puedeDescontar`:
+ * si quien cotiza tiene «Cambiar precio y descuento» (lo decide el
+ * controlador).
+ */
+async function crear({ clienteId, lineas, observaciones, validezDias = VALIDEZ_POR_OMISION, claveIdempotencia, descuentoPorcentaje } = {},
+  usuarioId, { puedeDescontar = true } = {}) {
   if (!clienteId) throw httpError(400, 'Falta el cliente.');
   if (!Array.isArray(lineas) || lineas.length === 0) throw httpError(400, 'La cotización no tiene productos.');
   const dias = Math.round(Number(validezDias));
   if (!Number.isFinite(dias) || dias < 1 || dias > 365) {
     throw httpError(400, 'La cotización vale entre 1 y 365 días.');
   }
+  const descuento = porcentajeDe(descuentoPorcentaje);
+  exigirPermiso(descuento, 0, puedeDescontar);
 
   // Idempotencia: si el navegador reenvía —doble clic, respuesta perdida— se
   // devuelve la que ya existe en vez de gastar otro número.
@@ -258,7 +268,7 @@ async function crear({ clienteId, lineas, observaciones, validezDias = VALIDEZ_P
   try {
     return await enTransaccion(async (cliente) => {
       const quien = await buscarClienteCotizable(cliente, clienteId);
-      const { armado, noDisponibles } = await armarDesdeCatalogo(cliente, lineas);
+      const { armado, noDisponibles } = await armarDesdeCatalogo(cliente, lineas, descuento);
       const consecutivo = await tomarNumero(cliente);
       const fecha = hoyEnCostaRica();
 
@@ -278,7 +288,7 @@ async function crear({ clienteId, lineas, observaciones, validezDias = VALIDEZ_P
 
       await registrarCambio(cliente, {
         entidad: 'cotizacion', entidadId: creada.id, accion: 'crear',
-        despues: { numero: creada.numero, cliente: quien.nombre, total: armado.total, lineas: armado.lineas.length },
+        despues: { numero: creada.numero, cliente: quien.nombre, total: armado.total, lineas: armado.lineas.length, descuento },
         usuarioId
       });
 
@@ -307,7 +317,10 @@ async function detalle(id) {
   const n = idValido(id);
   const { rows } = await pool.query(`${SELECT_CABECERA} WHERE c.id = $1`, [n]);
   if (!rows[0]) throw httpError(404, 'Cotización no encontrada.');
-  return { ...aVista(rows[0]), lineas: (await lineasDe(pool, n)).map(lineaAVista) };
+  const lineas = await lineasDe(pool, n);
+  // El de toda la cotización, para prellenar el campo al editarla (`null` si
+  // sus líneas traen descuentos distintos: una copiada de Alegra).
+  return { ...aVista(rows[0]), descuentoPorcentaje: descuentoDeLineas(lineas), lineas: lineas.map(lineaAVista) };
 }
 
 /**
@@ -325,7 +338,7 @@ async function detalle(id) {
  * para cambiarle algo; si lo que se quiere es sostener el precio viejo, se
  * factura sin editar (facturar sí respeta el precio cotizado).
  */
-async function editar(id, datos = {}, usuarioId) {
+async function editar(id, datos = {}, usuarioId, { puedeDescontar = true } = {}) {
   const n = idValido(id);
   const { lineas } = datos;
   if (!Array.isArray(lineas) || lineas.length === 0) {
@@ -350,7 +363,14 @@ async function editar(id, datos = {}, usuarioId) {
       ? await buscarClienteCotizable(cliente, datos.clienteId)
       : { id: actual.cliente_id, nombre: actual.cliente_nombre, identificacion: actual.cliente_identificacion };
 
-    const { armado, noDisponibles } = await armarDesdeCatalogo(cliente, lineas);
+    // Sin `descuentoPorcentaje` (una pestaña de antes del campo) se conserva
+    // el que tenía: volver a armar las líneas en cero fue como se perdió el
+    // 5 % de la cotización 6.
+    const previo = descuentoDeLineas(await lineasDe(cliente, n));
+    const descuento = datos.descuentoPorcentaje === undefined ? (previo ?? 0) : porcentajeDe(datos.descuentoPorcentaje);
+    exigirPermiso(descuento, previo, puedeDescontar);
+
+    const { armado, noDisponibles } = await armarDesdeCatalogo(cliente, lineas, descuento);
     // `observaciones: null` la borra; si no viene, queda la que estaba.
     const observaciones = datos.observaciones === undefined
       ? actual.observaciones
@@ -371,8 +391,8 @@ async function editar(id, datos = {}, usuarioId) {
 
     await registrarCambio(cliente, {
       entidad: 'cotizacion', entidadId: n, accion: 'editar',
-      antes: { total: Number(actual.total), vence: actual.vence, cliente: actual.cliente_nombre },
-      despues: { total: armado.total, vence, cliente: quien.nombre, lineas: armado.lineas.length },
+      antes: { total: Number(actual.total), vence: actual.vence, cliente: actual.cliente_nombre, descuento: previo },
+      despues: { total: armado.total, vence, cliente: quien.nombre, lineas: armado.lineas.length, descuento },
       usuarioId
     });
 
@@ -565,6 +585,7 @@ async function publicaPorToken(token) {
     facturada: cot.facturada,
     cliente: cot.clienteNombre,
     observaciones: cot.observaciones,
+    descuentoPorcentaje: cot.descuentoPorcentaje,
     negocio: NEGOCIO,
     lineas: cot.lineas.map((l) => ({
       nombre: l.nombre,
@@ -575,6 +596,8 @@ async function publicaPorToken(token) {
       // El precio que el cliente paga por unidad, ya con impuesto.
       precioConIva: precioConImpuesto(l.precio, l.taxPercentage),
       importe: dinero(l.cantidad * l.precio),
+      // Sin el descuento, para mostrar cuánto se ahorra (sin IVA, como `importe`).
+      importeLista: dinero(l.cantidad * l.precioLista),
       imagen: fotos.get(l.productoId) || null
     }))
   };

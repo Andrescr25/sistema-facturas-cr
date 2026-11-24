@@ -10,6 +10,10 @@ archivos:
   - backend/scripts/independencia/cargar-cotizaciones.js
   - frontend/src/pages/Cotizaciones.jsx
   - frontend/src/components/cotizaciones/ModalCotizacion.jsx
+  - backend/src/modules/cotizaciones/descuentoCotizacion.js
+  - frontend/src/components/cotizaciones/CampoDescuento.jsx
+  - frontend/src/utils/descuentoCotizacion.js
+  - backend/tests/cotizacion.test.js
 aristas:
   depende_de: [modulo/facturacion]
   relacionado: [leccion/ids-propios-y-de-alegra-no-se-mezclan]
@@ -46,3 +50,23 @@ de venta que salía de la casa.
 Antes del corte hay que volver a correr `cargar-cotizaciones.js`: en `main`
 se siguen haciendo en Alegra, y el script sube la serie si encuentra alguna
 mayor.
+
+## Descuento de la cotización — 2026-11-24
+
+El usuario: «agrégale el campo descuento % a cotizaciones porque la edité y
+perdió el 5 %». Antes la pantalla no cotizaba con descuento, y editar volvía a
+armar las líneas en cero: así se perdió el 5 % de la cotización 6 (TOSCANA),
+que se había creado con un guion.
+
+- **Uno solo para toda la cotización**, guardado en CADA línea
+  (`descuento_porcentaje`), como el descuento de un producto en la factura.
+  No hay columna nueva: `descuentoDeLineas` lo lee de las líneas (`null` si
+  difieren, solo en una copiada de Alegra). El PDF y el enlace muestran el
+  precio rebajado, con «Antes del descuento» y «Descuento (N %)» arriba del
+  subtotal. Facturarla copia el descuento a la factura.
+- **Editar no lo borra.** Si no llega `descuentoPorcentaje` (una pestaña
+  vieja), se conserva el que tenía.
+- **Pide «Cambiar precio y descuento»** (`precio-factura`), como en
+  Facturación. Sin él se edita la cotización, pero el descuento queda igual:
+  ponerlo o cambiarlo responde 403.
+

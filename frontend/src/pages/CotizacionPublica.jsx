@@ -4,6 +4,7 @@ import { Loader2, AlertCircle, Package, Clock, CheckCircle2 } from 'lucide-react
 import api from '../services/api'
 import { colones } from '../utils/colones'
 import { urlArchivo } from '../utils/urlArchivo'
+import { rebajaDeLineas, textoPorcentaje } from '../utils/descuentoCotizacion'
 
 /**
  * La cotización como la ve el cliente en el navegador.
@@ -64,6 +65,9 @@ export default function CotizacionPublica() {
   const subtotal = cot.lineas.reduce((s, l) => s + l.importe, 0)
   const impuesto = cot.lineas.reduce((s, l) => s + l.importe * ((Number(l.taxPercentage) || 0) / 100), 0)
   const total = subtotal + impuesto
+  // Con descuento, cada línea ya trae el precio rebajado: arriba del subtotal
+  // se dice de cuánto era y cuánto se le rebajó.
+  const rebaja = rebajaDeLineas(cot.lineas)
 
   return (
     <div className="min-h-screen bg-neutro-50 pb-16">
@@ -133,6 +137,17 @@ export default function CotizacionPublica() {
         </div>
 
         <div className="mt-4 rounded-2xl border border-neutro-200 bg-white p-4">
+          {rebaja >= 0.005 && (
+            <>
+              <div className="flex justify-between text-[13px] text-neutro-500">
+                <span>Antes del descuento</span><span>{colones(subtotal + rebaja)}</span>
+              </div>
+              <div className="mb-1 mt-1 flex justify-between text-[13px] font-semibold text-exito-700">
+                <span>Descuento{cot.descuentoPorcentaje > 0 ? ` (${textoPorcentaje(cot.descuentoPorcentaje)} %)` : ''}</span>
+                <span>−{colones(rebaja)}</span>
+              </div>
+            </>
+          )}
           <div className="flex justify-between text-[13px] text-neutro-500">
             <span>Subtotal</span><span>{colones(subtotal)}</span>
           </div>
