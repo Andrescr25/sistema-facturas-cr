@@ -25,6 +25,7 @@ const { httpError } = require('../../utils/validacion');
 const { enTransaccion: enTransaccionCon } = require('../../utils/transaccion');
 const { calcularCostoUnitarioPropio } = require('../precios/costo');
 const { liberarCuentaPorPagar, crearCuentaDeContado } = require('./liberarCuentaPorPagar');
+const { proveedorDeFactura } = require('../proveedores/proveedorDeFactura');
 // La hora de registro decide si una compra respalda un faltante, que se
 // anota en hora de Costa Rica (missing-items/ingresoFaltante.js).
 const { AHORA_CR_SQL } = require('../../utils/fechaCR');
@@ -160,15 +161,11 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
         'Volver a registrarla duplicaría el gasto.');
     }
 
-    const { rows: proveedores } = await cliente.query(
-      'SELECT id FROM proveedor WHERE identificacion = $1', [factura.proveedor_cedula]
-    );
-    const proveedor = proveedores[0];
-    if (!proveedor) {
-      throw httpError(422,
-        `No hay proveedor propio con cédula ${factura.proveedor_cedula} (${factura.proveedor_nombre}). ` +
-        'Hay que crearlo antes de registrar esta compra.');
-    }
+    // Un proveedor que todavía no está en Proveedores se crea acá mismo, con
+    // los datos de su factura (2026-11-25): antes la compra se frenaba con
+    // «Hay que crearlo antes». Dentro de la transacción: si algo falla, no
+    // queda una ficha suelta.
+    const { proveedor, creado: proveedorCreado } = await proveedorDeFactura(cliente, factura, usuarioId);
 
     const { rows: compraRows } = await cliente.query(
       `INSERT INTO compra (
@@ -259,7 +256,8 @@ async function registrarCompra(facturaProveedorId, preciosAjustados = {}, usuari
       preciosActualizados,
       sinProductoPropio,
       cuentaLiberada: !!cuentaLiberada,
-      cuentaDeContado: !!cuentaDeContado
+      cuentaDeContado: !!cuentaDeContado,
+      proveedorCreado: proveedorCreado ? { id: proveedor.id, nombre: proveedor.nombre } : null
     };
   });
 }

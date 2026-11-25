@@ -8,6 +8,9 @@ archivos:
   - backend/src/modules/compras/compras.service.js
   - backend/src/modules/compras/compras.controller.js
   - backend/src/modules/compras/liberarCuentaPorPagar.js
+  - backend/src/modules/proveedores/proveedorDeFactura.js
+  - backend/tests/proveedorDeFactura.test.js
+  - backend/tests/proveedorDeFacturaPg.test.js
   - backend/src/modules/compras/corregirProductoCompra.js
   - backend/tests/corregirProductoCompra.test.js
   - frontend/src/components/revision-precios/CompraRegistrada.jsx
@@ -20,7 +23,7 @@ aristas:
   depende_de: [tabla/compra, tabla/compra-linea, tabla/facturas-proveedores, tabla/cuentas-por-pagar]
   bloqueado_por: [bloqueo/prisma-no-se-regenera]
   relacionado: [decision/solo-llega-lo-que-ingreso, modulo/recepcion-ordenes-compra, modulo/facturas-ordenes-compra, modulo/ordenes-compra-por-ciclo, modulo/hacienda, modulo/inventario, bloqueo/xml-historico-sin-recuperar, modulo/revision-precios, decision/ciclo-de-ruta-como-contexto, decision/orden-enviada-y-archivo-por-recepcion, modulo/gastos-operativos]
-medido: 2026-10-21
+medido: 2026-11-25
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -43,7 +46,23 @@ costo y precio de cada producto, y libera la cuenta por pagar
 ([[tabla/cuentas-por-pagar]]) — todo en una sola transacción, sin tocar
 Alegra.
 
-Una línea de REGALÍA (la bonificación del proveedor: otra línea del mismo
+EL PROVEEDOR QUE NO EXISTE SE CREA AL REGISTRAR (2026-11-25). El usuario:
+«la idea es que el sistema no tiene este proveedor, entonces que al momento
+de registrar la compra el sistema cree este proveedor con todos sus datos».
+Antes la compra se frenaba con «No hay proveedor propio con cédula… Hay que
+crearlo antes». Ahora `registrarCompra` llama a `proveedorDeFactura`
+(`src/modules/proveedores/proveedorDeFactura.js`), dentro de la misma
+transacción: busca por la cédula sin guiones, espacios ni ceros al inicio
+(dos fichas iguales → 409, no adivina); si no hay, crea la ficha con lo que
+firma el XML (nombre, tipo, correo, teléfono de Costa Rica, plazo por
+condición de venta, y en Observaciones el nombre comercial y la dirección).
+Sin XML legible, con lo del buzón. Un dato que no pasa la validación de la
+ficha queda vacío y no frena. La cédula es la del buzón tal cual: es la llave
+de sus compras y productos. La pantalla avisa «Proveedor nuevo en
+Proveedores» en el mensaje de la compra registrada. Los gastos operativos
+usan el mismo ayudante (antes creaban la ficha solo con nombre y cédula).
+
+ (la bonificación del proveedor: otra línea del mismo
 producto con 100 % de descuento, costo 0) no toca el costo del producto; si
 se le ajustó el precio, se aplica solo el precio
 (`actualizarProductoDeLinea`). Mandarla como costo pisaba el costo bueno de

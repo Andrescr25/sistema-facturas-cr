@@ -70,8 +70,11 @@ function montar({ factura = FACTURA_BUZON, proveedor = PROVEEDOR, lineas = [LINE
     if (/SELECT id FROM compra WHERE factura_proveedor_id/.test(texto)) {
       return { rows: compraExistente ? [{ id: compraExistente }] : [] };
     }
-    if (/FROM proveedor WHERE identificacion/.test(texto)) {
+    if (/FROM proveedor WHERE/.test(texto)) {
       return { rows: proveedor ? [{ ...proveedor }] : [] };
+    }
+    if (/INSERT INTO proveedor/.test(texto)) {
+      return { rows: [{ id: 77, nombre: params[0], identificacion: params[2], recien_creado: true }] };
     }
     if (/INSERT INTO compra \(/.test(texto)) {
       const columnas = texto.match(/\(([^)]+)\) VALUES/)[1].split(', ');
@@ -253,9 +256,25 @@ describe('registrarCompra — guardas', () => {
     assert.ok(log.some((l) => l.sql === 'ROLLBACK'));
   });
 
-  test('sin proveedor propio con esa cédula: 422', async () => {
-    const { servicio } = montar({ proveedor: null });
-    await assert.rejects(() => servicio.registrarCompra(FACTURA_ID, {}), (e) => e.status === 422);
+  // 2026-11-25, el usuario: «que al momento de registrar la compra el sistema
+  // cree este proveedor con todos sus datos». Antes era un 422 «Hay que crearlo
+  // antes». Qué datos lleva la ficha está en proveedorDeFactura.test.js.
+  test('sin proveedor propio con esa cédula: lo crea y la compra queda a su nombre', async () => {
+    const { servicio, log } = montar({ proveedor: null });
+    const r = await servicio.registrarCompra(FACTURA_ID, {}, 4);
+    assert.deepEqual(r.proveedorCreado, { id: 77, nombre: 'F Y G FERRETEROS SOCIEDAD ANONIMA' });
+    assert.equal(fila(log, /INSERT INTO compra \(/).params[0], 77);
+    const iProveedor = log.findIndex((l) => /INSERT INTO proveedor/.test(l.sql));
+    const iCompra = log.findIndex((l) => /INSERT INTO compra \(/.test(l.sql));
+    assert.ok(iProveedor >= 0 && iProveedor < iCompra, 'se crea antes de la compra, en la misma transacción');
+    assert.ok(log.some((l) => l.sql === 'COMMIT'));
+  });
+
+  test('con proveedor propio: no crea nada y no lo anuncia', async () => {
+    const { servicio, log } = montar();
+    const r = await servicio.registrarCompra(FACTURA_ID, {}, 4);
+    assert.equal(r.proveedorCreado, null);
+    assert.equal(fila(log, /INSERT INTO proveedor/), undefined);
   });
 
   test('sin ninguna línea: 422, y hace ROLLBACK', async () => {

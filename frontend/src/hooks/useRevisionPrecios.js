@@ -304,6 +304,8 @@ export function useRevisionPrecios() {
         const aceptacion = avisoDeAceptacion(resultado.hacienda)
         showToast(
           `✅ Compra de la factura ${facturaNumero} registrada\n` +
+          // El proveedor que no existía se crea al registrar, con los datos de su factura.
+          (resultado.proveedorCreado ? `🏢 Proveedor nuevo en Proveedores: ${resultado.proveedorCreado.nombre}\n` : '') +
           `📦 ${resultado.lineas} líneas\n` +
           `💰 Costos actualizados: ${resultado.costosActualizados}\n` +
           `🔄 Precios ajustados: ${resultado.preciosActualizados}` +
@@ -324,7 +326,7 @@ export function useRevisionPrecios() {
       setToasts(prev => prev.filter(t => t.type !== 'loading'))
 
       // El mensaje del servidor es el motivo real (factura ya registrada,
-      // sin proveedor propio, sin líneas...); si algo interno se cayó,
+      // sin líneas...); si algo interno se cayó,
       // no queda nada a medias porque la transacción hizo ROLLBACK.
       showToast(
         `❌ No se pudo registrar la compra de ${facturaNumero}\n${err.response?.data?.message || err.message}`,

@@ -47,6 +47,8 @@ automáticos; cada factura puede continuar como compra o pasar a gasto desde
 Revisión de Precios. La preferencia futura es explícita y no transforma historia.
 Desactivar un proveedor conserva su tratamiento. Varias fichas con la misma
 cédula normalizada requieren revisión; no se escoge una al azar.
+Si el proveedor no existe, la ficha se crea con los datos del XML por el
+mismo ayudante que usa Registrar compra (ver [[modulo/compras]]).
 
 Se reutilizan XML/buzón, almacenamiento privado, compra con producto NULL
 de Pagos Recurrentes, CxP/pagos/Caja y bitácora. `gasto_operativo` agrega datos

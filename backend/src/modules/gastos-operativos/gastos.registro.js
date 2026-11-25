@@ -4,26 +4,9 @@ const { registrarCambio } = require('../../utils/bitacora');
 const { httpError, texto } = require('../../utils/validacion');
 const { registrarSinInventario } = require('../compras/registrarSinInventario');
 const { liberarCuentaPorPagar, crearCuentaDeContado } = require('../compras/liberarCuentaPorPagar');
-const { analizarOriginal, cedula } = require('./gastos.originales');
+const { analizarOriginal } = require('./gastos.originales');
+const { proveedorDeFactura } = require('../proveedores/proveedorDeFactura');
 const { uuid, categoria } = require('./gastos.validacion');
-
-async function proveedorEn(db, f, usuarioId) {
-  const proveedores = (await db.query(`SELECT * FROM proveedor WHERE
-    ltrim(regexp_replace(identificacion, '[[:space:]-]', '', 'g'), '0')=$1 FOR UPDATE`, [cedula(f.proveedor_cedula)])).rows;
-  if (proveedores.length > 1) throw httpError(409, 'Hay varias fichas con esa identificación tributaria. Revisá el proveedor antes de clasificar.');
-  let proveedor = proveedores[0];
-  if (!proveedor) {
-    proveedor = (await db.query(
-      `INSERT INTO proveedor (nombre, identificacion) VALUES ($1,$2)
-       ON CONFLICT (identificacion) WHERE identificacion IS NOT NULL
-       DO UPDATE SET identificacion=EXCLUDED.identificacion RETURNING *`,
-      [f.proveedor_nombre.trim(), f.proveedor_cedula]
-    )).rows[0];
-    await registrarCambio(db, { entidad: 'proveedor', entidadId: proveedor.id, accion: 'crear', despues: proveedor, usuarioId,
-      motivo: 'Proveedor identificado en el XML de un gasto operativo' });
-  }
-  return proveedor;
-}
 
 /** Buzón bloqueado por quien llama: idempotente, sin red, catálogo ni pagos. */
 async function crearGastoEn(db, f, datos, usuarioId = null, recibida = null) {
@@ -36,7 +19,7 @@ async function crearGastoEn(db, f, datos, usuarioId = null, recibida = null) {
   if (f.estado === 'GASTO_RECURRENTE' && f.tratamiento === 'comercial') {
     throw httpError(409, 'Esta factura ya se gestiona en Pagos Recurrentes. No se registra en dos módulos.');
   }
-  const proveedor = await proveedorEn(db, f, usuarioId);
+  const { proveedor } = await proveedorDeFactura(db, f, usuarioId);
   const original = await analizarOriginal(db, f, recibida);
   const descripcion = texto(2000)(datos.descripcion ?? null, 'Descripción') ||
     (cat === 'combustible' ? 'Combustible' : 'Alimentación y viáticos');

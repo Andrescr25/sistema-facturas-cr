@@ -1664,3 +1664,9 @@ El usuario: «agrégale el campo descuento % a cotizaciones porque la edité y
 perdió el 5 %». Un solo porcentaje para toda la cotización; editarla lo
 conserva. [Cómo funciona](grafo/modulo/cotizaciones.md).
 
+## 2026-11-25 — El proveedor nuevo se crea al registrar la compra
+
+El usuario, con una factura frenada en Revisión de Precios por «No hay
+proveedor propio con cédula…»: «la idea es que el sistema no tiene este
+proveedor, entonces que al momento de registrar la compra el sistema cree
+este proveedor con todos sus datos». [Cómo funciona](grafo/modulo/compras.md).
