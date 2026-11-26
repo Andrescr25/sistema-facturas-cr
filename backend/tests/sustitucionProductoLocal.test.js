@@ -54,6 +54,29 @@ describe('sustituir faltantes — PostgreSQL desechable', { skip:process.env.PRO
     assert.equal((await lineas(e)).filter(l=>l.producto_id===e.b.id).reduce((n,l)=>n+Number(l.cantidad),0),3);
   });
 
+  // 2026-11-26, KEPESCA: faltaron 20 cuerdas, llegaron y se entregaron 10, y las
+  // otras 10 no se podían cambiar por otro color. Ahora se cambia lo que no llegó.
+  test('llegó una parte del original: cambia solo lo que no llegó, conserva lo entregado y lo deja por revisar',async()=>{
+    const e=await escenario();
+    await db.query(`INSERT INTO compra_linea(compra_id,numero_linea,producto_id,descripcion,cantidad,factor_conversion,precio_unitario,total_linea)
+      VALUES($1,2,$2,'ZZ',1,1,1000,1000)`,[e.compraId,e.a.id]);
+    await ajustes.saveAdjustment({faltanteId:e.faltanteId,cantidadEntregada:1,estado:'parcial',revisado:true},usuario.id);
+    const lista=await servicio.listar(e.faltanteId,e.b.nombre);
+    assert.deepEqual([lista.original.llego,lista.original.sustituible],[1,2]);
+    await assert.rejects(preview(e,3),err=>err.status===400&&/entre 1 y 2/.test(err.message));
+    const p=await preview(e,2);assert.equal(p.faltanteOriginalRestante,0,'no queda nada sin llegar');
+    const r=await confirmar(e,p);
+    const {rows:[origen]}=await db.query('SELECT cantidad_faltante FROM faltantes WHERE id=$1',[e.faltanteId]);
+    assert.equal(Number(origen.cantidad_faltante),1);
+    const {rows:[aj]}=await db.query('SELECT cantidad_entregada,estado,revisado FROM faltantes_ajustes WHERE faltante_id=$1',[e.faltanteId]);
+    assert.deepEqual([Number(aj.cantidad_entregada),aj.estado,aj.revisado],[1,'completo',false],'lo entregado se conserva y vuelve a revisión');
+    assert.equal(await reservado(e.faltanteId),1,'lo que llegó sigue asignado al original');
+    assert.equal(await reservado(r.faltanteDestinoId),2);
+    const ls=await lineas(e),suma=id=>ls.filter(l=>l.producto_id===id).reduce((n,l)=>n+Number(l.cantidad),0);
+    assert.deepEqual([suma(e.a.id),suma(e.b.id)],[4,2]);
+    await assert.rejects(preview(e,1),err=>err.status===409&&/Ya ingresó todo/.test(err.message));
+  });
+
   test('precio o factura cambiados después de la propuesta exigen confirmar una nueva vista',async()=>{
     const e=await escenario();const p=await preview(e);const antes=await lineas(e);
     await db.query('UPDATE producto SET precio_sin_iva=2100 WHERE id=$1',[e.b.id]);

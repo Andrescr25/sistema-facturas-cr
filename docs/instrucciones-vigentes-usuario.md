@@ -1670,3 +1670,10 @@ El usuario, con una factura frenada en Revisión de Precios por «No hay
 proveedor propio con cédula…»: «la idea es que el sistema no tiene este
 proveedor, entonces que al momento de registrar la compra el sistema cree
 este proveedor con todos sus datos». [Cómo funciona](grafo/modulo/compras.md).
+
+## 2026-11-26 — Cambiar producto también cuando llegó una parte
+
+El usuario, porque «Cambiar producto» no aparecía en KEPESCA (faltaron 20
+cuerdas, llegaron 10): dijo «exacto» a poder cambiar la parte que no llegó,
+conservando lo entregado y dejando la revisión pendiente otra vez.
+[Cómo funciona](grafo/modulo/reporte-clientes.md).

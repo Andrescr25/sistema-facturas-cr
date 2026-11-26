@@ -17,7 +17,11 @@ export default function ModalSustitucionProducto({ cambio }) {
         <div>
           <p className="text-xs font-semibold text-neutro-500">Factura #{factura.numero_factura}</p>
           <p className="mt-1 font-bold text-neutro-900 break-words">{producto.nombre}</p>
-          <p className="mt-1 text-sm text-neutro-600">{producto.cantidad_faltante} unidades faltantes. Elegí el equivalente que sí ingresó.</p>
+          <p className="mt-1 text-sm text-neutro-600">
+            {cambio.original?.llego > 0
+              ? `Faltaron ${producto.cantidad_faltante} y ya llegaron ${cambio.original.llego}: podés cambiar hasta ${cambio.maximo} por un equivalente que sí ingresó.`
+              : `${producto.cantidad_faltante} unidades faltantes. Elegí el equivalente que sí ingresó.`}
+          </p>
         </div>
         <label className="block text-sm font-bold text-neutro-800">
           Buscar producto ingresado
@@ -44,7 +48,7 @@ export default function ModalSustitucionProducto({ cambio }) {
           <label className="block text-sm font-bold text-neutro-800">
             Cantidad a sustituir
             <input type="number" inputMode="numeric" min="1" step="1"
-              max={Math.min(Number(producto.cantidad_faltante), Math.floor(cambio.seleccionado.disponible))}
+              max={Math.min(cambio.maximo, Math.floor(cambio.seleccionado.disponible))}
               value={cambio.cantidad} onChange={e => cambio.cambiarCantidad(e.target.value)} disabled={cambio.guardando}
               className="mt-2 block min-h-11 w-28 rounded-xl border border-neutro-200 px-3 text-center" />
           </label>

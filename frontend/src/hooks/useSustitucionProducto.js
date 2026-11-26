@@ -11,6 +11,8 @@ export function useSustitucionProducto({ onGuardado, ambito }) {
   const [productos, setProductos] = useState([])
   const [seleccionado, setSeleccionado] = useState(null)
   const [cantidad, setCantidad] = useState('')
+  // Lo que dice el servidor: cuántas faltaron, cuántas ya llegaron y hasta cuántas se cambian.
+  const [original, setOriginal] = useState(null)
   const [prevision, setPrevision] = useState(null)
   const [buscando, setBuscando] = useState(false)
   const [cotizando, setCotizando] = useState(false)
@@ -24,7 +26,7 @@ export function useSustitucionProducto({ onGuardado, ambito }) {
 
   const abrir = useCallback((factura, producto) => {
     if (!permitido || enCurso.current) return
-    setBusqueda(''); setProductos([]); setSeleccionado(null); setCantidad(''); setPrevision(null); setError('')
+    setBusqueda(''); setProductos([]); setSeleccionado(null); setCantidad(''); setPrevision(null); setError(''); setOriginal(null)
     setContexto({ factura, producto })
   }, [permitido])
 
@@ -35,7 +37,7 @@ export function useSustitucionProducto({ onGuardado, ambito }) {
     const timer = setTimeout(async () => {
       try {
         const { data } = await api.get(`/faltantes/${contexto.producto.faltante_id}/sustitutos`, { params: { q: busqueda }, signal: control.signal })
-        if (!control.signal.aborted) setProductos(data.data.productos)
+        if (!control.signal.aborted) { setProductos(data.data.productos); setOriginal(data.data.original) }
       } catch (e) {
         if (!control.signal.aborted) { setProductos([]); setError(e.response?.data?.message || 'No se pudieron consultar los productos ingresados.') }
       } finally { if (!control.signal.aborted) setBuscando(false) }
@@ -60,10 +62,11 @@ export function useSustitucionProducto({ onGuardado, ambito }) {
     return () => { clearTimeout(timer); control.abort() }
   }, [contexto, seleccionado, cantidad, revision])
 
+  const maximo = Number(original?.sustituible ?? contexto?.producto.cantidad_faltante) || 0
   const buscar = valor => { setBusqueda(valor); setSeleccionado(null); setPrevision(null); setError('') }
   const seleccionar = producto => {
     setSeleccionado(producto); setPrevision(null)
-    setCantidad(String(Math.min(Number(contexto.producto.cantidad_faltante), Math.floor(producto.disponible))))
+    setCantidad(String(Math.min(maximo, Math.floor(producto.disponible))))
   }
   const cambiarCantidad = valor => { setCantidad(valor); setPrevision(null) }
   const puedeGuardar = permitido && !guardando && !cotizando && Boolean(prevision) &&
@@ -82,6 +85,6 @@ export function useSustitucionProducto({ onGuardado, ambito }) {
       setError(e.response?.data?.message || 'No se pudo confirmar el cambio. Revisá la factura antes de reintentar.')
     } finally { enCurso.current = false; setGuardando(false) }
   }
-  return { permitido, contexto, busqueda, productos, seleccionado, cantidad, prevision, buscando, cotizando, guardando,
+  return { permitido, contexto, original, maximo, busqueda, productos, seleccionado, cantidad, prevision, buscando, cotizando, guardando,
     error, puedeGuardar, abrir, cerrar, buscar, seleccionar, cambiarCantidad, guardar, revisar: () => setRevision(n => n + 1) }
 }

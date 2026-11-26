@@ -36,7 +36,7 @@ archivos:
   - docs/informes/sustitucion-producto-reporte-clientes-2026-11-05.md
 aristas:
   relacionado: [modulo/preventa-agenda, decision/rotacion-por-cliente-sin-ciclos, modulo/rutas-clientes, modulo/faltantes, modulo/exportaciones-reportes, modulo/permisos, modulo/facturacion, leccion/fecha-utc-costa-rica, decision/solo-llega-lo-que-ingreso]
-medido: 2026-11-05
+medido: 2026-11-26
 ---
 
 ## Vigencia desde el 2026-10-20
@@ -223,3 +223,23 @@ crédito; de hecho, ese producto no debería aparecer en Reporte Clientes».
 - Si con el cambio el total queda por debajo de lo acreditado, no se hace.
 - Impresión con la nota: resuelto el mismo día, ver [[modulo/faltantes]]
   («Impresión con una nota de crédito»).
+
+## Cambiar la parte que no llegó — 2026-11-26
+
+KEPESCA, factura 001000015304: faltaron 20 CUERDA DE PESCAR 060 BLANCA,
+llegaron y se entregaron 10, y «Cambiar producto» no aparecía para las otras
+10. La regla era «nada ingresado ni entregado»: una sola unidad bloqueaba el
+cambio entero, y así pasaba en casi todos los faltantes donde llegó una
+parte. El usuario dijo «exacto» a cambiar la parte que no llegó.
+
+- Se puede cambiar hasta `faltante − lo que llegó`, donde lo que llegó es lo
+  entregado o lo ingresado por Revisión de precios, lo mayor (una fracción de
+  empaque no cuenta como unidad). La misma cuenta en el servidor
+  (`sustitucionConsulta.contextoEn`: `llego`, `sustituible`) y en la pantalla
+  (`cantidadSustituible` en `utils/reporteClientesUtils.js`).
+- Si ya llegó todo: 409 «marcá que llegó en vez de cambiarlo».
+- Lo entregado del original se conserva (la respuesta queda «completo» o
+  «parcial» sobre lo que sigue faltando) y vuelve a quedar sin revisar,
+  porque la factura cambió. Ya no hace falta deshacer la revisión antes.
+- El modal dice «Faltaron N y ya llegaron M: podés cambiar hasta K».
+

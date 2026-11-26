@@ -36,10 +36,17 @@ test('no inventa unidades si la factura ya no tiene la cantidad requerida', () =
   assert.throws(()=>sustituirLineas([linea(1,producto(1,100,13),2)],1,producto(2,200,13),3),e=>e.status===409);
 });
 
-test('el botón solo aparece para un faltante real sin ingreso ni entrega asignada', async () => {
-  const { puedeSustituirProducto } = await import('../../frontend/src/utils/reporteClientesUtils.js');
+test('el botón aparece mientras quede algo sin llegar, y cambia solo esa parte', async () => {
+  const { puedeSustituirProducto, cantidadSustituible } = await import('../../frontend/src/utils/reporteClientesUtils.js');
   const p={faltante_id:1,cantidad_faltante:3,ingreso_disponible:0};
   assert.equal(puedeSustituirProducto(p),true);
-  for(const cambio of[{cantidad_faltante:0},{ingreso_disponible:1},{ingreso_disponible:null},{faltante_id:null}])assert.equal(puedeSustituirProducto({...p,...cambio}),false);
-  assert.equal(puedeSustituirProducto(p,{tieneAjuste:true,cantidadEntregada:1}),false);
+  assert.equal(cantidadSustituible(p),3);
+  for(const cambio of[{cantidad_faltante:0},{ingreso_disponible:3},{ingreso_disponible:null},{faltante_id:null}])assert.equal(puedeSustituirProducto({...p,...cambio}),false);
+  // 2026-11-26, KEPESCA: faltaron 20, llegaron y se entregaron 10 → se cambian las otras 10.
+  const kepesca={faltante_id:24444,cantidad_faltante:20,ingreso_disponible:10};
+  assert.equal(cantidadSustituible(kepesca,{tieneAjuste:true,cantidadEntregada:10}),10);
+  assert.equal(cantidadSustituible({...p,ingreso_disponible:1}),2,'ingresó 1 sin marcar: se cambian 2');
+  assert.equal(cantidadSustituible(p,{tieneAjuste:true,cantidadEntregada:1}),2,'entregada 1: se cambian 2');
+  assert.equal(cantidadSustituible({...p,ingreso_disponible:0.0833}),3,'una fracción de empaque no es una unidad que llegó');
+  assert.equal(puedeSustituirProducto(p,{tieneAjuste:true,cantidadEntregada:3}),false,'si llegó todo, se entrega');
 });

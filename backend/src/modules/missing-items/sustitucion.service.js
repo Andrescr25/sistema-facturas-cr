@@ -14,7 +14,8 @@ const { precioConImpuesto } = require('../catalogo-clientes/precio');
 async function listar(faltanteId, buscar) {
   return conFaltanteEditable(faltanteId, async (db, faltante) => {
     const contexto = await contextoEn(db, faltante);
-    return { original: { id:contexto.original.id,nombre:contexto.original.nombre,cantidad:Number(faltante.cantidad_faltante) },
+    return { original: { id:contexto.original.id,nombre:contexto.original.nombre,cantidad:Number(faltante.cantidad_faltante),
+        llego:contexto.llego,sustituible:contexto.sustituible },
       productos: (await candidatosEn(db, faltante, contexto.original, buscar)).map(p => ({
         id:p.id,nombre:p.nombre,referencia:p.referencia,unidad:p.unidad,disponible:p.disponible,
         precio:precioConImpuesto(p.precio_sin_iva,p.tarifa)
@@ -22,18 +23,19 @@ async function listar(faltanteId, buscar) {
   }, { soloLectura:true });
 }
 
-function cantidadValida(valor, faltante) {
+/** Hasta lo que no llegó: lo que llegó del original se entrega, no se cambia. */
+function cantidadValida(valor, maximo) {
   const cantidad = typeof valor === 'number' || typeof valor === 'string' && /^\d+$/.test(valor) ? Number(valor) : NaN;
-  if (!Number.isSafeInteger(cantidad) || cantidad <= 0 || cantidad > Number(faltante.cantidad_faltante)) {
-    throw httpError(400, `La cantidad a cambiar debe ser un entero entre 1 y ${faltante.cantidad_faltante}.`);
+  if (!Number.isSafeInteger(cantidad) || cantidad <= 0 || cantidad > maximo) {
+    throw httpError(400, `La cantidad a cambiar debe ser un entero entre 1 y ${maximo}.`);
   }
   return cantidad;
 }
 
 async function prepararEn(db, faltante, datos) {
   const productoId = idValido(datos.productoId);
-  const cantidad = cantidadValida(datos.cantidad, faltante);
   const contexto = await contextoEn(db, faltante);
+  const cantidad = cantidadValida(datos.cantidad, contexto.sustituible);
   const [candidato] = await candidatosEn(db, faltante, contexto.original, '', productoId);
   if (!candidato) throw httpError(409, 'No hay unidades ingresadas libres del sustituto. Actualizá la selección.');
   if (candidato.disponible < cantidad) throw httpError(409, `Solo quedan ${candidato.disponible} unidades ingresadas libres del sustituto. Revisá la cantidad.`);
@@ -46,12 +48,14 @@ async function prepararEn(db, faltante, datos) {
   const propuesta = await prepararSustitucionEn(db, contexto, faltante.producto_propio_id, productoId, cantidad);
   const version = createHash('sha256').update(JSON.stringify({ faltante, destino, factura:contexto.factura,
     original:contexto.original, lineas:contexto.lineas, producto:propuesta.producto, descuento:propuesta.descuento, cantidad })).digest('hex');
-  return { contexto, propuesta, destino, cantidad, version, restante:Number(faltante.cantidad_faltante)-cantidad };
+  return { contexto, propuesta, destino, cantidad, version, restante:Number(faltante.cantidad_faltante)-cantidad,
+    pendiente:contexto.sustituible-cantidad };
 }
 
 function aVista(preparacion) {
-  const { contexto, propuesta, cantidad, version, restante } = preparacion;
-  return { version,cantidad,faltanteOriginalRestante:restante,
+  const { contexto, propuesta, cantidad, version, pendiente } = preparacion;
+  // Lo que sigue sin llegar del original; lo que ya llegó no se cuenta como pendiente.
+  return { version,cantidad,faltanteOriginalRestante:pendiente,
     original:{ nombre:contexto.original.nombre,referencia:contexto.original.referencia },
     producto:{ id:propuesta.producto.id,nombre:propuesta.producto.nombre,referencia:propuesta.producto.referencia,
       precio:precioConImpuesto(Number(propuesta.producto.precio)*(1-propuesta.descuento/100),Number(propuesta.producto.tarifa)||0),
@@ -75,6 +79,13 @@ async function sustituir(faltanteId, datos, usuario) {
     await db.query(`UPDATE faltantes SET cantidad_faltante=$2,tipo_faltante=$3,updated_at=${AHORA_CR_SQL} WHERE id=$1`,
       [faltante.id,restante,restante ? (restante<unidadesOriginales?'parcial':'total') : 'completo']);
     if (!restante) await db.query('DELETE FROM faltantes_ajustes WHERE faltante_id=$1', [faltante.id]);
+    else if (contexto.original.cantidad_entregada != null) {
+      // Lo que ya llegó del original se conserva, y la respuesta vuelve a
+      // quedar por revisar: la factura cambió.
+      const entregada = Math.min(Number(contexto.original.cantidad_entregada) || 0, restante);
+      await guardarAjusteEn(db, faltante.id, validarEntrega(restante, { cantidadEntregada:entregada,
+        estado:entregada===restante?'completo':entregada?'parcial':'no_llego', revisado:false }));
+    }
 
     const faltantePrevio = destino?.tipo_faltante === 'completo' ? 0 : Number(destino?.cantidad_faltante)||0;
     const totalFaltante = faltantePrevio + cantidad;
@@ -99,7 +110,7 @@ async function sustituir(faltanteId, datos, usuario) {
     await registrarCambio(db, { entidad:'faltante',entidadId:faltante.id,accion:'editar',usuarioId:usuario.id,
       antes:{ nombre:contexto.original.nombre,productoId:faltante.producto_propio_id,cantidadFaltante:Number(faltante.cantidad_faltante) },
       despues:{ nombre:contexto.original.nombre,cantidadFaltante:restante,sustituto:propuesta.producto.nombre,
-        productoId:propuesta.producto.id,cantidad,destinoId,reservas,totalFactura:propuesta.armado.total },
+        productoId:propuesta.producto.id,cantidad,yaLlegaron:contexto.llego,destinoId,reservas,totalFactura:propuesta.armado.total },
       motivo:'Cambio de producto en Reporte Clientes, con ingreso confirmado y precio actual' });
     return { ...aVista(preparado),faltanteDestinoId:destinoId };
   }, { todosLosFaltantes:true });

@@ -16,11 +16,15 @@ async function contextoEn(db, faltante) {
     throw httpError(409, `${original.nombre} tiene una nota de crédito en la factura ${contexto.factura.numero}: ya se le acreditó al cliente y no se cambia.`);
   }
   if (Number(faltante.cantidad_rebajada) > 0) throw httpError(409, 'Esta factura ya se ajustó en Impresión. Revisá su corrección desde Impresión.');
-  if (original.revisado) throw httpError(409, 'Deshacé la revisión del producto antes de cambiarlo.');
-  if (Number(original.cantidad_entregada) > 0 || Number(original.disponible) > 0) {
-    throw httpError(409, 'Este producto tiene unidades ingresadas. Revisá su entrega antes de cambiarlo.');
-  }
-  return { ...contexto, original };
+  // SE CAMBIA SOLO LO QUE NO LLEGÓ (2026-11-26). Antes, una sola unidad
+  // ingresada o entregada bloqueaba el cambio entero: KEPESCA, 20 cuerdas
+  // faltantes, llegaron 10 y las otras 10 no se podían cambiar por otro color.
+  // Lo que llegó es lo entregado o lo ingresado por Revisión de precios, lo
+  // que sea mayor; la pantalla usa la misma cuenta (cantidadSustituible).
+  const llego = Math.max(Number(original.cantidad_entregada) || 0, Math.floor(Number(original.disponible) || 0));
+  const sustituible = Math.max(Number(faltante.cantidad_faltante) - llego, 0);
+  if (!sustituible) throw httpError(409, 'Ya ingresó todo lo que faltaba de este producto: marcá que llegó en vez de cambiarlo.');
+  return { ...contexto, original, llego, sustituible };
 }
 
 /** Solo productos efectivamente ingresados, descontando todas sus reservas.
